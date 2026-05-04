@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.25"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#1a1a2e"/>
+  <rect width="1200" height="630" fill="url(#g)"/>
+  <text x="600" y="295" font-size="48" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,0.12)">🤖</text>
+  <text x="600" y="340" font-family="Georgia,serif" font-size="28" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.25)">Intelligenza Artificiale</text>
+  <text x="600" y="610" font-family="Arial,sans-serif" font-size="13" text-anchor="middle" fill="rgba(255,255,255,0.15)">Il Laboratorio</text>
+</svg>
