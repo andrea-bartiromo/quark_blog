@@ -4,21 +4,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title><?php echo $__env->yieldContent('title','Admin'); ?> — Il Laboratorio</title>
-
-  
+  <title><?php echo $__env->yieldContent('title','Admin'); ?> — Quark</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
-
-  
-  <link rel="stylesheet" href="<?php echo e(asset('css/admin.css')); ?>?v=<?php echo e(time()); ?>">
-
+  <link rel="stylesheet" href="<?php echo e(asset('css/admin.css')); ?>">
   <meta name="robots" content="noindex,nofollow">
 </head>
 
 <body class="admin-body">
-
 <div class="admin-layout">
 
   
@@ -26,9 +19,7 @@
 
     <div class="admin-sidebar__brand">
       <div class="admin-sidebar__logo">
-        <span style="font-family:var(--font-display);font-weight:900;color:white;">
-          Quark<span style="color:var(--admin-primary,#0d9488);">.</span>
-        </span>
+        Quark<span class="dot">.</span>
       </div>
       <span class="admin-sidebar__sub">Pannello redazionale</span>
     </div>
@@ -50,6 +41,16 @@
       <a href="<?php echo e(route('admin.comments')); ?>"
          class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.comments*')]); ?>">
         <span class="icon">💬</span> Commenti
+        <?php
+          $pendingComments = \App\Models\Comment::where('status','pending')->count();
+        ?>
+        <?php if($pendingComments > 0): ?>
+          <span style="background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;
+                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
+            <?php echo e($pendingComments); ?>
+
+          </span>
+        <?php endif; ?>
       </a>
 
       <a href="<?php echo e(route('admin.newsletter')); ?>"
@@ -57,13 +58,51 @@
         <span class="icon">✉️</span> Newsletter
       </a>
 
-      <span class="admin-nav__section">Sistema</span>
+      <span class="admin-nav__section">Gestione</span>
+
+      <a href="<?php echo e(route('admin.media')); ?>"
+         class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.media*')]); ?>">
+        <span class="icon">🖼</span> Media
+      </a>
+
+      <a href="<?php echo e(route('admin.ads')); ?>"
+         class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.ads*')]); ?>">
+        <span class="icon">📢</span> Pubblicità
+      </a>
+
+      <a href="<?php echo e(route('admin.verification')); ?>"
+         class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.verification')]); ?>">
+        <span class="icon">✅</span> Verifica fonti
+        <?php
+          $unverified = \App\Models\Article::where('status','published')
+            ->whereIn('verification_status',['unverified','in_progress'])->count();
+        ?>
+        <?php if($unverified > 0): ?>
+          <span style="background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;
+                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
+            <?php echo e($unverified); ?>
+
+          </span>
+        <?php endif; ?>
+      </a>
+
+      <a href="<?php echo e(route('admin.suggestions')); ?>"
+         class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.suggestions*')]); ?>">
+        <span class="icon">🤖</span> Suggerimenti AI
+      </a>
+
+      <span class="admin-nav__section">Account</span>
+
+      <a href="<?php echo e(route('admin.profile')); ?>"
+         class="<?php echo \Illuminate\Support\Arr::toCssClasses(['active' => request()->routeIs('admin.profile*')]); ?>">
+        <span class="icon">👤</span> Profilo
+      </a>
 
       <a href="<?php echo e(route('home')); ?>" target="_blank">
         <span class="icon">🌐</span> Vedi sito
       </a>
 
-      <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+      <a href="#" onclick="event.preventDefault();document.getElementById('logout-form').submit();">
         <span class="icon">🚪</span> Esci
       </a>
 
@@ -74,6 +113,10 @@
     </nav>
 
     <div class="admin-sidebar__user">
+      <div class="admin-sidebar__user-avatar">
+        <?php echo e(mb_substr(auth()->user()->name, 0, 2)); ?>
+
+      </div>
       <div>
         <span class="admin-sidebar__user-name"><?php echo e(auth()->user()->name); ?></span>
         <span class="admin-sidebar__user-role"><?php echo e(auth()->user()->role); ?></span>
@@ -86,19 +129,19 @@
   <main class="admin-main">
 
     <?php if(session('success')): ?>
-      <div style="
-        background:#e8f5e9;
-        border:1px solid #a5d6a7;
-        border-radius:6px;
-        padding:.75rem 1rem;
-        margin-bottom:1rem;
-        font-family:var(--font-ui);
-        font-size:.85rem;
-        color:#2e7d32;
-      ">
-        <?php echo e(session('success')); ?>
+    <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
+                padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:#065f46;">
+      ✅ <?php echo e(session('success')); ?>
 
-      </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if(session('error')): ?>
+    <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;
+                padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:#991b1b;">
+      ❌ <?php echo e(session('error')); ?>
+
+    </div>
     <?php endif; ?>
 
     <?php echo $__env->yieldContent('content'); ?>
@@ -106,7 +149,6 @@
   </main>
 
 </div>
-
 
 <?php echo $__env->yieldContent('scripts'); ?>
 <?php echo $__env->yieldPushContent('scripts'); ?>

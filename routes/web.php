@@ -18,7 +18,8 @@ use App\Http\Controllers\Admin\{
     SuggestionController,
     MediaController,
     ProfileController,
-    VerificationController
+    VerificationController,
+    AdController
 };
 
 // ── Pubbliche ──────────────────────────────────────────────────
@@ -36,6 +37,9 @@ Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
 
 Route::get('/newsletter/conferma', [NewsletterController::class, 'confirm'])
     ->name('newsletter.confirm');
+
+Route::get('/newsletter/disiscrivi', [NewsletterController::class, 'unsubscribe'])
+    ->name('newsletter.unsubscribe');
 
 // ── Commenti pubblici ──────────────────────────────────────────
 Route::post('/commenti', [CommentController::class, 'store'])
@@ -154,6 +158,13 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     // Verifica editoriale
     Route::get('/verifica', [VerificationController::class, 'index'])
         ->name('verification');
+
+    // Gestione pubblicità
+    Route::get('/ads', [AdController::class, 'index'])->name('ads');
+    Route::post('/ads', [AdController::class, 'store'])->name('ads.store');
+    Route::put('/ads/{ad}', [AdController::class, 'update'])->name('ads.update');
+    Route::patch('/ads/{ad}/toggle', [AdController::class, 'toggle'])->name('ads.toggle');
+    Route::delete('/ads/{ad}', [AdController::class, 'destroy'])->name('ads.destroy');
 });
 
 // ── Pagine statiche ────────────────────────────────────────────
@@ -229,7 +240,6 @@ Route::get('/sitemap.xml', function () {
 
     foreach ($articles as $article) {
         $lastmod = $article->updated_at->toDateString();
-
         $xml .= "  <url>\n";
         $xml .= "    <loc>{$base}/articolo/{$article->slug}</loc>\n";
         $xml .= "    <lastmod>{$lastmod}</lastmod>\n";
@@ -259,7 +269,7 @@ Route::get('/feed.xml', function () {
     $xml .= '<channel>' . "\n";
     $xml .= "  <title>{$siteName}</title>\n";
     $xml .= "  <link>{$base}</link>\n";
-    $xml .= "  <description>Scienza e tecnologia che cambiano l'Italia</description>\n";
+    $xml .= "  <description>La scienza spiegata come si deve</description>\n";
     $xml .= "  <language>it-IT</language>\n";
     $xml .= "  <lastBuildDate>{$now}</lastBuildDate>\n";
     $xml .= '  <atom:link href="' . $base . '/feed.xml" rel="self" type="application/rss+xml"/>' . "\n";
@@ -270,12 +280,12 @@ Route::get('/feed.xml', function () {
     $xml .= "  </image>\n\n";
 
     foreach ($articles as $article) {
-        $title = htmlspecialchars($article->title, ENT_XML1);
+        $title   = htmlspecialchars($article->title, ENT_XML1);
         $excerpt = htmlspecialchars($article->excerpt ?? '', ENT_XML1);
-        $url = $base . '/articolo/' . $article->slug;
-        $date = $article->published_at->toRfc2822String();
-        $author = htmlspecialchars($article->author->name, ENT_XML1);
-        $cat = htmlspecialchars(config('laboratorio.categories.' . $article->category, ''), ENT_XML1);
+        $url     = $base . '/articolo/' . $article->slug;
+        $date    = $article->published_at->toRfc2822String();
+        $author  = htmlspecialchars($article->author->name, ENT_XML1);
+        $cat     = htmlspecialchars(config('laboratorio.categories.' . $article->category, ''), ENT_XML1);
 
         $xml .= "  <item>\n";
         $xml .= "    <title>{$title}</title>\n";
@@ -285,7 +295,6 @@ Route::get('/feed.xml', function () {
         $xml .= "    <pubDate>{$date}</pubDate>\n";
         $xml .= "    <dc:creator>{$author}</dc:creator>\n";
         $xml .= "    <category>{$cat}</category>\n";
-
         $bodyHtml = htmlspecialchars('<p>' . nl2br(strip_tags($article->body)) . '</p>', ENT_XML1);
         $xml .= "    <content:encoded>{$bodyHtml}</content:encoded>\n";
         $xml .= "  </item>\n";
@@ -309,21 +318,18 @@ Route::get('/news-sitemap.xml', function () {
     $xml .= '        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">' . PHP_EOL;
 
     $cats = config('laboratorio.categories');
-
     foreach ($articles as $a) {
-        $url = route('articolo', $a->slug);
-        $title = htmlspecialchars($a->title, ENT_XML1);
+        $url     = route('articolo', $a->slug);
+        $title   = htmlspecialchars($a->title, ENT_XML1);
         $pubDate = $a->published_at->format('c');
-        $genre = htmlspecialchars($cats[$a->category] ?? $a->category, ENT_XML1);
-
+        $genre   = htmlspecialchars($cats[$a->category] ?? $a->category, ENT_XML1);
         $xml .= "  <url><loc>{$url}</loc><news:news>";
-        $xml .= "<news:publication><news:name>Il Laboratorio</news:name><news:language>it</news:language></news:publication>";
+        $xml .= "<news:publication><news:name>Quark</news:name><news:language>it</news:language></news:publication>";
         $xml .= "<news:publication_date>{$pubDate}</news:publication_date>";
         $xml .= "<news:title>{$title}</news:title>";
         $xml .= "<news:genres>{$genre}</news:genres>";
         $xml .= "</news:news></url>" . PHP_EOL;
     }
-
     $xml .= '</urlset>';
 
     return response($xml, 200, ['Content-Type' => 'application/xml']);
