@@ -81,14 +81,19 @@ class StatsController extends Controller
             ->groupBy('day')
             ->orderBy('day')
             ->get();
-
-        $categoryDistribution = DB::table('articles')
-            ->selectRaw('category, COUNT(*) as total')
-            ->where('status', 'published')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get();
-
+$categoryDistribution = DB::table('articles')
+    ->selectRaw('category, COUNT(*) as total')
+    ->where('status', 'published')
+    ->groupBy('category')
+    ->orderByDesc('total')
+    ->get()
+    ->map(function ($item) {
+        return [
+            'label' => config('laboratorio.categories.' . $item->category, $item->category),
+            'total' => (int) $item->total,
+        ];
+    })
+    ->values();
         return response()->json([
             'views'      => $viewsLast7Days,
             'newsletter' => $newsletterGrowth,
