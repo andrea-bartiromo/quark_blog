@@ -7,12 +7,15 @@
  * @license   Proprietario — tutti i diritti riservati
  * @link      https://www.illaboratorio.it
  */
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Comment;
 use App\Models\Newsletter;
+use App\Models\NewsletterOpen;
+use App\Models\NewsletterClick;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -31,7 +34,28 @@ class DashboardController extends Controller
             'total_views'  => Article::sum('views'),
         ];
 
-        // Articoli più letti (top 5)
+        // Analytics newsletter
+        $newsletterSubscribers = Newsletter::where('confirmed', true)->count();
+        $newsletterOpens = NewsletterOpen::count();
+        $newsletterClicks = NewsletterClick::count();
+
+        $newsletterOpenRate = $newsletterSubscribers > 0
+            ? round(($newsletterOpens / $newsletterSubscribers) * 100, 1)
+            : 0;
+
+        $newsletterClickRate = $newsletterOpens > 0
+            ? round(($newsletterClicks / $newsletterOpens) * 100, 1)
+            : 0;
+
+        $topClickedArticles = NewsletterClick::selectRaw('article_id, COUNT(*) as clicks')
+            ->whereNotNull('article_id')
+            ->groupBy('article_id')
+            ->orderByDesc('clicks')
+            ->with('article')
+            ->limit(5)
+            ->get();
+
+        // Articoli più letti
         $topArticles = Article::where('status', 'published')
             ->orderByDesc('views')
             ->with('author')
@@ -45,13 +69,13 @@ class DashboardController extends Controller
             ->orderByDesc('count')
             ->get();
 
-        // Articoli recenti (ultimi 8)
+        // Articoli recenti
         $recentArticles = Article::with('author')
             ->orderByDesc('created_at')
             ->limit(8)
             ->get(['id', 'title', 'slug', 'status', 'category', 'user_id', 'created_at', 'verification_status']);
 
-        // Attività per mese (ultimi 6 mesi) - simulata con dati reali
+        // Attività ultimi 6 mesi
         $monthlyActivity = Article::where('status', 'published')
             ->where('published_at', '>=', now()->subMonths(6))
             ->select(
@@ -65,6 +89,12 @@ class DashboardController extends Controller
 
         return view('admin.dashboard', compact(
             'stats',
+            'newsletterSubscribers',
+            'newsletterOpens',
+            'newsletterClicks',
+            'newsletterOpenRate',
+            'newsletterClickRate',
+            'topClickedArticles',
             'topArticles',
             'byCategory',
             'recentArticles',

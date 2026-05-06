@@ -11,6 +11,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -56,6 +57,7 @@ class ArticleController extends Controller
 
     public function destroy(Article $article)
     {
+        ActivityLog::record('Articolo eliminato', 'article', $article->id, $article->title);
         $article->delete();
 
         return redirect()->route('admin.articles')->with('success', 'Articolo eliminato.');
@@ -78,12 +80,42 @@ class ArticleController extends Controller
         // Upload diretto immagine dal form articolo
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file     = $request->file('cover_image_upload');
-            $ext      = $file->getClientOriginalExtension();
+            $ext      = strtolower($file->getClientOriginalExtension());
             $diskName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
                         . '-' . date('YmdHis')
                         . '-' . substr(md5(rand()), 0, 6)
                         . '.' . $ext;
-            $file->move(public_path('assets/img'), $diskName);
+            $uploadPath = public_path('assets/img');
+            $file->move($uploadPath, $diskName);
+
+            // Ottimizzazione automatica con GD
+            $fullPath = $uploadPath . '/' . $diskName;
+            if (extension_loaded('gd') && file_exists($fullPath)) {
+                try {
+                    [$w, $h] = getimagesize($fullPath);
+                    if ($w > 1600) {
+                        $nw = 1600; $nh = (int) round($h * (1600 / $w));
+                        $src = match($ext) {
+                            'jpg','jpeg' => imagecreatefromjpeg($fullPath),
+                            'png'        => imagecreatefrompng($fullPath),
+                            'webp'       => imagecreatefromwebp($fullPath),
+                            default      => null,
+                        };
+                        if ($src) {
+                            $dst = imagecreatetruecolor($nw, $nh);
+                            imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+                            match($ext) {
+                                'jpg','jpeg' => imagejpeg($dst, $fullPath, 82),
+                                'png'        => imagepng($dst, $fullPath, 7),
+                                'webp'       => imagewebp($dst, $fullPath, 82),
+                                default      => null,
+                            };
+                            imagedestroy($src); imagedestroy($dst);
+                        }
+                    }
+                } catch (\Throwable $e) { /* fallback silenzioso */ }
+            }
+
             $data['cover_image'] = $diskName;
         }
 
@@ -125,4 +157,27 @@ class ArticleController extends Controller
         return back()->with('success', 'Stato verifica aggiornato.');
     }
 
+
+    public function duplicate(\App\Models\Article $article)
+    {
+        $new = $article->replicate();
+        $new->title       = 'Copia di — ' . $article->title;
+        $new->slug        = \Illuminate\Support\Str::slug($new->title) . '-' . time();
+        $new->status      = 'draft';
+        $new->featured    = false;
+        $new->views       = 0;
+        $new->published_at = null;
+        $new->verification_status = 'unverified';
+        $new->push();
+
+        \App\Models\ActivityLog::record('Articolo duplicato', 'article', $new->id, $new->title);
+
+        return redirect()->route('admin.articles.edit', $new)
+            ->with('success', 'Articolo duplicato come bozza.');
+    }
+
+    public function quickDraft()
+    {
+        return view('admin.quick-draft');
+    }
 }

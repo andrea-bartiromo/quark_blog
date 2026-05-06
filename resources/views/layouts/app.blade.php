@@ -17,6 +17,27 @@
   <meta property="og:description" content="@yield('description')">
   <meta property="og:url" content="{{ url()->current() }}">
 
+  {{-- Google Analytics 4
+       Sostituire G-XXXXXXXXXX con il tuo Measurement ID
+       ottenuto da analytics.google.com
+       Decommentare quando il sito è online con dominio reale
+  --}}
+  {{--
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    // Consent Mode v2 — di default tutto negato finché l'utente non accetta
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      wait_for_update: 500
+    });
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX', { anonymize_ip: true });
+  </script>
+  --}}
+
   {{-- Google AdSense (decommentare quando il sito è online con dominio reale) --}}
   {{-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> --}}
 

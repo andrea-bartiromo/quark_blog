@@ -1,12 +1,5 @@
 <?php
-/**
- * Il Laboratorio — Rivista italiana di divulgazione scientifica
- *
- * @author    Andrea Bartiromo <redazione@illaboratorio.it>
- * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
- * @license   Proprietario — tutti i diritti riservati
- * @link      https://www.illaboratorio.it
- */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,5 +33,20 @@ class User extends Authenticatable
     public function isEditor(): bool
     {
         return in_array($this->role, ['editor', 'admin']);
+    }
+
+    public function isAuthor(): bool
+    {
+        return $this->role === 'author';
+    }
+
+    public function canAccessAdmin(): bool
+    {
+        return $this->isEditor();
+    }
+
+    public function canAccessRedazione(): bool
+    {
+        return in_array($this->role, ['editor', 'admin', 'author']);
     }
 }

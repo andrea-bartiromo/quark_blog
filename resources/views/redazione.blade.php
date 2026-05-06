@@ -1,133 +1,102 @@
 @extends('layouts.app')
-
-@section('title', 'La redazione — '.config('laboratorio.name'))
-@section('description', 'Conosci i giornalisti de Il Laboratorio: formazione, specializzazioni e contatti.')
+@section('title', 'La redazione — Quark')
+@section('description', 'Conosci la redazione di Quark. Giornalisti e divulgatori scientifici appassionati che raccontano la scienza ogni giorno.')
 
 @section('content')
-<div class="container" style="padding-block:2.5rem;">
+<div class="container" style="padding-block:3rem;max-width:800px;">
 
-  {{-- Intestazione --}}
-  <div style="max-width:640px; margin-bottom:3rem;">
-    <hr style="border:none;border-top:3px solid var(--color-ink);margin:0 0 .5rem;">
-    <h1 style="font-family:var(--font-display);font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;margin-bottom:.75rem;">
+  <div style="margin-bottom:2.5rem;">
+    <div class="hero-eyebrow" style="margin-bottom:1rem;">Le persone</div>
+    <h1 style="font-family:var(--font-display);font-size:2.2rem;font-weight:900;
+               color:var(--ink);letter-spacing:-.02em;margin-bottom:.75rem;">
       La redazione
     </h1>
-    <p style="font-size:1.05rem;color:var(--color-ink-soft);line-height:1.7;">
-      Il Laboratorio è fatto da giornalisti appassionati di scienza e tecnologia.
-      Ognuno porta una competenza specifica: nessun generalista, solo specialisti
-      con formazione scientifica o anni di esperienza sul campo.
+    <p style="font-size:1rem;color:var(--ink-soft);line-height:1.7;max-width:580px;">
+      Quark è un progetto indipendente. Ogni articolo è scritto, verificato e pubblicato
+      con la stessa cura e passione per la scienza.
     </p>
   </div>
 
-  {{-- Direttore --}}
-  <section style="margin-bottom:3rem;">
-    <h2 class="uppercase font-ui" style="color:var(--color-ink-muted);font-size:.72rem;font-weight:700;letter-spacing:.1em;margin-bottom:1.5rem;">
-      Direzione
-    </h2>
+  <hr style="border:none;border-top:1px solid var(--border);margin-bottom:2.5rem;">
 
-    <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow-hover);
-                overflow:hidden;display:grid;grid-template-columns:260px 1fr;">
-      <div style="background:var(--color-ink);min-height:260px;position:relative;">
-        <img src="{{ asset('assets/img/author-direttore.jpg') }}"
-             alt="Foto del Direttore Responsabile"
-             style="width:100%;height:100%;object-fit:cover;opacity:.75;"
-             loading="lazy"
-             onerror="this.style.display='none'">
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-          <span style="font-family:var(--font-display);font-size:4rem;font-weight:900;color:rgba(255,255,255,.35);">AB</span>
+  {{-- Fondatore --}}
+  <div style="margin-bottom:2rem;">
+    <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
+                letter-spacing:.1em;color:var(--ink-muted);margin-bottom:1rem;">
+      Direzione
+    </div>
+    <div style="background:white;border:1px solid var(--border);border-radius:16px;
+                overflow:hidden;">
+      <div style="background:linear-gradient(135deg,var(--primary),#0f766e);
+                  padding:1.5rem;display:flex;align-items:center;gap:1.25rem;">
+        <div style="width:72px;height:72px;border-radius:50%;
+                    border:3px solid rgba(255,255,255,.3);
+                    background:rgba(255,255,255,.15);
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:1.6rem;font-weight:700;color:white;flex-shrink:0;">AB</div>
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;color:white;">Andrea Bartiromo</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,.75);text-transform:uppercase;
+                      letter-spacing:.06em;margin-top:.2rem;">Fondatore e Direttore</div>
         </div>
       </div>
-      <div style="padding:2rem;">
-        <span class="kicker">Direttore responsabile</span>
-        <h2 style="font-family:var(--font-display);font-size:1.7rem;font-weight:900;margin-bottom:.25rem;">
-          Andrea Bartiromo
-        </h2>
-        <p style="font-family:var(--font-ui);font-size:.78rem;color:var(--color-ink-muted);margin-bottom:1rem;">
-          Fondatore e Direttore Responsabile — <em>Il Laboratorio</em>
-        </p>
-        <p style="font-size:.92rem;color:var(--color-ink-soft);line-height:1.7;margin-bottom:1.25rem;">
-          Fondatore e Direttore Responsabile de <em>Il Laboratorio</em>.
-          Ha ideato e sviluppato il progetto editoriale con l'obiettivo di portare
-          la divulgazione scientifica italiana a uno standard di rigore e accessibilità
-          tra i più alti nel panorama digitale nazionale. Supervisiona la linea editoriale
-          e il protocollo di verifica delle fonti.
+      <div style="padding:1.25rem 1.5rem;">
+        <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.65;margin-bottom:1rem;">
+          Fondatore e direttore editoriale di Quark. Si occupa della selezione degli argomenti,
+          della verifica delle fonti e della supervisione editoriale di ogni contenuto pubblicato.
+          Appassionato di fisica, astronomia e tecnologia.
         </p>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-          <a href="mailto:direzione@illaboratorio.it" class="btn btn--outline"
-             style="color:var(--color-ink);border-color:var(--color-border);font-size:.75rem;">
-            ✉ direzione@illaboratorio.it
+          <a href="{{ route('autore', \App\Models\User::where('role','editor')->first() ?? 1) }}"
+             style="font-size:.75rem;color:var(--primary);padding:.25rem .65rem;
+                    border:1px solid var(--primary-light);border-radius:20px;text-decoration:none;">
+            Tutti gli articoli
+          </a>
+          <a href="{{ route('contatti') }}"
+             style="font-size:.75rem;color:var(--ink-muted);padding:.25rem .65rem;
+                    border:1px solid var(--border);border-radius:20px;text-decoration:none;">
+            Contatta
           </a>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  {{-- Redattori --}}
-  <section style="margin-bottom:3rem;">
-    <h2 class="uppercase font-ui" style="color:var(--color-ink-muted);font-size:.72rem;font-weight:700;letter-spacing:.1em;margin-bottom:1.5rem;">
-      Redattori
-    </h2>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem;">
-      @php
-        $redattori = \App\Models\User::where('role','!=','admin')->orderBy('role','desc')->orderBy('name')->get();
-      @endphp
-
-      @foreach($redattori as $user)
-      <div class="author-box">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--color-paper-warm);
-                    flex-shrink:0;border:3px solid var(--color-paper-warm);overflow:hidden;display:flex;
-                    align-items:center;justify-content:center;">
-          @if($user->photo)
-            <img src="{{ asset('assets/img/'.$user->photo) }}"
-                 alt="Foto di {{ $user->name }}"
-                 style="width:100%;height:100%;object-fit:cover;"
-                 onerror="this.style.display='none'">
-          @else
-            <span style="font-size:1.5rem;">👤</span>
-          @endif
-        </div>
-        <div style="flex:1;">
-          <div class="author-box__role">{{ ucfirst($user->role) }}</div>
-          <div class="author-box__name">{{ $user->name }}</div>
-          @if($user->bio)
-            <p class="author-box__bio">{{ $user->bio }}</p>
-          @endif
-          <div style="font-family:var(--font-ui);font-size:.72rem;color:var(--color-ink-muted);margin-bottom:.4rem;">
-            📧 {{ $user->email }}
-          </div>
-          <div class="author-box__socials">
-            @if($user->twitter)
-              <a href="https://twitter.com/{{ ltrim($user->twitter,'@') }}" target="_blank" rel="noopener">Twitter</a>
-            @endif
-            @if($user->linkedin)
-              <a href="{{ $user->linkedin }}" target="_blank" rel="noopener">LinkedIn</a>
-            @endif
-            <span style="font-family:var(--font-ui);font-size:.72rem;color:var(--color-ink-muted);">
-              {{ $user->articles()->count() }} articoli pubblicati
-            </span>
-          </div>
-        </div>
+  {{-- Valori redazionali --}}
+  <section style="background:var(--paper-warm);border-radius:16px;padding:2rem;margin-bottom:2rem;">
+    <h2 style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;
+               color:var(--ink);margin-bottom:1rem;">I nostri impegni</h2>
+    @foreach([
+      ['✅', 'Verifica delle fonti', 'Ogni articolo è basato su fonti primarie verificabili.'],
+      ['🔄', 'Correzioni trasparenti', 'Gli errori vengono corretti pubblicamente con nota visibile nell\'articolo.'],
+      ['🚫', 'Nessun conflitto di interessi', 'Quark non riceve compensi per promuovere prodotti o posizioni scientifiche.'],
+      ['📬', 'Accessibilità', 'Tutti i contenuti sono gratuiti e aperti a chiunque.'],
+    ] as [$icon, $title, $desc])
+    <div style="display:flex;gap:.75rem;margin-bottom:.85rem;align-items:flex-start;">
+      <span style="font-size:1rem;flex-shrink:0;margin-top:2px;">{{ $icon }}</span>
+      <div>
+        <div style="font-size:.875rem;font-weight:600;color:var(--ink);">{{ $title }}</div>
+        <div style="font-size:.8rem;color:var(--ink-muted);line-height:1.5;">{{ $desc }}</div>
       </div>
-      @endforeach
     </div>
+    @endforeach
   </section>
 
-  {{-- Contatti redazione --}}
-  <section style="background:var(--color-white);border-radius:var(--radius);
-                  box-shadow:var(--shadow);padding:2rem;max-width:600px;">
-    <h2 style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;margin-bottom:.75rem;">
-      Contatta la redazione
-    </h2>
-    <p style="font-size:.9rem;color:var(--color-ink-soft);margin-bottom:1rem;">
-      Per comunicati stampa, segnalazioni, proposte di collaborazione o rettifiche.
+  {{-- Collabora --}}
+  <section style="border:1px solid var(--border);border-radius:16px;padding:1.5rem;text-align:center;">
+    <div style="font-size:1.5rem;margin-bottom:.5rem;">✍️</div>
+    <h2 style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;
+               color:var(--ink);margin-bottom:.5rem;">Vuoi scrivere per Quark?</h2>
+    <p style="font-size:.85rem;color:var(--ink-muted);line-height:1.6;margin-bottom:1rem;">
+      Siamo sempre alla ricerca di divulgatori appassionati. Se hai una formazione scientifica
+      e la voglia di spiegare la scienza al grande pubblico, scrivici.
     </p>
-    <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;font-family:var(--font-ui);font-size:.88rem;">
-      <li>✉ <a href="mailto:redazione@illaboratorio.it" style="color:var(--color-accent);">redazione@illaboratorio.it</a> — Notizie e comunicati</li>
-      <li>✉ <a href="mailto:pubblicita@illaboratorio.it" style="color:var(--color-accent);">pubblicita@illaboratorio.it</a> — Pubblicità e sponsorship</li>
-      <li>✉ <a href="mailto:privacy@illaboratorio.it" style="color:var(--color-accent);">privacy@illaboratorio.it</a> — Richieste GDPR</li>
-      <li>✉ <a href="mailto:rettifiche@illaboratorio.it" style="color:var(--color-accent);">rettifiche@illaboratorio.it</a> — Correzioni e rettifiche</li>
-    </ul>
+    <a href="{{ route('contatti') }}"
+       style="display:inline-block;background:var(--primary);color:white;
+              padding:.55rem 1.25rem;border-radius:8px;text-decoration:none;
+              font-weight:600;font-size:.85rem;">
+      Scrivici
+    </a>
   </section>
 
 </div>

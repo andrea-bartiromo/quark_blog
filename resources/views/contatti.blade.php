@@ -1,145 +1,137 @@
 @extends('layouts.app')
-
-@section('title', 'Contatti — '.config('laboratorio.name'))
-@section('description', 'Contatta la redazione de Il Laboratorio per comunicati stampa, segnalazioni o collaborazioni.')
+@section('title', 'Contatti — Quark')
+@section('description', 'Contatta la redazione di Quark per segnalazioni, proposte di collaborazione o domande.')
 
 @section('content')
-<div class="container" style="padding-block:2.5rem;">
+<div class="container" style="padding-block:3rem;max-width:780px;">
 
-  <div style="max-width:700px;margin-bottom:2.5rem;">
-    <hr style="border:none;border-top:3px solid var(--color-ink);margin:0 0 .5rem;">
-    <h1 style="font-family:var(--font-display);font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;margin-bottom:.75rem;">
-      Contatti
-    </h1>
-    <p style="font-size:1.05rem;color:var(--color-ink-soft);line-height:1.7;">
-      Sei un ricercatore, un ufficio stampa o un lettore con una segnalazione?
+  <div style="margin-bottom:2.5rem;">
+    <div class="hero-eyebrow" style="margin-bottom:1rem;">Scrivici</div>
+    <h1 style="font-family:var(--font-display);font-size:2.2rem;font-weight:900;
+               color:var(--ink);letter-spacing:-.02em;margin-bottom:.75rem;">Contatti</h1>
+    <p style="font-size:1rem;color:var(--ink-soft);line-height:1.7;">
+      Hai trovato un errore? Vuoi proporre un argomento? Hai domande sulla redazione?
       Scrivici — leggiamo tutto.
     </p>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 340px;gap:2.5rem;align-items:start;">
+  @if(session('contact_sent'))
+  <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:10px;
+              padding:1rem 1.25rem;margin-bottom:1.5rem;color:#065f46;font-size:.875rem;">
+    ✅ Messaggio inviato! Ti risponderemo entro 48 ore.
+  </div>
+  @endif
 
-    {{-- Form contatto --}}
-    <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:2rem;">
-      <h2 style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;margin-bottom:1.25rem;">
-        Inviaci un messaggio
-      </h2>
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:2rem;align-items:start;">
 
-      @if(session('contact_sent'))
-        <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:var(--radius);
-                    padding:1rem;font-family:var(--font-ui);font-size:.88rem;color:#2e7d32;margin-bottom:1rem;">
-          ✓ Messaggio inviato. Ti risponderemo entro 24 ore lavorative.
-        </div>
-      @endif
-
-      <form method="POST" action="{{ route('contatti.send') }}" novalidate>
+    {{-- Form --}}
+    <div style="background:white;border:1px solid var(--border);border-radius:16px;padding:1.75rem;">
+      <form method="POST" action="{{ route('contatti.send') }}">
         @csrf
-
-        <div class="form-group">
-          <label class="form-label" for="nome">Nome e cognome *</label>
-          <input class="form-input" type="text" id="nome" name="nome"
-                 value="{{ old('nome') }}" required maxlength="100"
-                 placeholder="Mario Rossi">
-          @error('nome') <span style="color:var(--color-accent);font-size:.78rem;">{{ $message }}</span> @enderror
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="email">Email *</label>
-          <input class="form-input" type="email" id="email" name="email"
-                 value="{{ old('email') }}" required
-                 placeholder="mario@esempio.it">
-          @error('email') <span style="color:var(--color-accent);font-size:.78rem;">{{ $message }}</span> @enderror
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="oggetto">Oggetto *</label>
-          <select class="form-select" id="oggetto" name="oggetto" required>
-            <option value="">Seleziona…</option>
-            <option value="comunicato" {{ old('oggetto') === 'comunicato' ? 'selected' : '' }}>Comunicato stampa</option>
-            <option value="segnalazione" {{ old('oggetto') === 'segnalazione' ? 'selected' : '' }}>Segnalazione notizia</option>
-            <option value="collaborazione" {{ old('oggetto') === 'collaborazione' ? 'selected' : '' }}>Proposta di collaborazione</option>
-            <option value="pubblicita" {{ old('oggetto') === 'pubblicita' ? 'selected' : '' }}>Informazioni pubblicità</option>
-            <option value="altro" {{ old('oggetto') === 'altro' ? 'selected' : '' }}>Altro</option>
-          </select>
-          @error('oggetto') <span style="color:var(--color-accent);font-size:.78rem;">{{ $message }}</span> @enderror
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="messaggio">Messaggio *</label>
-          <textarea class="form-textarea" id="messaggio" name="messaggio"
-                    required minlength="20" maxlength="2000"
-                    placeholder="Scrivi il tuo messaggio…">{{ old('messaggio') }}</textarea>
-          @error('messaggio') <span style="color:var(--color-accent);font-size:.78rem;">{{ $message }}</span> @enderror
-        </div>
-
-        <div class="form-group">
-          <label class="form-checkbox">
-            <input type="checkbox" name="privacy" required
-                   {{ old('privacy') ? 'checked' : '' }}>
-            Ho letto e accetto la <a href="{{ route('privacy') }}" style="color:var(--color-accent);">Privacy Policy</a> *
-          </label>
-          @error('privacy') <span style="color:var(--color-accent);font-size:.78rem;">{{ $message }}</span> @enderror
-        </div>
-
         {{-- Honeypot --}}
-        <div style="position:absolute;left:-9999px;" aria-hidden="true">
-          <input type="text" name="website" tabindex="-1" autocomplete="off">
+        <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input class="form-input" type="text" name="nome"
+                 value="{{ old('nome') }}" required maxlength="100"
+                 placeholder="Il tuo nome">
+          @error('nome')<div style="color:#dc2626;font-size:.75rem;margin-top:.25rem;">{{ $message }}</div>@enderror
         </div>
 
-        <button type="submit" class="btn btn--primary">Invia messaggio</button>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
+          <input class="form-input" type="email" name="email"
+                 value="{{ old('email') }}" required maxlength="150"
+                 placeholder="La tua email">
+          @error('email')<div style="color:#dc2626;font-size:.75rem;margin-top:.25rem;">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Oggetto *</label>
+          <select class="form-select" name="oggetto" required>
+            <option value="">Seleziona...</option>
+            @foreach([
+              'Segnalazione errore',
+              'Proposta articolo',
+              'Collaborazione',
+              'Domanda editoriale',
+              'Richiesta rettifica',
+              'Altro',
+            ] as $opt)
+            <option value="{{ $opt }}" {{ old('oggetto') === $opt ? 'selected' : '' }}>
+              {{ $opt }}
+            </option>
+            @endforeach
+          </select>
+          @error('oggetto')<div style="color:#dc2626;font-size:.75rem;margin-top:.25rem;">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Messaggio * <span style="color:var(--ink-muted);font-weight:400;">(min 20 caratteri)</span></label>
+          <textarea class="form-textarea" name="messaggio" required
+                    minlength="20" maxlength="2000"
+                    placeholder="Scrivi qui il tuo messaggio...">{{ old('messaggio') }}</textarea>
+          @error('messaggio')<div style="color:#dc2626;font-size:.75rem;margin-top:.25rem;">{{ $message }}</div>@enderror
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:flex-start;gap:.5rem;">
+          <input type="checkbox" name="privacy" id="privacy"
+                 style="margin-top:3px;accent-color:var(--primary);"
+                 {{ old('privacy') ? 'checked' : '' }} required>
+          <label for="privacy" style="font-size:.78rem;color:var(--ink-muted);cursor:pointer;">
+            Ho letto e accetto la
+            <a href="{{ route('privacy') }}" style="color:var(--primary);">Privacy Policy</a>
+          </label>
+          @error('privacy')<div style="color:#dc2626;font-size:.75rem;margin-top:.25rem;">{{ $message }}</div>@enderror
+        </div>
+
+        <button type="submit" class="btn btn--primary" style="width:100%;">
+          Invia messaggio
+        </button>
       </form>
     </div>
 
-    {{-- Info contatti diretti --}}
+    {{-- Info laterale --}}
     <div style="display:flex;flex-direction:column;gap:1rem;">
 
-      <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;">
-        <div style="font-family:var(--font-ui);font-size:.68rem;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.1em;border-bottom:2px solid var(--color-ink);padding-bottom:.5rem;margin-bottom:1rem;">
-          Email dirette
+      <div style="background:var(--paper-warm);border-radius:12px;padding:1.25rem;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.1em;color:var(--ink-muted);margin-bottom:.85rem;">
+          Tempi di risposta
         </div>
-        <ul style="list-style:none;display:flex;flex-direction:column;gap:.6rem;font-family:var(--font-ui);font-size:.84rem;">
-          <li>
-            <div style="font-weight:600;color:var(--color-ink);margin-bottom:.1rem;">Redazione</div>
-            <a href="mailto:redazione@illaboratorio.it" style="color:var(--color-accent);">redazione@illaboratorio.it</a>
-          </li>
-          <li>
-            <div style="font-weight:600;color:var(--color-ink);margin-bottom:.1rem;">Pubblicità</div>
-            <a href="mailto:pubblicita@illaboratorio.it" style="color:var(--color-accent);">pubblicita@illaboratorio.it</a>
-          </li>
-          <li>
-            <div style="font-weight:600;color:var(--color-ink);margin-bottom:.1rem;">Privacy & GDPR</div>
-            <a href="mailto:privacy@illaboratorio.it" style="color:var(--color-accent);">privacy@illaboratorio.it</a>
-          </li>
-          <li>
-            <div style="font-weight:600;color:var(--color-ink);margin-bottom:.1rem;">Rettifiche</div>
-            <a href="mailto:rettifiche@illaboratorio.it" style="color:var(--color-accent);">rettifiche@illaboratorio.it</a>
-          </li>
-        </ul>
+        @foreach([
+          ['Segnalazioni errori', '24 ore'],
+          ['Proposte articoli', '3-5 giorni'],
+          ['Collaborazioni', '5-7 giorni'],
+          ['Altro', '48 ore'],
+        ] as [$tipo, $tempo])
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;
+                    padding:.35rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--ink-soft);">{{ $tipo }}</span>
+          <span style="font-weight:600;color:var(--primary);">{{ $tempo }}</span>
+        </div>
+        @endforeach
       </div>
 
-      <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;">
-        <div style="font-family:var(--font-ui);font-size:.68rem;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.1em;border-bottom:2px solid var(--color-ink);padding-bottom:.5rem;margin-bottom:1rem;">
-          Seguici
+      <div style="background:var(--paper-warm);border-radius:12px;padding:1.25rem;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.1em;color:var(--ink-muted);margin-bottom:.85rem;">
+          Altre opzioni
         </div>
-        <div class="social-list">
-          <a href="{{ config('laboratorio.social.facebook') }}"  class="s-fb" target="_blank" rel="noopener">👤 Facebook</a>
-          <a href="{{ config('laboratorio.social.twitter') }}"   class="s-tw" target="_blank" rel="noopener">𝕏 X / Twitter</a>
-          <a href="{{ config('laboratorio.social.instagram') }}" class="s-ig" target="_blank" rel="noopener">📷 Instagram</a>
-          <a href="{{ config('laboratorio.social.telegram') }}"  class="s-tg" target="_blank" rel="noopener">✈️ Telegram</a>
-        </div>
-      </div>
-
-      <div style="background:var(--color-paper-warm);border-radius:var(--radius);padding:1.25rem;
-                  font-family:var(--font-ui);font-size:.82rem;color:var(--color-ink-soft);line-height:1.6;">
-        <strong style="color:var(--color-ink);">Tempi di risposta:</strong><br>
-        Rispondiamo a tutte le email entro 24-48 ore lavorative. Per richieste urgenti
-        usa l'oggetto "URGENTE" nella riga del messaggio.
+        <a href="{{ route('rettifiche') }}"
+           style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;
+                  color:var(--ink);text-decoration:none;padding:.4rem 0;">
+          🔄 Richiedere una rettifica
+        </a>
+        <a href="{{ route('pubblicita') }}"
+           style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;
+                  color:var(--ink);text-decoration:none;padding:.4rem 0;">
+          📢 Pubblicità e sponsorizzazioni
+        </a>
       </div>
 
     </div>
-
   </div>
 
 </div>

@@ -1,110 +1,97 @@
 @extends('layouts.app')
-
-@section('title', 'Cookie Policy — '.config('laboratorio.name'))
-@section('description', 'Informativa sull\'utilizzo dei cookie su Il Laboratorio, ai sensi del Provvedimento del Garante Privacy.')
+@section('title', 'Cookie Policy — Quark')
+@section('description', 'Cookie policy di Quark. Quali cookie utilizziamo e come gestirli.')
 
 @section('content')
-<div class="container" style="padding-block:2.5rem;max-width:780px;">
+<div class="container" style="padding-block:3rem;max-width:720px;">
 
-  <hr style="border:none;border-top:3px solid var(--color-ink);margin:0 0 .5rem;">
-  <h1 style="font-family:var(--font-display);font-size:clamp(1.6rem,3vw,2.2rem);font-weight:900;margin-bottom:.5rem;">
-    Cookie Policy
-  </h1>
-  <p style="font-family:var(--font-ui);font-size:.78rem;color:var(--color-ink-muted);margin-bottom:2rem;">
-    Ultimo aggiornamento: {{ now()->translatedFormat('d F Y') }}
+  <div style="margin-bottom:2rem;">
+    <div class="hero-eyebrow" style="margin-bottom:1rem;">Legale</div>
+    <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:900;
+               color:var(--ink);letter-spacing:-.02em;margin-bottom:.5rem;">Cookie Policy</h1>
+    <p style="font-size:.82rem;color:var(--ink-muted);">
+      Ultimo aggiornamento: {{ date('d/m/Y') }}
+    </p>
+  </div>
+
+  <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.75;margin-bottom:2rem;">
+    Questa pagina descrive i cookie utilizzati da Quark e come gestirli.
+    Un cookie è un piccolo file di testo salvato nel tuo browser quando visiti un sito web.
   </p>
 
-  <div style="font-size:.92rem;color:var(--color-ink-soft);line-height:1.75;">
-
-    <p style="margin-bottom:1.25em;">
-      Questo sito utilizza cookie e tecnologie simili per garantire il corretto funzionamento,
-      analizzare il traffico e mostrare pubblicità pertinente. Puoi gestire le tue preferenze
-      in qualsiasi momento tramite il banner cookie o questa pagina.
-    </p>
-
-    {{-- Tabella cookie tecnici --}}
-    <h2 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;
-               border-top:1px solid var(--color-border);padding-top:1rem;margin:1.5rem 0 .75rem;color:var(--color-ink);">
-      Cookie tecnici (sempre attivi)
+  {{-- Tabella cookie --}}
+  <section style="margin-bottom:2rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:1rem;">
+      Cookie utilizzati
     </h2>
-    <p style="margin-bottom:.75em;">Non richiedono consenso. Necessari per il funzionamento del sito.</p>
 
-    <div style="overflow-x:auto;margin-bottom:1.5rem;">
-      <table style="width:100%;border-collapse:collapse;font-size:.84rem;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr style="background:var(--color-paper-warm);">
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Nome</th>
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Scopo</th>
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Durata</th>
+          <tr style="background:var(--paper-warm);">
+            <th style="text-align:left;padding:.65rem .85rem;border-bottom:2px solid var(--border);color:var(--ink-muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">Nome</th>
+            <th style="text-align:left;padding:.65rem .85rem;border-bottom:2px solid var(--border);color:var(--ink-muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">Tipo</th>
+            <th style="text-align:left;padding:.65rem .85rem;border-bottom:2px solid var(--border);color:var(--ink-muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">Scopo</th>
+            <th style="text-align:left;padding:.65rem .85rem;border-bottom:2px solid var(--border);color:var(--ink-muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">Durata</th>
           </tr>
         </thead>
         <tbody>
           @foreach([
-            ['il_laboratorio_session', 'Sessione utente autenticato', 'Sessione'],
-            ['XSRF-TOKEN', 'Protezione CSRF', 'Sessione'],
-            ['cookie-choice', 'Memorizza la scelta sui cookie', '12 mesi'],
-            ['nl-seen', 'Nasconde il popup newsletter dopo la prima visualizzazione', '30 giorni'],
-          ] as [$nome, $scopo, $durata])
-          <tr style="border-bottom:1px solid var(--color-border);">
-            <td style="padding:.6rem .85rem;font-family:monospace;font-size:.82rem;color:var(--color-ink);">{{ $nome }}</td>
-            <td style="padding:.6rem .85rem;">{{ $scopo }}</td>
-            <td style="padding:.6rem .85rem;white-space:nowrap;">{{ $durata }}</td>
+            ['quark_session', 'Tecnico', 'Sessione utente — necessario per il funzionamento del sito', '2 ore'],
+            ['XSRF-TOKEN', 'Tecnico', 'Protezione sicurezza dei form (CSRF)', '2 ore'],
+            ['newsletter_dismissed', 'Funzionale', 'Ricorda se hai chiuso il popup newsletter', '7 giorni'],
+            ['newsletter_subscribed', 'Funzionale', 'Ricorda se sei iscritto alla newsletter', 'Permanente'],
+            ['cookie_consent', 'Funzionale', 'Salva la tua scelta sul banner cookie', '1 anno'],
+            ['_ga', 'Analitico', 'Google Analytics — identificatore utente anonimo', '2 anni'],
+            ['_ga_*', 'Analitico', 'Google Analytics — sessione di misurazione', '2 anni'],
+          ] as [$nome, $tipo, $scopo, $durata])
+          <tr>
+            <td style="padding:.65rem .85rem;border-bottom:1px solid var(--border);font-family:monospace;color:var(--primary);">{{ $nome }}</td>
+            <td style="padding:.65rem .85rem;border-bottom:1px solid var(--border);">
+              <span style="font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:20px;
+                background:{{ $tipo === 'Tecnico' ? '#dbeafe' : ($tipo === 'Funzionale' ? '#fef9c3' : '#ede9fe') }};
+                color:{{ $tipo === 'Tecnico' ? '#1e40af' : ($tipo === 'Funzionale' ? '#854d0e' : '#5b21b6') }};">
+                {{ $tipo }}
+              </span>
+            </td>
+            <td style="padding:.65rem .85rem;border-bottom:1px solid var(--border);color:var(--ink-soft);">{{ $scopo }}</td>
+            <td style="padding:.65rem .85rem;border-bottom:1px solid var(--border);color:var(--ink-muted);">{{ $durata }}</td>
           </tr>
           @endforeach
         </tbody>
       </table>
     </div>
+  </section>
 
-    {{-- Cookie analytics --}}
-    <h2 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;
-               border-top:1px solid var(--color-border);padding-top:1rem;margin:1.5rem 0 .75rem;color:var(--color-ink);">
-      Cookie analytics (previo consenso)
-    </h2>
-    <p style="margin-bottom:.75em;">Attivati solo se accetti i cookie analytics nel banner.</p>
-
-    <div style="overflow-x:auto;margin-bottom:1.5rem;">
-      <table style="width:100%;border-collapse:collapse;font-size:.84rem;">
-        <thead>
-          <tr style="background:var(--color-paper-warm);">
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Fornitore</th>
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Scopo</th>
-            <th style="text-align:left;padding:.6rem .85rem;font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-ink-muted);">Info</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom:1px solid var(--color-border);">
-            <td style="padding:.6rem .85rem;font-weight:600;">Google Analytics (GA4)</td>
-            <td style="padding:.6rem .85rem;">Analisi statistica del traffico in forma aggregata e anonima</td>
-            <td style="padding:.6rem .85rem;"><a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:var(--color-accent);">Privacy Google</a></td>
-          </tr>
-          <tr>
-            <td style="padding:.6rem .85rem;font-weight:600;">Google Tag Manager</td>
-            <td style="padding:.6rem .85rem;">Gestione centralizzata dei tag di tracciamento</td>
-            <td style="padding:.6rem .85rem;"><a href="https://marketingplatform.google.com/about/analytics/tag-manager/use-policy/" target="_blank" rel="noopener" style="color:var(--color-accent);">Policy GTM</a></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    {{-- Come gestire i cookie --}}
-    <h2 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;
-               border-top:1px solid var(--color-border);padding-top:1rem;margin:1.5rem 0 .75rem;color:var(--color-ink);">
+  <section style="margin-bottom:2rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.75rem;">
       Come gestire i cookie
     </h2>
-    <p style="margin-bottom:.75em;">
-      Puoi modificare le tue preferenze in qualsiasi momento:
+    <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.75;margin-bottom:.75rem;">
+      Puoi accettare o rifiutare i cookie analitici tramite il banner che appare alla prima visita.
+      Puoi anche gestire i cookie direttamente dal tuo browser:
     </p>
-    <ul style="padding-left:1.5em;list-style:disc;margin-bottom:1.25em;">
-      <li style="margin-bottom:.4em;"><strong>Dal banner cookie</strong> — appare al primo accesso al sito e dopo aver cancellato i cookie del browser.</li>
-      <li style="margin-bottom:.4em;"><strong>Dal browser</strong> — le impostazioni del tuo browser ti permettono di bloccare o eliminare tutti i cookie.</li>
-      <li style="margin-bottom:.4em;"><strong>Da Google Analytics</strong> — puoi disattivare GA4 installando il <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener" style="color:var(--color-accent);">componente aggiuntivo del browser</a>.</li>
-    </ul>
-
-    <p>
-      Per qualsiasi informazione scrivi a
-      <a href="mailto:privacy@illaboratorio.it" style="color:var(--color-accent);">privacy@illaboratorio.it</a>.
+    @foreach([
+      ['Chrome', 'Impostazioni → Privacy e sicurezza → Cookie e altri dati dei siti'],
+      ['Firefox', 'Impostazioni → Privacy e sicurezza → Cookie e dati dei siti'],
+      ['Safari', 'Preferenze → Privacy → Gestisci dati dei siti web'],
+      ['Edge', 'Impostazioni → Cookie e autorizzazioni del sito'],
+    ] as [$browser, $path])
+    <div style="font-size:.82rem;padding:.4rem 0;border-bottom:1px solid var(--border-light);
+                display:flex;gap:.5rem;">
+      <span style="font-weight:600;color:var(--ink);min-width:70px;">{{ $browser }}</span>
+      <span style="color:var(--ink-muted);">{{ $path }}</span>
+    </div>
+    @endforeach
+    <p style="font-size:.8rem;color:var(--ink-muted);margin-top:.75rem;line-height:1.6;">
+      Nota: disabilitare i cookie tecnici potrebbe compromettere il funzionamento del sito.
     </p>
+  </section>
 
+  <div style="background:var(--primary-light);border-radius:10px;padding:1rem 1.25rem;font-size:.82rem;color:var(--primary-dark);">
+    Per domande sui cookie:
+    <a href="{{ route('contatti') }}" style="color:var(--primary);font-weight:600;">contattaci →</a>
   </div>
+
 </div>
 @endsection

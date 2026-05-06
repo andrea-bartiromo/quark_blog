@@ -70,6 +70,23 @@
         <span class="icon">📢</span> Pubblicità
       </a>
 
+      <a href="{{ route('admin.collaborators') }}"
+         @class(['active' => request()->routeIs('admin.collaborators*')])>
+        <span class="icon">👥</span> Collaboratori
+      </a>
+
+      <a href="{{ route('admin.review') }}"
+         @class(['active' => request()->routeIs('admin.review*')])>
+        <span class="icon">📋</span> Revisione
+        @php $reviewCount = \App\Models\Article::where('status','review')->count(); @endphp
+        @if($reviewCount > 0)
+          <span style="background:#f97316;color:#fff;font-size:.6rem;font-weight:700;
+                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
+            {{ $reviewCount }}
+          </span>
+        @endif
+      </a>
+
       <a href="{{ route('admin.verification') }}"
          @class(['active' => request()->routeIs('admin.verification')])>
         <span class="icon">✅</span> Verifica fonti
@@ -88,6 +105,23 @@
       <a href="{{ route('admin.suggestions') }}"
          @class(['active' => request()->routeIs('admin.suggestions*')])>
         <span class="icon">🤖</span> Suggerimenti AI
+      </a>
+
+      <span class="admin-nav__section">Analytics</span>
+
+      <a href="{{ route('admin.stats') }}"
+         @class(['active' => request()->routeIs('admin.stats')])>
+        <span class="icon">📈</span> Statistiche
+      </a>
+
+      <a href="{{ route('admin.activity') }}"
+         @class(['active' => request()->routeIs('admin.activity')])>
+        <span class="icon">🕐</span> Log attività
+      </a>
+
+      <a href="{{ route('admin.newsletter.preview') }}"
+         @class(['active' => request()->routeIs('admin.newsletter.preview')])>
+        <span class="icon">👁</span> Anteprima newsletter
       </a>
 
       <span class="admin-nav__section">Account</span>
@@ -125,6 +159,20 @@
 
   {{-- Contenuto principale --}}
   <main class="admin-main">
+
+    {{-- Ricerca globale --}}
+    <div style="margin-bottom:1.25rem;" x-data>
+      <form method="GET" action="{{ route('admin.articles') }}"
+            style="display:flex;gap:.5rem;max-width:400px;">
+        <input type="text" name="q"
+               value="{{ request('q') }}"
+               placeholder="🔍 Cerca articoli, commenti..."
+               style="flex:1;padding:.45rem .75rem;border:1px solid #e5e7eb;
+                      border-radius:6px;font-size:.82rem;font-family:inherit;
+                      background:#fff;">
+        <button type="submit" class="btn btn--secondary btn--sm">Cerca</button>
+      </form>
+    </div>
 
     @if(session('success'))
     <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;

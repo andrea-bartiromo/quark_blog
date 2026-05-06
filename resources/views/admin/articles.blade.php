@@ -5,6 +5,8 @@
 <div class="admin-topbar">
   <h1 class="admin-page-title">Articoli</h1>
   <a href="{{ route('admin.articles.create') }}" class="btn btn--primary">+ Nuovo articolo</a>
+    <a href="{{ route('admin.articles.quick-draft') }}"
+       class="btn btn--secondary" style="font-size:.78rem;">⚡ Bozza rapida</a>
 </div>
 
 <div class="admin-table-wrap">

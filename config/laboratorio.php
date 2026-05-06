@@ -1,8 +1,10 @@
 <?php
 
 return [
-    'name'    => 'Il Laboratorio',
-    'tagline' => 'Scienza e tecnologia che cambiano l\'Italia',
+    'name'        => 'Quark',
+    'name_full'   => 'Quark — Divulgazione scientifica',
+    'tagline'     => 'La scienza spiegata come si deve',
+    'description' => 'Quark è il blog di divulgazione scientifica che spiega fisica, biologia, tecnologia e spazio in modo semplice, curioso e senza filtri.',
 
     'categories' => [
         'intelligenza-artificiale' => 'Intelligenza Artificiale',
@@ -14,11 +16,11 @@ return [
     ],
 
     'social' => [
-        'facebook'  => 'https://facebook.com/illaboratorio',
-        'twitter'   => 'https://twitter.com/illaboratorio',
-        'instagram' => 'https://instagram.com/illaboratorio',
-        'linkedin'  => 'https://linkedin.com/company/illaboratorio',
-        'youtube'   => 'https://youtube.com/@illaboratorio',
-        'telegram'  => 'https://t.me/illaboratorio',
+        'facebook'  => 'https://facebook.com/quark',
+        'twitter'   => 'https://twitter.com/quark',
+        'instagram' => 'https://instagram.com/quark',
+        'linkedin'  => 'https://linkedin.com/company/quark',
+        'youtube'   => 'https://youtube.com/@quark',
+        'telegram'  => 'https://t.me/quark',
     ],
 ];

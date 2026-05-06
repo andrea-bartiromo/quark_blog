@@ -14,14 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         \App\Console\Commands\FetchNewsAndGenerateDrafts::class,
     ])
-    ->withMiddleware(function (Middleware $middleware): void {
-        // Security headers su tutte le risposte
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->alias([
+            'redazione' => \App\Http\Middleware\RedazioneMiddleware::class,
+            'editor'    => \App\Http\Middleware\EditorMiddleware::class,
+        ]);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
-        // Rate limiting sui form pubblici
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Usa le nostre view Blade per gli errori HTTP
         $exceptions->render(function (HttpException $e, $request) {
             $code    = $e->getStatusCode();
             $viewMap = [404 => 'errors.404', 403 => 'errors.403', 500 => 'errors.500'];

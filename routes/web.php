@@ -67,7 +67,7 @@ Route::post('/admin/logout', function (\Illuminate\Http\Request $r) {
 })->name('admin.logout');
 
 // ── Admin protetto ──────────────────────────────────────────────
-Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])
         ->name('dashboard');
 
@@ -159,6 +159,36 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/verifica', [VerificationController::class, 'index'])
         ->name('verification');
 
+
+    // Gestione collaboratori
+    Route::get('/collaboratori', [\App\Http\Controllers\Admin\CollaboratorController::class, 'index'])->name('collaborators');
+    Route::get('/collaboratori/nuovo', [\App\Http\Controllers\Admin\CollaboratorController::class, 'create'])->name('collaborators.create');
+    Route::post('/collaboratori', [\App\Http\Controllers\Admin\CollaboratorController::class, 'store'])->name('collaborators.store');
+    Route::get('/collaboratori/{user}/modifica', [\App\Http\Controllers\Admin\CollaboratorController::class, 'edit'])->name('collaborators.edit');
+    Route::put('/collaboratori/{user}', [\App\Http\Controllers\Admin\CollaboratorController::class, 'update'])->name('collaborators.update');
+    Route::patch('/collaboratori/{user}/reset-password', [\App\Http\Controllers\Admin\CollaboratorController::class, 'resetPassword'])->name('collaborators.reset-password');
+    Route::delete('/collaboratori/{user}', [\App\Http\Controllers\Admin\CollaboratorController::class, 'destroy'])->name('collaborators.destroy');
+
+    // Revisione articoli collaboratori
+    Route::get('/revisione', [\App\Http\Controllers\Admin\ReviewController::class, 'index'])
+        ->name('review');
+    Route::patch('/revisione/{article}/approva', [\App\Http\Controllers\Admin\ReviewController::class, 'approve'])
+        ->name('review.approve');
+    Route::patch('/revisione/{article}/rifiuta', [\App\Http\Controllers\Admin\ReviewController::class, 'reject'])
+        ->name('review.reject');
+
+    // Statistiche e log attività
+    Route::get('/stats', [\App\Http\Controllers\Admin\StatsController::class, 'index'])->name('stats');
+    Route::get('/activity', [\App\Http\Controllers\Admin\ActivityController::class, 'index'])->name('activity');
+
+    // Bozza rapida e duplica articolo
+    Route::get('/articoli/bozza-rapida', [AdminArticleController::class, 'quickDraft'])->name('articles.quick-draft');
+    Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+
+    // Anteprima e invio manuale newsletter
+    Route::get('/newsletter/anteprima', [\App\Http\Controllers\Admin\NewsletterPreviewController::class, 'preview'])->name('newsletter.preview');
+    Route::post('/newsletter/invia-ora', [\App\Http\Controllers\Admin\NewsletterPreviewController::class, 'send'])->name('newsletter.send-now');
+
     // Gestione pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
     Route::post('/ads', [AdController::class, 'store'])->name('ads.store');
@@ -167,8 +197,57 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::delete('/ads/{ad}', [AdController::class, 'destroy'])->name('ads.destroy');
 });
 
+
+// ── Login redazione (collaboratori) ──────────────────────────
+Route::get('/redazione/login', function() {
+    if (auth()->check()) {
+        if (auth()->user()->isEditor()) return redirect()->route('admin.dashboard');
+        return redirect()->route('redazione.dashboard');
+    }
+    return view('redazione.login');
+})->name('redazione.login');
+
+Route::post('/redazione/login', function (\Illuminate\Http\Request $r) {
+    if (auth()->attempt($r->only('email', 'password'), $r->boolean('remember'))) {
+        $r->session()->regenerate();
+        if (auth()->user()->isEditor()) return redirect()->route('admin.dashboard');
+        return redirect()->route('redazione.dashboard');
+    }
+    return back()->withErrors(['email' => 'Credenziali non corrette.']);
+})->name('redazione.login.post');
+
+// ── Dashboard collaboratori (middleware: redazione) ────────────
+Route::middleware(['auth', 'redazione'])->prefix('redazione')->name('redazione.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Redazione\DashboardController::class, 'index'])
+        ->name('dashboard');
+
+    // Articoli collaboratori
+    Route::get('/articoli', [\App\Http\Controllers\Redazione\ArticleController::class, 'index'])
+        ->name('articles');
+    Route::get('/articoli/nuovo', [\App\Http\Controllers\Redazione\ArticleController::class, 'create'])
+        ->name('articles.create');
+    Route::post('/articoli', [\App\Http\Controllers\Redazione\ArticleController::class, 'store'])
+        ->name('articles.store');
+    Route::get('/articoli/{article}/modifica', [\App\Http\Controllers\Redazione\ArticleController::class, 'edit'])
+        ->name('articles.edit');
+    Route::put('/articoli/{article}', [\App\Http\Controllers\Redazione\ArticleController::class, 'update'])
+        ->name('articles.update');
+    Route::delete('/articoli/{article}', [\App\Http\Controllers\Redazione\ArticleController::class, 'destroy'])
+        ->name('articles.destroy');
+
+    // Profilo collaboratore
+    Route::get('/profilo', [\App\Http\Controllers\Redazione\ProfileController::class, 'edit'])
+        ->name('profile');
+    Route::put('/profilo', [\App\Http\Controllers\Redazione\ProfileController::class, 'update'])
+        ->name('profile.update');
+    Route::post('/profilo/foto', [\App\Http\Controllers\Redazione\ProfileController::class, 'updatePhoto'])
+        ->name('profile.photo');
+    Route::put('/profilo/password', [\App\Http\Controllers\Redazione\ProfileController::class, 'updatePassword'])
+        ->name('profile.password');
+});
+
 // ── Pagine statiche ────────────────────────────────────────────
-Route::get('/redazione',  fn () => view('redazione'))->name('redazione');
+Route::get('/la-redazione',  fn () => view('redazione'))->name('redazione');
 Route::get('/chi-siamo',  fn () => view('chi-siamo'))->name('chi-siamo');
 Route::get('/pubblicita', fn () => view('pubblicita'))->name('pubblicita');
 Route::get('/contatti',   fn () => view('contatti'))->name('contatti');

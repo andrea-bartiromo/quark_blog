@@ -1,47 +1,45 @@
 @extends('layouts.app')
-
-@section('title', "Termini d'uso — ".config('laboratorio.name'))
-@section('description', "Termini e condizioni d'uso del sito Il Laboratorio.")
+@section('title', 'Termini d\'uso — Quark')
+@section('description', 'Termini e condizioni d\'uso del sito Quark.')
 
 @section('content')
-<div class="container" style="padding-block:2.5rem;max-width:780px;">
+<div class="container" style="padding-block:3rem;max-width:720px;">
 
-  <hr style="border:none;border-top:3px solid var(--color-ink);margin:0 0 .5rem;">
-  <h1 style="font-family:var(--font-display);font-size:clamp(1.6rem,3vw,2.2rem);font-weight:900;margin-bottom:.5rem;">
-    Termini d'uso
-  </h1>
-  <p style="font-family:var(--font-ui);font-size:.78rem;color:var(--color-ink-muted);margin-bottom:2rem;">
-    Ultimo aggiornamento: {{ now()->translatedFormat('d F Y') }}
-  </p>
+  <div style="margin-bottom:2rem;">
+    <div class="hero-eyebrow" style="margin-bottom:1rem;">Legale</div>
+    <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:900;
+               color:var(--ink);letter-spacing:-.02em;margin-bottom:.5rem;">Termini d'uso</h1>
+    <p style="font-size:.82rem;color:var(--ink-muted);">
+      Ultimo aggiornamento: {{ date('d/m/Y') }}
+    </p>
+  </div>
 
   @php
-  $termini = [
-    ['Accettazione dei termini', 'Utilizzando questo sito accetti i presenti Termini d\'uso. Se non li accetti, ti chiediamo di non utilizzare il sito.'],
-    ['Proprietà intellettuale', 'Tutti i contenuti pubblicati su Il Laboratorio — articoli, fotografie, grafici, logo — sono di proprietà esclusiva della testata o dei rispettivi autori e sono protetti dalle leggi sul diritto d\'autore. È vietata la riproduzione, anche parziale, senza esplicita autorizzazione scritta.'],
-    ['Uso consentito', 'Puoi leggere, condividere sui social network e citare brevi estratti degli articoli, purché citi sempre la fonte con link all\'articolo originale. Non puoi copiare o ripubblicare articoli integrali su altri siti o pubblicazioni senza autorizzazione.'],
-    ['Commenti degli utenti', 'I commenti pubblicati dagli utenti sono di esclusiva responsabilità dei loro autori. Ci riserviamo il diritto di rimuovere commenti offensivi, diffamatori, spam o che violino i diritti di terzi. L\'invio di un commento implica l\'accettazione della nostra Privacy Policy.'],
-    ['Limitazione di responsabilità', 'I contenuti de Il Laboratorio sono a scopo puramente informativo. Non costituiscono consulenza medica, legale, finanziaria o di altro tipo. Non siamo responsabili per eventuali danni derivanti dall\'uso delle informazioni pubblicate.'],
-    ['Link esterni', 'Il sito può contenere link a siti esterni. Non siamo responsabili per i contenuti di tali siti e il link non implica approvazione o endorsement.'],
-    ['Modifiche ai termini', 'Ci riserviamo il diritto di modificare questi Termini in qualsiasi momento. Le modifiche entrano in vigore alla pubblicazione. L\'uso continuato del sito implica l\'accettazione dei nuovi termini.'],
-    ['Legge applicabile', 'I presenti Termini sono regolati dalla legge italiana. Per qualsiasi controversia è competente il Foro di [Città].'],
+  $sections = [
+    ['Accettazione', 'Utilizzando il sito quark.it accetti i presenti termini d\'uso. Se non li accetti, ti preghiamo di non utilizzare il sito.'],
+    ['Contenuti e proprietà intellettuale', 'Tutti i contenuti pubblicati su Quark — testi, immagini, grafica e codice — sono di proprietà di Andrea Bartiromo e sono protetti dal diritto d\'autore. È vietata la riproduzione parziale o totale senza autorizzazione scritta, salvo citazioni brevi con attribuzione e link alla fonte originale.'],
+    ['Uso consentito', "Puoi:\n\n• Leggere e condividere gli articoli tramite i pulsanti social presenti sul sito.\n• Citare brevi estratti (max 3 frasi) con link all\'articolo originale.\n• Iscriverti alla newsletter e disiscriverti in qualsiasi momento.\n\nNon puoi:\n\n• Ripubblicare gli articoli integralmente su altri siti.\n• Utilizzare i contenuti per addestrare modelli di intelligenza artificiale.\n• Scraping automatico del sito."],
+    ['Accuratezza dei contenuti', 'Quark si impegna a pubblicare informazioni accurate e verificate. Tuttavia, la scienza è in continua evoluzione: alcune informazioni potrebbero risultare superate. Segnala eventuali errori tramite il form di contatto.'],
+    ['Link esterni', 'Il sito può contenere link a fonti esterne. Quark non è responsabile del contenuto di siti terzi.'],
+    ['Limitazione di responsabilità', 'Quark fornisce i contenuti "così come sono", senza garanzie di alcun tipo. Non siamo responsabili per danni diretti o indiretti derivanti dall\'uso dei contenuti.'],
+    ['Modifiche', 'Ci riserviamo il diritto di modificare questi termini in qualsiasi momento. Le modifiche entrano in vigore dalla pubblicazione sul sito.'],
+    ['Legge applicabile', 'I presenti termini sono regolati dalla legge italiana. Per qualsiasi controversia è competente il Foro di residenza del titolare.'],
   ];
   @endphp
 
-  @foreach($termini as [$titolo, $testo])
-  <div style="margin-bottom:1.75rem;">
-    <h2 style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--color-ink);
-               border-top:1px solid var(--color-border);padding-top:1rem;margin-bottom:.5rem;">
-      {{ $titolo }}
+  @foreach($sections as $i => [$title, $text])
+  <section style="margin-bottom:1.75rem;padding-bottom:1.75rem;
+                  {{ !$loop->last ? 'border-bottom:1px solid var(--border);' : '' }}">
+    <h2 style="font-size:1rem;font-weight:700;color:var(--ink);margin-bottom:.65rem;">
+      {{ $i + 1 }}. {{ $title }}
     </h2>
-    <p style="font-size:.92rem;color:var(--color-ink-soft);line-height:1.75;">{{ $testo }}</p>
-  </div>
+    @foreach(explode("\n\n", $text) as $para)
+    <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.75;margin-bottom:.5rem;">
+      {!! nl2br(e($para)) !!}
+    </p>
+    @endforeach
+  </section>
   @endforeach
-
-  <div style="background:var(--color-paper-warm);border-radius:var(--radius);padding:1.25rem;
-              font-family:var(--font-ui);font-size:.84rem;color:var(--color-ink-soft);margin-top:2rem;">
-    Per domande sui termini d'uso scrivi a
-    <a href="mailto:redazione@illaboratorio.it" style="color:var(--color-accent);">redazione@illaboratorio.it</a>.
-  </div>
 
 </div>
 @endsection

@@ -1,60 +1,80 @@
 @extends('layouts.app')
-
-@section('title', 'Rettifiche — '.config('laboratorio.name'))
-@section('description', 'La politica de Il Laboratorio sulle correzioni e rettifiche degli articoli pubblicati.')
+@section('title', 'Rettifiche — Quark')
+@section('description', 'La politica di rettifica di Quark. Come correggere gli errori in modo trasparente.')
 
 @section('content')
-<div class="container" style="padding-block:2.5rem;max-width:780px;">
+<div class="container" style="padding-block:3rem;max-width:720px;">
 
-  <hr style="border:none;border-top:3px solid var(--color-ink);margin:0 0 .5rem;">
-  <h1 style="font-family:var(--font-display);font-size:clamp(1.6rem,3vw,2.2rem);font-weight:900;margin-bottom:.75rem;">
-    Rettifiche e correzioni
-  </h1>
-  <p style="font-size:1.05rem;color:var(--color-ink-soft);line-height:1.7;margin-bottom:2rem;">
-    Il Laboratorio si impegna all'accuratezza. Quando sbagliamo, correggiamo
-    pubblicamente e tempestivamente, senza cancellare la storia.
-  </p>
+  <div style="margin-bottom:2rem;">
+    <div class="hero-eyebrow" style="margin-bottom:1rem;">Trasparenza</div>
+    <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:900;
+               color:var(--ink);letter-spacing:-.02em;margin-bottom:.75rem;">Rettifiche</h1>
+    <p style="font-size:1rem;color:var(--ink-soft);line-height:1.7;">
+      Quark si impegna a correggere gli errori in modo rapido e trasparente.
+      La precisione scientifica è il fondamento del nostro lavoro.
+    </p>
+  </div>
 
-  <div style="font-size:.92rem;color:var(--color-ink-soft);line-height:1.75;">
+  <hr style="border:none;border-top:1px solid var(--border);margin-bottom:2rem;">
 
-    <h2 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--color-ink);
-               border-top:1px solid var(--color-border);padding-top:1rem;margin:0 0 .6rem;">
+  {{-- Politica --}}
+  <section style="margin-bottom:2rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:1rem;">
       La nostra politica
     </h2>
-    <ul style="padding-left:1.5em;list-style:disc;margin-bottom:1.5em;">
-      <li style="margin-bottom:.5em;"><strong style="color:var(--color-ink);">Trasparenza totale:</strong> le correzioni vengono segnalate chiaramente nell'articolo con una nota in fondo, indicando cosa è stato modificato e quando.</li>
-      <li style="margin-bottom:.5em;"><strong style="color:var(--color-ink);">Nessuna cancellazione silenziosa:</strong> non modifichiamo articoli senza segnalarlo ai lettori.</li>
-      <li style="margin-bottom:.5em;"><strong style="color:var(--color-ink);">Tempi rapidi:</strong> ci impegniamo a correggere gli errori entro 24 ore dalla segnalazione verificata.</li>
-      <li style="margin-bottom:.5em;"><strong style="color:var(--color-ink);">Rettifica formale:</strong> per errori gravi su fatti o persone, pubblichiamo una rettifica come articolo separato.</li>
-    </ul>
+    @foreach([
+      ['⚡', 'Rapidità', 'Gli errori fattuali vengono corretti entro 24 ore dalla segnalazione.'],
+      ['👁', 'Trasparenza', 'Ogni correzione viene annotata nell\'articolo con data e natura dell\'errore. Non cancelliamo silenziosamente.'],
+      ['📧', 'Comunicazione', 'Se l\'errore è significativo, gli iscritti alla newsletter vengono informati nella prossima edizione.'],
+      ['🏆', 'Riconoscimento', 'Chi segnala un errore viene ringraziato nell\'articolo corretto, se lo desidera.'],
+    ] as [$icon, $title, $desc])
+    <div style="display:flex;gap:.85rem;margin-bottom:1rem;padding:.85rem;
+                background:var(--paper-warm);border-radius:10px;">
+      <span style="font-size:1.2rem;flex-shrink:0;">{{ $icon }}</span>
+      <div>
+        <div style="font-size:.875rem;font-weight:700;color:var(--ink);margin-bottom:.2rem;">{{ $title }}</div>
+        <div style="font-size:.82rem;color:var(--ink-soft);line-height:1.55;">{{ $desc }}</div>
+      </div>
+    </div>
+    @endforeach
+  </section>
 
-    <h2 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--color-ink);
-               border-top:1px solid var(--color-border);padding-top:1rem;margin:1.5rem 0 .6rem;">
+  {{-- Come segnalare --}}
+  <section style="margin-bottom:2rem;background:white;border:1px solid var(--border);
+                  border-radius:16px;padding:1.5rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.75rem;">
       Come segnalare un errore
     </h2>
-    <p style="margin-bottom:1em;">
-      Se hai trovato un errore fattuale, un dato impreciso o un'attribuzione errata in uno dei
-      nostri articoli, ti chiediamo di segnalarcelo. Leggiamo ogni segnalazione.
+    <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.7;margin-bottom:1rem;">
+      Utilizza il form di contatto specificando:
     </p>
-    <p style="margin-bottom:1.5em;">
-      Scrivi a <a href="mailto:rettifiche@illaboratorio.it" style="color:var(--color-accent);font-weight:600;">rettifiche@illaboratorio.it</a>
-      indicando:
-    </p>
-    <ul style="padding-left:1.5em;list-style:decimal;margin-bottom:2em;">
-      <li style="margin-bottom:.4em;">Il link o il titolo dell'articolo</li>
-      <li style="margin-bottom:.4em;">L'affermazione che ritieni errata</li>
-      <li style="margin-bottom:.4em;">Le fonti che supportano la correzione</li>
-    </ul>
-
-    <div style="background:var(--color-paper-warm);border-left:4px solid var(--color-accent);
-                padding:1.25rem;border-radius:0 var(--radius) var(--radius) 0;font-size:.9rem;">
-      <strong style="color:var(--color-ink);display:block;margin-bottom:.35rem;">Diritto di rettifica (L. 8 febbraio 1948, n. 47)</strong>
-      Chiunque si ritenga diffamato da notizie pubblicate su questa testata ha diritto a richiedere
-      la pubblicazione di una rettifica ai sensi dell'art. 8 della Legge sulla Stampa.
-      Le richieste vanno inviate a
-      <a href="mailto:rettifiche@illaboratorio.it" style="color:var(--color-accent);">rettifiche@illaboratorio.it</a>.
+    @foreach([
+      'Il titolo o l\'URL dell\'articolo',
+      'L\'informazione che ritieni errata',
+      'La fonte che ritieni corretta (con link se possibile)',
+    ] as $item)
+    <div style="display:flex;gap:.5rem;font-size:.82rem;color:var(--ink-soft);margin-bottom:.35rem;">
+      <span style="color:var(--primary);">→</span> {{ $item }}
     </div>
+    @endforeach
+    <div style="margin-top:1.25rem;">
+      <a href="{{ route('contatti') }}"
+         class="btn btn--primary" style="font-size:.82rem;">
+        Segnala un errore
+      </a>
+    </div>
+  </section>
 
-  </div>
+  {{-- Storico rettifiche --}}
+  <section>
+    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.75rem;">
+      Storico rettifiche
+    </h2>
+    <div style="background:var(--paper-warm);border-radius:10px;padding:1.25rem;
+                text-align:center;color:var(--ink-muted);font-size:.875rem;">
+      Nessuna rettifica registrata al momento.
+    </div>
+  </section>
+
 </div>
 @endsection
