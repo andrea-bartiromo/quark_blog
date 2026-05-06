@@ -1,35 +1,36 @@
 <?php
 
-namespace App\Models;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-use Illuminate\Database\Eloquent\Model;
-
-class NewsletterClick extends Model
+return new class extends Migration
 {
-    protected $fillable = [
-        'newsletter_subscriber_id',
-        'article_id',
-        'email',
-        'ip_hash',
-        'user_agent',
-        'url',
-        'clicked_at',
-    ];
-
-    protected $casts = [
-        'clicked_at' => 'datetime',
-    ];
-
-    public function subscriber()
+    public function up(): void
     {
-        return $this->belongsTo(
-            NewsletterSubscriber::class,
-            'newsletter_subscriber_id'
-        );
+        Schema::create('newsletter_clicks', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('newsletter_subscriber_id')
+                ->constrained('newsletter')
+                ->cascadeOnDelete();
+
+            $table->foreignId('article_id')
+                ->constrained('articles')
+                ->cascadeOnDelete();
+
+            $table->string('email')->nullable();
+            $table->string('ip_hash')->nullable();
+            $table->text('user_agent')->nullable();
+            $table->string('url')->nullable();
+            $table->timestamp('clicked_at')->nullable();
+
+            $table->timestamps();
+        });
     }
 
-    public function article()
+    public function down(): void
     {
-        return $this->belongsTo(Article::class);
+        Schema::dropIfExists('newsletter_clicks');
     }
-}
+};
