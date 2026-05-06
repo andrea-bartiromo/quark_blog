@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class NewsletterClick extends Model
 {
     protected $fillable = [
-        'newsletter_id',
+        'newsletter_subscriber_id',
         'article_id',
         'email',
         'ip_hash',
@@ -19,4 +19,17 @@ class NewsletterClick extends Model
     protected $casts = [
         'clicked_at' => 'datetime',
     ];
+
+    public function subscriber()
+    {
+        return $this->belongsTo(
+            NewsletterSubscriber::class,
+            'newsletter_subscriber_id'
+        );
+    }
+
+    public function article()
+    {
+        return $this->belongsTo(Article::class);
+    }
 }
