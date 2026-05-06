@@ -145,6 +145,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/stats', [\App\Http\Controllers\Admin\StatsController::class, 'index'])->name('stats');
     Route::get('/activity', [\App\Http\Controllers\Admin\ActivityController::class, 'index'])->name('activity');
 
+    Route::get('/stats/charts', [\App\Http\Controllers\Admin\StatsController::class, 'charts'])
+    ->name('stats.charts');
+
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
     Route::post('/ads', [AdController::class, 'store'])->name('ads.store');

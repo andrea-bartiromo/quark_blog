@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
-use App\Models\Newsletter;
-use App\Models\Comment;
 use Illuminate\Support\Facades\DB;
 
 class StatsController extends Controller
@@ -20,8 +18,10 @@ class StatsController extends Controller
 
         // Per categoria
         $byCategory = [];
+
         foreach (config('laboratorio.categories') as $slug => $label) {
             $top = $articles->where('category', $slug)->take(3);
+
             if ($top->count() > 0) {
                 $byCategory[$slug] = [
                     'label'       => $label,
@@ -46,7 +46,7 @@ class StatsController extends Controller
             ->orderBy('month')
             ->get();
 
-        // Più commentati — query semplice senza withCount
+        // Più commentati
         $topCommented = DB::table('articles')
             ->join('comments', 'articles.id', '=', 'comments.article_id')
             ->where('comments.status', 'approved')
@@ -58,8 +58,41 @@ class StatsController extends Controller
             ->get();
 
         return view('admin.stats', compact(
-            'articles', 'byCategory', 'newsletterGrowth',
-            'articlesByMonth', 'topCommented'
+            'articles',
+            'byCategory',
+            'newsletterGrowth',
+            'articlesByMonth',
+            'topCommented'
         ));
+    }
+
+    public function charts()
+    {
+        $viewsLast7Days = DB::table('articles')
+            ->selectRaw("date(created_at) as day, SUM(views) as views")
+            ->where('created_at', '>=', now()->subDays(7))
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get();
+
+        $newsletterGrowth = DB::table('newsletter')
+            ->selectRaw("date(created_at) as day, COUNT(*) as total")
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get();
+
+        $categoryDistribution = DB::table('articles')
+            ->selectRaw('category, COUNT(*) as total')
+            ->where('status', 'published')
+            ->groupBy('category')
+            ->orderByDesc('total')
+            ->get();
+
+        return response()->json([
+            'views'      => $viewsLast7Days,
+            'newsletter' => $newsletterGrowth,
+            'categories' => $categoryDistribution,
+        ]);
     }
 }
