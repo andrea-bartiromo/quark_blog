@@ -68,13 +68,13 @@ class StatsController extends Controller
 
     public function charts()
     {
-        $viewsLast7Days = DB::table('articles')
-            ->selectRaw("date(created_at) as day, SUM(views) as views")
-            ->where('created_at', '>=', now()->subDays(7))
-            ->groupBy('day')
-            ->orderBy('day')
-            ->get();
-
+        $viewsLast7Days = DB::table('article_views')
+    ->selectRaw("date(viewed_at) as day, COUNT(*) as views")
+    ->where('viewed_at', '>=', now()->subDays(7))
+    ->groupBy('day')
+    ->orderBy('day')
+    ->get();
+    
         $newsletterGrowth = DB::table('newsletter')
             ->selectRaw("date(created_at) as day, COUNT(*) as total")
             ->where('created_at', '>=', now()->subDays(30))
