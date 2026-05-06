@@ -9,27 +9,14 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   tests:
     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        php: [8.4]
-
-    name: PHP ${{ matrix.php }}
-
-    env:
-      APP_ENV: testing
-      APP_DEBUG: true
-      DB_CONNECTION: sqlite
-      DB_DATABASE: database/database.sqlite
-      CACHE_STORE: array
-      SESSION_DRIVER: array
-      QUEUE_CONNECTION: sync
-      MAIL_MAILER: array
-      BCRYPT_ROUNDS: 4
+    name: PHP 8.4
 
     steps:
       - name: Checkout code
@@ -38,7 +25,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: '8.4'
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, fileinfo, openssl
           coverage: none
 
@@ -47,6 +34,11 @@ jobs:
 
       - name: Copy environment file
         run: cp .env.example .env
+
+      - name: Force SQLite testing database
+        run: |
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite" >> .env
 
       - name: Prepare SQLite database
         run: |
