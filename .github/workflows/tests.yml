@@ -48,11 +48,11 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
-      - name: Clear Laravel caches
-        run: php artisan optimize:clear
-
       - name: Run migrations
         run: php artisan migrate --force
+
+      - name: Clear Laravel caches
+        run: php artisan optimize:clear
 
       - name: Execute tests
         run: php artisan test
