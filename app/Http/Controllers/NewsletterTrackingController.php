@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
 use App\Models\Newsletter;
+use App\Models\NewsletterClick;
 use App\Models\NewsletterOpen;
 use Illuminate\Http\Request;
-use App\Models\Article;
-use App\Models\NewsletterClick;
 
 class NewsletterTrackingController extends Controller
 {
-    public function open(Request $request, Newsletter $newsletter)
+    public function open(Request $request, Newsletter $subscriber)
     {
         NewsletterOpen::create([
-            'newsletter_id' => $newsletter->id,
-            'email'         => $newsletter->email,
+            'newsletter_id' => $subscriber->id,
+            'email'         => $subscriber->email,
             'ip_hash'       => hash('sha256', $request->ip()),
             'user_agent'    => substr((string) $request->userAgent(), 0, 1000),
             'opened_at'     => now(),
@@ -31,21 +31,20 @@ class NewsletterTrackingController extends Controller
         ]);
     }
 
-    public function click(Request $request, Newsletter $newsletter, Article $article)
-{
-    $url = route('articolo', $article->slug);
+    public function click(Request $request, Newsletter $subscriber, Article $article)
+    {
+        $url = route('articolo', $article->slug);
 
-    NewsletterClick::create([
-        'newsletter_id' => $newsletter->id,
-        'article_id'    => $article->id,
-        'email'         => $newsletter->email,
-        'ip_hash'       => hash('sha256', $request->ip()),
-        'user_agent'    => substr((string) $request->userAgent(), 0, 1000),
-        'url'           => $url,
-        'clicked_at'    => now(),
-    ]);
+        NewsletterClick::create([
+            'newsletter_subscriber_id' => $subscriber->id,
+            'article_id'               => $article->id,
+            'email'                    => $subscriber->email,
+            'ip_hash'                  => hash('sha256', $request->ip()),
+            'user_agent'               => substr((string) $request->userAgent(), 0, 1000),
+            'url'                      => $url,
+            'clicked_at'               => now(),
+        ]);
 
-    return redirect()->away($url);
+        return redirect()->away($url);
+    }
 }
-}
-

@@ -1,13 +1,16 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\{
     HomeController,
     ArticleController,
     SearchController,
     CommentController,
     NewsletterController,
+    NewsletterTrackingController,
     AuthorController
+    
 };
 
 use App\Http\Controllers\Admin\{
@@ -40,6 +43,12 @@ Route::get('/newsletter/conferma', [NewsletterController::class, 'confirm'])
 
 Route::get('/newsletter/disiscrivi', [NewsletterController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe');
+
+Route::get('/newsletter/click/{subscriber}/{article}', [NewsletterTrackingController::class, 'click'])
+    ->name('newsletter.click');
+
+Route::get('/newsletter/open/{subscriber}', [NewsletterTrackingController::class, 'open'])
+    ->name('newsletter.open');
 
 // ── Commenti pubblici ──────────────────────────────────────────
 Route::post('/commenti', [CommentController::class, 'store'])
