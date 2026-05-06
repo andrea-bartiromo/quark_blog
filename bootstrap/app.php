@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,8 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'redazione' => \App\Http\Middleware\RedazioneMiddleware::class,
-            'editor'    => \App\Http\Middleware\EditorMiddleware::class,
+            'redazione'   => \App\Http\Middleware\RedazioneMiddleware::class,
+            'editor'      => \App\Http\Middleware\EditorMiddleware::class,
+            'login.limit' => \App\Http\Middleware\LoginRateLimiter::class,
+            'login.log'   => \App\Http\Middleware\LogLoginAttempts::class,
         ]);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->throttleApi();
@@ -26,7 +27,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (HttpException $e, $request) {
             $code    = $e->getStatusCode();
             $viewMap = [404 => 'errors.404', 403 => 'errors.403', 500 => 'errors.500'];
-
             if (isset($viewMap[$code]) && view()->exists($viewMap[$code])) {
                 return response()->view($viewMap[$code], ['exception' => $e], $code);
             }
