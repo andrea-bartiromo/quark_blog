@@ -8,15 +8,66 @@
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
   $categoryHighlights = collect($byCategory)->map(fn($arts) => $arts->first())->filter();
 
+  $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
+
   $visualFor = function ($article) {
       $category = $article->category ?? 'default';
       return asset('assets/img/qk-'.$category.'.svg');
   };
 
-  $hasCover = fn($article) => filled($article->cover_image);
-  $coverFor = fn($article) => asset('assets/img/'.$article->cover_image);
-  $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
-  $artworkTone = fn($article) => (($article->id ?? crc32($article->slug ?? $article->title)) % 3) + 1;
+  $categoryImages = [
+      'intelligenza-artificiale' => 'hero-ai-premium.png',
+      'spazio'                   => 'hero-spazio.png',
+      'energia'                  => 'hero-energia.png',
+      'ambiente'                 => 'hero-ambiente.png',
+      'salute'                   => 'hero-salute.png',
+  ];
+
+  $articleImages = [
+      // Immagini specifiche per articolo. Aggiungi qui nuovi slug per evitare ripetizioni.
+      'iride-la-costellazione-satellitare-italiana-24-satelliti-in-orbita-finanziata-dal-pnrr' => 'hero-spazio.png',
+      'artemis-2-litalia-porta-luomo-intorno-alla-luna-con-il-modulo-di-servizio-esm' => 'hero-ai-premium.png',
+      'record-del-fotovoltaico-italiano-nel-2025-443-twh-il-solare-supera-lidroelettrico' => 'hero-energia.png',
+  ];
+
+  $rotatingFallbackImages = [
+      'hero-ai-premium.png',
+      'hero-spazio.png',
+      'hero-energia.png',
+      'hero-ambiente.png',
+      'hero-salute.png',
+  ];
+
+  $imageForArticle = function ($article, $position = 0) use ($articleImages, $categoryImages, $rotatingFallbackImages, $visualFor) {
+      $slug = $article->slug ?? null;
+      $category = $article->category ?? 'default';
+
+      if ($slug && isset($articleImages[$slug])) {
+          return asset('assets/img/'.$articleImages[$slug]);
+      }
+
+      // Se l'articolo ha una cover nel database, preferiscila.
+      if (filled($article->cover_image)) {
+          return asset('assets/img/'.$article->cover_image);
+      }
+
+      // Per la homepage, evita ripetizioni: usa una rotazione stabile per posizione/id.
+      $seed = ($article->id ?? abs(crc32($slug ?? $article->title ?? 'quark'))) + $position;
+      $file = $rotatingFallbackImages[$seed % count($rotatingFallbackImages)];
+
+      return asset('assets/img/'.$file);
+  };
+
+  $imageForCategory = function ($article, $position = 0) use ($categoryImages, $rotatingFallbackImages, $visualFor) {
+      $category = $article->category ?? 'default';
+
+      if (isset($categoryImages[$category])) {
+          return asset('assets/img/'.$categoryImages[$category]);
+      }
+
+      $file = $rotatingFallbackImages[$position % count($rotatingFallbackImages)];
+      return asset('assets/img/'.$file);
+  };
 @endphp
 
 @if($featured)
@@ -25,18 +76,13 @@
     <div class="home-premium-hero__grid">
       <article class="home-lead-story">
         <a href="{{ route('articolo', $featured->slug) }}" class="home-lead-story__media">
-          @if($hasCover($featured))
-            <img src="{{ $coverFor($featured) }}"
-                 onerror="this.onerror=null;this.closest('.home-lead-story__media').classList.add('has-generated-artwork');this.remove();"
-                 alt="{{ $featured->title }}" loading="eager">
-          @endif
-          <div class="qk-artwork qk-artwork--hero qk-artwork--{{ $featured->category }} qk-artwork--tone-{{ $artworkTone($featured) }} {{ $hasCover($featured) ? 'qk-artwork--fallback' : '' }}" aria-hidden="true">
-            <div class="qk-artwork__orb qk-artwork__orb--one"></div>
-            <div class="qk-artwork__orb qk-artwork__orb--two"></div>
-            <div class="qk-artwork__mark"></div>
-            <strong>{{ $categoryLabel($featured) }}</strong>
-            <small>{{ Str::limit($featured->title, 64) }}</small>
-          </div>
+          <img
+            src="{{ $imageForArticle($featured, 0) }}"
+            onerror="this.onerror=null;this.src='{{ $visualFor($featured) }}';"
+            alt="{{ $featured->title }}"
+            class="home-lead-story__hero-image"
+            loading="eager">
+
           <span>In evidenza</span>
         </a>
 
@@ -106,18 +152,11 @@
       @foreach($latest->take(6) as $article)
       <a href="{{ route('articolo', $article->slug) }}" class="home-editorial-card {{ $loop->first ? 'home-editorial-card--lead' : '' }}">
         <div class="home-editorial-card__media">
-          @if($hasCover($article))
-            <img src="{{ $coverFor($article) }}"
-                 onerror="this.onerror=null;this.closest('.home-editorial-card__media').classList.add('has-generated-artwork');this.remove();"
-                 alt="{{ $article->title }}" loading="lazy">
-          @endif
-          <div class="qk-artwork qk-artwork--{{ $article->category }} qk-artwork--tone-{{ $artworkTone($article) }} {{ $hasCover($article) ? 'qk-artwork--fallback' : '' }}" aria-hidden="true">
-            <div class="qk-artwork__orb qk-artwork__orb--one"></div>
-            <div class="qk-artwork__orb qk-artwork__orb--two"></div>
-            <div class="qk-artwork__mark"></div>
-            <strong>{{ $categoryLabel($article) }}</strong>
-            <small>{{ Str::limit($article->title, 54) }}</small>
-          </div>
+          <img
+            src="{{ $imageForArticle($article, $loop->index + 1) }}"
+            onerror="this.onerror=null;this.src='{{ $visualFor($article) }}';"
+            alt="{{ $article->title }}"
+            loading="lazy">
         </div>
         <div class="home-editorial-card__body">
           <span>{{ $categoryLabel($article) }}</span>
@@ -145,9 +184,11 @@
     <div class="home-category-grid">
       @foreach($categoryHighlights->take(6) as $art)
         <a href="{{ route('categoria', $art->category) }}" class="home-category-tile">
-          <img src="{{ $visualFor($art) }}"
-               onerror="this.onerror=null;this.src='{{ asset('assets/img/qk-default.svg') }}';"
-               alt="{{ $categoryLabel($art) }}" loading="lazy">
+          <img
+            src="{{ $imageForCategory($art, $loop->index) }}"
+            onerror="this.onerror=null;this.src='{{ $visualFor($art) }}';"
+            alt="{{ $categoryLabel($art) }}"
+            loading="lazy">
           <div>
             <strong>{{ $categoryLabel($art) }} →</strong>
             <small>
