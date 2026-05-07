@@ -7,6 +7,17 @@
   $categories = config('laboratorio.categories');
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
   $categoryHighlights = collect($byCategory)->map(fn($arts) => $arts->first())->filter();
+
+  $visualFor = function ($article) {
+      $category = $article->category ?? 'default';
+      return asset('assets/img/qk-'.$category.'.svg');
+  };
+
+  $imageFor = function ($article) use ($visualFor) {
+      return $article->cover_image
+          ? asset('assets/img/'.$article->cover_image)
+          : $visualFor($article);
+  };
 @endphp
 
 @if($featured)
@@ -15,7 +26,8 @@
     <div class="magazine-hero__grid">
       <article class="magazine-hero__main">
         <a href="{{ route('articolo', $featured->slug) }}" class="magazine-hero__image">
-          <img src="{{ asset('assets/img/'.($featured->cover_image ?? 'hero-placeholder.svg')) }}"
+          <img src="{{ $imageFor($featured) }}"
+               onerror="this.onerror=null;this.src='{{ $visualFor($featured) }}';"
                alt="{{ $featured->title }}" loading="eager">
           <span class="magazine-hero__badge">In evidenza</span>
         </a>
@@ -95,7 +107,8 @@
         @foreach($latest->take(4) as $article)
         <a href="{{ route('articolo', $article->slug) }}" class="newsroom-card">
           <div class="newsroom-card__img">
-            <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
+            <img src="{{ $imageFor($article) }}"
+                 onerror="this.onerror=null;this.src='{{ $visualFor($article) }}';"
                  alt="{{ $article->title }}" loading="lazy">
           </div>
           <div class="newsroom-card__body">
@@ -122,7 +135,8 @@
         <div class="category-strip__grid">
           @foreach($categoryHighlights->take(6) as $art)
             <a href="{{ route('categoria', $art->category) }}" class="category-tile">
-              <img src="{{ asset('assets/img/'.($art->cover_image ?? 'placeholder-1.svg')) }}"
+              <img src="{{ $visualFor($art) }}"
+                   onerror="this.onerror=null;this.src='{{ asset('assets/img/qk-default.svg') }}';"
                    alt="{{ $categories[$art->category] ?? $art->category }}" loading="lazy">
               <span>{{ $categories[$art->category] ?? $art->category }} →</span>
               <small>
