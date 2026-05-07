@@ -13,6 +13,13 @@
   border-bottom: 1px solid var(--border);
 }
 
+.home-lead-story__hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .home-premium-hero__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
