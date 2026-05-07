@@ -24,7 +24,7 @@
   ];
 
   $articleImages = [
-      // Immagini specifiche per articolo. Aggiungi qui nuovi slug per evitare ripetizioni.
+      // Fallback specifici per articolo. La cover caricata da dashboard ha sempre priorita.
       'iride-la-costellazione-satellitare-italiana-24-satelliti-in-orbita-finanziata-dal-pnrr' => 'hero-spazio.png',
       'artemis-2-litalia-porta-luomo-intorno-alla-luna-con-il-modulo-di-servizio-esm' => 'hero-ai-premium.png',
       'record-del-fotovoltaico-italiano-nel-2025-443-twh-il-solare-supera-lidroelettrico' => 'hero-energia.png',
@@ -42,13 +42,13 @@
       $slug = $article->slug ?? null;
       $category = $article->category ?? 'default';
 
-      if ($slug && isset($articleImages[$slug])) {
-          return asset('assets/img/'.$articleImages[$slug]);
-      }
-
-      // Se l'articolo ha una cover nel database, preferiscila.
+      // Se l'articolo ha una cover nel database, preferiscila sempre: cosi la homepage resta gestibile da dashboard.
       if (filled($article->cover_image)) {
           return asset('assets/img/'.$article->cover_image);
+      }
+
+      if ($slug && isset($articleImages[$slug])) {
+          return asset('assets/img/'.$articleImages[$slug]);
       }
 
       // Per la homepage, evita ripetizioni: usa una rotazione stabile per posizione/id.
