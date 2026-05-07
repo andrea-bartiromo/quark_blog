@@ -13,11 +13,10 @@
       return asset('assets/img/qk-'.$category.'.svg');
   };
 
-  $imageFor = function ($article) use ($visualFor) {
-      return $article->cover_image
-          ? asset('assets/img/'.$article->cover_image)
-          : $visualFor($article);
-  };
+  $hasCover = fn($article) => filled($article->cover_image);
+  $coverFor = fn($article) => asset('assets/img/'.$article->cover_image);
+  $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
+  $artworkTone = fn($article) => (($article->id ?? crc32($article->slug ?? $article->title)) % 3) + 1;
 @endphp
 
 @if($featured)
@@ -26,14 +25,23 @@
     <div class="home-premium-hero__grid">
       <article class="home-lead-story">
         <a href="{{ route('articolo', $featured->slug) }}" class="home-lead-story__media">
-          <img src="{{ $imageFor($featured) }}"
-               onerror="this.onerror=null;this.src='{{ $visualFor($featured) }}';"
-               alt="{{ $featured->title }}" loading="eager">
+          @if($hasCover($featured))
+            <img src="{{ $coverFor($featured) }}"
+                 onerror="this.onerror=null;this.closest('.home-lead-story__media').classList.add('has-generated-artwork');this.remove();"
+                 alt="{{ $featured->title }}" loading="eager">
+          @endif
+          <div class="qk-artwork qk-artwork--hero qk-artwork--{{ $featured->category }} qk-artwork--tone-{{ $artworkTone($featured) }} {{ $hasCover($featured) ? 'qk-artwork--fallback' : '' }}" aria-hidden="true">
+            <div class="qk-artwork__orb qk-artwork__orb--one"></div>
+            <div class="qk-artwork__orb qk-artwork__orb--two"></div>
+            <div class="qk-artwork__mark"></div>
+            <strong>{{ $categoryLabel($featured) }}</strong>
+            <small>{{ Str::limit($featured->title, 64) }}</small>
+          </div>
           <span>In evidenza</span>
         </a>
 
         <div class="home-lead-story__content">
-          <span class="magazine-kicker">{{ $categories[$featured->category] ?? $featured->category }} · Newsroom selection</span>
+          <span class="magazine-kicker">{{ $categoryLabel($featured) }} · Newsroom selection</span>
           <h1><a href="{{ route('articolo', $featured->slug) }}">{!! nl2br(e($featured->title)) !!}</a></h1>
           <p>{{ Str::limit($featured->excerpt, 230) }}</p>
           <div class="magazine-meta magazine-meta--hero">
@@ -56,7 +64,7 @@
           <a href="{{ route('articolo', $item->slug) }}" class="home-trending-item">
             <span>{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
             <div>
-              <small>{{ $categories[$item->category] ?? $item->category }}</small>
+              <small>{{ $categoryLabel($item) }}</small>
               <strong>{{ Str::limit($item->title, 84) }}</strong>
               <em>{{ $item->read_minutes }} min di lettura</em>
             </div>
@@ -98,12 +106,21 @@
       @foreach($latest->take(6) as $article)
       <a href="{{ route('articolo', $article->slug) }}" class="home-editorial-card {{ $loop->first ? 'home-editorial-card--lead' : '' }}">
         <div class="home-editorial-card__media">
-          <img src="{{ $imageFor($article) }}"
-               onerror="this.onerror=null;this.src='{{ $visualFor($article) }}';"
-               alt="{{ $article->title }}" loading="lazy">
+          @if($hasCover($article))
+            <img src="{{ $coverFor($article) }}"
+                 onerror="this.onerror=null;this.closest('.home-editorial-card__media').classList.add('has-generated-artwork');this.remove();"
+                 alt="{{ $article->title }}" loading="lazy">
+          @endif
+          <div class="qk-artwork qk-artwork--{{ $article->category }} qk-artwork--tone-{{ $artworkTone($article) }} {{ $hasCover($article) ? 'qk-artwork--fallback' : '' }}" aria-hidden="true">
+            <div class="qk-artwork__orb qk-artwork__orb--one"></div>
+            <div class="qk-artwork__orb qk-artwork__orb--two"></div>
+            <div class="qk-artwork__mark"></div>
+            <strong>{{ $categoryLabel($article) }}</strong>
+            <small>{{ Str::limit($article->title, 54) }}</small>
+          </div>
         </div>
         <div class="home-editorial-card__body">
-          <span>{{ $categories[$article->category] ?? $article->category }}</span>
+          <span>{{ $categoryLabel($article) }}</span>
           <h3>{{ $article->title }}</h3>
           <p>{{ Str::limit($article->excerpt, $loop->first ? 155 : 96) }}</p>
           <div class="magazine-meta">
@@ -130,9 +147,9 @@
         <a href="{{ route('categoria', $art->category) }}" class="home-category-tile">
           <img src="{{ $visualFor($art) }}"
                onerror="this.onerror=null;this.src='{{ asset('assets/img/qk-default.svg') }}';"
-               alt="{{ $categories[$art->category] ?? $art->category }}" loading="lazy">
+               alt="{{ $categoryLabel($art) }}" loading="lazy">
           <div>
-            <strong>{{ $categories[$art->category] ?? $art->category }} →</strong>
+            <strong>{{ $categoryLabel($art) }} →</strong>
             <small>
               @switch($art->category)
                 @case('intelligenza-artificiale') Scopri il futuro dell'IA @break
