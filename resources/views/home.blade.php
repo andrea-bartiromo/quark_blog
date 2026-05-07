@@ -6,12 +6,12 @@
 @php
   $categories = config('laboratorio.categories');
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
+  $categoryHighlights = collect($byCategory)->map(fn($arts) => $arts->first())->filter();
 @endphp
 
-{{-- Homepage magazine premium --}}
 @if($featured)
 <section class="magazine-hero">
-  <div class="container">
+  <div class="container container--wide">
     <div class="magazine-hero__grid">
       <article class="magazine-hero__main">
         <a href="{{ route('articolo', $featured->slug) }}" class="magazine-hero__image">
@@ -27,7 +27,7 @@
           <h1 class="magazine-hero__title">
             <a href="{{ route('articolo', $featured->slug) }}">{!! nl2br(e($featured->title)) !!}</a>
           </h1>
-          <p class="magazine-hero__excerpt">{{ Str::limit($featured->excerpt, 210) }}</p>
+          <p class="magazine-hero__excerpt">{{ Str::limit($featured->excerpt, 220) }}</p>
 
           <div class="magazine-meta">
             <div class="author-chip">
@@ -37,7 +37,7 @@
             <span class="meta-sep">·</span>
             <span>{{ $featured->published_at->locale('it')->isoFormat('D MMM YYYY') }}</span>
             <span class="meta-sep">·</span>
-            <span>{{ $featured->read_minutes }} min</span>
+            <span>{{ $featured->read_minutes }} min di lettura</span>
           </div>
         </div>
       </article>
@@ -48,12 +48,12 @@
           <small>24h</small>
         </div>
 
-        @foreach($fallbackTrending->take(4) as $item)
+        @foreach($fallbackTrending->take(5) as $item)
           <a href="{{ route('articolo', $item->slug) }}" class="trending-row">
             <span class="trending-row__rank">{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
             <span class="trending-row__body">
               <span class="trending-row__cat">{{ $categories[$item->category] ?? $item->category }}</span>
-              <strong>{{ Str::limit($item->title, 72) }}</strong>
+              <strong>{{ Str::limit($item->title, 82) }}</strong>
               <em>{{ $item->read_minutes }} min di lettura</em>
             </span>
           </a>
@@ -64,12 +64,13 @@
 </section>
 @endif
 
-<div class="container">
+<div class="container container--wide">
   <section class="premium-newsletter-band">
+    <div class="premium-newsletter-band__icon" aria-hidden="true">✉</div>
     <div>
       <span class="magazine-kicker">Newsletter intelligence</span>
       <h2>La settimana scientifica, filtrata dalla redazione.</h2>
-      <p>Ricevi analisi, storie e segnali emergenti da spazio, IA, energia, salute e ambiente.</p>
+      <p>Ricevi analisi, storie e insight su spazio, IA, energia, salute e ambiente.</p>
     </div>
     <form class="premium-newsletter-band__form" action="{{ route('newsletter.subscribe') }}" method="POST">
       @csrf
@@ -79,33 +80,30 @@
   </section>
 </div>
 
-<div class="container">
+<div class="container container--wide">
   <div class="page-layout magazine-layout">
 
     <section>
       <div class="section-head section-head--premium">
         <div>
-          <span class="magazine-kicker">Latest from the newsroom</span>
           <h2>Ultimi articoli</h2>
         </div>
         <a href="{{ route('notizie') }}">Vedi tutti →</a>
       </div>
 
       <div class="newsroom-grid">
-        @foreach($latest as $article)
+        @foreach($latest->take(4) as $article)
         <a href="{{ route('articolo', $article->slug) }}" class="newsroom-card">
           <div class="newsroom-card__img">
             <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
                  alt="{{ $article->title }}" loading="lazy">
-            <span>{{ $categories[$article->category] ?? $article->category }}</span>
           </div>
           <div class="newsroom-card__body">
+            <span class="newsroom-card__cat">{{ $categories[$article->category] ?? $article->category }}</span>
             <h3>{{ $article->title }}</h3>
-            <p>{{ Str::limit($article->excerpt, 118) }}</p>
+            <p>{{ Str::limit($article->excerpt, 105) }}</p>
             <div class="magazine-meta">
               <span>{{ Str::before($article->author->name, ' ') }}</span>
-              <span class="meta-sep">·</span>
-              <span>{{ $article->published_at->locale('it')->isoFormat('D MMM') }}</span>
               <span class="meta-sep">·</span>
               <span>{{ $article->read_minutes }} min</span>
             </div>
@@ -114,42 +112,33 @@
         @endforeach
       </div>
 
-      @foreach($byCategory as $slug => $arts)
-        @if($arts->count() > 0)
-        <section class="category-showcase">
-          <div class="section-head section-head--premium">
-            <div>
-              <span class="magazine-kicker">Dossier</span>
-              <h2>{{ $categories[$slug] ?? $slug }}</h2>
-            </div>
-            <a href="{{ route('categoria', $slug) }}">Vedi tutti →</a>
+      <section class="category-strip">
+        <div class="section-head section-head--premium">
+          <div>
+            <h2>Esplora le categorie</h2>
           </div>
+        </div>
 
-          <div class="category-showcase__grid">
-            @foreach($arts as $art)
-            <a href="{{ route('articolo', $art->slug) }}" class="category-story {{ $loop->first ? 'category-story--lead' : '' }}">
-              <div class="category-story__thumb">
-                <img src="{{ asset('assets/img/'.($art->cover_image ?? 'placeholder-1.svg')) }}"
-                     alt="{{ $art->title }}" loading="lazy">
-              </div>
-              <div class="category-story__body">
-                <span>{{ $categories[$art->category] ?? $art->category }}</span>
-                <h3>{{ $art->title }}</h3>
-                @if($loop->first)
-                  <p>{{ Str::limit($art->excerpt, 135) }}</p>
-                @endif
-                <div class="magazine-meta">
-                  <span>{{ $art->published_at->locale('it')->isoFormat('D MMM') }}</span>
-                  <span class="meta-sep">·</span>
-                  <span>{{ $art->read_minutes }} min</span>
-                </div>
-              </div>
+        <div class="category-strip__grid">
+          @foreach($categoryHighlights->take(6) as $art)
+            <a href="{{ route('categoria', $art->category) }}" class="category-tile">
+              <img src="{{ asset('assets/img/'.($art->cover_image ?? 'placeholder-1.svg')) }}"
+                   alt="{{ $categories[$art->category] ?? $art->category }}" loading="lazy">
+              <span>{{ $categories[$art->category] ?? $art->category }} →</span>
+              <small>
+                @switch($art->category)
+                  @case('intelligenza-artificiale') Scopri il futuro dell'IA @break
+                  @case('spazio') Esplorazione, satelliti e missioni @break
+                  @case('energia') Rinnovabili, nucleare e innovazione @break
+                  @case('ambiente') Clima, natura e sostenibilità @break
+                  @case('salute') Scienza, medicina e benessere @break
+                  @default Innovazione e mondo digitale
+                @endswitch
+              </small>
             </a>
-            @endforeach
-          </div>
-        </section>
-        @endif
-      @endforeach
+          @endforeach
+        </div>
+      </section>
     </section>
 
     <aside class="magazine-sidebar">
