@@ -67,6 +67,11 @@ class Article extends Model
         return $this->hasMany(Comment::class)->where('status', 'approved');
     }
 
+    public function articleViews()
+    {
+        return $this->hasMany(ArticleView::class);
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublished(Builder $q): Builder
