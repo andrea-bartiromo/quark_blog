@@ -11,8 +11,14 @@
     <nav class="header-nav" aria-label="Navigazione principale">
       <a href="{{ route('notizie') }}"
          @class(['active' => request()->routeIs('notizie')])>Articoli</a>
+
+      <a href="{{ route('turing') }}"
+         @class(['active' => request()->is('turing*')])>
+        Turing
+      </a>
+
       @foreach(config('laboratorio.categories') as $slug => $label)
-        @if($loop->index < 4)
+        @if($loop->index < 3)
         <a href="{{ route('categoria', $slug) }}"
            @class(['active' => request()->is("categoria/{$slug}")])>
           {{ $label }}
