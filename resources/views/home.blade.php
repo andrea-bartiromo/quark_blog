@@ -152,6 +152,27 @@ SVG;
 </div>
 
 <div class="container container--wide">
+  <section style="margin:2rem 0 4rem;border-radius:34px;overflow:hidden;background:#020617;color:white;position:relative;box-shadow:0 30px 80px rgba(2,6,23,.22);">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 15% 20%,rgba(34,211,238,.28),transparent 34%),radial-gradient(circle at 90% 10%,rgba(59,130,246,.24),transparent 30%),linear-gradient(135deg,#020617,#0f172a);"></div>
+    <div style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:2rem;align-items:center;padding:2.4rem;">
+      <div>
+        <span style="display:inline-flex;margin-bottom:.9rem;color:#67e8f9;font-size:.72rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;">Special Project</span>
+        <h2 style="font-family:var(--font-display);font-size:clamp(2rem,4.6vw,4.2rem);line-height:.98;letter-spacing:-.055em;margin:0;">Alan Turing: l’uomo che ha decifrato il futuro.</h2>
+        <p style="margin-top:1rem;max-width:760px;color:rgba(255,255,255,.76);font-size:1rem;line-height:1.8;">Una nuova area speciale di Quark dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.</p>
+        <a href="{{ route('turing') }}" style="display:inline-flex;margin-top:1.3rem;padding:.9rem 1.2rem;border-radius:14px;background:#67e8f9;color:#001018;text-decoration:none;font-weight:900;">Entra nella Turing Experience →</a>
+      </div>
+      <div style="border:1px solid rgba(255,255,255,.14);border-radius:24px;background:rgba(255,255,255,.05);padding:1.3rem;font-family:monospace;color:#86efac;line-height:1.8;font-size:.86rem;">
+        TURING ARCHIVE<br>
+        ENIGMA SIGNAL FOUND<br>
+        MACHINE INTELLIGENCE: ACTIVE<br>
+        QUESTION: CAN MACHINES THINK?<br>
+        STATUS: STILL OPEN
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="container container--wide">
   <section class="home-editorial-section">
     <div class="home-section-head">
       <div>
