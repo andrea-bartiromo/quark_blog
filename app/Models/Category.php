@@ -11,6 +11,7 @@ class Category extends Model
         'name',
         'slug',
         'description',
+        'image',
         'color',
         'sort_order',
         'is_active',
@@ -39,6 +40,11 @@ class Category extends Model
     public function scopeOrdered($query)
     {
         return $query->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image ? asset('assets/img/categories/' . $this->image) : null;
     }
 
     public function setNameAttribute(string $value): void
