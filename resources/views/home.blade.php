@@ -4,7 +4,8 @@
 @section('content')
 
 @php
-  $categories = config('laboratorio.categories');
+  $categories = $categoryOptions ?? config('laboratorio.categories');
+  $categoryRecords = $categoryRecords ?? collect();
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
   $categoryHighlights = collect($byCategory)->map(fn($arts) => $arts->first())->filter();
 
@@ -70,8 +71,14 @@ SVG;
       return $fallbackSvg($categoryLabel($article), $toneForCategory[$category] ?? $toneForCategory['default']);
   };
 
-  $imageForCategory = function ($article, $position = 0) use ($fallbackSvg, $categoryLabel, $toneForCategory) {
+  $imageForCategory = function ($article, $position = 0) use ($fallbackSvg, $categoryLabel, $toneForCategory, $categoryRecords) {
       $category = $article->category ?? 'default';
+      $record = $categoryRecords[$category] ?? null;
+
+      if ($record && filled($record->image)) {
+          return asset('assets/img/categories/'.$record->image);
+      }
+
       return $fallbackSvg($categoryLabel($article), $toneForCategory[$category] ?? $toneForCategory['default']);
   };
 @endphp
