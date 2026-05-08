@@ -16,22 +16,6 @@
 <style>
 .reading-progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,#0d9488,#67e8f9);z-index:9999;transition:width .08s linear}
 </style>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BlogPosting",
-  "headline": @json($article->title),
-  "description": @json($article->excerpt),
-  "datePublished": "{{ $article->published_at->toIso8601String() }}",
-  "dateModified": "{{ $article->updated_at->toIso8601String() }}",
-  "url": "{{ route('articolo', $article->slug) }}",
-  "image": "{{ asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg')) }}",
-  "author": {"@type":"Person","name": @json($article->author->name)},
-  "publisher": {"@type":"Organization","name": @json(config('laboratorio.name'))},
-  "articleSection": @json(\App\Models\Category::options(false)[$article->category] ?? $article->category),
-  "inLanguage": "it-IT"
-}
-</script>
 @endsection
 
 @section('content')
@@ -40,17 +24,18 @@
 @php
   $categoryLabel = \App\Models\Category::options(false)[$article->category] ?? $article->category;
   $cover = asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg'));
-  $bodyParts = explode('---', $article->body);
-  $mainBody = $bodyParts[0] ?? $article->body;
+  $bodyParts = explode('---', (string) $article->body);
+  $mainBody = $bodyParts[0] ?? (string) $article->body;
   $sources = isset($bodyParts[1]) ? trim($bodyParts[1]) : null;
   $isHtml = strip_tags($mainBody) !== $mainBody;
+  $relatedItems = collect($related ?? []);
 @endphp
 
 <div class="public-shell">
-  <article class="article-premium" itemscope itemtype="https://schema.org/BlogPosting">
+  <article class="article-premium">
 
     <header class="article-premium__hero">
-      <img src="{{ $cover }}" alt="{{ $article->title }}" loading="eager" itemprop="image">
+      <img src="{{ $cover }}" alt="{{ $article->title }}" loading="eager">
       <div class="article-premium__overlay"></div>
 
       <div class="article-premium__content">
@@ -58,10 +43,10 @@
           {{ $categoryLabel }}
         </a>
 
-        <h1 itemprop="headline">{{ $article->title }}</h1>
+        <h1>{{ $article->title }}</h1>
 
         @if($article->excerpt)
-        <p class="article-premium__excerpt" itemprop="description">
+        <p class="article-premium__excerpt">
           {{ $article->excerpt }}
         </p>
         @endif
@@ -69,7 +54,7 @@
         <div class="article-premium__meta">
           <span>{{ $article->author->name }}</span>
           <span>·</span>
-          <time datetime="{{ $article->published_at->toDateString() }}" itemprop="datePublished">
+          <time datetime="{{ $article->published_at->toDateString() }}">
             {{ $article->published_at->locale('it')->isoFormat('D MMMM YYYY') }}
           </time>
           <span>·</span>
@@ -82,7 +67,7 @@
 
     <div class="article-premium__layout">
       <main>
-        <section class="article-premium__body" itemprop="articleBody">
+        <section class="article-premium__body">
           @if($isHtml)
             {!! $mainBody !!}
           @else
@@ -92,10 +77,13 @@
             @endphp
 
             @foreach($paragraphs as $para)
-              @php $para = trim($para); @endphp
+              @php
+                $para = trim($para);
+                $firstLine = explode("\n", $para)[0] ?? '';
+              @endphp
 
-              @if(Str::startsWith($para, '<strong>') && Str::contains(explode("\n", $para)[0], '</strong>'))
-                <h2>{!! preg_replace('/^<strong>(.*?)<\/strong>/', '$1', explode("\n", $para)[0]) !!}</h2>
+              @if(Str::startsWith($para, '<strong>') && Str::contains($firstLine, '</strong>'))
+                <h2>{!! preg_replace('/^<strong>(.*?)<\/strong>/', '$1', $firstLine) !!}</h2>
                 @php $rest = implode("\n", array_slice(explode("\n", $para), 1)); @endphp
                 @if(trim($rest))
                   <p>{!! nl2br($rest) !!}</p>
@@ -125,7 +113,7 @@
           </form>
         </section>
 
-        @if(isset($related) && $related->count())
+        @if($relatedItems->count())
         <section style="margin-top:2rem;">
           <div class="public-section-head">
             <div>
@@ -135,7 +123,7 @@
           </div>
 
           <div class="related-premium-grid">
-            @foreach($related as $item)
+            @foreach($relatedItems as $item)
             <a href="{{ route('articolo', $item->slug) }}" class="public-card">
               <div class="public-card__media">
                 <img src="{{ asset('assets/img/'.($item->cover_image ?? 'placeholder-1.svg')) }}" alt="{{ $item->title }}" loading="lazy">
@@ -175,7 +163,7 @@
             <a href="https://twitter.com/intent/tweet?text={{ urlencode($article->title) }}&url={{ urlencode(route('articolo', $article->slug)) }}" target="_blank" rel="noopener">X</a>
             <a href="https://api.whatsapp.com/send?text={{ urlencode($article->title.' '.route('articolo', $article->slug)) }}" target="_blank" rel="noopener">WA</a>
             <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ urlencode(route('articolo', $article->slug)) }}" target="_blank" rel="noopener">in</a>
-            <button type="button" onclick="copyArticleLink('{{ route('articolo', $article->slug) }}')">Link</button>
+            <button type="button" onclick="copyArticleLink(this.dataset.url)" data-url="{{ route('articolo', $article->slug) }}">Link</button>
           </div>
         </div>
 
@@ -191,7 +179,9 @@
 @push('scripts')
 <script>
 function copyArticleLink(url) {
-  navigator.clipboard.writeText(url).then(() => alert('Link copiato negli appunti'));
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => alert('Link copiato negli appunti'));
+  }
 }
 
 window.addEventListener('scroll', () => {
