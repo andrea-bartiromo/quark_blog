@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use App\Models\ArticleView;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
@@ -24,15 +25,17 @@ class ArticleController extends Controller
 
     public function category(string $slug)
     {
-        $categories = config('laboratorio.categories');
+        $categoryModel = Category::where('slug', $slug)->first();
+        $categories = Category::options(false);
 
-        abort_unless(array_key_exists($slug, $categories), 404);
+        abort_unless($categoryModel || array_key_exists($slug, $categories), 404);
 
         return view('categoria', [
             'slug' => $slug,
-
-            'categoryLabel' => $categories[$slug],
-
+            'categoryModel' => $categoryModel,
+            'categoryLabel' => $categoryModel?->name ?? $categories[$slug],
+            'categoryDescription' => $categoryModel?->description,
+            'categoryImage' => $categoryModel?->image,
             'category' => $slug,
 
             'articles' => Article::published()
