@@ -15,7 +15,6 @@
 <body class="admin-body">
 <div class="admin-layout">
 
-  {{-- Sidebar --}}
   <aside class="admin-sidebar">
 
     <div class="admin-sidebar__brand">
@@ -39,18 +38,14 @@
         <span class="icon">📝</span> Articoli
       </a>
 
+      <a href="{{ route('admin.categories') }}"
+         @class(['active' => request()->routeIs('admin.categories*')])>
+        <span class="icon">🏷️</span> Categorie
+      </a>
+
       <a href="{{ route('admin.comments') }}"
          @class(['active' => request()->routeIs('admin.comments*')])>
         <span class="icon">💬</span> Commenti
-        @php
-          $pendingComments = \App\Models\Comment::where('status','pending')->count();
-        @endphp
-        @if($pendingComments > 0)
-          <span style="background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;
-                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
-            {{ $pendingComments }}
-          </span>
-        @endif
       </a>
 
       <a href="{{ route('admin.newsletter') }}"
@@ -78,28 +73,11 @@
       <a href="{{ route('admin.review') }}"
          @class(['active' => request()->routeIs('admin.review*')])>
         <span class="icon">📋</span> Revisione
-        @php $reviewCount = \App\Models\Article::where('status','review')->count(); @endphp
-        @if($reviewCount > 0)
-          <span style="background:#f97316;color:#fff;font-size:.6rem;font-weight:700;
-                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
-            {{ $reviewCount }}
-          </span>
-        @endif
       </a>
 
       <a href="{{ route('admin.verification') }}"
          @class(['active' => request()->routeIs('admin.verification')])>
         <span class="icon">✅</span> Verifica fonti
-        @php
-          $unverified = \App\Models\Article::where('status','published')
-            ->whereIn('verification_status',['unverified','in_progress'])->count();
-        @endphp
-        @if($unverified > 0)
-          <span style="background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;
-                       padding:.1rem .4rem;border-radius:20px;margin-left:auto;">
-            {{ $unverified }}
-          </span>
-        @endif
       </a>
 
       <a href="{{ route('admin.suggestions') }}"
@@ -157,10 +135,8 @@
 
   </aside>
 
-  {{-- Contenuto principale --}}
   <main class="admin-main">
 
-    {{-- Ricerca globale --}}
     <div style="margin-bottom:1.25rem;" x-data>
       <form method="GET" action="{{ route('admin.articles') }}"
             style="display:flex;gap:.5rem;max-width:400px;">
