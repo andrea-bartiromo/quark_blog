@@ -71,7 +71,7 @@ class ArticleController extends Controller
             'body'               => 'required',
             'category'           => 'required',
             'cover_image'        => 'nullable|max:255',
-            'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
+            'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:16384',
             'status'             => 'required|in:draft,published,review',
             'read_minutes'       => 'integer|min:1|max:60',
             'featured'           => 'boolean',
