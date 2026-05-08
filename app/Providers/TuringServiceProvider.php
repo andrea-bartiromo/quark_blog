@@ -9,8 +9,10 @@ class TuringServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        Route::view('/turing', 'turing.index')->name('turing');
-        Route::view('/turing/enigma', 'turing.enigma')->name('turing.enigma');
-        Route::view('/turing/ia', 'turing.ai')->name('turing.ai');
+        Route::middleware('web')->group(function () {
+            Route::view('/turing', 'turing.index')->name('turing');
+            Route::view('/turing/enigma', 'turing.enigma')->name('turing.enigma');
+            Route::view('/turing/ia', 'turing.ai')->name('turing.ai');
+        });
     }
 }
