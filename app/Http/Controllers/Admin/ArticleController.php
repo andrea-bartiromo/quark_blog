@@ -12,6 +12,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ActivityLog;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -28,7 +29,7 @@ class ArticleController extends Controller
     {
         return view('admin.article-form', [
             'article'    => null,
-            'categories' => config('laboratorio.categories'),
+            'categories' => Category::options(),
         ]);
     }
 
@@ -44,7 +45,7 @@ class ArticleController extends Controller
     {
         return view('admin.article-form', [
             'article'    => $article,
-            'categories' => config('laboratorio.categories'),
+            'categories' => Category::options(),
         ]);
     }
 
@@ -77,7 +78,6 @@ class ArticleController extends Controller
             'featured'           => 'boolean',
         ]);
 
-        // Upload diretto immagine dal form articolo
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file     = $request->file('cover_image_upload');
             $ext      = strtolower($file->getClientOriginalExtension());
@@ -88,7 +88,6 @@ class ArticleController extends Controller
             $uploadPath = public_path('assets/img');
             $file->move($uploadPath, $diskName);
 
-            // Ottimizzazione automatica con GD
             $fullPath = $uploadPath . '/' . $diskName;
             if (extension_loaded('gd') && file_exists($fullPath)) {
                 try {
@@ -113,7 +112,8 @@ class ArticleController extends Controller
                             imagedestroy($src); imagedestroy($dst);
                         }
                     }
-                } catch (\Throwable $e) { /* fallback silenzioso */ }
+                } catch (\Throwable $e) {
+                }
             }
 
             $data['cover_image'] = $diskName;
@@ -125,7 +125,6 @@ class ArticleController extends Controller
         $data['featured']     = $request->boolean('featured');
         $data['published_at'] = $data['status'] === 'published' ? now() : null;
 
-        // Calcolo automatico tempo di lettura (200 parole/minuto)
         if (!empty($data['body'])) {
             $wordCount = str_word_count(strip_tags($data['body']));
             $data['read_minutes'] = max(1, (int) round($wordCount / 200));
@@ -134,9 +133,6 @@ class ArticleController extends Controller
         return $data;
     }
 
-    /**
-     * Aggiorna lo stato di verifica di un articolo.
-     */
     public function updateVerification(\Illuminate\Http\Request $request, Article $article)
     {
         $validated = $request->validate([
@@ -156,7 +152,6 @@ class ArticleController extends Controller
 
         return back()->with('success', 'Stato verifica aggiornato.');
     }
-
 
     public function duplicate(\App\Models\Article $article)
     {
