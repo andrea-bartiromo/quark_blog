@@ -10,6 +10,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use App\Models\ArticleView;
+use App\Models\Category;
 use Illuminate\Support\Carbon;
 
 class HomeController extends Controller
@@ -38,10 +39,13 @@ class HomeController extends Controller
             ->with('author')
             ->get();
 
+        $categoryRecords = Category::ordered()->get()->keyBy('slug');
+        $categoryOptions = Category::options();
+
         // Articoli per categoria
         $byCategory = [];
 
-        foreach (config('laboratorio.categories') as $slug => $label) {
+        foreach ($categoryOptions as $slug => $label) {
             $arts = Article::published()
                 ->byCategory($slug)
                 ->with('author')
@@ -59,7 +63,9 @@ class HomeController extends Controller
             'featured',
             'latest',
             'byCategory',
-            'trending'
+            'trending',
+            'categoryRecords',
+            'categoryOptions'
         ));
     }
 }
