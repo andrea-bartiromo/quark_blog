@@ -50,19 +50,16 @@
         Per aiutarci a verificare rapidamente una segnalazione, includi nel messaggio le informazioni essenziali.
       </p>
 
-      <div class="premium-steps">
+      <div class="premium-legal-list">
         @foreach([
-          ['1', 'Articolo', 'Indica il titolo o l’URL dell’articolo a cui ti riferisci.'],
-          ['2', 'Punto da correggere', 'Spiega quale informazione ritieni errata o incompleta.'],
-          ['3', 'Fonte', 'Se possibile, allega una fonte affidabile o il riferimento che ritieni corretto.'],
-        ] as [$num, $title, $desc])
-          <div class="premium-step">
-            <span class="premium-step__num">{{ $num }}</span>
-            <div>
-              <strong>{{ $title }}</strong>
-              <span>{{ $desc }}</span>
-            </div>
-          </div>
+          ['Articolo', 'Indica il titolo o l’URL dell’articolo a cui ti riferisci.'],
+          ['Punto da correggere', 'Spiega quale informazione ritieni errata o incompleta.'],
+          ['Fonte', 'Se possibile, allega una fonte affidabile o il riferimento che ritieni corretto.'],
+        ] as [$title, $desc])
+          <article class="premium-legal-item">
+            <h3>{{ $title }}</h3>
+            <p>{{ $desc }}</p>
+          </article>
         @endforeach
       </div>
 
