@@ -26,7 +26,7 @@
         <div class="footer-col-title">Esplora</div>
         <nav class="footer-links" aria-label="Sezioni">
           @foreach(config('laboratorio.categories') as $slug => $label)
-            <a href="{{ route('categoria', $slug) }}">{{ $label }}</a>
+            <a href="{{ url('/categoria/'.$slug) }}">{{ $label }}</a>
           @endforeach
         </nav>
       </div>
@@ -35,12 +35,12 @@
       <div>
         <div class="footer-col-title">Quark</div>
         <nav class="footer-links" aria-label="Quark">
-          <a href="{{ route('chi-siamo') }}">Chi siamo</a>
-          <a href="{{ route('redazione') }}">La redazione</a>
-          <a href="{{ route('contatti') }}">Contatti</a>
-          <a href="{{ route('pubblicita') }}">Pubblicità e collaborazioni</a>
-          <a href="{{ route('rettifiche') }}">Rettifiche</a>
-          <a href="{{ route('feed') }}">RSS Feed</a>
+          <a href="{{ url('/chi-siamo') }}">Chi siamo</a>
+          <a href="{{ url('/la-redazione') }}">La redazione</a>
+          <a href="{{ url('/contatti') }}">Contatti</a>
+          <a href="{{ url('/pubblicita') }}">Pubblicità e collaborazioni</a>
+          <a href="{{ url('/rettifiche') }}">Rettifiche</a>
+          <a href="{{ url('/feed.xml') }}">RSS Feed</a>
         </nav>
       </div>
 
@@ -48,9 +48,9 @@
       <div>
         <div class="footer-col-title">Legale</div>
         <nav class="footer-links" aria-label="Legale">
-          <a href="{{ route('privacy') }}">Privacy policy</a>
-          <a href="{{ route('cookie') }}">Cookie policy</a>
-          <a href="{{ route('termini') }}">Termini d'uso</a>
+          <a href="{{ url('/privacy') }}">Privacy policy</a>
+          <a href="{{ url('/cookie') }}">Cookie policy</a>
+          <a href="{{ url('/termini') }}">Termini d'uso</a>
         </nav>
       </div>
 
@@ -58,7 +58,7 @@
 
     <div class="footer-bottom">
       <span>© {{ date('Y') }} Quark — Un progetto di
-        <a href="{{ route('chi-siamo') }}#fondatore"
+        <a href="{{ url('/chi-siamo#fondatore') }}"
            style="color:rgba(255,255,255,.4);text-decoration:none;">Andrea Bartiromo</a>
       </span>
       <span>Tutti i diritti riservati</span>
@@ -67,7 +67,7 @@
     <div class="footer-credit">
       Sviluppato con ♥ in Italia
       &nbsp;·&nbsp;
-      <a href="{{ route('chi-siamo') }}#progetto">Il progetto</a>
+      <a href="{{ url('/chi-siamo#progetto') }}">Il progetto</a>
     </div>
 
   </div>
