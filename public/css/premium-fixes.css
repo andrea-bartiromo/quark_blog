@@ -4,48 +4,69 @@
 .premium-step,
 .premium-copy-card,
 .premium-static-section {
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .premium-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1rem !important;
+  grid-template-columns: none !important;
 }
 
-.premium-step__num {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  flex: 0 0 42px;
+.premium-step > .premium-step__num,
+.premium-steps .premium-step > .premium-step__num,
+.premium-copy-card .premium-step > .premium-step__num {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  flex: 0 0 42px !important;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 
-  border-radius: 999px;
-  background: #0f172a;
-  color: #fff;
+  margin: 0 !important;
+  padding: 0 !important;
 
-  font-weight: 900;
-  font-size: .9rem;
-  line-height: 1;
+  border-radius: 999px !important;
+  background: #0f172a !important;
+  color: #fff !important;
 
-  overflow: visible;
-  box-sizing: border-box;
+  font-weight: 900 !important;
+  font-size: .9rem !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  aspect-ratio: 1 / 1 !important;
 }
 
 .premium-step > div {
-  min-width: 0;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
 }
 
-.premium-step strong,
-.premium-step span {
-  overflow-wrap: anywhere;
+.premium-step > div > strong {
+  display: block !important;
+  color: #020617 !important;
+  margin-bottom: .2rem !important;
+}
+
+.premium-step > div > span {
+  display: block !important;
+  color: #64748b !important;
+  line-height: 1.6 !important;
+  font-size: .9rem !important;
+  overflow-wrap: anywhere !important;
 }
 
 .premium-info-row {
-  align-items: flex-start;
+  align-items: flex-start !important;
 }
 
 .premium-info-row span:last-child {
@@ -54,23 +75,26 @@
 
 @media (max-width: 720px) {
   .premium-step {
-    gap: .8rem;
+    gap: .8rem !important;
   }
 
-  .premium-step__num {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    flex-basis: 38px;
-    font-size: .82rem;
+  .premium-step > .premium-step__num,
+  .premium-steps .premium-step > .premium-step__num,
+  .premium-copy-card .premium-step > .premium-step__num {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    flex-basis: 38px !important;
+    font-size: .82rem !important;
   }
 
   .premium-info-row {
-    flex-direction: column;
-    gap: .25rem;
+    flex-direction: column !important;
+    gap: .25rem !important;
   }
 
   .premium-info-row span:last-child {
-    text-align: left;
+    text-align: left !important;
   }
 }
