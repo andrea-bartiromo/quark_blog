@@ -34,11 +34,11 @@
       {{-- Blog --}}
       <div>
         <div class="footer-col-title">Quark</div>
-        <nav class="footer-links">
+        <nav class="footer-links" aria-label="Quark">
           <a href="{{ route('chi-siamo') }}">Chi siamo</a>
           <a href="{{ route('redazione') }}">La redazione</a>
           <a href="{{ route('contatti') }}">Contatti</a>
-          <a href="{{ route('pubblicita') }}">Collabora con noi</a>
+          <a href="{{ route('pubblicita') }}">Pubblicità e collaborazioni</a>
           <a href="{{ route('rettifiche') }}">Rettifiche</a>
           <a href="{{ route('feed') }}">RSS Feed</a>
         </nav>
@@ -47,7 +47,7 @@
       {{-- Legale --}}
       <div>
         <div class="footer-col-title">Legale</div>
-        <nav class="footer-links">
+        <nav class="footer-links" aria-label="Legale">
           <a href="{{ route('privacy') }}">Privacy policy</a>
           <a href="{{ route('cookie') }}">Cookie policy</a>
           <a href="{{ route('termini') }}">Termini d'uso</a>
