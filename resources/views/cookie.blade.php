@@ -17,6 +17,7 @@
     </section>
 
     <section class="premium-static-section premium-copy-card">
+      <h2>Cosa sono i cookie</h2>
       <p>
         Un cookie è un piccolo file di testo salvato nel browser quando visiti un sito web.
         Alcuni cookie sono necessari al funzionamento del sito, altri servono per statistiche,
@@ -24,17 +25,15 @@
       </p>
     </section>
 
-    <section class="premium-static-section premium-copy-card">
-      <h2>Cookie utilizzati</h2>
-
-      <div class="premium-cookie-table">
-        <div class="premium-cookie-table__head">
-          <span>Nome</span>
-          <span>Tipo</span>
-          <span>Scopo</span>
-          <span>Durata</span>
+    <section class="premium-static-section">
+      <div class="public-section-head">
+        <div>
+          <span>Dettaglio tecnico</span>
+          <h2>Cookie utilizzati</h2>
         </div>
+      </div>
 
+      <div class="premium-principles-grid">
         @foreach([
           ['quark_session', 'Tecnico', 'Sessione utente necessaria al funzionamento del sito', '2 ore'],
           ['XSRF-TOKEN', 'Tecnico', 'Protezione sicurezza dei form (CSRF)', '2 ore'],
@@ -44,16 +43,12 @@
           ['_ga', 'Analitico', 'Google Analytics con identificatore anonimo', '2 anni'],
           ['_ga_*', 'Analitico', 'Sessioni di misurazione Analytics', '2 anni'],
         ] as [$name, $type, $purpose, $duration])
-          <div class="premium-cookie-row">
-            <div class="premium-cookie-name">{{ $name }}</div>
-            <div>
-              <span class="premium-cookie-badge premium-cookie-badge--{{ strtolower($type) }}">
-                {{ $type }}
-              </span>
-            </div>
-            <div>{{ $purpose }}</div>
-            <div>{{ $duration }}</div>
-          </div>
+          <article class="premium-principle">
+            <div class="premium-principle__icon">🍪</div>
+            <h3>{{ $name }}</h3>
+            <p><strong>{{ $type }}</strong> · {{ $duration }}</p>
+            <p>{{ $purpose }}</p>
+          </article>
         @endforeach
       </div>
     </section>
@@ -65,21 +60,21 @@
         In alternativa puoi modificare le impostazioni direttamente dal browser.
       </p>
 
-      <div class="premium-browser-list">
+      <div class="premium-info-list">
         @foreach([
           ['Chrome', 'Impostazioni → Privacy e sicurezza → Cookie e altri dati dei siti'],
           ['Firefox', 'Impostazioni → Privacy e sicurezza → Cookie e dati dei siti'],
           ['Safari', 'Preferenze → Privacy → Gestisci dati siti web'],
           ['Edge', 'Impostazioni → Cookie e autorizzazioni del sito'],
         ] as [$browser, $path])
-          <div class="premium-browser-item">
-            <strong>{{ $browser }}</strong>
+          <div class="premium-info-row">
+            <span>{{ $browser }}</span>
             <span>{{ $path }}</span>
           </div>
         @endforeach
       </div>
 
-      <p class="premium-note">
+      <p>
         Disabilitare i cookie tecnici potrebbe compromettere il corretto funzionamento del sito.
       </p>
     </section>
