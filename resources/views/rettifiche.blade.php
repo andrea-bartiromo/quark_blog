@@ -3,78 +3,78 @@
 @section('description', 'La politica di rettifica di Quark. Come correggere gli errori in modo trasparente.')
 
 @section('content')
-<div class="container" style="padding-block:3rem;max-width:720px;">
+<div class="public-page public-page--corrections">
+  <div class="container premium-static">
 
-  <div style="margin-bottom:2rem;">
-    <div class="hero-eyebrow" style="margin-bottom:1rem;">Trasparenza</div>
-    <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:900;
-               color:var(--ink);letter-spacing:-.02em;margin-bottom:.75rem;">Rettifiche</h1>
-    <p style="font-size:1rem;color:var(--ink-soft);line-height:1.7;">
-      Quark si impegna a correggere gli errori in modo rapido e trasparente.
-      La precisione scientifica è il fondamento del nostro lavoro.
-    </p>
-  </div>
-
-  <hr style="border:none;border-top:1px solid var(--border);margin-bottom:2rem;">
-
-  {{-- Politica --}}
-  <section style="margin-bottom:2rem;">
-    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:1rem;">
-      La nostra politica
-    </h2>
-    @foreach([
-      ['⚡', 'Rapidità', 'Gli errori fattuali vengono corretti entro 24 ore dalla segnalazione.'],
-      ['👁', 'Trasparenza', 'Ogni correzione viene annotata nell\'articolo con data e natura dell\'errore. Non cancelliamo silenziosamente.'],
-      ['📧', 'Comunicazione', 'Se l\'errore è significativo, gli iscritti alla newsletter vengono informati nella prossima edizione.'],
-      ['🏆', 'Riconoscimento', 'Chi segnala un errore viene ringraziato nell\'articolo corretto, se lo desidera.'],
-    ] as [$icon, $title, $desc])
-    <div style="display:flex;gap:.85rem;margin-bottom:1rem;padding:.85rem;
-                background:var(--paper-warm);border-radius:10px;">
-      <span style="font-size:1.2rem;flex-shrink:0;">{{ $icon }}</span>
-      <div>
-        <div style="font-size:.875rem;font-weight:700;color:var(--ink);margin-bottom:.2rem;">{{ $title }}</div>
-        <div style="font-size:.82rem;color:var(--ink-soft);line-height:1.55;">{{ $desc }}</div>
+    <section class="public-hero public-hero--light public-hero--compact">
+      <span class="public-hero__kicker">Trasparenza</span>
+      <h1>Rettifiche</h1>
+      <p>
+        Quark si impegna a correggere gli errori in modo rapido, visibile e tracciabile.
+        La precisione scientifica è il fondamento del nostro lavoro editoriale.
+      </p>
+      <div class="public-hero__meta">
+        <span>Correzioni esplicite</span>
+        <span>Fonti verificabili</span>
+        <span>Responsabilità editoriale</span>
       </div>
-    </div>
-    @endforeach
-  </section>
+    </section>
 
-  {{-- Come segnalare --}}
-  <section style="margin-bottom:2rem;background:white;border:1px solid var(--border);
-                  border-radius:16px;padding:1.5rem;">
-    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.75rem;">
-      Come segnalare un errore
-    </h2>
-    <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.7;margin-bottom:1rem;">
-      Utilizza il form di contatto specificando:
-    </p>
-    @foreach([
-      'Il titolo o l\'URL dell\'articolo',
-      'L\'informazione che ritieni errata',
-      'La fonte che ritieni corretta (con link se possibile)',
-    ] as $item)
-    <div style="display:flex;gap:.5rem;font-size:.82rem;color:var(--ink-soft);margin-bottom:.35rem;">
-      <span style="color:var(--primary);">→</span> {{ $item }}
-    </div>
-    @endforeach
-    <div style="margin-top:1.25rem;">
-      <a href="{{ route('contatti') }}"
-         class="btn btn--primary" style="font-size:.82rem;">
-        Segnala un errore
-      </a>
-    </div>
-  </section>
+    <section class="premium-static-section">
+      <div class="public-section-head">
+        <div>
+          <span>Metodo</span>
+          <h2>La nostra politica</h2>
+        </div>
+      </div>
 
-  {{-- Storico rettifiche --}}
-  <section>
-    <h2 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin-bottom:.75rem;">
-      Storico rettifiche
-    </h2>
-    <div style="background:var(--paper-warm);border-radius:10px;padding:1.25rem;
-                text-align:center;color:var(--ink-muted);font-size:.875rem;">
-      Nessuna rettifica registrata al momento.
-    </div>
-  </section>
+      <div class="premium-principles-grid">
+        @foreach([
+          ['⚡', 'Rapidità', 'Gli errori fattuali vengono verificati e corretti il prima possibile dopo la segnalazione.'],
+          ['👁️', 'Trasparenza', 'Le correzioni rilevanti vengono indicate nell’articolo con data e natura dell’intervento.'],
+          ['📧', 'Comunicazione', 'Se l’errore è significativo, può essere segnalato anche nei canali editoriali disponibili.'],
+          ['🏆', 'Riconoscimento', 'Chi segnala un errore può essere ringraziato nell’articolo corretto, se lo desidera.'],
+        ] as [$icon, $title, $desc])
+          <article class="premium-principle">
+            <div class="premium-principle__icon">{{ $icon }}</div>
+            <h3>{{ $title }}</h3>
+            <p>{{ $desc }}</p>
+          </article>
+        @endforeach
+      </div>
+    </section>
 
+    <section class="premium-static-section premium-copy-card">
+      <h2>Come segnalare un errore</h2>
+      <p>
+        Per aiutarci a verificare rapidamente una segnalazione, includi nel messaggio le informazioni essenziali.
+      </p>
+
+      <div class="premium-steps">
+        @foreach([
+          ['1', 'Articolo', 'Indica il titolo o l’URL dell’articolo a cui ti riferisci.'],
+          ['2', 'Punto da correggere', 'Spiega quale informazione ritieni errata o incompleta.'],
+          ['3', 'Fonte', 'Se possibile, allega una fonte affidabile o il riferimento che ritieni corretto.'],
+        ] as [$num, $title, $desc])
+          <div class="premium-step">
+            <span class="premium-step__num">{{ $num }}</span>
+            <div>
+              <strong>{{ $title }}</strong>
+              <span>{{ $desc }}</span>
+            </div>
+          </div>
+        @endforeach
+      </div>
+
+      <a class="premium-button" href="{{ route('contatti') }}">Segnala un errore</a>
+    </section>
+
+    <section class="premium-static-section public-empty-state public-empty-state--soft">
+      <span>✅</span>
+      <h3>Storico rettifiche</h3>
+      <p>Nessuna rettifica registrata al momento.</p>
+    </section>
+
+  </div>
 </div>
 @endsection
