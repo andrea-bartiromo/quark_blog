@@ -45,6 +45,7 @@
   <link rel="stylesheet" href="{{ asset('css/home-fix.css') }}">
   <link rel="stylesheet" href="{{ asset('css/public-premium.css') }}">
   <link rel="stylesheet" href="{{ asset('css/public-unified.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/premium-fixes.css') }}">
 
   @yield('head')
 </head>
