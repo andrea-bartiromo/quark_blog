@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
 
 use App\Http\Controllers\{
     HomeController,
@@ -211,13 +210,6 @@ Route::get('/termini',      fn () => view('termini'))->name('termini');
 Route::get('/rettifiche',   fn () => view('rettifiche'))->name('rettifiche');
 
 Route::post('/contatti', function (\Illuminate\Http\Request $r) {
-    Log::info('Contact form POST received', [
-        'ip' => $r->ip(),
-        'email' => $r->input('email'),
-        'oggetto' => $r->input('oggetto'),
-        'has_privacy' => $r->has('privacy'),
-    ]);
-
     $data = $r->validate([
         'nome'      => 'required|max:100',
         'email'     => 'required|email|max:150',
@@ -243,18 +235,9 @@ Route::post('/contatti', function (\Illuminate\Http\Request $r) {
             }
         );
 
-        Log::info('Contact form email sent', [
-            'to' => $to,
-            'from_email' => $data['email'],
-            'oggetto' => $data['oggetto'],
-        ]);
-
         return redirect()->route('contatti', ['sent' => '1']);
     } catch (\Throwable $e) {
-        Log::error('Contact form email failed', [
-            'to' => $to,
-            'error' => $e->getMessage(),
-        ]);
+        report($e);
 
         return back()->withErrors([
             'email' => 'Il messaggio non è stato inviato. Errore mail: '.$e->getMessage(),
