@@ -46,20 +46,17 @@
     <section class="premium-static-section premium-copy-card">
       <h2>Opportunità disponibili</h2>
 
-      <div class="premium-steps">
+      <div class="premium-legal-list">
         @foreach([
-          ['📢', 'Banner display', 'Posizionamenti premium in homepage, sidebar e pagine articolo.'],
-          ['📝', 'Contenuti sponsorizzati', 'Approfondimenti editoriali sempre etichettati come sponsorizzati.'],
-          ['✉️', 'Newsletter sponsorship', 'Presenza dedicata all’interno della newsletter di Quark.'],
-          ['🤝', 'Partnership editoriali', 'Collaborazioni con università, startup, enti di ricerca e aziende tech.'],
-        ] as [$icon, $title, $desc])
-          <div class="premium-step">
-            <span class="premium-step__num">{{ $icon }}</span>
-            <div>
-              <strong>{{ $title }}</strong>
-              <span>{{ $desc }}</span>
-            </div>
-          </div>
+          ['Banner display', 'Posizionamenti premium in homepage, sidebar e pagine articolo.'],
+          ['Contenuti sponsorizzati', 'Approfondimenti editoriali sempre etichettati come sponsorizzati.'],
+          ['Newsletter sponsorship', 'Presenza dedicata all’interno della newsletter di Quark.'],
+          ['Partnership editoriali', 'Collaborazioni con università, startup, enti di ricerca e aziende tech.'],
+        ] as [$title, $desc])
+          <article class="premium-legal-item">
+            <h3>{{ $title }}</h3>
+            <p>{{ $desc }}</p>
+          </article>
         @endforeach
       </div>
     </section>
