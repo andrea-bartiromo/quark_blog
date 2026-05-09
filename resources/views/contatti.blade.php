@@ -12,7 +12,7 @@
       <p>Hai trovato un errore? Vuoi proporre un argomento? Hai domande sulla redazione? Scrivici: leggiamo tutto.</p>
     </section>
 
-    @if(session('contact_sent'))
+    @if(request('sent') === '1' || session('contact_sent'))
       <div class="premium-alert premium-alert--success">
         ✅ Messaggio inviato! Ti risponderemo entro 48 ore.
       </div>
@@ -31,7 +31,7 @@
 
     <div class="premium-contact-layout">
       <section class="premium-form-card">
-        <form method="POST" action="{{ url('/contatti') }}" class="premium-form-grid" novalidate>
+        <form method="POST" action="{{ route('contatti.send') }}" class="premium-form-grid" novalidate>
           @csrf
 
           {{-- Honeypot antispam: deve restare vuoto --}}
