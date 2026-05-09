@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 
 use App\Http\Controllers\{
     HomeController,
@@ -212,13 +213,31 @@ Route::post('/contatti', function (\Illuminate\Http\Request $r) {
     if ($r->input('website') !== '') {
         return redirect()->route('contatti');
     }
-    $r->validate([
+
+    $data = $r->validate([
         'nome'      => 'required|max:100',
-        'email'     => 'required|email',
-        'oggetto'   => 'required',
+        'email'     => 'required|email|max:150',
+        'oggetto'   => 'required|max:120',
         'messaggio' => 'required|min:20|max:2000',
         'privacy'   => 'accepted',
     ]);
+
+    $to = env('CONTACT_TO_ADDRESS', config('mail.from.address'));
+
+    Mail::raw(
+        "Nuovo messaggio dal form contatti di Quark\n\n" .
+        "Nome: {$data['nome']}\n" .
+        "Email: {$data['email']}\n" .
+        "Oggetto: {$data['oggetto']}\n\n" .
+        "Messaggio:\n{$data['messaggio']}\n\n" .
+        "---\nInviato da: " . url('/contatti'),
+        function ($message) use ($data, $to) {
+            $message->to($to)
+                ->replyTo($data['email'], $data['nome'])
+                ->subject('[Quark] Nuovo messaggio: '.$data['oggetto']);
+        }
+    );
+
     return redirect()->route('contatti')->with('contact_sent', true);
 })->middleware('throttle:3,1')->name('contatti.send');
 
