@@ -61,7 +61,7 @@
 </div>
 @endif
 
-@if($errors->has('email'))
+@if(isset($errors) && $errors->has('email'))
 <div id="newsletter-alert" style="max-width:1200px;margin:1rem auto 0;padding:.85rem 1.25rem;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:.9rem;font-weight:600;">
   ❌ {{ $errors->first('email') }}
 </div>
