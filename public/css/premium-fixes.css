@@ -3,7 +3,9 @@
 .premium-steps,
 .premium-step,
 .premium-copy-card,
-.premium-static-section {
+.premium-static-section,
+.premium-timeline,
+.premium-timeline-item {
   overflow: visible !important;
 }
 
@@ -22,25 +24,20 @@
   min-width: 42px !important;
   max-width: 42px !important;
   flex: 0 0 42px !important;
-
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-
   margin: 0 !important;
   padding: 0 !important;
-
   border-radius: 999px !important;
   background: #0f172a !important;
   color: #fff !important;
-
   font-weight: 900 !important;
   font-size: .9rem !important;
   line-height: 1 !important;
   text-align: center !important;
   letter-spacing: 0 !important;
   white-space: nowrap !important;
-
   overflow: visible !important;
   box-sizing: border-box !important;
   aspect-ratio: 1 / 1 !important;
@@ -65,6 +62,51 @@
   overflow-wrap: anywhere !important;
 }
 
+/* Robust replacement component */
+.premium-timeline {
+  display: grid !important;
+  gap: 1rem !important;
+  margin-top: 1.2rem !important;
+}
+
+.premium-timeline-item {
+  display: grid !important;
+  grid-template-columns: 44px minmax(0,1fr) !important;
+  gap: 1rem !important;
+  align-items: flex-start !important;
+}
+
+.premium-timeline-badge {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  border-radius: 999px !important;
+  background: #0f172a !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: .9rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+.premium-timeline-content {
+  min-width: 0 !important;
+}
+
+.premium-timeline-content strong {
+  display: block !important;
+  color: #020617 !important;
+  margin-bottom: .25rem !important;
+}
+
+.premium-timeline-content p {
+  margin: 0 0 .55rem !important;
+  color: #64748b !important;
+  line-height: 1.65 !important;
+}
+
 .premium-info-row {
   align-items: flex-start !important;
 }
@@ -86,6 +128,18 @@
     min-width: 38px !important;
     max-width: 38px !important;
     flex-basis: 38px !important;
+    font-size: .82rem !important;
+  }
+
+  .premium-timeline-item {
+    grid-template-columns: 38px minmax(0,1fr) !important;
+    gap: .8rem !important;
+  }
+
+  .premium-timeline-badge {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
     font-size: .82rem !important;
   }
 
