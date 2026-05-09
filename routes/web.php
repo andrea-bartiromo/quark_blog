@@ -218,11 +218,6 @@ Route::post('/contatti', function (\Illuminate\Http\Request $r) {
         'has_privacy' => $r->has('privacy'),
     ]);
 
-    if ($r->input('website') !== '') {
-        Log::warning('Contact form blocked by honeypot', ['ip' => $r->ip()]);
-        return redirect()->route('contatti', ['blocked' => '1']);
-    }
-
     $data = $r->validate([
         'nome'      => 'required|max:100',
         'email'     => 'required|email|max:150',
