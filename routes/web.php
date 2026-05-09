@@ -238,7 +238,7 @@ Route::post('/contatti', function (\Illuminate\Http\Request $r) {
         }
     );
 
-    return redirect()->route('contatti')->with('contact_sent', true);
+    return redirect()->route('contatti', ['sent' => '1']);
 })->middleware('throttle:3,1')->name('contatti.send');
 
 // ── Sitemap index ──────────────────────────────────────────────
