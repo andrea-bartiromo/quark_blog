@@ -24,7 +24,8 @@ use App\Http\Controllers\Admin\{
     ProfileController,
     VerificationController,
     AdController,
-    CategoryController
+    CategoryController,
+    TuringController
 };
 
 // ── Pubbliche ──────────────────────────────────────────────────
@@ -117,6 +118,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/suggerimenti/{suggestion}/approva', [SuggestionController::class, 'approve'])->name('suggestions.approve');
     Route::post('/suggerimenti/{suggestion}/pubblica', [SuggestionController::class, 'publish'])->name('suggestions.publish');
     Route::delete('/suggerimenti/{suggestion}', [SuggestionController::class, 'destroy'])->name('suggestions.destroy');
+
+    // Speciali editoriali
+    Route::get('/turing', [TuringController::class, 'edit'])->name('turing');
+    Route::post('/turing', [TuringController::class, 'update'])->name('turing.update');
 
     // Media
     Route::get('/media', [MediaController::class, 'index'])->name('media');
