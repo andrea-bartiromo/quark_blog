@@ -30,17 +30,20 @@
     @endphp
 
     <section class="premium-static-section premium-copy-card">
-      @foreach($sections as $i => [$title, $text])
-        <article class="premium-legal-section">
-          <div class="premium-legal-section__num">{{ str_pad($i + 1, 2, '0', STR_PAD_LEFT) }}</div>
-          <div>
-            <h2>{{ $title }}</h2>
-            @foreach(explode("\n\n", $text) as $para)
-              <p>{!! nl2br(e($para)) !!}</p>
-            @endforeach
-          </div>
-        </article>
-      @endforeach
+      <h2>Informativa sul trattamento dei dati</h2>
+      <div class="premium-steps">
+        @foreach($sections as $i => [$title, $text])
+          <article class="premium-step">
+            <span class="premium-step__num">{{ $i + 1 }}</span>
+            <div>
+              <strong>{{ $title }}</strong>
+              @foreach(explode("\n\n", $text) as $para)
+                <span>{!! nl2br(e($para)) !!}</span>
+              @endforeach
+            </div>
+          </article>
+        @endforeach
+      </div>
     </section>
 
     <section class="premium-static-section premium-cta-band">
