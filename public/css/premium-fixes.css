@@ -1,0 +1,151 @@
+/* Quark premium component fixes */
+
+.premium-copy-card,
+.premium-static-section {
+  overflow: visible !important;
+}
+
+/* Badge-free legal/editorial list used by static pages */
+.premium-legal-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.premium-legal-item {
+  border-radius: 22px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, .07);
+  padding: 1.1rem 1.15rem;
+}
+
+.premium-legal-item h3 {
+  margin: 0 0 .55rem;
+  color: #020617;
+  font-size: 1rem;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+}
+
+.premium-legal-item h3 small {
+  display: inline-flex;
+  margin-right: .45rem;
+  color: #0f766e;
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  vertical-align: baseline;
+}
+
+.premium-legal-item p {
+  margin: 0 0 .65rem !important;
+  color: #64748b !important;
+  font-size: .92rem !important;
+  line-height: 1.7 !important;
+  overflow-wrap: anywhere;
+}
+
+.premium-legal-item p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Keep older step markup safe where still used */
+.premium-steps,
+.premium-step,
+.premium-timeline,
+.premium-timeline-item {
+  overflow: visible !important;
+}
+
+.premium-step {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1rem !important;
+  grid-template-columns: none !important;
+}
+
+.premium-step > .premium-step__num,
+.premium-steps .premium-step > .premium-step__num,
+.premium-copy-card .premium-step > .premium-step__num {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  flex: 0 0 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: #0f172a !important;
+  color: #fff !important;
+  font-weight: 900 !important;
+  font-size: .9rem !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+.premium-step > div {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.premium-step > div > strong {
+  display: block !important;
+  color: #020617 !important;
+  margin-bottom: .2rem !important;
+}
+
+.premium-step > div > span {
+  display: block !important;
+  color: #64748b !important;
+  line-height: 1.6 !important;
+  font-size: .9rem !important;
+  overflow-wrap: anywhere !important;
+}
+
+.premium-info-row {
+  align-items: flex-start !important;
+}
+
+.premium-info-row span:last-child {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .premium-legal-item {
+    border-radius: 18px;
+    padding: 1rem;
+  }
+
+  .premium-step {
+    gap: .8rem !important;
+  }
+
+  .premium-step > .premium-step__num,
+  .premium-steps .premium-step > .premium-step__num,
+  .premium-copy-card .premium-step > .premium-step__num {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    flex-basis: 38px !important;
+    font-size: .82rem !important;
+  }
+
+  .premium-info-row {
+    flex-direction: column !important;
+    gap: .25rem !important;
+  }
+
+  .premium-info-row span:last-child {
+    text-align: left !important;
+  }
+}
