@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 use App\Http\Controllers\{
     HomeController,
@@ -210,8 +211,16 @@ Route::get('/termini',      fn () => view('termini'))->name('termini');
 Route::get('/rettifiche',   fn () => view('rettifiche'))->name('rettifiche');
 
 Route::post('/contatti', function (\Illuminate\Http\Request $r) {
+    Log::info('Contact form POST received', [
+        'ip' => $r->ip(),
+        'email' => $r->input('email'),
+        'oggetto' => $r->input('oggetto'),
+        'has_privacy' => $r->has('privacy'),
+    ]);
+
     if ($r->input('website') !== '') {
-        return redirect()->route('contatti');
+        Log::warning('Contact form blocked by honeypot', ['ip' => $r->ip()]);
+        return redirect()->route('contatti', ['blocked' => '1']);
     }
 
     $data = $r->validate([
@@ -224,21 +233,38 @@ Route::post('/contatti', function (\Illuminate\Http\Request $r) {
 
     $to = env('CONTACT_TO_ADDRESS', config('mail.from.address'));
 
-    Mail::raw(
-        "Nuovo messaggio dal form contatti di Quark\n\n" .
-        "Nome: {$data['nome']}\n" .
-        "Email: {$data['email']}\n" .
-        "Oggetto: {$data['oggetto']}\n\n" .
-        "Messaggio:\n{$data['messaggio']}\n\n" .
-        "---\nInviato da: " . url('/contatti'),
-        function ($message) use ($data, $to) {
-            $message->to($to)
-                ->replyTo($data['email'], $data['nome'])
-                ->subject('[Quark] Nuovo messaggio: '.$data['oggetto']);
-        }
-    );
+    try {
+        Mail::raw(
+            "Nuovo messaggio dal form contatti di Quark\n\n" .
+            "Nome: {$data['nome']}\n" .
+            "Email: {$data['email']}\n" .
+            "Oggetto: {$data['oggetto']}\n\n" .
+            "Messaggio:\n{$data['messaggio']}\n\n" .
+            "---\nInviato da: " . url('/contatti'),
+            function ($message) use ($data, $to) {
+                $message->to($to)
+                    ->replyTo($data['email'], $data['nome'])
+                    ->subject('[Quark] Nuovo messaggio: '.$data['oggetto']);
+            }
+        );
 
-    return redirect()->route('contatti', ['sent' => '1']);
+        Log::info('Contact form email sent', [
+            'to' => $to,
+            'from_email' => $data['email'],
+            'oggetto' => $data['oggetto'],
+        ]);
+
+        return redirect()->route('contatti', ['sent' => '1']);
+    } catch (\Throwable $e) {
+        Log::error('Contact form email failed', [
+            'to' => $to,
+            'error' => $e->getMessage(),
+        ]);
+
+        return back()->withErrors([
+            'email' => 'Il messaggio non è stato inviato. Errore mail: '.$e->getMessage(),
+        ])->withInput();
+    }
 })->middleware('throttle:3,1')->name('contatti.send');
 
 // ── Sitemap index ──────────────────────────────────────────────
