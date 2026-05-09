@@ -31,16 +31,14 @@
 
     <section class="premium-static-section premium-copy-card">
       <h2>Informativa sul trattamento dei dati</h2>
-      <div class="premium-timeline">
-        @foreach($sections as $i => [$title, $text])
-          <article class="premium-timeline-item">
-            <div class="premium-timeline-badge">{{ $i + 1 }}</div>
-            <div class="premium-timeline-content">
-              <strong>{{ $title }}</strong>
-              @foreach(explode("\n\n", $text) as $para)
-                <p>{!! nl2br(e($para)) !!}</p>
-              @endforeach
-            </div>
+
+      <div class="premium-legal-list">
+        @foreach($sections as [$title, $text])
+          <article class="premium-legal-item">
+            <h3>{{ $title }}</h3>
+            @foreach(explode("\n\n", $text) as $para)
+              <p>{!! nl2br(e($para)) !!}</p>
+            @endforeach
           </article>
         @endforeach
       </div>
