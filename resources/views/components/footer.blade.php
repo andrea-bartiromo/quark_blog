@@ -11,7 +11,6 @@
           La scienza spiegata come si deve. Fisica, biologia, tecnologia e spazio
           raccontati in modo semplice, curioso e senza filtri.
         </p>
-
         <div class="footer-social">
           @foreach(config('laboratorio.social') as $net => $url)
             <a href="{{ $url }}" target="_blank" rel="noopener"
@@ -25,20 +24,16 @@
       {{-- Sezioni --}}
       <div>
         <div class="footer-col-title">Esplora</div>
-
         <nav class="footer-links" aria-label="Sezioni">
           @foreach(config('laboratorio.categories') as $slug => $label)
-            <a href="{{ url('/categoria/'.$slug) }}">
-              {{ $label }}
-            </a>
+            <a href="{{ url('/categoria/'.$slug) }}">{{ $label }}</a>
           @endforeach
         </nav>
       </div>
 
-      {{-- Quark --}}
+      {{-- Blog --}}
       <div>
         <div class="footer-col-title">Quark</div>
-
         <nav class="footer-links" aria-label="Quark">
           <a href="{{ url('/chi-siamo') }}">Chi siamo</a>
           <a href="{{ url('/la-redazione') }}">La redazione</a>
@@ -52,7 +47,6 @@
       {{-- Legale --}}
       <div>
         <div class="footer-col-title">Legale</div>
-
         <nav class="footer-links" aria-label="Legale">
           <a href="{{ url('/privacy') }}">Privacy policy</a>
           <a href="{{ url('/cookie') }}">Cookie policy</a>
@@ -63,25 +57,17 @@
     </div>
 
     <div class="footer-bottom">
-      <span>
-        © {{ date('Y') }} Quark — Un progetto di
-
+      <span>© {{ date('Y') }} Quark — Un progetto di
         <a href="{{ url('/chi-siamo#fondatore') }}"
-           style="color:rgba(255,255,255,.4);text-decoration:none;">
-          Andrea Bartiromo
-        </a>
+           style="color:rgba(255,255,255,.4);text-decoration:none;">Andrea Bartiromo</a>
       </span>
-
       <span>Tutti i diritti riservati</span>
     </div>
 
     <div class="footer-credit">
       Sviluppato con ♥ in Italia
       &nbsp;·&nbsp;
-
-      <a href="{{ url('/chi-siamo#progetto') }}">
-        Il progetto
-      </a>
+      <a href="{{ url('/chi-siamo#progetto') }}">Il progetto</a>
     </div>
 
   </div>
