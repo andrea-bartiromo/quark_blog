@@ -1,9 +1,58 @@
 /* Quark premium component fixes */
 
+.premium-copy-card,
+.premium-static-section {
+  overflow: visible !important;
+}
+
+/* Badge-free legal/editorial list used by static pages */
+.premium-legal-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.premium-legal-item {
+  border-radius: 22px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, .07);
+  padding: 1.1rem 1.15rem;
+}
+
+.premium-legal-item h3 {
+  margin: 0 0 .55rem;
+  color: #020617;
+  font-size: 1rem;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+}
+
+.premium-legal-item h3 small {
+  display: inline-flex;
+  margin-right: .45rem;
+  color: #0f766e;
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  vertical-align: baseline;
+}
+
+.premium-legal-item p {
+  margin: 0 0 .65rem !important;
+  color: #64748b !important;
+  font-size: .92rem !important;
+  line-height: 1.7 !important;
+  overflow-wrap: anywhere;
+}
+
+.premium-legal-item p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Keep older step markup safe where still used */
 .premium-steps,
 .premium-step,
-.premium-copy-card,
-.premium-static-section,
 .premium-timeline,
 .premium-timeline-item {
   overflow: visible !important;
@@ -62,51 +111,6 @@
   overflow-wrap: anywhere !important;
 }
 
-/* Robust replacement component */
-.premium-timeline {
-  display: grid !important;
-  gap: 1rem !important;
-  margin-top: 1.2rem !important;
-}
-
-.premium-timeline-item {
-  display: grid !important;
-  grid-template-columns: 44px minmax(0,1fr) !important;
-  gap: 1rem !important;
-  align-items: flex-start !important;
-}
-
-.premium-timeline-badge {
-  width: 44px !important;
-  height: 44px !important;
-  min-width: 44px !important;
-  border-radius: 999px !important;
-  background: #0f172a !important;
-  color: #fff !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: .9rem !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
-}
-
-.premium-timeline-content {
-  min-width: 0 !important;
-}
-
-.premium-timeline-content strong {
-  display: block !important;
-  color: #020617 !important;
-  margin-bottom: .25rem !important;
-}
-
-.premium-timeline-content p {
-  margin: 0 0 .55rem !important;
-  color: #64748b !important;
-  line-height: 1.65 !important;
-}
-
 .premium-info-row {
   align-items: flex-start !important;
 }
@@ -116,6 +120,11 @@
 }
 
 @media (max-width: 720px) {
+  .premium-legal-item {
+    border-radius: 18px;
+    padding: 1rem;
+  }
+
   .premium-step {
     gap: .8rem !important;
   }
@@ -128,18 +137,6 @@
     min-width: 38px !important;
     max-width: 38px !important;
     flex-basis: 38px !important;
-    font-size: .82rem !important;
-  }
-
-  .premium-timeline-item {
-    grid-template-columns: 38px minmax(0,1fr) !important;
-    gap: .8rem !important;
-  }
-
-  .premium-timeline-badge {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
     font-size: .82rem !important;
   }
 
