@@ -10,12 +10,20 @@
 
   $blockImage = function ($block) use ($sectionImageFallbacks) {
       $key = $block['key'] ?? null;
-      return $block['image'] ?? ($key && isset($sectionImageFallbacks[$key]) ? $sectionImageFallbacks[$key] : null);
+      $image = $block['image'] ?? null;
+
+      return !empty($image)
+          ? $image
+          : ($key && isset($sectionImageFallbacks[$key]) ? $sectionImageFallbacks[$key] : null);
   };
 
   $blockBackground = function ($block) use ($sectionBackgroundFallbacks) {
       $key = $block['key'] ?? null;
-      return $block['background_image'] ?? ($key && isset($sectionBackgroundFallbacks[$key]) ? $sectionBackgroundFallbacks[$key] : null);
+      $background = $block['background_image'] ?? null;
+
+      return !empty($background)
+          ? $background
+          : ($key && isset($sectionBackgroundFallbacks[$key]) ? $sectionBackgroundFallbacks[$key] : null);
   };
 @endphp
 
