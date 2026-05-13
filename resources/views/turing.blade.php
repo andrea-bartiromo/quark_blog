@@ -12,11 +12,56 @@
   $intro = $content['intro'] ?? [];
   $cards = collect($content['cards'] ?? []);
   $editorialBlocks = collect($content['editorial_blocks'] ?? [
-    ['key'=>'enigma','enabled'=>true,'layout'=>'image_left','kicker'=>'Enigma','title'=>'Il blocco Enigma','text'=>'La sfida dei codici cifrati e il lavoro a Bletchley Park.','image'=>'','background_image'=>'','link_label'=>'','link_url'=>'#enigma'],
-    ['key'=>'macchina-universale','enabled'=>true,'layout'=>'image_right','kicker'=>'Computazione','title'=>'La macchina universale','text'=>'Il modello teorico che anticipa il computer moderno.','image'=>'','background_image'=>'','link_label'=>'','link_url'=>'#macchina-universale'],
-    ['key'=>'test-turing','enabled'=>true,'layout'=>'dark_card','kicker'=>'Intelligenza','title'=>'Il Test di Turing','text'=>'Una domanda sul linguaggio, sulle macchine e sul significato del pensare.','image'=>'','background_image'=>'','link_label'=>'','link_url'=>'#test-turing'],
-    ['key'=>'ai-moderna','enabled'=>true,'layout'=>'feature_grid','kicker'=>'AI moderna','title'=>'Da Turing all’intelligenza artificiale contemporanea','text'=>'L’eredità di Turing attraversa algoritmi, modelli linguistici e responsabilità tecnologica.','image'=>'','background_image'=>'','link_label'=>'','link_url'=>'#ai-moderna'],
-  ]);
+   [
+  [
+  'key' => 'enigma',
+  'enabled' => true,
+  'layout' => 'image_left',
+  'kicker' => 'Enigma',
+  'title' => 'Il blocco Enigma',
+  'text' => 'La sfida dei codici cifrati e il lavoro a Bletchley Park.',
+  'image' => 'turing/enigma.jpg',
+  'background_image' => '',
+  'link_label' => '',
+  'link_url' => '#enigma',
+],
+[
+  'key' => 'macchina-universale',
+  'enabled' => true,
+  'layout' => 'image_right',
+  'kicker' => 'Computazione',
+  'title' => 'La macchina universale',
+  'text' => 'Il modello teorico che anticipa il computer moderno.',
+  'image' => 'turing/macchina-universale.jpg',
+  'background_image' => '',
+  'link_label' => '',
+  'link_url' => '#macchina-universale',
+],
+[
+  'key' => 'test-turing',
+  'enabled' => true,
+  'layout' => 'dark_card',
+  'kicker' => 'Intelligenza',
+  'title' => 'Il Test di Turing',
+  'text' => 'Una domanda sul linguaggio, sulle macchine e sul significato del pensare.',
+  'image' => 'turing/test-turing.jpg',
+  'background_image' => '',
+  'link_label' => '',
+  'link_url' => '#test-turing',
+],
+[
+  'key' => 'ai-moderna',
+  'enabled' => true,
+  'layout' => 'feature_grid',
+  'kicker' => 'AI moderna',
+  'title' => 'Da Turing all’intelligenza artificiale contemporanea',
+  'text' => 'L’eredità di Turing attraversa algoritmi, modelli linguistici e responsabilità tecnologica.',
+  'image' => 'turing/ai-moderna.jpg',
+  'background_image' => '',
+  'link_label' => '',
+  'link_url' => '#ai-moderna',
+],
+
   $internalLinks = collect($content['internal_links'] ?? []);
   $decorativeImages = collect($content['decorative_images'] ?? []);
   $why = $content['why'] ?? [];

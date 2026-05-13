@@ -49,7 +49,7 @@ class TuringPageController extends Controller
         return [
             'enigma' => 'turing/enigma.jpg',
             'macchina-universale' => 'turing/macchina-universale.jpg',
-            'test-turing' => 'turing/test-turing.jpg',
+            'test-turing' => 'turing/test-turing.png',
             'ai-moderna' => 'turing/ai-moderna.jpg',
         ];
     }
