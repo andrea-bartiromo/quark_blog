@@ -1,29 +1,47 @@
 @extends('layouts.app')
 
 @php
-  $img = function ($value) {
+  $normalizeMedia = function ($value) {
       if (empty($value)) return null;
-      return str_starts_with($value, 'http') || str_starts_with($value, '/') ? $value : asset('assets/img/'.$value);
+
+      $value = trim((string) $value);
+      if ($value === '') return null;
+
+      $value = str_replace('\\', '/', $value);
+      $value = preg_replace('#^.*?/public/assets/img/#', '', $value);
+      $value = preg_replace('#^/?public/assets/img/#', '', $value);
+      $value = preg_replace('#^/?assets/img/#', '', $value);
+      $value = ltrim($value, '/');
+
+      return $value === '' ? null : $value;
+  };
+
+  $img = function ($value) use ($normalizeMedia) {
+      if (empty($value)) return null;
+
+      $value = trim((string) $value);
+      if ($value === '') return null;
+
+      if (str_starts_with($value, 'http')) return $value;
+
+      $normalized = $normalizeMedia($value);
+      return $normalized ? asset('assets/img/'.$normalized) : null;
   };
 
   $bg = fn ($value) => $img($value) ? "background-image:url('".$img($value)."')" : '';
 
-  $blockImage = function ($block) use ($sectionImageFallbacks) {
+  $blockImage = function ($block) use ($sectionImageFallbacks, $normalizeMedia) {
       $key = $block['key'] ?? null;
-      $image = $block['image'] ?? null;
+      $image = $normalizeMedia($block['image'] ?? null);
 
-      return !empty($image)
-          ? $image
-          : ($key && isset($sectionImageFallbacks[$key]) ? $sectionImageFallbacks[$key] : null);
+      return $image ?: ($key && isset($sectionImageFallbacks[$key]) ? $sectionImageFallbacks[$key] : null);
   };
 
-  $blockBackground = function ($block) use ($sectionBackgroundFallbacks) {
+  $blockBackground = function ($block) use ($sectionBackgroundFallbacks, $normalizeMedia) {
       $key = $block['key'] ?? null;
-      $background = $block['background_image'] ?? null;
+      $background = $normalizeMedia($block['background_image'] ?? null);
 
-      return !empty($background)
-          ? $background
-          : ($key && isset($sectionBackgroundFallbacks[$key]) ? $sectionBackgroundFallbacks[$key] : null);
+      return $background ?: ($key && isset($sectionBackgroundFallbacks[$key]) ? $sectionBackgroundFallbacks[$key] : null);
   };
 @endphp
 
