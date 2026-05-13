@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\SpecialPage;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class TuringPageController extends Controller
@@ -48,10 +47,10 @@ class TuringPageController extends Controller
     private function sectionImageFallbacks(): array
     {
         return [
-            'enigma' => 'turing-enigma-panel.jpg',
-            'macchina-universale' => 'turing-universal-machine-panel.jpg',
-            'test-turing' => 'turing-test-panel.jpg',
-            'ai-moderna' => 'turing-ai-panel.jpg',
+            'enigma' => 'turing/enigma.jpg',
+            'macchina-universale' => 'turing/macchina-universale.jpg',
+            'test-turing' => 'turing/test-turing.jpg',
+            'ai-moderna' => 'turing/ai-moderna.jpg',
         ];
     }
 
