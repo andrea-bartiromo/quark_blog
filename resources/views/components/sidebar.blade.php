@@ -27,8 +27,17 @@
 
     <form class="premium-newsletter-form" action="{{ route('newsletter.subscribe') }}" method="POST">
       @csrf
+      <input type="hidden" name="_redirect" value="1">
+
       <label class="sr-only" for="sidebar-newsletter-email">La tua email</label>
-      <input id="sidebar-newsletter-email" type="email" name="email" placeholder="La tua email" required>
+      <input
+        id="sidebar-newsletter-email"
+        type="email"
+        name="email"
+        placeholder="La tua email"
+        required
+        autocomplete="email">
+
       <button type="submit">Iscriviti gratis</button>
     </form>
   </section>
