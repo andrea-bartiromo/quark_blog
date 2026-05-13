@@ -1,0 +1,37 @@
+/* Turing overrides: improve text readability on dark CMS backgrounds */
+.turing-section.has-bg {
+  position: relative !important;
+  color: #fff !important;
+  isolation: isolate;
+}
+
+.turing-section.has-bg::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  background: rgba(3, 7, 18, .62) !important;
+  pointer-events: none !important;
+}
+
+.turing-section.has-bg > .container,
+.turing-section.has-bg > .container--wide {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.turing-section.has-bg .turing-kicker,
+.turing-section.has-bg .turing-section__head,
+.turing-section.has-bg .turing-section__head h2,
+.turing-section.has-bg .turing-section__head p,
+.turing-section.has-bg .turing-copy-panel h2,
+.turing-section.has-bg .turing-copy-panel p {
+  color: #fff !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45) !important;
+}
+
+.turing-section.has-bg .turing-section__head p,
+.turing-section.has-bg .turing-copy-panel p {
+  opacity: .96 !important;
+}

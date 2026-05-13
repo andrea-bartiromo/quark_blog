@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Mail;
 
 use App\Http\Controllers\{
     HomeController,
@@ -10,7 +9,9 @@ use App\Http\Controllers\{
     CommentController,
     NewsletterController,
     NewsletterTrackingController,
-    AuthorController
+    AuthorController,
+    ContactController,
+    SeoController
     
 };
 
@@ -214,123 +215,12 @@ Route::get('/cookie',       fn () => view('cookie'))->name('cookie');
 Route::get('/termini',      fn () => view('termini'))->name('termini');
 Route::get('/rettifiche',   fn () => view('rettifiche'))->name('rettifiche');
 
-Route::post('/contatti', function (\Illuminate\Http\Request $r) {
-    $data = $r->validate([
-        'nome'      => 'required|max:100',
-        'email'     => 'required|email|max:150',
-        'oggetto'   => 'required|max:120',
-        'messaggio' => 'required|min:20|max:2000',
-        'privacy'   => 'accepted',
-    ]);
+Route::post('/contatti', [ContactController::class, 'send'])
+    ->middleware('throttle:3,1')
+    ->name('contatti.send');
 
-    $to = env('CONTACT_TO_ADDRESS', config('mail.from.address'));
-
-    try {
-        Mail::raw(
-            "Nuovo messaggio dal form contatti di Quark\n\n" .
-            "Nome: {$data['nome']}\n" .
-            "Email: {$data['email']}\n" .
-            "Oggetto: {$data['oggetto']}\n\n" .
-            "Messaggio:\n{$data['messaggio']}\n\n" .
-            "---\nInviato da: " . url('/contatti'),
-            function ($message) use ($data, $to) {
-                $message->to($to)
-                    ->replyTo($data['email'], $data['nome'])
-                    ->subject('[Quark] Nuovo messaggio: '.$data['oggetto']);
-            }
-        );
-
-        return redirect()->route('contatti', ['sent' => '1']);
-    } catch (\Throwable $e) {
-        report($e);
-
-        return back()->withErrors([
-            'email' => 'Il messaggio non è stato inviato. Errore mail: '.$e->getMessage(),
-        ])->withInput();
-    }
-})->middleware('throttle:3,1')->name('contatti.send');
-
-// ── Sitemap index ──────────────────────────────────────────────
-Route::get('/sitemap-index.xml', function () {
-    $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-    $xml .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
-    $xml .= '  <sitemap><loc>' . url('/sitemap.xml') . '</loc></sitemap>' . PHP_EOL;
-    $xml .= '  <sitemap><loc>' . url('/news-sitemap.xml') . '</loc></sitemap>' . PHP_EOL;
-    $xml .= '</sitemapindex>';
-    return response($xml, 200, ['Content-Type' => 'application/xml']);
-})->name('sitemap-index');
-
-// ── Sitemap XML ────────────────────────────────────────────────
-Route::get('/sitemap.xml', function () {
-    $articles   = \App\Models\Article::published()->get(['slug', 'category', 'updated_at']);
-    $categories = array_keys(\App\Models\Category::options());
-    $base       = config('app.url');
-    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
-    foreach ([['/', '1.0', 'daily'],['/notizie', '0.9', 'daily'],['/la-redazione', '0.6', 'monthly'],
-              ['/chi-siamo', '0.5', 'monthly'],['/pubblicita', '0.4', 'monthly'],['/contatti', '0.4', 'monthly']] as [$path, $priority, $freq]) {
-        $xml .= "  <url><loc>{$base}{$path}</loc><changefreq>{$freq}</changefreq><priority>{$priority}</priority></url>" . PHP_EOL;
-    }
-    foreach ($categories as $slug) {
-        $xml .= "  <url><loc>{$base}/categoria/{$slug}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>" . PHP_EOL;
-    }
-    foreach ($articles as $article) {
-        $xml .= "  <url><loc>{$base}/articolo/{$article->slug}</loc><lastmod>{$article->updated_at->toDateString()}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>" . PHP_EOL;
-    }
-    $xml .= '</urlset>';
-    return response($xml, 200)->header('Content-Type', 'application/xml');
-})->name('sitemap');
-
-// ── Feed RSS ───────────────────────────────────────────────────
-Route::get('/feed.xml', function () {
-    $articles = \App\Models\Article::published()->with('author')->limit(20)->get();
-    $base = config('app.url');
-    $siteName = config('laboratorio.name');
-    $now = now()->toRfc2822String();
-    $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-    $xml .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">' . PHP_EOL;
-    $xml .= "<channel>" . PHP_EOL . "  <title>{$siteName}</title>" . PHP_EOL . "  <link>{$base}</link>" . PHP_EOL;
-    $xml .= "  <description>La scienza spiegata come si deve</description>" . PHP_EOL . "  <language>it-IT</language>" . PHP_EOL;
-    $xml .= "  <lastBuildDate>{$now}</lastBuildDate>" . PHP_EOL;
-    $xml .= '  <atom:link href="' . $base . '/feed.xml" rel="self" type="application/rss+xml"/>' . PHP_EOL;
-    $xml .= "  <image><url>{$base}/assets/icons/logo.png</url><title>{$siteName}</title><link>{$base}</link></image>" . PHP_EOL . PHP_EOL;
-    foreach ($articles as $article) {
-        $title   = htmlspecialchars($article->title, ENT_XML1);
-        $excerpt = htmlspecialchars($article->excerpt ?? '', ENT_XML1);
-        $url     = $base . '/articolo/' . $article->slug;
-        $date    = $article->published_at->toRfc2822String();
-        $author  = htmlspecialchars($article->author->name, ENT_XML1);
-        $cat     = htmlspecialchars(\App\Models\Category::options(false)[$article->category] ?? $article->category, ENT_XML1);
-        $body    = htmlspecialchars('<p>' . nl2br(strip_tags($article->body)) . '</p>', ENT_XML1);
-        $xml .= "  <item>" . PHP_EOL . "    <title>{$title}</title>" . PHP_EOL . "    <link>{$url}</link>" . PHP_EOL . "    <guid isPermaLink=\"true\">{$url}</guid>" . PHP_EOL;
-        $xml .= "    <description>{$excerpt}</description>" . PHP_EOL . "    <pubDate>{$date}</pubDate>" . PHP_EOL;
-        $xml .= "    <dc:creator>{$author}</dc:creator>" . PHP_EOL . "    <category>{$cat}</category>" . PHP_EOL;
-        $xml .= "    <content:encoded>{$body}</content:encoded>" . PHP_EOL . "  </item>" . PHP_EOL;
-    }
-    $xml .= "</channel>\n</rss>";
-    return response($xml, 200)->header('Content-Type', 'application/rss+xml; charset=utf-8');
-})->name('feed');
-
-// ── Google News Sitemap ────────────────────────────────────────
-Route::get('/news-sitemap.xml', function () {
-    $articles = \App\Models\Article::where('status', 'published')
-        ->where('published_at', '>=', now()->subDays(2))
-        ->orderByDesc('published_at')->limit(1000)
-        ->get(['title', 'slug', 'category', 'published_at']);
-    $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' . PHP_EOL;
-    $xml .= '        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">' . PHP_EOL;
-    $cats = \App\Models\Category::options(false);
-    foreach ($articles as $a) {
-        $url   = route('articolo', $a->slug);
-        $title = htmlspecialchars($a->title, ENT_XML1);
-        $pub   = $a->published_at->format('c');
-        $genre = htmlspecialchars($cats[$a->category] ?? $a->category, ENT_XML1);
-        $xml .= "  <url><loc>{$url}</loc><news:news>";
-        $xml .= "<news:publication><news:name>Quark</news:name><news:language>it</news:language></news:publication>";
-        $xml .= "<news:publication_date>{$pub}</news:publication_date><news:title>{$title}</news:title>";
-        $xml .= "<news:genres>{$genre}</news:genres></news:news></url>" . PHP_EOL;
-    }
-    $xml .= '</urlset>';
-    return response($xml, 200, ['Content-Type' => 'application/xml']);
-})->name('news-sitemap');
+// ── SEO e feed ─────────────────────────────────────────────────
+Route::get('/sitemap-index.xml', [SeoController::class, 'sitemapIndex'])->name('sitemap-index');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+Route::get('/feed.xml', [SeoController::class, 'feed'])->name('feed');
+Route::get('/news-sitemap.xml', [SeoController::class, 'newsSitemap'])->name('news-sitemap');

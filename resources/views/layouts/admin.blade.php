@@ -38,6 +38,11 @@
         <span class="icon">📝</span> Articoli
       </a>
 
+      <a href="{{ route('admin.turing') }}"
+         @class(['active' => request()->routeIs('admin.turing*')])>
+        <span class="icon">🧠</span> Speciale Turing
+      </a>
+
       <a href="{{ route('admin.categories') }}"
          @class(['active' => request()->routeIs('admin.categories*')])>
         <span class="icon">🏷️</span> Categorie
