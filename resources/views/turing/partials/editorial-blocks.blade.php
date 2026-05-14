@@ -1,6 +1,13 @@
 @foreach($editorialBlocks->where('enabled', true) as $block)
   @php
-    $layout = $block['layout'] ?? 'image_left';
+    $key = $block['key'] ?? null;
+    $forcedLayouts = [
+      'enigma' => 'image_left',
+      'macchina-universale' => 'image_right',
+      'test-turing' => 'image_left',
+      'ai-moderna' => 'image_right',
+    ];
+    $layout = $forcedLayouts[$key] ?? ($block['layout'] ?? 'image_left');
     $currentBlockImage = $blockImage($block);
     $currentBlockBackground = $blockBackground($block);
     $blockUrl = $block['link_url'] ?? '#'.($block['key'] ?? Str::slug($block['title'] ?? 'sezione'));
@@ -8,7 +15,7 @@
 
   <section class="turing-section turing-editorial-block {{ !empty($currentBlockBackground) ? 'has-bg' : '' }} turing-layout--{{ $layout }}" id="{{ $block['key'] ?? Str::slug($block['title'] ?? 'sezione') }}" style="{{ $bg($currentBlockBackground) }}">
     <a class="container container--wide turing-split turing-editorial-link" href="{{ $blockUrl }}">
-      @if(in_array($layout, ['image_left', 'feature_grid']))
+      @if($layout === 'image_left')
         <div class="turing-image-panel" style="{{ $bg($currentBlockImage) }}"></div>
       @endif
 
