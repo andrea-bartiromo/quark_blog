@@ -1,4 +1,4 @@
-# Il Laboratorio / Quark Blog
+#  Quark Blog
 
 **Blog di divulgazione scientifica e tecnologica sviluppata in Laravel**
 
