@@ -1,17 +1,16 @@
 # Il Laboratorio / Quark Blog
 
-**Rivista digitale di divulgazione scientifica e tecnologica sviluppata in Laravel**
+**Blog di divulgazione scientifica e tecnologica sviluppata in Laravel**
 
-Il Laboratorio è un progetto editoriale ideato e sviluppato da **Andrea Bartiromo**.  
-Nasce come rivista italiana di divulgazione scientifica e tecnologica, con l'obiettivo di unire sviluppo web, gestione editoriale, automazione dei contenuti e attenzione alla qualità delle fonti.
+Quark blog è un progetto editoriale ideato e sviluppato da **Andrea Bartiromo**.  
+Nasce come blog di divulgazione scientifica e tecnologica, con l'obiettivo di unire sviluppo web, gestione editoriale, automazione dei contenuti e attenzione alla qualità delle fonti.
 
 > Scienza e tecnologia raccontate con rigore, accessibilità e struttura editoriale.
 
----
 
 ## Obiettivo del progetto
 
-Il progetto nasce dall'idea di costruire una piattaforma editoriale moderna, non un semplice blog statico.
+Il progetto nasce dall'idea di costruire una piattaforma moderna, non un semplice blog statico.
 
 L'obiettivo è simulare il funzionamento di una piccola redazione digitale con:
 
@@ -25,8 +24,6 @@ L'obiettivo è simulare il funzionamento di una piccola redazione digitale con:
 - principio di tracciabilità delle fonti.
 
 Ogni contenuto pubblicato dovrebbe poter essere collegato a fonti verificabili e mantenere una struttura chiara per il lettore e per i motori di ricerca.
-
----
 
 ## Funzionalità principali
 
@@ -62,12 +59,11 @@ Ogni contenuto pubblicato dovrebbe poter essere collegato a fonti verificabili e
 - Indicazioni per cache Laravel.
 - Checklist pre-lancio.
 
----
 
 ## Stack tecnico
 
 | Componente | Tecnologia |
-|---|---|
+
 | Framework | Laravel |
 | Linguaggio | PHP |
 | Database | SQLite |
@@ -77,12 +73,12 @@ Ogni contenuto pubblicato dovrebbe poter essere collegato a fonti verificabili e
 | SEO | Schema.org |
 | Feed | RSS 2.0 + Dublin Core |
 
----
+
 
 ## Architettura del progetto
 
-```text
-laboratorio/
+text
+quark-blog/
 ├── app/
 │   ├── Console/Commands/   # Automazione notizie: news:fetch
 │   ├── Http/Controllers/   # Controller area pubblica e admin
@@ -127,7 +123,7 @@ SEO + RSS + Schema.org
 Avvio locale:
 
 ```bash
-cd laboratorio
+cd quark-blog
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
