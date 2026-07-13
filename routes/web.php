@@ -11,8 +11,9 @@ use App\Http\Controllers\{
     NewsletterTrackingController,
     AuthorController,
     ContactController,
-    SeoController
-    
+    SeoController,
+    TuringPageController,
+    TuringPublicController
 };
 
 use App\Http\Controllers\Admin\{
@@ -36,6 +37,9 @@ Route::get('/categoria/{slug}', [ArticleController::class, 'category'])->name('c
 Route::get('/articolo/{slug}',  [ArticleController::class, 'show'])->name('articolo');
 Route::get('/ricerca',          [SearchController::class, 'index'])->name('ricerca');
 Route::get('/autore/{user}',    [AuthorController::class, 'show'])->name('autore');
+Route::get('/turing',           [TuringPageController::class, 'index'])->name('turing');
+Route::get('/turing/enigma',    [TuringPublicController::class, 'enigma'])->name('turing.enigma');
+Route::get('/turing/ai',        [TuringPublicController::class, 'ai'])->name('turing.ai');
 
 // ── Newsletter pubblica ────────────────────────────────────────
 Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
