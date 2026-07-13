@@ -155,13 +155,34 @@ php artisan news:fetch --category=spazio
 
 ## Variabili ambiente
 
-Per usare l'automazione AI è necessario configurare nel file `.env`:
+Copiare il file di esempio adatto all'ambiente e compilare i valori reali solo nel file `.env` locale o sul server:
 
-```env
-ANTHROPIC_API_KEY=your_api_key_here
+```bash
+cp .env.example .env
+php artisan key:generate
 ```
 
-La chiave API non deve mai essere caricata nel repository.
+`APP_KEY` deve restare vuota nei file versionati e va generata nel `.env` reale con `php artisan key:generate`.
+
+Per inviare email con Gmail SMTP usare una App Password Google, mai la password dell'account Google:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@example.com
+MAIL_PASSWORD=your-app-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your-email@example.com
+```
+
+Per usare l'automazione AI è necessario configurare nel file `.env` reale:
+
+```env
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+Nessun segreto deve essere versionato: non caricare mai nel repository `APP_KEY`, token Anthropic, token GitHub, password SMTP, password database, webhook o API key reali.
 
 ---
 
