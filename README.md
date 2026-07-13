@@ -133,6 +133,14 @@ Accesso admin:
 http://127.0.0.1:8000/admin/login
 ```
 
+Pagina pubblica Turing:
+
+```text
+http://127.0.0.1:8000/turing
+http://127.0.0.1:8000/turing/enigma
+http://127.0.0.1:8000/turing/ai
+```
+
 Esecuzione automazione notizie:
 
 ```bash
