@@ -6,34 +6,13 @@ use Illuminate\View\View;
 
 class TuringPublicController extends Controller
 {
-    public function index(): View
+    public function enigma(): View
     {
-        return view('turing.index', [
-            'page' => null,
-            'content' => [],
-            'hero' => [],
-            'intro' => [],
-            'editorialBlocks' => collect([]),
-            'why' => [],
-            'timeline' => collect([]),
-            'final' => [],
-            'sectionImageFallbacks' => [],
-            'sectionBackgroundFallbacks' => [],
-        ]);
+        return view('turing.enigma');
     }
 
-    public function macchinaUniversale(): View
+    public function ai(): View
     {
-        return view('turing.longform.macchina-universale');
-    }
-
-    public function crittografia(): View
-    {
-        return view('turing.longform.crittografia');
-    }
-
-    public function intelligenzaArtificiale(): View
-    {
-        return view('turing.longform.intelligenza-artificiale');
+        return view('turing.ai');
     }
 }
