@@ -21,6 +21,8 @@ class Article extends Model
         'read_minutes', 'views', 'published_at',
         'verification_status', 'verification_notes',
         'verified_at', 'verified_by', 'primary_sources',
+        'cover_alt', 'cover_caption', 'cover_credit',
+        'cover_source', 'cover_source_url', 'cover_license',
     ];
 
     protected $casts = [
