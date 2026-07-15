@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
+    public function __construct(private readonly ImageService $imageService)
+    {
+    }
+
     public function index()
     {
         return view('admin.categories', [
@@ -90,65 +95,27 @@ class CategoryController extends Controller
 
             $file = $request->file('image_upload');
             $ext = strtolower($file->getClientOriginalExtension());
-            $baseName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
-            $fileName = $baseName . '-' . date('YmdHis') . '-' . substr(md5((string) microtime(true)), 0, 6) . '.' . $ext;
+            $fileName = $this->imageService->buildFileName(
+                $file,
+                $ext,
+                date('YmdHis') . '-' . substr(md5((string) microtime(true)), 0, 6)
+            );
             $uploadPath = public_path('assets/img/categories');
 
-            if (! is_dir($uploadPath)) {
-                mkdir($uploadPath, 0755, true);
-            }
+            $this->imageService->ensureDirectoryExists($uploadPath, 0755);
 
-            $file->move($uploadPath, $fileName);
-            $this->optimizeImage($uploadPath . '/' . $fileName, $ext);
+            $fullPath = $this->imageService->upload($file, $uploadPath, $fileName);
+            $this->imageService->resizeAndCompress(
+                $fullPath,
+                $ext,
+                1200,
+                ['jpg' => 84, 'png' => 7, 'webp' => 84]
+            );
 
             $data['image'] = $fileName;
         }
 
         return $data;
-    }
-
-    private function optimizeImage(string $path, string $ext): void
-    {
-        if (! extension_loaded('gd') || ! file_exists($path)) {
-            return;
-        }
-
-        try {
-            [$w, $h] = getimagesize($path);
-
-            if ($w <= 1200) {
-                return;
-            }
-
-            $newW = 1200;
-            $newH = (int) round($h * ($newW / $w));
-
-            $src = match ($ext) {
-                'jpg', 'jpeg' => imagecreatefromjpeg($path),
-                'png' => imagecreatefrompng($path),
-                'webp' => imagecreatefromwebp($path),
-                default => null,
-            };
-
-            if (! $src) {
-                return;
-            }
-
-            $dst = imagecreatetruecolor($newW, $newH);
-            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
-
-            match ($ext) {
-                'jpg', 'jpeg' => imagejpeg($dst, $path, 84),
-                'png' => imagepng($dst, $path, 7),
-                'webp' => imagewebp($dst, $path, 84),
-                default => null,
-            };
-
-            imagedestroy($src);
-            imagedestroy($dst);
-        } catch (\Throwable $e) {
-            // Fallback silenzioso: l'immagine originale resta valida.
-        }
     }
 
     private function deleteImageFile(?string $fileName): void

@@ -13,11 +13,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ActivityLog;
 use App\Models\Category;
+use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
+    public function __construct(private readonly ImageService $imageService)
+    {
+    }
+
     public function index()
     {
         return view('admin.articles', [
@@ -81,40 +86,20 @@ class ArticleController extends Controller
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file     = $request->file('cover_image_upload');
             $ext      = strtolower($file->getClientOriginalExtension());
-            $diskName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
-                        . '-' . date('YmdHis')
-                        . '-' . substr(md5(rand()), 0, 6)
-                        . '.' . $ext;
+            $diskName = $this->imageService->buildFileName(
+                $file,
+                $ext,
+                date('YmdHis') . '-' . substr(md5(rand()), 0, 6)
+            );
             $uploadPath = public_path('assets/img');
-            $file->move($uploadPath, $diskName);
+            $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
 
-            $fullPath = $uploadPath . '/' . $diskName;
-            if (extension_loaded('gd') && file_exists($fullPath)) {
-                try {
-                    [$w, $h] = getimagesize($fullPath);
-                    if ($w > 1600) {
-                        $nw = 1600; $nh = (int) round($h * (1600 / $w));
-                        $src = match($ext) {
-                            'jpg','jpeg' => imagecreatefromjpeg($fullPath),
-                            'png'        => imagecreatefrompng($fullPath),
-                            'webp'       => imagecreatefromwebp($fullPath),
-                            default      => null,
-                        };
-                        if ($src) {
-                            $dst = imagecreatetruecolor($nw, $nh);
-                            imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-                            match($ext) {
-                                'jpg','jpeg' => imagejpeg($dst, $fullPath, 82),
-                                'png'        => imagepng($dst, $fullPath, 7),
-                                'webp'       => imagewebp($dst, $fullPath, 82),
-                                default      => null,
-                            };
-                            imagedestroy($src); imagedestroy($dst);
-                        }
-                    }
-                } catch (\Throwable $e) {
-                }
-            }
+            $this->imageService->resizeAndCompress(
+                $fullPath,
+                $ext,
+                1600,
+                ['jpg' => 82, 'png' => 7, 'webp' => 82]
+            );
 
             $data['cover_image'] = $diskName;
         }
