@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Redazione;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ActivityLog;
+use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 
 class ArticleController extends Controller
 {
+    public function __construct(private readonly ImageService $imageService)
+    {
+    }
+
     public function index()
     {
         $articles = Article::where('user_id', auth()->id())
@@ -42,9 +47,12 @@ class ArticleController extends Controller
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
             $ext  = strtolower($file->getClientOriginalExtension());
-            $diskName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
-                      . '-' . date('YmdHis') . '-' . Str::random(6) . '.' . $ext;
-            $file->move(public_path('assets/img'), $diskName);
+            $diskName = $this->imageService->buildFileName(
+                $file,
+                $ext,
+                date('YmdHis') . '-' . Str::random(6)
+            );
+            $this->imageService->upload($file, public_path('assets/img'), $diskName);
             $data['cover_image'] = $diskName;
         }
 
@@ -107,9 +115,12 @@ class ArticleController extends Controller
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
             $ext  = strtolower($file->getClientOriginalExtension());
-            $diskName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
-                      . '-' . date('YmdHis') . '-' . Str::random(6) . '.' . $ext;
-            $file->move(public_path('assets/img'), $diskName);
+            $diskName = $this->imageService->buildFileName(
+                $file,
+                $ext,
+                date('YmdHis') . '-' . Str::random(6)
+            );
+            $this->imageService->upload($file, public_path('assets/img'), $diskName);
             $data['cover_image'] = $diskName;
         }
 
