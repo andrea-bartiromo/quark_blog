@@ -1,4 +1,31 @@
 <section class="article-premium__body">
+  @if($article->cover_caption || $article->cover_credit || $article->cover_source || $article->cover_license)
+  <figure class="article-premium__panel" style="margin:0 0 2rem;">
+    @if($article->cover_caption)
+    <figcaption>{{ $article->cover_caption }}</figcaption>
+    @endif
+
+    @if($article->cover_credit)
+    <small style="display:block;margin-top:.5rem;">Credito: {{ $article->cover_credit }}</small>
+    @endif
+
+    @if($article->cover_source)
+    <small style="display:block;margin-top:.25rem;">
+      Fonte:
+      @if($article->cover_source_url && filter_var($article->cover_source_url, FILTER_VALIDATE_URL))
+        <a href="{{ $article->cover_source_url }}" target="_blank" rel="noopener noreferrer">{{ $article->cover_source }}</a>
+      @else
+        {{ $article->cover_source }}
+      @endif
+    </small>
+    @endif
+
+    @if($article->cover_license)
+    <small style="display:block;margin-top:.25rem;">Licenza: {{ $article->cover_license }}</small>
+    @endif
+  </figure>
+  @endif
+
   @if($isHtml)
     {!! $mainBody !!}
   @else

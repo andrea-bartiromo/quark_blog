@@ -40,6 +40,12 @@ class ArticleController extends Controller
             'category' => 'required|in:' . implode(',', array_keys(config('laboratorio.categories'))),
             'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
             'cover_image'        => 'nullable|max:255',
+            'cover_alt'          => 'nullable|string|max:255',
+            'cover_caption'      => 'nullable|string|max:1000',
+            'cover_credit'       => 'nullable|string|max:255',
+            'cover_source'       => 'nullable|string|max:255',
+            'cover_source_url'   => 'nullable|url|max:2048',
+            'cover_license'      => 'nullable|string|max:255',
             'read_minutes'       => 'nullable|integer|min:1|max:60',
         ]);
 
@@ -65,6 +71,12 @@ class ArticleController extends Controller
             'body'                => $data['body'],
             'category'            => $data['category'],
             'cover_image'         => $data['cover_image'] ?? null,
+            'cover_alt'           => $data['cover_alt'] ?? null,
+            'cover_caption'       => $data['cover_caption'] ?? null,
+            'cover_credit'        => $data['cover_credit'] ?? null,
+            'cover_source'        => $data['cover_source'] ?? null,
+            'cover_source_url'    => $data['cover_source_url'] ?? null,
+            'cover_license'       => $data['cover_license'] ?? null,
             'status'              => 'review', // ← sempre in revisione
             'read_minutes'        => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
             'verification_status' => 'unverified',
@@ -109,6 +121,12 @@ class ArticleController extends Controller
             'category' => 'required|in:' . implode(',', array_keys(config('laboratorio.categories'))),
             'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
             'cover_image'        => 'nullable|max:255',
+            'cover_alt'          => 'nullable|string|max:255',
+            'cover_caption'      => 'nullable|string|max:1000',
+            'cover_credit'       => 'nullable|string|max:255',
+            'cover_source'       => 'nullable|string|max:255',
+            'cover_source_url'   => 'nullable|url|max:2048',
+            'cover_license'      => 'nullable|string|max:255',
             'read_minutes'       => 'nullable|integer|min:1|max:60',
         ]);
 
@@ -126,13 +144,19 @@ class ArticleController extends Controller
 
         $wordCount = str_word_count(strip_tags($data['body'] ?? ''));
         $article->update([
-            'title'        => $data['title'],
-            'excerpt'      => $data['excerpt'] ?? null,
-            'body'         => $data['body'],
-            'category'     => $data['category'],
-            'cover_image'  => $data['cover_image'] ?? $article->cover_image,
-            'status'       => 'review', // rinvia in revisione dopo modifica
-            'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'title'            => $data['title'],
+            'excerpt'          => $data['excerpt'] ?? null,
+            'body'             => $data['body'],
+            'category'         => $data['category'],
+            'cover_image'      => $data['cover_image'] ?? $article->cover_image,
+            'cover_alt'        => $data['cover_alt'] ?? null,
+            'cover_caption'    => $data['cover_caption'] ?? null,
+            'cover_credit'     => $data['cover_credit'] ?? null,
+            'cover_source'     => $data['cover_source'] ?? null,
+            'cover_source_url' => $data['cover_source_url'] ?? null,
+            'cover_license'    => $data['cover_license'] ?? null,
+            'status'           => 'review', // rinvia in revisione dopo modifica
+            'read_minutes'     => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
         ]);
 
         $this->notifyEditor($article, true);
