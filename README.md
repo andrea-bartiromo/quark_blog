@@ -1,232 +1,170 @@
-#  Quark Blog
+# Quark Blog
 
-**Blog di divulgazione scientifica e tecnologica sviluppata in Laravel**
+**CMS editoriale Laravel per la divulgazione scientifica e tecnologica**
 
-Quark blog è un progetto editoriale ideato e sviluppato da **Andrea Bartiromo**.  
-Nasce come blog di divulgazione scientifica e tecnologica, con l'obiettivo di unire sviluppo web, gestione editoriale, automazione dei contenuti e attenzione alla qualità delle fonti.
+## Descrizione
 
-> Scienza e tecnologia raccontate con rigore, accessibilità e struttura editoriale.
+Quark Blog è un CMS editoriale moderno costruito su Laravel, pensato per far funzionare una piccola redazione digitale dalla scrittura alla pubblicazione.
 
+Il progetto include:
 
-## Obiettivo del progetto
+- **Articoli** organizzati in **categorie** gestibili da pannello, con stato di verifica delle fonti.
+- Un'area **Redazione** dove i collaboratori scrivono e modificano i propri articoli, che entrano automaticamente in revisione prima della pubblicazione.
+- Un'area di **Amministrazione** completa per editor: articoli, categorie, commenti, collaboratori, revisione editoriale, statistiche e log delle attività.
+- **Newsletter** con iscrizione pubblica, invio settimanale automatizzato e tracciamento di apertura/click.
+- Ottimizzazione **SEO**: sitemap XML, sitemap news, feed RSS, dati strutturati per gli articoli.
+- **Turing**, una sezione editoriale speciale dedicata ad Alan Turing, con contenuti configurabili da admin.
+- Una libreria **media** centralizzata per la gestione delle immagini.
+- Un **workflow editoriale** con stati di verifica delle fonti e revisione degli articoli prima della pubblicazione.
 
-Il progetto nasce dall'idea di costruire una piattaforma moderna, non un semplice blog statico.
+## Screenshots
 
-L'obiettivo è simulare il funzionamento di una piccola redazione digitale con:
+(Home)
 
-- pubblicazione di articoli;
-- area amministrativa;
-- gestione bozze e contenuti in verifica;
-- automazione nella raccolta di notizie;
-- attenzione SEO;
-- feed RSS;
-- metadati strutturati Schema.org;
-- principio di tracciabilità delle fonti.
+(Admin)
 
-Ogni contenuto pubblicato dovrebbe poter essere collegato a fonti verificabili e mantenere una struttura chiara per il lettore e per i motori di ricerca.
+(Articolo)
 
-## Funzionalità principali
+(Turing)
 
-### CMS editoriale
+## Stack tecnologico
 
-- Dashboard amministrativa.
-- Gestione articoli.
-- Area contenuti in verifica.
-- Componenti Blade riutilizzabili.
-- Layout pubblico e layout admin separati.
+- **Laravel 13** — framework backend
+- **PHP 8.3+**
+- **Blade** — motore di template
+- **SQLite** — database di default (usato in sviluppo, test e CI)
+- **Vite** + **Tailwind CSS 4** — pipeline asset configurata nel progetto; le pagine pubbliche e l'admin usano però CSS scritto a mano in `public/css/`, non componenti Tailwind
+- **GD** — estensione PHP opzionale per il ridimensionamento e la compressione delle immagini di copertina
+- **Anthropic Claude API** — genera bozze di articoli a partire da feed RSS (comando `news:fetch`)
+- **GitHub Actions** — CI che esegue la suite di test automatici ad ogni push e pull request su `main`
 
-### Automazione notizie
+## Requisiti
 
-- Comando Artisan `news:fetch`.
-- Raccolta da feed RSS.
-- Generazione bozze con supporto AI.
-- Modalità dry-run per preview senza salvataggio.
-- Filtro per categoria.
+- PHP 8.3 o superiore
+- Composer 2.x
+- Node.js 18+ e npm
+- SQLite (driver `pdo_sqlite`, incluso di norma nelle distribuzioni PHP)
+- Estensioni PHP consigliate: `pdo`, `pdo_sqlite`, `mbstring`, `openssl`, `fileinfo`, `curl`, `dom`, `libxml`, `zip`, `pcntl`
+- GD (opzionale, ma consigliata per il ridimensionamento/compressione automatica delle immagini)
 
-### SEO e dati strutturati
-
-- Markup Schema.org.
-- Supporto `NewsArticle`.
-- Supporto `NewsMediaOrganization`.
-- Feed RSS 2.0.
-- Dublin Core.
-- Struttura pensata per contenuti editoriali indicizzabili.
-
-### Sicurezza e produzione
-
-- Middleware dedicato per security headers.
-- File `.env.production.example`.
-- Indicazioni per cache Laravel.
-- Checklist pre-lancio.
-
-
-## Stack tecnico
-
-| Componente | Tecnologia |
-
-| Framework | Laravel |
-| Linguaggio | PHP |
-| Database | SQLite |
-| Template | Blade |
-| Automazione | Comandi Artisan |
-| AI | Claude / Anthropic API |
-| SEO | Schema.org |
-| Feed | RSS 2.0 + Dublin Core |
-
-
-
-## Architettura del progetto
-
-text
-quark-blog/
-├── app/
-│   ├── Console/Commands/   # Automazione notizie: news:fetch
-│   ├── Http/Controllers/   # Controller area pubblica e admin
-│   ├── Http/Middleware/    # SecurityHeaders, Auth
-│   └── Models/             # Article, User, Newsletter, ecc.
-│
-├── resources/views/
-│   ├── admin/              # CMS: dashboard, articoli, verifica
-│   ├── components/         # Header, footer, sidebar, ticker
-│   └── layouts/            # Layout pubblico e admin
-│
-├── public/
-│   ├── css/                # Stylesheet
-│   └── assets/             # Immagini e icone
-│
-└── database/
-    └── database.sqlite     # Database principale
-```
-
----
-
-## Flusso editoriale previsto
-
-```text
-Feed RSS / Fonti esterne
-        ↓
-Comando news:fetch
-        ↓
-Bozze generate
-        ↓
-Verifica editoriale
-        ↓
-Pubblicazione articolo
-        ↓
-SEO + RSS + Schema.org
-```
-
----
-
-## Comandi principali
-
-Avvio locale:
+## Installazione
 
 ```bash
-cd quark-blog
-php artisan serve --host=127.0.0.1 --port=8000
-```
+# 1. Clona il repository
+git clone https://github.com/andrea-bartiromo/quark_blog.git
+cd quark_blog
 
-Accesso admin:
+# 2. Installa le dipendenze PHP e JS
+composer install
+npm install
 
-```text
-http://127.0.0.1:8000/admin/login
-```
-
-Pagina pubblica Turing:
-
-```text
-http://127.0.0.1:8000/turing
-http://127.0.0.1:8000/turing/enigma
-http://127.0.0.1:8000/turing/ai
-```
-
-Esecuzione automazione notizie:
-
-```bash
-php artisan news:fetch
-```
-
-Preview senza salvare:
-
-```bash
-php artisan news:fetch --dry-run
-```
-
-Solo una categoria:
-
-```bash
-php artisan news:fetch --category=spazio
-```
-
----
-
-## Variabili ambiente
-
-Copiare il file di esempio adatto all'ambiente e compilare i valori reali solo nel file `.env` locale o sul server:
-
-```bash
+# 3. Configura l'ambiente
 cp .env.example .env
 php artisan key:generate
+
+# 4. Crea il database SQLite
+touch database/database.sqlite
+
+# 5. Esegui le migration e popola il database con dati di sviluppo
+php artisan migrate --seed
+
+# 6. Compila gli asset (in un terminale separato, opzionale in sviluppo)
+npm run dev
+
+# 7. Avvia il server di sviluppo
+php artisan serve
 ```
 
-`APP_KEY` deve restare vuota nei file versionati e va generata nel `.env` reale con `php artisan key:generate`.
+Il sito sarà raggiungibile su `http://127.0.0.1:8000`.
 
-Per inviare email con Gmail SMTP usare una App Password Google, mai la password dell'account Google:
+In alternativa, `composer run dev` avvia in un solo comando server, queue worker, log e Vite in parallelo.
 
-```env
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your-email@example.com
-MAIL_PASSWORD=your-app-password
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=your-email@example.com
+## Account demo
+
+Il seeder (`database/seeders/DatabaseSeeder.php`) crea automaticamente questi account, **destinati esclusivamente allo sviluppo locale**:
+
+| Ruolo | Area | Email | Password |
+|---|---|---|---|
+| Editor | Amministrazione | `m.esposito@illaboratorio.it` | `password123` |
+| Autore | Redazione | `s.ricci@illaboratorio.it` | `password123` |
+| Autore | Redazione | `e.romano@illaboratorio.it` | `password123` |
+
+Gli URL di login di Amministrazione e Redazione sono volutamente non ovvi (definiti in `routes/web.php`): usa `php artisan route:list --name=login` per trovarli in locale. Questi account e queste credenziali non devono mai essere usati su un ambiente esposto pubblicamente.
+
+## Architettura
+
+- **Amministrazione** — pannello riservato a editor/admin: dashboard, articoli, categorie, commenti, newsletter, media, suggerimenti generati dall'AI, revisione editoriale, gestione collaboratori, statistiche, pubblicità e registro attività.
+- **Redazione** — area riservata ai collaboratori (autori): scrittura e modifica dei propri articoli, che vengono inviati automaticamente in revisione all'editor.
+- **Frontend** — homepage, elenco articoli, categorie, pagina articolo, ricerca, pagina autore e pagine statiche (chi siamo, contatti, privacy, ecc.).
+- **Turing** — sezione editoriale speciale con hero, timeline ed eredità storica, il cui contenuto è configurabile da Amministrazione e persistito tramite il modello `SpecialPage`.
+- **Media** — libreria immagini centralizzata in Amministrazione, con upload dedicato.
+- **Newsletter** — iscrizione pubblica, invio settimanale automatizzato (comando `newsletter:send`) tramite coda, tracciamento apertura e click.
+- **SEO** — sitemap XML, sitemap news, feed RSS e dati strutturati per gli articoli.
+- **ImageService** (`app/Services/ImageService.php`) — servizio applicativo che centralizza naming, upload, ridimensionamento e compressione delle immagini di copertina, condiviso tra i controller di Amministrazione e Redazione.
+- **ActivityLog** (`app/Models/ActivityLog.php`) — registra le azioni amministrative rilevanti (creazione/eliminazione articoli, gestione collaboratori, ecc.).
+
+## Gestione immagini
+
+L'upload delle immagini di copertina (articoli e categorie) passa attraverso `ImageService`, che centralizza il naming del file, il salvataggio su disco, il ridimensionamento e la compressione tramite l'estensione GD, quando disponibile. Ogni controller applica i propri parametri (larghezza massima, qualità), ma la logica tecnica è condivisa e non duplicata.
+
+Ogni articolo può avere, oltre all'immagine di copertina, metadati editoriali dedicati e facoltativi:
+
+- **Testo alternativo** (`cover_alt`) — se non impostato, viene usato automaticamente il titolo dell'articolo.
+- **Didascalia** (`cover_caption`)
+- **Credito immagine** (`cover_credit`)
+- **Fonte** (`cover_source`) ed **URL della fonte** (`cover_source_url`)
+- **Licenza** (`cover_license`)
+
+Quando un articolo o un autore non hanno un'immagine di copertina, il frontend usa due placeholder SVG generati internamente e privi di dipendenze esterne: `placeholder-1.svg` per le card (articoli, categorie, autore) e `hero-placeholder.svg` come fallback per l'immagine Open Graph.
+
+## Activity Log
+
+Le azioni amministrative rilevanti (creazione, modifica ed eliminazione di articoli e collaboratori, ecc.) vengono registrate tramite il modello `ActivityLog`. La tabella `activity_log` è creata da una migration Laravel ufficiale ed è quindi presente automaticamente dopo `php artisan migrate`, senza bisogno di script esterni.
+
+## Sicurezza
+
+- Il file `.env` non è mai versionato: si parte da `.env.example` (privo di segreti) e si genera una `APP_KEY` locale con `php artisan key:generate`.
+- L'invio email supporta SMTP (es. Gmail con una App Password dedicata, mai la password dell'account Google).
+- Header di sicurezza HTTP applicati globalmente tramite middleware dedicato.
+- Rate limiting sui form pubblici (newsletter, commenti, contatti) e sui tentativi di login.
+- Le linee guida complete su gestione di segreti, chiavi e credenziali sono documentate in [`SECURITY.md`](SECURITY.md).
+
+## Test
+
+Il progetto include una suite di test automatici (Feature e Unit), eseguibile con:
+
+```bash
+php artisan test
 ```
 
-Per usare l'automazione AI è necessario configurare nel file `.env` reale:
+I test usano un database SQLite dedicato (configurato in `phpunit.xml`, isolato da quello di sviluppo) e coprono, tra le altre cose, i metadati delle immagini di copertina e il registro delle attività. La stessa suite viene eseguita automaticamente da GitHub Actions ad ogni push e pull request su `main`.
 
-```env
-ANTHROPIC_API_KEY=your-anthropic-api-key
-```
+## Roadmap
 
-Nessun segreto deve essere versionato: non caricare mai nel repository `APP_KEY`, token Anthropic, token GitHub, password SMTP, password database, webhook o API key reali.
+**Completato**
 
----
+- Sicurezza di base (header HTTP, gestione `.env`, `SECURITY.md`)
+- Sezione editoriale Turing
+- `ImageService` centralizzato per l'upload delle immagini
+- Placeholder per le immagini mancanti
+- Metadati editoriali della copertina (alt, didascalia, credito, fonte, licenza)
+- Migration ufficiale per l'Activity Log
 
-## Prima del lancio
+**In corso**
 
-Checklist prevista prima di un eventuale deploy:
+- Aggiornamento e allineamento della documentazione tecnica
+- Estensione della copertura dei test automatici
 
-1. Copiare `.env.production.example` in `.env` sul server.
-2. Eseguire `php artisan key:generate`.
-3. Eseguire `php artisan config:cache && php artisan route:cache`.
-4. Aggiornare `robots.txt` con il dominio reale.
-5. Verificare redirect HTTPS.
-6. Controllare gli articoli in verifica sulle fonti primarie.
-7. Aggiornare dati legali e informazioni editoriali nel footer.
+**Futuro**
 
----
+- Demo pubblica
+- Miglioramento della responsività
+- Libreria media più evoluta
+- Sostituzione delle immagini placeholder con foto originali
+- Ottimizzazione delle performance
 
-## Possibili sviluppi futuri
+## Licenza
 
-- Aggiungere screenshot della dashboard admin.
-- Aggiungere screenshot della homepage editoriale.
-- Migliorare il workflow di verifica fonti.
-- Aggiungere gestione utenti e ruoli editoriali.
-- Aggiungere test automatici.
-- Migliorare la gestione categorie/tag.
-- Preparare una demo pubblica.
+Progetto proprietario (vedi `composer.json`). Tutti i diritti riservati.
 
----
-
-## Stato del progetto
-
-Il progetto è una piattaforma editoriale Laravel sviluppata a scopo personale/formativo, con un'impostazione vicina a un CMS redazionale.
-
----
-
-## Autore
-
-**Andrea Bartiromo**  
-GitHub: [andrea-bartiromo](https://github.com/andrea-bartiromo)
+**Autore:** Andrea Bartiromo — [github.com/andrea-bartiromo](https://github.com/andrea-bartiromo)
