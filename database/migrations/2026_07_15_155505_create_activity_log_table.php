@@ -11,13 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Guard against environments where the table was already created
-        // manually (e.g. via an ad hoc setup script), so this migration is
-        // safe to run regardless of prior manual setup.
-        if (Schema::hasTable('activity_log')) {
-            return;
-        }
-
         Schema::create('activity_log', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
