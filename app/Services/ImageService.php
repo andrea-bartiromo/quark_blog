@@ -1,12 +1,5 @@
 <?php
-/**
- * Il Laboratorio — Rivista italiana di divulgazione scientifica
- *
- * @author    Andrea Bartiromo <redazione@illaboratorio.it>
- * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
- * @license   Proprietario — tutti i diritti riservati
- * @link      https://www.illaboratorio.it
- */
+
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
@@ -84,7 +77,7 @@ class ImageService
                 imagedestroy($src);
                 imagedestroy($dst);
             } elseif ($alwaysReencode) {
-                $this->compressOnly($fullPath, $ext, $quality);
+                $this->compressOnly($fullPath, $ext, $quality, $logErrors);
             }
         } catch (\Throwable $e) {
             if ($logErrors) {
@@ -94,11 +87,11 @@ class ImageService
     }
 
     /**
-     * Ricomprime un'immagine senza ridimensionarla (fallback silenzioso in caso di errore).
+     * Ricomprime un'immagine senza ridimensionarla.
      *
      * @param array{jpg?: int, png?: int, webp?: int} $quality
      */
-    private function compressOnly(string $path, string $ext, array $quality): void
+    private function compressOnly(string $path, string $ext, array $quality, bool $logErrors = false): void
     {
         try {
             $src = $this->createImageResource($path, $ext);
@@ -110,7 +103,9 @@ class ImageService
 
             imagedestroy($src);
         } catch (\Throwable $e) {
-            // Fallback silenzioso
+            if ($logErrors) {
+                \Log::warning('Ottimizzazione immagine fallita: ' . $e->getMessage());
+            }
         }
     }
 
