@@ -17,7 +17,7 @@
           <div>
             <h3>{{ $event['title'] ?? 'Evento Turing' }}</h3>
             <p>{{ $event['text'] ?? '' }}</p>
-            @if(!empty($event['image']))<img class="turing-timeline__media" src="{{ $img($event['image']) }}" alt="">@endif
+            @if(!empty($event['image']))<img class="turing-timeline__media" src="{{ $img($event['image']) }}" alt="{{ $event['alt'] ?? $event['title'] ?? '' }}">@endif
           </div>
         </{{ $tag }}>
       @endforeach
