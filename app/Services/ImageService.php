@@ -77,7 +77,7 @@ class ImageService
                 imagedestroy($src);
                 imagedestroy($dst);
             } elseif ($alwaysReencode) {
-                $this->compressOnly($fullPath, $ext, $quality, $logErrors);
+                $this->compressOnly($fullPath, $ext, $quality);
             }
         } catch (\Throwable $e) {
             if ($logErrors) {
@@ -87,11 +87,11 @@ class ImageService
     }
 
     /**
-     * Ricomprime un'immagine senza ridimensionarla.
+     * Ricomprime un'immagine senza ridimensionarla (fallback silenzioso in caso di errore).
      *
      * @param array{jpg?: int, png?: int, webp?: int} $quality
      */
-    private function compressOnly(string $path, string $ext, array $quality, bool $logErrors = false): void
+    private function compressOnly(string $path, string $ext, array $quality): void
     {
         try {
             $src = $this->createImageResource($path, $ext);
@@ -103,9 +103,7 @@ class ImageService
 
             imagedestroy($src);
         } catch (\Throwable $e) {
-            if ($logErrors) {
-                \Log::warning('Ottimizzazione immagine fallita: ' . $e->getMessage());
-            }
+            // Fallback silenzioso
         }
     }
 
