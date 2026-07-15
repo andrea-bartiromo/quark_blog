@@ -102,7 +102,56 @@
              accept="image/jpeg,image/png,image/webp"
              style="font-size:.78rem;padding:.4rem;border:1px solid #e5e7eb;
                     border-radius:6px;background:#fff;width:100%;margin-bottom:.5rem;">
-      <div style="font-size:.68rem;color:#6b7280;">Max 5 MB — JPEG, PNG, WebP</div>
+      <div style="font-size:.68rem;color:#6b7280;margin-bottom:.75rem;">Max 5 MB — JPEG, PNG, WebP</div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_alt">Testo alternativo</label>
+        <input class="form-input" type="text" id="cover_alt" name="cover_alt"
+               maxlength="255"
+               value="{{ old('cover_alt', $article->cover_alt ?? '') }}"
+               style="font-size:.82rem;">
+        <small style="font-size:.68rem;color:#6b7280;">
+          Descrizione dell'immagine per l'accessibilità. Se vuoto, viene usato il titolo dell'articolo.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_caption">Didascalia</label>
+        <textarea class="form-textarea" id="cover_caption" name="cover_caption"
+                  maxlength="1000" style="min-height:60px;font-size:.82rem;">{{ old('cover_caption', $article->cover_caption ?? '') }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_credit">Credito immagine</label>
+        <input class="form-input" type="text" id="cover_credit" name="cover_credit"
+               maxlength="255"
+               value="{{ old('cover_credit', $article->cover_credit ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_source">Fonte</label>
+        <input class="form-input" type="text" id="cover_source" name="cover_source"
+               maxlength="255"
+               value="{{ old('cover_source', $article->cover_source ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_source_url">URL fonte</label>
+        <input class="form-input" type="url" id="cover_source_url" name="cover_source_url"
+               maxlength="2048"
+               value="{{ old('cover_source_url', $article->cover_source_url ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_license">Licenza</label>
+        <input class="form-input" type="text" id="cover_license" name="cover_license"
+               maxlength="255"
+               value="{{ old('cover_license', $article->cover_license ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
     </div>
 
     <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1.25rem;">
