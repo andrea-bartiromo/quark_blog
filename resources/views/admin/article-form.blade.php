@@ -136,6 +136,55 @@
       </div>
 
       <div class="form-group">
+        <label class="form-label" for="cover_alt">Testo alternativo</label>
+        <input class="form-input" type="text" id="cover_alt" name="cover_alt"
+               maxlength="255"
+               value="{{ old('cover_alt', $article->cover_alt ?? '') }}"
+               style="font-size:.82rem;">
+        <small style="font-size:.68rem;color:#6b7280;">
+          Descrizione dell'immagine per l'accessibilità. Se vuoto, viene usato il titolo dell'articolo.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_caption">Didascalia</label>
+        <textarea class="form-textarea" id="cover_caption" name="cover_caption"
+                  maxlength="1000" style="min-height:60px;font-size:.82rem;">{{ old('cover_caption', $article->cover_caption ?? '') }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_credit">Credito immagine</label>
+        <input class="form-input" type="text" id="cover_credit" name="cover_credit"
+               maxlength="255"
+               value="{{ old('cover_credit', $article->cover_credit ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_source">Fonte</label>
+        <input class="form-input" type="text" id="cover_source" name="cover_source"
+               maxlength="255"
+               value="{{ old('cover_source', $article->cover_source ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_source_url">URL fonte</label>
+        <input class="form-input" type="url" id="cover_source_url" name="cover_source_url"
+               maxlength="2048"
+               value="{{ old('cover_source_url', $article->cover_source_url ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cover_license">Licenza</label>
+        <input class="form-input" type="text" id="cover_license" name="cover_license"
+               maxlength="255"
+               value="{{ old('cover_license', $article->cover_license ?? '') }}"
+               style="font-size:.82rem;">
+      </div>
+
+      <div class="form-group">
         <label class="form-label" for="read_minutes">Minuti di lettura</label>
         <input class="form-input" type="number" id="read_minutes" name="read_minutes"
                min="1" max="60" value="{{ old('read_minutes', $article->read_minutes ?? 5) }}">

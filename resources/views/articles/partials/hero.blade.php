@@ -1,5 +1,5 @@
 <header class="article-premium__hero">
-  <img src="{{ $cover }}" alt="{{ $article->title }}" loading="eager">
+  <img src="{{ $cover }}" alt="{{ $article->cover_alt ?: $article->title }}" loading="eager">
   <div class="article-premium__overlay"></div>
 
   <div class="article-premium__content">
