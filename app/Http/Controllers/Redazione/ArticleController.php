@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Redazione;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Redazione\StoreArticleRequest;
+use App\Http\Requests\Redazione\UpdateArticleRequest;
 use App\Models\Article;
 use App\Models\ActivityLog;
 use App\Services\ImageService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 
@@ -31,23 +32,9 @@ class ArticleController extends Controller
         return view('redazione.article-form', compact('categories'));
     }
 
-    public function store(Request $request)
+    public function store(StoreArticleRequest $request)
     {
-        $data = $request->validate([
-            'title'    => 'required|max:200',
-            'excerpt'  => 'nullable|max:300',
-            'body'     => 'required',
-            'category' => 'required|in:' . implode(',', array_keys(config('laboratorio.categories'))),
-            'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
-            'cover_image'        => 'nullable|max:255',
-            'cover_alt'          => 'nullable|string|max:255',
-            'cover_caption'      => 'nullable|string|max:1000',
-            'cover_credit'       => 'nullable|string|max:255',
-            'cover_source'       => 'nullable|string|max:255',
-            'cover_source_url'   => 'nullable|url|max:2048',
-            'cover_license'      => 'nullable|string|max:255',
-            'read_minutes'       => 'nullable|integer|min:1|max:60',
-        ]);
+        $data = $request->validated();
 
         // Upload immagine
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
@@ -109,26 +96,9 @@ class ArticleController extends Controller
         return view('redazione.article-form', compact('article', 'categories'));
     }
 
-    public function update(Request $request, Article $article)
+    public function update(UpdateArticleRequest $request, Article $article)
     {
-        if ($article->user_id !== auth()->id()) abort(403);
-        if ($article->status === 'published') abort(403);
-
-        $data = $request->validate([
-            'title'    => 'required|max:200',
-            'excerpt'  => 'nullable|max:300',
-            'body'     => 'required',
-            'category' => 'required|in:' . implode(',', array_keys(config('laboratorio.categories'))),
-            'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
-            'cover_image'        => 'nullable|max:255',
-            'cover_alt'          => 'nullable|string|max:255',
-            'cover_caption'      => 'nullable|string|max:1000',
-            'cover_credit'       => 'nullable|string|max:255',
-            'cover_source'       => 'nullable|string|max:255',
-            'cover_source_url'   => 'nullable|url|max:2048',
-            'cover_license'      => 'nullable|string|max:255',
-            'read_minutes'       => 'nullable|integer|min:1|max:60',
-        ]);
+        $data = $request->validated();
 
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
