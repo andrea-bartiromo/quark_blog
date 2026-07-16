@@ -3,9 +3,18 @@
 namespace App\Http\Requests\Redazione;
 
 use App\Models\Article;
-use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateArticleRequest extends FormRequest
+/**
+ * Le regole di validazione per la creazione e l'aggiornamento di un
+ * articolo Redazione sono identiche (il controller originale le
+ * duplicava carattere per carattere tra store() e update()):
+ * UpdateArticleRequest eredita `rules()` da StoreArticleRequest, cosi
+ * che le regole abbiano un'unica fonte per quest'area, e ridefinisce
+ * solamente `authorize()` per il vincolo reale (solo l'autore
+ * proprietario può modificare, e non se l'articolo è già pubblicato)
+ * che nel controller originale non esisteva in store().
+ */
+class UpdateArticleRequest extends StoreArticleRequest
 {
     /**
      * Replica esattamente i due controlli che il controller eseguiva prima
@@ -21,27 +30,5 @@ class UpdateArticleRequest extends FormRequest
         return $article instanceof Article
             && $article->user_id === auth()->id()
             && $article->status !== 'published';
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function rules(): array
-    {
-        return [
-            'title'               => 'required|max:200',
-            'excerpt'             => 'nullable|max:300',
-            'body'                => 'required',
-            'category'            => 'required|in:' . implode(',', array_keys(config('laboratorio.categories'))),
-            'cover_image_upload'  => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
-            'cover_image'         => 'nullable|max:255',
-            'cover_alt'           => 'nullable|string|max:255',
-            'cover_caption'       => 'nullable|string|max:1000',
-            'cover_credit'        => 'nullable|string|max:255',
-            'cover_source'        => 'nullable|string|max:255',
-            'cover_source_url'    => 'nullable|url|max:2048',
-            'cover_license'       => 'nullable|string|max:255',
-            'read_minutes'        => 'nullable|integer|min:1|max:60',
-        ];
     }
 }
