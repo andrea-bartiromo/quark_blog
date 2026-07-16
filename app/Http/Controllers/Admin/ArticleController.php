@@ -10,6 +10,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreArticleRequest;
+use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\Article;
 use App\Models\ActivityLog;
 use App\Models\Category;
@@ -38,9 +40,9 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreArticleRequest $request)
     {
-        $data = $this->validated($request);
+        $data = $this->applyBusinessRules($request, $request->validated());
         Article::create($data + ['user_id' => auth()->id()]);
 
         return redirect()->route('admin.articles')->with('success', 'Articolo creato.');
@@ -54,9 +56,9 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function update(Request $request, Article $article)
+    public function update(UpdateArticleRequest $request, Article $article)
     {
-        $article->update($this->validated($request));
+        $article->update($this->applyBusinessRules($request, $request->validated()));
 
         return redirect()->route('admin.articles')->with('success', 'Articolo aggiornato.');
     }
@@ -69,26 +71,8 @@ class ArticleController extends Controller
         return redirect()->route('admin.articles')->with('success', 'Articolo eliminato.');
     }
 
-    private function validated(Request $request): array
+    private function applyBusinessRules(Request $request, array $data): array
     {
-        $data = $request->validate([
-            'title'              => 'required|max:255',
-            'excerpt'            => 'nullable|max:300',
-            'body'               => 'required',
-            'category'           => 'required',
-            'cover_image'        => 'nullable|max:255',
-            'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:16384',
-            'cover_alt'          => 'nullable|string|max:255',
-            'cover_caption'      => 'nullable|string|max:1000',
-            'cover_credit'       => 'nullable|string|max:255',
-            'cover_source'       => 'nullable|string|max:255',
-            'cover_source_url'   => 'nullable|url|max:2048',
-            'cover_license'      => 'nullable|string|max:255',
-            'status'             => 'required|in:draft,published,review',
-            'read_minutes'       => 'integer|min:1|max:60',
-            'featured'           => 'boolean',
-        ]);
-
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file     = $request->file('cover_image_upload');
             $ext      = strtolower($file->getClientOriginalExtension());
