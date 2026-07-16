@@ -332,7 +332,7 @@
         <div class="stats-list-item">
           <span class="stats-rank">{{ $i + 1 }}</span>
           <div style="flex:1;min-width:0;">
-            <a class="stats-link" href="{{ route('admin.articles.edit', $art) }}">
+            <a class="stats-link" href="{{ route('admin.articles.edit', $art->id) }}">
               {{ Str::limit($art->title, 52) }}
             </a>
           </div>
