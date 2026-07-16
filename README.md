@@ -17,15 +17,6 @@ Il progetto include:
 - Una libreria **media** centralizzata per la gestione delle immagini.
 - Un **workflow editoriale** con stati di verifica delle fonti e revisione degli articoli prima della pubblicazione.
 
-## Screenshots
-
-(Home)
-
-(Admin)
-
-(Articolo)
-
-(Turing)
 
 ## Stack tecnologico
 
