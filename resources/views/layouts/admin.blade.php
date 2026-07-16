@@ -24,93 +24,138 @@
       <span class="admin-sidebar__sub">Pannello redazionale</span>
     </div>
 
-    <nav class="admin-nav">
+    @php
+      $isDashboard     = request()->routeIs('admin.dashboard');
+      $isArticles      = request()->routeIs('admin.articles*');
+      $isCategories    = request()->routeIs('admin.categories*');
+      $isMedia         = request()->routeIs('admin.media*');
+      $isComments      = request()->routeIs('admin.comments*');
+      $isReview        = request()->routeIs('admin.review*');
+      $isVerification  = request()->routeIs('admin.verification');
+      $isCollaborators = request()->routeIs('admin.collaborators*');
+      $isNewsletter    = request()->routeIs('admin.newsletter')
+                          || request()->routeIs('admin.newsletter.export')
+                          || request()->routeIs('admin.newsletter.send-now');
+      $isAds           = request()->routeIs('admin.ads*');
+      $isTuring        = request()->routeIs('admin.turing*');
+      $isSuggestions   = request()->routeIs('admin.suggestions*');
+      $isStats         = request()->routeIs('admin.stats*');
+      $isActivity      = request()->routeIs('admin.activity');
+      $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
+      $isProfile       = request()->routeIs('admin.profile*');
 
-      <span class="admin-nav__section">Contenuti</span>
+      $toolsOpen = $isTuring || $isSuggestions || $isStats || $isActivity || $isNewsletterPrev;
+    @endphp
+
+    <nav class="admin-nav" aria-label="Navigazione amministrazione">
+
+      <span class="admin-nav__section">Principale</span>
 
       <a href="{{ route('admin.dashboard') }}"
-         @class(['active' => request()->routeIs('admin.dashboard')])>
+         @class(['active' => $isDashboard])
+         @if($isDashboard) aria-current="page" @endif>
         <span class="icon">📊</span> Dashboard
       </a>
 
+      <span class="admin-nav__section">Contenuti</span>
+
       <a href="{{ route('admin.articles') }}"
-         @class(['active' => request()->routeIs('admin.articles*')])>
+         @class(['active' => $isArticles])
+         @if($isArticles) aria-current="page" @endif>
         <span class="icon">📝</span> Articoli
       </a>
 
-      <a href="{{ route('admin.turing') }}"
-         @class(['active' => request()->routeIs('admin.turing*')])>
-        <span class="icon">🧠</span> Speciale Turing
-      </a>
-
       <a href="{{ route('admin.categories') }}"
-         @class(['active' => request()->routeIs('admin.categories*')])>
+         @class(['active' => $isCategories])
+         @if($isCategories) aria-current="page" @endif>
         <span class="icon">🏷️</span> Categorie
       </a>
 
+      <a href="{{ route('admin.media') }}"
+         @class(['active' => $isMedia])
+         @if($isMedia) aria-current="page" @endif>
+        <span class="icon">🖼️</span> Media
+      </a>
+
       <a href="{{ route('admin.comments') }}"
-         @class(['active' => request()->routeIs('admin.comments*')])>
+         @class(['active' => $isComments])
+         @if($isComments) aria-current="page" @endif>
         <span class="icon">💬</span> Commenti
       </a>
 
-      <a href="{{ route('admin.newsletter') }}"
-         @class(['active' => request()->routeIs('admin.newsletter')])>
-        <span class="icon">✉️</span> Newsletter
-      </a>
-
-      <span class="admin-nav__section">Gestione</span>
-
-      <a href="{{ route('admin.media') }}"
-         @class(['active' => request()->routeIs('admin.media*')])>
-        <span class="icon">🖼</span> Media
-      </a>
-
-      <a href="{{ route('admin.ads') }}"
-         @class(['active' => request()->routeIs('admin.ads*')])>
-        <span class="icon">📢</span> Pubblicità
-      </a>
-
-      <a href="{{ route('admin.collaborators') }}"
-         @class(['active' => request()->routeIs('admin.collaborators*')])>
-        <span class="icon">👥</span> Collaboratori
-      </a>
+      <span class="admin-nav__section">Redazione</span>
 
       <a href="{{ route('admin.review') }}"
-         @class(['active' => request()->routeIs('admin.review*')])>
+         @class(['active' => $isReview])
+         @if($isReview) aria-current="page" @endif>
         <span class="icon">📋</span> Revisione
       </a>
 
       <a href="{{ route('admin.verification') }}"
-         @class(['active' => request()->routeIs('admin.verification')])>
-        <span class="icon">✅</span> Verifica fonti
+         @class(['active' => $isVerification])
+         @if($isVerification) aria-current="page" @endif>
+        <span class="icon">✅</span> Fonti
       </a>
 
-      <a href="{{ route('admin.suggestions') }}"
-         @class(['active' => request()->routeIs('admin.suggestions*')])>
-        <span class="icon">🤖</span> Suggerimenti AI
+      <a href="{{ route('admin.collaborators') }}"
+         @class(['active' => $isCollaborators])
+         @if($isCollaborators) aria-current="page" @endif>
+        <span class="icon">👥</span> Collaboratori
       </a>
 
-      <span class="admin-nav__section">Analytics</span>
+      <span class="admin-nav__section">Comunicazione</span>
 
-      <a href="{{ route('admin.stats') }}"
-         @class(['active' => request()->routeIs('admin.stats')])>
-        <span class="icon">📈</span> Statistiche
+      <a href="{{ route('admin.newsletter') }}"
+         @class(['active' => $isNewsletter])
+         @if($isNewsletter) aria-current="page" @endif>
+        <span class="icon">✉️</span> Newsletter
       </a>
 
-      <a href="{{ route('admin.activity') }}"
-         @class(['active' => request()->routeIs('admin.activity')])>
-        <span class="icon">🕐</span> Log attività
+      <a href="{{ route('admin.ads') }}"
+         @class(['active' => $isAds])
+         @if($isAds) aria-current="page" @endif>
+        <span class="icon">📢</span> Pubblicità
       </a>
 
-      <a href="{{ route('admin.newsletter.preview') }}"
-         @class(['active' => request()->routeIs('admin.newsletter.preview')])>
-        <span class="icon">👁</span> Anteprima newsletter
-      </a>
+      <details class="admin-nav__group" @if($toolsOpen) open @endif>
+        <summary class="admin-nav__section admin-nav__section--toggle">Strumenti</summary>
+
+        <a href="{{ route('admin.turing') }}"
+           @class(['active' => $isTuring])
+           @if($isTuring) aria-current="page" @endif>
+          <span class="icon">🧠</span> Turing
+        </a>
+
+        <a href="{{ route('admin.suggestions') }}"
+           @class(['active' => $isSuggestions])
+           @if($isSuggestions) aria-current="page" @endif>
+          <span class="icon">🤖</span> Assistente AI
+        </a>
+
+        <a href="{{ route('admin.stats') }}"
+           @class(['active' => $isStats])
+           @if($isStats) aria-current="page" @endif>
+          <span class="icon">📈</span> Statistiche
+        </a>
+
+        <a href="{{ route('admin.activity') }}"
+           @class(['active' => $isActivity])
+           @if($isActivity) aria-current="page" @endif>
+          <span class="icon">🕐</span> Attività
+        </a>
+
+        <a href="{{ route('admin.newsletter.preview') }}"
+           @class(['active' => $isNewsletterPrev])
+           @if($isNewsletterPrev) aria-current="page" @endif>
+          <span class="icon">👁️</span> Anteprima newsletter
+        </a>
+      </details>
 
       <span class="admin-nav__section">Account</span>
 
       <a href="{{ route('admin.profile') }}"
-         @class(['active' => request()->routeIs('admin.profile*')])>
+         @class(['active' => $isProfile])
+         @if($isProfile) aria-current="page" @endif>
         <span class="icon">👤</span> Profilo
       </a>
 
@@ -118,9 +163,9 @@
         <span class="icon">🌐</span> Vedi sito
       </a>
 
-      <a href="#" onclick="event.preventDefault();document.getElementById('logout-form').submit();">
+      <button type="submit" form="logout-form" class="admin-nav__logout-btn">
         <span class="icon">🚪</span> Esci
-      </a>
+      </button>
 
       <form id="logout-form" action="{{ route('admin.logout') }}" method="POST" style="display:none">
         @csrf
