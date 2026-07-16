@@ -104,7 +104,12 @@ class NewsletterController extends Controller
 
     public function unsubscribe(Request $request)
     {
-        $subscriber = Newsletter::where('unsubscribe_token', $request->input('token'))->first();
+        $token = $request->input('token');
+
+        // Un token assente/vuoto non deve mai corrispondere a un eventuale
+        // iscritto legacy con unsubscribe_token nullo (Newsletter::where()
+        // tratterebbe altrimenti un valore null come una whereNull()).
+        $subscriber = $token ? Newsletter::where('unsubscribe_token', $token)->first() : null;
 
         if (!$subscriber) {
             return view('newsletter-unsubscribed', ['notFound' => true]);
