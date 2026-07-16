@@ -107,7 +107,7 @@ class ImageService
         }
     }
 
-    private function createImageResource(string $path, string $ext)
+    protected function createImageResource(string $path, string $ext)
     {
         return match ($ext) {
             'jpg', 'jpeg' => imagecreatefromjpeg($path),
