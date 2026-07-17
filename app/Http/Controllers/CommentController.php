@@ -14,7 +14,7 @@ class CommentController extends Controller
     public function store(Request $request)
     {
         // Honeypot anti-spam
-        if ($request->input('website') !== '') {
+        if ($request->filled('website')) {
             return response()->json(['ok' => true]);
         }
 
