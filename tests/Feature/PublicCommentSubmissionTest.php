@@ -34,6 +34,25 @@ class PublicCommentSubmissionTest extends TestCase
         ]);
     }
 
+    public function test_filled_honeypot_returns_success_without_creating_comment(): void
+    {
+        Mail::fake();
+
+        $article = $this->createArticle('published');
+
+        $response = $this->postJson(route('commenti.store'), $this->validPayload($article->id, [
+            'website' => 'https://spam.example.com',
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertExactJson([
+                'ok' => true,
+            ]);
+
+        $this->assertDatabaseCount('comments', 0);
+    }
+
     public function test_comment_is_rejected_for_draft_article(): void
     {
         Mail::fake();
@@ -103,16 +122,17 @@ class PublicCommentSubmissionTest extends TestCase
     }
 
     /**
+     * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
-    private function validPayload(int $articleId): array
+    private function validPayload(int $articleId, array $overrides = []): array
     {
-        return [
+        return array_merge([
             'article_id' => $articleId,
             'name' => 'Lettrice Test',
             'email' => 'lettrice@example.com',
             'body' => 'Questo è un commento pubblico valido per il test.',
             'website' => '',
-        ];
+        ], $overrides);
     }
 }
