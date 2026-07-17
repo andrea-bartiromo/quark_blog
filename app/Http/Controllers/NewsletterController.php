@@ -92,7 +92,13 @@ class NewsletterController extends Controller
 
     public function confirm(Request $request)
     {
-        $subscriber = Newsletter::where('token', $request->input('token'))->firstOrFail();
+        $token = $request->query('token');
+
+        if (! is_string($token) || trim($token) === '') {
+            abort(404);
+        }
+
+        $subscriber = Newsletter::where('token', trim($token))->firstOrFail();
 
         $subscriber->update([
             'confirmed' => true,
