@@ -17,6 +17,7 @@ class AdminSidebarLayoutTest extends TestCase
 
         $html = view('layouts.admin')->render();
 
+        $this->assertStringContainsString('admin-has-sidebar-toggle', $html);
         $this->assertStringContainsString('data-admin-sidebar-toggle', $html);
         $this->assertStringContainsString('aria-controls="admin-sidebar"', $html);
         $this->assertStringContainsString('aria-expanded="false"', $html);
@@ -42,7 +43,7 @@ class AdminSidebarLayoutTest extends TestCase
         $this->assertStringContainsString('Statistiche', $html);
     }
 
-    public function test_admin_css_keeps_desktop_layout_and_mobile_open_state(): void
+    public function test_admin_css_keeps_desktop_layout_and_scopes_mobile_spacing(): void
     {
         $css = file_get_contents(public_path('css/admin.css'));
 
@@ -51,5 +52,17 @@ class AdminSidebarLayoutTest extends TestCase
         $this->assertStringContainsString('.admin-sidebar.open', $css);
         $this->assertStringContainsString('.admin-sidebar-toggle', $css);
         $this->assertStringContainsString('.admin-sidebar-overlay[hidden]', $css);
+        $this->assertStringContainsString(".admin-main {\n    margin-left: 0;\n    width: 100%;\n    padding: 1rem;\n  }", $css);
+        $this->assertStringContainsString(".admin-has-sidebar-toggle .admin-main {\n    padding: 4.25rem 1rem 1rem;\n  }", $css);
+    }
+
+    public function test_redazione_layout_does_not_receive_admin_sidebar_toggle_spacing(): void
+    {
+        $html = file_get_contents(resource_path('views/layouts/redazione.blade.php'));
+
+        $this->assertStringContainsString('class="admin-body"', $html);
+        $this->assertStringNotContainsString('admin-has-sidebar-toggle', $html);
+        $this->assertStringNotContainsString('data-admin-sidebar-toggle', $html);
+        $this->assertStringNotContainsString('data-admin-sidebar-overlay', $html);
     }
 }
