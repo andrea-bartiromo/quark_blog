@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class CommentController extends Controller
 {
@@ -18,11 +19,21 @@ class CommentController extends Controller
         }
 
         $validated = $request->validate([
-            'article_id' => 'required|exists:articles,id',
+            'article_id' => 'required|integer',
             'name'       => 'required|max:80',
             'email'      => 'required|email',
             'body'       => 'required|min:10|max:1500',
         ]);
+
+        $article = Article::published()
+            ->whereKey($validated['article_id'])
+            ->first();
+
+        if (! $article) {
+            throw ValidationException::withMessages([
+                'article_id' => 'L\'articolo selezionato non è disponibile per i commenti.',
+            ]);
+        }
 
         $comment = Comment::create($validated + ['status' => 'pending']);
 
@@ -30,8 +41,7 @@ class CommentController extends Controller
         try {
             $adminEmail = User::where('role', 'editor')->value('email');
             if ($adminEmail) {
-                $article = Article::find($request->input('article_id'));
-                $articleTitle = $article ? $article->title : 'Articolo';
+                $articleTitle = $article->title;
                 $moderaUrl = route('admin.comments');
 
                 Mail::send([], [], function ($m) use ($comment, $adminEmail, $articleTitle, $moderaUrl) {
