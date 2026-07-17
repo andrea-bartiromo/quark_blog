@@ -12,7 +12,7 @@
   <meta name="robots" content="noindex,nofollow">
 </head>
 
-<body class="admin-body">
+<body class="admin-body admin-has-sidebar-toggle">
 <button type="button"
         class="admin-sidebar-toggle"
         aria-label="Apri menu amministrazione"
