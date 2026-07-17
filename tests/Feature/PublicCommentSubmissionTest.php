@@ -112,6 +112,7 @@ class PublicCommentSubmissionTest extends TestCase
             'name' => 'Lettrice Test',
             'email' => 'lettrice@example.com',
             'body' => 'Questo è un commento pubblico valido per il test.',
+            'website' => '',
         ];
     }
 }
