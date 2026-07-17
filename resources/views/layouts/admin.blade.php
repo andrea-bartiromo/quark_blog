@@ -13,9 +13,19 @@
 </head>
 
 <body class="admin-body">
+<button type="button"
+        class="admin-sidebar-toggle"
+        aria-label="Apri menu amministrazione"
+        aria-controls="admin-sidebar"
+        aria-expanded="false"
+        data-admin-sidebar-toggle>
+  <span aria-hidden="true">☰</span>
+</button>
+<div class="admin-sidebar-overlay" data-admin-sidebar-overlay hidden></div>
+
 <div class="admin-layout">
 
-  <aside class="admin-sidebar">
+  <aside id="admin-sidebar" class="admin-sidebar" aria-label="Menu amministrazione">
 
     <div class="admin-sidebar__brand">
       <div class="admin-sidebar__logo">
@@ -222,6 +232,83 @@
 
 @yield('scripts')
 @stack('scripts')
+
+<script>
+(function () {
+  const toggle = document.querySelector('[data-admin-sidebar-toggle]');
+  const sidebar = document.getElementById('admin-sidebar');
+  const overlay = document.querySelector('[data-admin-sidebar-overlay]');
+
+  if (!toggle || !sidebar || !overlay) {
+    return;
+  }
+
+  const focusableSelector = 'a[href], button:not([disabled]), summary, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  let lastFocused = null;
+
+  function sidebarFocusables() {
+    return Array.from(sidebar.querySelectorAll(focusableSelector))
+      .filter((element) => element.offsetParent !== null);
+  }
+
+  function setSidebarOpen(open) {
+    sidebar.classList.toggle('open', open);
+    overlay.hidden = !open;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? 'Chiudi menu amministrazione' : 'Apri menu amministrazione');
+    document.body.classList.toggle('admin-sidebar-is-open', open);
+
+    if (open) {
+      lastFocused = document.activeElement;
+      (sidebarFocusables()[0] || toggle).focus();
+      return;
+    }
+
+    if (lastFocused && document.contains(lastFocused)) {
+      lastFocused.focus();
+    }
+  }
+
+  toggle.addEventListener('click', () => setSidebarOpen(!sidebar.classList.contains('open')));
+  overlay.addEventListener('click', () => setSidebarOpen(false));
+
+  document.addEventListener('keydown', (event) => {
+    if (!sidebar.classList.contains('open')) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setSidebarOpen(false);
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusable = [toggle, ...sidebarFocusables()];
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  window.matchMedia('(min-width: 901px)').addEventListener('change', (event) => {
+    if (event.matches) {
+      setSidebarOpen(false);
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
