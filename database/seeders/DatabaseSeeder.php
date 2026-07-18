@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Comment;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +43,20 @@ class DatabaseSeeder extends Seeder
             'photo'    => 'author-3.jpg',
             'twitter'  => '@elena_romano',
         ]);
+
+        // ── Categorie ─────────────────────────────────────────────
+        $categoryImages = [
+            'intelligenza-artificiale' => 'categoria-intelligenza-artificiale.webp',
+            'energia' => 'categoria-energia-clima.webp',
+            'salute' => 'categoria-salute-biotech.webp',
+            'societa' => 'categoria-tecnologia-societa.webp',
+            'spazio' => 'categoria-spazio.webp',
+            'ambiente' => 'categoria-ambiente.webp',
+        ];
+
+        foreach ($categoryImages as $slug => $image) {
+            Category::where('slug', $slug)->update(['image' => $image]);
+        }
 
         // ── Articoli ──────────────────────────────────────────────
         $articles = [
