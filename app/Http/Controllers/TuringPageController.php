@@ -29,11 +29,11 @@ class TuringPageController extends Controller
             'final' => $final,
             'sectionImageFallbacks' => $this->sectionImageFallbacks(),
             'sectionBackgroundFallbacks' => $this->sectionBackgroundFallbacks(),
-            'heroBackgroundImage' => $hero['background_image'] ?? 'turing-hero-bg.jpg',
+            'heroBackgroundImage' => $hero['background_image'] ?? 'turing-hero.webp',
             'heroPortraitImage' => $hero['portrait_image'] ?? null,
-            'introBackgroundImage' => $intro['background_image'] ?? 'turing-intro-bg.jpg',
+            'introBackgroundImage' => $intro['background_image'] ?? 'turing-intro.webp',
             'whyBackgroundImage' => $why['background_image'] ?? null,
-            'whyPanelImage' => 'turing-legacy-panel.jpg',
+            'whyPanelImage' => 'turing-legacy-panel.webp',
             'finalBackgroundImage' => $final['background_image'] ?? null,
             'terminalLines' => collect($hero['terminal_lines'] ?? [
                 'ENIGMA SIGNAL FOUND',
@@ -47,20 +47,20 @@ class TuringPageController extends Controller
     private function sectionImageFallbacks(): array
     {
         return [
-            'enigma' => 'turing/enigma.jpg',
-            'macchina-universale' => 'turing/macchina-universale.jpg',
-            'test-turing' => 'turing/test-turing.png',
-            'ai-moderna' => 'turing/ai-moderna.jpg',
+            'enigma' => 'turing/enigma.webp',
+            'macchina-universale' => 'turing/universal-machine.webp',
+            'test-turing' => 'turing/turing-test.webp',
+            'ai-moderna' => 'turing/modern-ai.webp',
         ];
     }
 
     private function sectionBackgroundFallbacks(): array
     {
         return [
-            'enigma' => 'turing-enigma-bg.jpg',
-            'macchina-universale' => 'turing-universal-machine-bg.jpg',
-            'test-turing' => 'turing-test-bg.jpg',
-            'ai-moderna' => 'turing-ai-bg.jpg',
+            'enigma' => 'turing-enigma-background.webp',
+            'macchina-universale' => 'turing-universal-machine-background.webp',
+            'test-turing' => 'turing-test-background.webp',
+            'ai-moderna' => 'turing-ai-background.webp',
         ];
     }
 }

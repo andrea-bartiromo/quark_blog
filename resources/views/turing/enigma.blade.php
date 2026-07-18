@@ -22,11 +22,11 @@
 
     $heroImage = $enigmaBlock['background_image']
         ?? $enigmaBlock['image']
-        ?? 'turing-enigma-bg.jpg';
+        ?? 'turing-enigma-background.webp';
 
     $panelImage = $enigmaBlock['image']
         ?? $enigmaBlock['background_image']
-        ?? 'turing-enigma-panel.jpg';
+        ?? 'turing-enigma-panel.webp';
 @endphp
 
 @section('title', 'Enigma e Bletchley Park — Quark')
