@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Comment;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -43,6 +44,20 @@ class DatabaseSeeder extends Seeder
             'twitter'  => '@elena_romano',
         ]);
 
+        // ── Categorie ─────────────────────────────────────────────
+        $categoryImages = [
+            'intelligenza-artificiale' => 'categoria-intelligenza-artificiale.webp',
+            'energia' => 'categoria-energia-clima.webp',
+            'salute' => 'categoria-salute-biotech.webp',
+            'societa' => 'categoria-tecnologia-societa.webp',
+            'spazio' => 'categoria-spazio.webp',
+            'ambiente' => 'categoria-ambiente.webp',
+        ];
+
+        foreach ($categoryImages as $slug => $image) {
+            Category::where('slug', $slug)->update(['image' => $image]);
+        }
+
         // ── Articoli ──────────────────────────────────────────────
         $articles = [
             [
@@ -54,7 +69,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'intelligenza-artificiale',
                 'status'       => 'published',
                 'featured'     => true,
-                'cover_image'  => 'hero-placeholder.jpg',
+                'cover_image'  => 'hero-placeholder.svg',
                 'read_minutes' => 8,
                 'views'        => 1240,
                 'published_at' => now()->subDays(1),
@@ -68,7 +83,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'energia',
                 'status'       => 'published',
                 'featured'     => false,
-                'cover_image'  => 'placeholder-1.jpg',
+                'cover_image'  => 'placeholder-1.svg',
                 'read_minutes' => 5,
                 'views'        => 876,
                 'published_at' => now()->subDays(2),
@@ -82,7 +97,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'salute',
                 'status'       => 'published',
                 'featured'     => false,
-                'cover_image'  => 'placeholder-2.jpg',
+                'cover_image'  => 'placeholder-1.svg',
                 'read_minutes' => 6,
                 'views'        => 654,
                 'published_at' => now()->subDays(3),
@@ -96,7 +111,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'spazio',
                 'status'       => 'published',
                 'featured'     => false,
-                'cover_image'  => 'placeholder-3.jpg',
+                'cover_image'  => 'placeholder-1.svg',
                 'read_minutes' => 4,
                 'views'        => 432,
                 'published_at' => now()->subDays(4),
@@ -110,7 +125,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'societa',
                 'status'       => 'published',
                 'featured'     => false,
-                'cover_image'  => 'placeholder-4.jpg',
+                'cover_image'  => 'placeholder-1.svg',
                 'read_minutes' => 7,
                 'views'        => 989,
                 'published_at' => now()->subDays(5),
@@ -124,7 +139,7 @@ class DatabaseSeeder extends Seeder
                 'category'     => 'energia',
                 'status'       => 'published',
                 'featured'     => false,
-                'cover_image'  => 'placeholder-5.jpg',
+                'cover_image'  => 'placeholder-1.svg',
                 'read_minutes' => 5,
                 'views'        => 712,
                 'published_at' => now()->subDays(6),
