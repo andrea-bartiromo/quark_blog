@@ -143,25 +143,10 @@
   content: "";
   position: absolute;
   inset: 1.2rem;
+  z-index: 0;
   border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 18px;
   pointer-events: none;
-}
-
-.turing-portrait-card__image::after {
-  content: "1912 / 1954";
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  padding: .55rem .72rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .78);
-  border: 1px solid rgba(15, 23, 42, .1);
-  color: #0f766e;
-  font-size: .72rem;
-  font-weight: 900;
-  letter-spacing: .12em;
-  text-align: center;
 }
 
 .turing-portrait-initials {
@@ -176,7 +161,23 @@
 }
 
 .turing-portrait-years {
-  display: none;
+  position: absolute;
+  left: 1.1rem;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  z-index: 2;
+  display: block;
+  margin: 0;
+  padding: .7rem .9rem;
+  border: 1px solid rgba(15, 23, 42, .1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .78);
+  color: #0f766e;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-align: center;
+  backdrop-filter: blur(10px);
 }
 
 .turing-portrait-card figcaption {
@@ -265,8 +266,21 @@
   border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 22px;
   background: rgba(255, 255, 255, .68);
+  color: #0f172a !important;
   backdrop-filter: blur(12px);
   box-shadow: 0 16px 48px rgba(15, 23, 42, .08);
+}
+
+.turing-section.has-bg .turing-section__head .turing-kicker {
+  color: #0f766e !important;
+}
+
+.turing-section.has-bg .turing-section__head h2 {
+  color: #0f172a !important;
+}
+
+.turing-section.has-bg .turing-section__head > p:not(.turing-kicker) {
+  color: #475569 !important;
 }
 
 .turing-section.has-bg .turing-route-grid {
