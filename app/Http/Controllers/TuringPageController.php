@@ -44,7 +44,7 @@ class TuringPageController extends Controller
             'introBackgroundImage' => $intro['background_image'] ?? 'turing-intro.webp',
             'whyBackgroundImage' => $why['background_image'] ?? 'turing-universal-machine-background.webp',
             'whyPanelImage' => 'turing-legacy-panel.webp',
-            'timelineBackgroundImage' => $content['timeline_background_image'] ?? 'turing-test-background.webp',
+            'timelineBackgroundImage' => 'turing-test-background.webp',
             'finalBackgroundImage' => $final['background_image'] ?? 'turing-ai-background.webp',
             'terminalLines' => collect($hero['terminal_lines'] ?? [
                 'ENIGMA SIGNAL FOUND',
