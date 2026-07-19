@@ -313,44 +313,14 @@
   backdrop-filter: blur(10px);
 }
 
-.turing-section--dark {
-  background: #eaf4ff;
-  color: #0f172a;
-}
-
 .turing-section--split {
   background: #edf6ff;
 }
 
-/* Il ritaglio verticale eccessivo era causato da background-size:
-   cover calcolato sull'intera altezza della sezione Timeline (oltre
-   2000px con 9 eventi), non dalle dimensioni reali dell'immagine
-   (1200x675px): la fotografia veniva ingrandita fino a 3-5 volte e
-   ritagliata a una sottile porzione centrale, diventando
-   irriconoscibile. background-attachment: fixed risolveva il
-   problema solo su desktop/Android (il supporto e' incompleto su
-   Safari/iOS, bug WebKit 275247 tuttora aperto). Soluzione
-   architetturale, compatibile con tutti i browser: la fotografia vive
-   ora in una testata dedicata (.turing-timeline__header) con altezza
-   responsive indipendente dal numero di eventi; gli eventi restano
-   sotto, sullo sfondo uniforme .turing-section--dark gia' esistente,
-   senza immagine di sfondo. */
-#timeline.turing-section {
-  padding-top: 0;
-}
-
-.turing-timeline__header {
-  min-height: 380px;
-  margin-bottom: 3rem;
-}
-
-.turing-timeline__header.has-bg {
-  background-position: center 38%;
-}
-
-.turing-timeline__header .turing-section__head {
-  margin-bottom: 0;
-}
+/* La Timeline (testata fotografica + area eventi, Decision #001) e' stata
+   promossa a componente riutilizzabile <x-special.timeline>: il suo stile
+   vive ora in public/css/special-project.css (namespace .sp-timeline*),
+   condiviso da tutti gli Special Projects. */
 
 .turing-section__head {
   max-width: 900px;
@@ -458,48 +428,15 @@
   font-size: .92rem;
 }
 
-.turing-timeline {
-  display: grid;
-  gap: 1rem;
-  max-width: 950px;
-  margin: 0 auto;
-}
-
-.turing-timeline__item {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 1.5rem;
-  align-items: start;
-  padding: 1.4rem;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, .78);
-  border: 1px solid rgba(15, 23, 42, .1);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, .08);
-}
-
+/* .turing-timeline__media resta qui perche' riusata dal componente
+   articolo <x-turing.article.figure>. Le altre regole .turing-timeline*
+   sono state spostate in special-project.css (.sp-timeline*). */
 .turing-timeline__media {
   width: 100%;
   height: 180px;
   object-fit: cover;
   border-radius: 18px;
   margin-top: 1rem;
-}
-
-.turing-timeline__year {
-  font-weight: 950;
-  color: #0f766e;
-  font-size: 1.3rem;
-}
-
-.turing-timeline__item h3 {
-  margin: 0;
-  color: #0f172a;
-}
-
-.turing-timeline__item p {
-  margin: .45rem 0 0;
-  color: #475569;
-  line-height: 1.8;
 }
 
 .turing-final-card {
@@ -544,25 +481,6 @@
   justify-content: center;
 }
 
-.turing-timeline__item--link {
-  color: inherit;
-  text-decoration: none;
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-
-.turing-timeline__item--link:hover,
-.turing-timeline__item--link:focus-visible {
-  transform: translateY(-3px);
-  border-color: rgba(15, 118, 110, .38);
-  box-shadow: 0 22px 52px rgba(15, 23, 42, .12);
-  outline: none;
-}
-
-.turing-timeline__item--link h3::after {
-  content: " →";
-  color: #0f766e;
-}
-
 @media (max-width: 1024px) {
   .turing-hero__grid {
     grid-template-columns: minmax(0, 1fr) minmax(280px, .55fr);
@@ -571,10 +489,6 @@
 
   .turing-portrait-card__image {
     min-height: 310px;
-  }
-
-  .turing-timeline__header {
-    min-height: 320px;
   }
 }
 
@@ -603,10 +517,6 @@
   .turing-portrait-card__image {
     min-height: 280px;
   }
-
-  .turing-timeline__header {
-    min-height: 280px;
-  }
 }
 
 @media (max-width: 800px) {
@@ -620,10 +530,6 @@
 
   .turing-section[id] {
     scroll-margin-top: 4.75rem;
-  }
-
-  .turing-timeline__item {
-    grid-template-columns: 1fr;
   }
 
   .turing-actions a,
@@ -649,10 +555,6 @@
 
   .turing-portrait-card__image {
     min-height: 230px;
-  }
-
-  .turing-timeline__header {
-    min-height: 240px;
   }
 
   .turing-section.has-bg .turing-section__head,

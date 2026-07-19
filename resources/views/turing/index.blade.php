@@ -50,6 +50,7 @@
 
 @section('head')
 <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
+<link rel="stylesheet" href="{{ asset('css/special-project.css') }}">
 @endsection
 
 @section('content')
