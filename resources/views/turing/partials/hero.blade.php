@@ -12,10 +12,12 @@
       </div>
 
       <figure class="turing-portrait-card" aria-label="Ritratto editoriale di Alan Turing">
-        <div class="turing-portrait-card__image" style="{{ $bg($heroPortraitImage) }}">
-          @if(empty($heroPortraitImage))
-            <span class="turing-portrait-initials">{{ $hero['portrait_initials'] ?? 'AT' }}</span>
-          @endif
+        <div class="turing-portrait-card__image">
+          <img class="turing-portrait-card__photo"
+               src="{{ asset('assets/img/alan-turing-portrait.png') }}"
+               alt="Alan Mathison Turing"
+               loading="lazy"
+               decoding="async">
           <span class="turing-portrait-years">{{ $hero['portrait_years'] ?? '1912 / 1954' }}</span>
         </div>
         <figcaption>

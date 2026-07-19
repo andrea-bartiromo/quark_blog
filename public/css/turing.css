@@ -139,7 +139,7 @@
   background-position: center;
 }
 
-.turing-portrait-card__image:not([style*="background-image"])::before {
+.turing-portrait-card__image:not(:has(.turing-portrait-card__photo))::before {
   content: "";
   position: absolute;
   inset: 1.2rem;
@@ -147,6 +147,17 @@
   border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 18px;
   pointer-events: none;
+}
+
+.turing-portrait-card__photo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
 }
 
 .turing-portrait-initials {
