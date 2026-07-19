@@ -322,6 +322,36 @@
   background: #edf6ff;
 }
 
+/* Il ritaglio verticale eccessivo era causato da background-size:
+   cover calcolato sull'intera altezza della sezione Timeline (oltre
+   2000px con 9 eventi), non dalle dimensioni reali dell'immagine
+   (1200x675px): la fotografia veniva ingrandita fino a 3-5 volte e
+   ritagliata a una sottile porzione centrale, diventando
+   irriconoscibile. background-attachment: fixed risolveva il
+   problema solo su desktop/Android (il supporto e' incompleto su
+   Safari/iOS, bug WebKit 275247 tuttora aperto). Soluzione
+   architetturale, compatibile con tutti i browser: la fotografia vive
+   ora in una testata dedicata (.turing-timeline__header) con altezza
+   responsive indipendente dal numero di eventi; gli eventi restano
+   sotto, sullo sfondo uniforme .turing-section--dark gia' esistente,
+   senza immagine di sfondo. */
+#timeline.turing-section {
+  padding-top: 0;
+}
+
+.turing-timeline__header {
+  min-height: 380px;
+  margin-bottom: 3rem;
+}
+
+.turing-timeline__header.has-bg {
+  background-position: center 38%;
+}
+
+.turing-timeline__header .turing-section__head {
+  margin-bottom: 0;
+}
+
 .turing-section__head {
   max-width: 900px;
   margin: 0 auto 3rem;
@@ -542,6 +572,10 @@
   .turing-portrait-card__image {
     min-height: 310px;
   }
+
+  .turing-timeline__header {
+    min-height: 320px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -567,6 +601,10 @@
   }
 
   .turing-portrait-card__image {
+    min-height: 280px;
+  }
+
+  .turing-timeline__header {
     min-height: 280px;
   }
 }
@@ -611,6 +649,10 @@
 
   .turing-portrait-card__image {
     min-height: 230px;
+  }
+
+  .turing-timeline__header {
+    min-height: 240px;
   }
 
   .turing-section.has-bg .turing-section__head,

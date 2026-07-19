@@ -1,11 +1,15 @@
 @if($timeline->isNotEmpty())
-<section class="turing-section turing-section--dark {{ !empty($timelineBackgroundImage) ? 'has-bg' : '' }}" id="timeline" style="{{ $bg($timelineBackgroundImage) }}">
-  <div class="container container--wide">
-    <div class="turing-section__head">
-      <p class="turing-kicker">Timeline</p>
-      <h2>Una vita che attraversa il Novecento</h2>
+<section class="turing-section turing-section--dark" id="timeline">
+  <div class="turing-section has-bg turing-timeline__header" style="{{ $bg($timelineBackgroundImage) }}">
+    <div class="container container--wide">
+      <div class="turing-section__head">
+        <p class="turing-kicker">Timeline</p>
+        <h2>Una vita che attraversa il Novecento</h2>
+      </div>
     </div>
+  </div>
 
+  <div class="container container--wide">
     <div class="turing-timeline">
       @foreach($timeline as $event)
         @php
