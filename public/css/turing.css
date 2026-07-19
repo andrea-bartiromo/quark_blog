@@ -250,6 +250,9 @@
   color: #0f172a;
   overflow: hidden;
   isolation: isolate;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 
 .turing-section.has-bg::before {
@@ -467,6 +470,7 @@
   background: rgba(255, 255, 255, .84);
   color: #0f172a;
   box-shadow: 0 24px 70px rgba(15, 23, 42, .11);
+  background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
   position: relative;
