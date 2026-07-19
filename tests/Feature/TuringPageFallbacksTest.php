@@ -146,6 +146,43 @@ class TuringPageFallbacksTest extends TestCase
             ->assertDontSeeText('La nascita a Londra');
     }
 
+    public function test_turing_route_cards_without_valid_urls_are_not_rendered_as_empty_links(): void
+    {
+        $this->createTuringPage([
+            'cards' => [
+                [
+                    'label' => 'Card senza URL',
+                    'title' => 'Percorso senza destinazione',
+                    'text' => 'Questa card resta informativa.',
+                    'style' => 'legacy',
+                ],
+                [
+                    'label' => 'Card con cancelletto',
+                    'title' => 'Percorso non navigabile',
+                    'text' => 'Non deve creare un link vuoto.',
+                    'url' => '#',
+                    'style' => 'enigma',
+                ],
+                [
+                    'label' => 'Card valida',
+                    'title' => 'Percorso navigabile',
+                    'text' => 'Questa card mantiene il link.',
+                    'url' => '/turing/enigma',
+                    'style' => 'enigma',
+                ],
+            ],
+        ]);
+
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Percorso senza destinazione')
+            ->assertSeeText('Percorso non navigabile')
+            ->assertSee('href="/turing/enigma"', false)
+            ->assertDontSee('href="#"', false);
+    }
+
     public function test_universal_machine_fallback_block_does_not_render_a_self_link_cta(): void
     {
         $response = $this->get(route('turing'));
