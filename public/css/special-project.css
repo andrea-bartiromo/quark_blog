@@ -1,0 +1,278 @@
+/* ============================================================================
+   Special Project — base condivisa e Design Tokens
+   ----------------------------------------------------------------------------
+   Layer riutilizzabile per tutti gli Special Projects di Quark Blog
+   (Turing, e in futuro Lovelace, Curie, Tesla, ...).
+
+   I token --sp-* sono costruiti sopra i token globali gia' presenti in
+   style.css (--primary, --ink, --space-*, --font-display), cosi' da restare
+   coerenti con il Design System invece di reintrodurre valori hard-coded.
+
+   Coerente con il Project Book:
+   - Decision #001 (testata fotografica ad altezza controllata + area eventi).
+   - 10.1 la struttura racconta, le immagini introducono.
+   - 10.2 ogni capitolo deve essere riconoscibile.
+   - 10.4 le sezioni lunghe devono avere una struttura interna (spina dorsale
+     cronologica + gerarchia degli eventi).
+   - 10.5 la fotografia solo come apertura, con proporzioni controllate.
+   ========================================================================== */
+
+:root {
+  /* Superfici editoriali */
+  --sp-surface:        #eef2f7;
+  --sp-surface-tint:   #e5ebf3;
+  --sp-card-bg:        #ffffff;
+  --sp-card-border:    rgba(15, 23, 42, .10);
+  --sp-card-shadow:    0 14px 36px rgba(15, 23, 42, .10);
+  --sp-card-shadow-hover: 0 22px 52px rgba(15, 23, 42, .14);
+
+  /* Inchiostri (allineati ai neutrali globali) */
+  --sp-ink:            var(--ink, #0f172a);
+  --sp-ink-strong:     #0f172a;
+  --sp-ink-soft:       #475569;
+
+  /* Accento (allineato al brand globale) */
+  --sp-accent:         var(--primary-dark, #0f766e);
+  --sp-spine:          rgba(15, 118, 110, .30);
+  --sp-node:           var(--primary-dark, #0f766e);
+
+  /* Overlay fotografico della cover di capitolo */
+  --sp-cover-overlay:  rgba(3, 7, 18, .58);
+  --sp-cover-height:   360px;
+
+  /* Forma e ritmo */
+  --sp-radius:         24px;
+  --sp-radius-lg:      28px;
+  --sp-section-space:  clamp(3.5rem, 7vw, 5.5rem);
+  --sp-list-max:       820px;
+}
+
+/* ============================================================================
+   Componente: Timeline (spina dorsale cronologica)
+   ========================================================================== */
+
+.sp-timeline {
+  background: var(--sp-surface);
+  color: var(--sp-ink);
+  padding-block: var(--sp-section-space);
+}
+
+.sp-timeline[id] {
+  scroll-margin-top: 6rem;
+}
+
+/* ---- Cover di capitolo: la foto apre il capitolo (10.5), bordata e ad
+   altezza controllata (Decision #001). La composizione bordata la distingue
+   dalle sezioni editoriali a tutta pagina che la precedono -> "cambio di
+   capitolo" percepibile (10.2). --------------------------------------------- */
+.sp-timeline__cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: var(--sp-cover-height);
+  display: flex;
+  align-items: flex-end;
+  border-radius: var(--sp-radius-lg);
+  background-color: var(--sp-surface-tint);
+  background-size: cover;
+  background-position: center 38%;
+  background-repeat: no-repeat;
+  box-shadow: 0 20px 54px rgba(15, 23, 42, .18);
+  margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.sp-timeline__cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 7, 18, .12) 0%,
+    rgba(3, 7, 18, .34) 46%,
+    var(--sp-cover-overlay) 100%
+  );
+}
+
+.sp-timeline__cover-inner {
+  position: relative;
+  z-index: 1;
+  padding: clamp(1.6rem, 4vw, 2.6rem);
+}
+
+.sp-timeline__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 .6rem;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: .72rem;
+  font-weight: 800;
+  color: #fff;
+  opacity: .92;
+}
+
+.sp-timeline__title {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2rem, 4.6vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: -.02em;
+  color: #fff;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, .42);
+}
+
+/* ---- Area eventi: struttura interna con spina dorsale + nodi (10.4) ------- */
+.sp-timeline__list {
+  position: relative;
+  max-width: var(--sp-list-max);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.sp-timeline__list::before {
+  content: "";
+  position: absolute;
+  top: .75rem;
+  bottom: .75rem;
+  left: 11px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    var(--sp-spine) 6%,
+    var(--sp-spine) 94%,
+    transparent 100%
+  );
+}
+
+.sp-timeline__item {
+  position: relative;
+  padding-left: 3.25rem;
+}
+
+.sp-timeline__item + .sp-timeline__item {
+  margin-top: 1.25rem;
+}
+
+.sp-timeline__marker {
+  position: absolute;
+  left: 3px;
+  top: 1.75rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sp-node);
+  border: 4px solid var(--sp-surface);
+  box-shadow: 0 0 0 2px var(--sp-node);
+}
+
+.sp-timeline__card {
+  display: block;
+  padding: 1.35rem 1.5rem;
+  border-radius: var(--sp-radius);
+  background: var(--sp-card-bg);
+  border: 1px solid var(--sp-card-border);
+  box-shadow: var(--sp-card-shadow);
+}
+
+.sp-timeline__year {
+  display: inline-block;
+  margin-bottom: .35rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: .02em;
+  color: var(--sp-accent);
+}
+
+.sp-timeline__event-title {
+  margin: .1rem 0 .45rem;
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  line-height: 1.15;
+  color: var(--sp-ink-strong);
+}
+
+.sp-timeline__text {
+  margin: 0;
+  color: var(--sp-ink-soft);
+  line-height: 1.75;
+}
+
+.sp-timeline__media {
+  width: 100%;
+  height: 180px;
+  margin-top: 1rem;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+/* Affordance sugli eventi collegati */
+.sp-timeline__card--link {
+  color: inherit;
+  text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.sp-timeline__card--link:hover,
+.sp-timeline__card--link:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(15, 118, 110, .38);
+  box-shadow: var(--sp-card-shadow-hover);
+  outline: none;
+}
+
+.sp-timeline__card--link .sp-timeline__event-title::after {
+  content: " \2192";
+  color: var(--sp-accent);
+}
+
+/* ---- Desktop/tablet: anno come colonna a sinistra -> gerarchia scansionabile */
+@media (min-width: 768px) {
+  .sp-timeline__card {
+    display: grid;
+    grid-template-columns: 104px 1fr;
+    gap: 1.5rem;
+    align-items: baseline;
+    padding: 1.5rem 1.75rem;
+  }
+
+  .sp-timeline__year {
+    margin: 0;
+    text-align: right;
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root { --sp-cover-height: 320px; }
+}
+
+@media (max-width: 900px) {
+  :root { --sp-cover-height: 300px; }
+}
+
+@media (max-width: 480px) {
+  :root { --sp-cover-height: 260px; }
+
+  .sp-timeline__item {
+    padding-left: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-timeline__card--link {
+    transition: none;
+  }
+
+  .sp-timeline__card--link:hover,
+  .sp-timeline__card--link:focus-visible {
+    transform: none;
+  }
+}
