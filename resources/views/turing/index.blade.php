@@ -53,6 +53,7 @@
 @endsection
 
 @section('content')
+<div class="turing-page">
 @include('turing.partials.hero')
 @include('turing.partials.terminal-band')
 @include('turing.partials.intro-section')
@@ -60,4 +61,5 @@
 @include('turing.partials.legacy-section')
 @include('turing.partials.timeline')
 @include('turing.partials.final-card')
+</div>
 @endsection
