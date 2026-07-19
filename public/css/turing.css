@@ -237,6 +237,10 @@
   background-position: center;
 }
 
+.turing-section[id] {
+  scroll-margin-top: 6rem;
+}
+
 .turing-section.has-bg {
   position: relative;
   color: #0f172a;
@@ -555,6 +559,10 @@
 
   .turing-hero__grid {
     padding-block: 3rem;
+  }
+
+  .turing-section[id] {
+    scroll-margin-top: 4.75rem;
   }
 
   .turing-timeline__item {

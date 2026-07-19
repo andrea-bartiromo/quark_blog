@@ -11,12 +11,15 @@
     $layout = $forcedLayouts[$key] ?? ($blockData->get('layout') ?? 'image_left');
     $currentBlockImage = $blockImage($block);
     $currentBlockBackground = $blockBackground($block);
-    $blockUrl = $blockData->get('link_url') ?: '#'.($key ?: Str::slug($blockData->get('title', 'sezione')));
     $blockId = $key ?: Str::slug($blockData->get('title', 'sezione'));
+    $rawBlockUrl = trim((string) $blockData->get('link_url', ''));
+    $hasBlockUrl = $rawBlockUrl !== '' && $rawBlockUrl !== '#'.$blockId;
+    $containerTag = $hasBlockUrl ? 'a' : 'div';
+    $containerClasses = 'container container--wide turing-split'.($hasBlockUrl ? ' turing-editorial-link' : '');
   @endphp
 
   <section class="turing-section turing-editorial-block {{ !empty($currentBlockBackground) ? 'has-bg' : '' }} turing-layout--{{ $layout }}" id="{{ $blockId }}" style="{{ $bg($currentBlockBackground) }}">
-    <a class="container container--wide turing-split turing-editorial-link" href="{{ $blockUrl }}">
+    <{{ $containerTag }} class="{{ $containerClasses }}" @if($hasBlockUrl) href="{{ $rawBlockUrl }}" @endif>
       @if($layout === 'image_left')
         <div class="turing-image-panel" style="{{ $bg($currentBlockImage) }}"></div>
       @endif
@@ -26,7 +29,7 @@
         <h2>{{ $blockData->get('title', 'Sezione editoriale') }}</h2>
         <p>{{ $blockData->get('text', '') }}</p>
 
-        @if(filled($blockData->get('link_label')))
+        @if($hasBlockUrl && filled($blockData->get('link_label')))
           <div class="turing-actions">
             <span>{{ $blockData->get('link_label') }}</span>
           </div>
@@ -36,6 +39,6 @@
       @if($layout === 'image_right')
         <div class="turing-image-panel" style="{{ $bg($currentBlockImage) }}"></div>
       @endif
-    </a>
+    </{{ $containerTag }}>
   </section>
 @endforeach

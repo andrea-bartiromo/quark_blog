@@ -116,8 +116,6 @@ class TuringPageController extends Controller
                 'text' => 'Nel 1936 Turing descrisse un modello astratto capace di manipolare simboli secondo regole definite. Quella macchina teorica rese più precisa la nozione di algoritmo e mostrò che programma e dati potevano essere trattati nello stesso linguaggio formale. Non era un computer nel senso materiale del termine, ma una grammatica concettuale del calcolo che avrebbe influenzato profondamente l’informatica, la logica matematica e il modo in cui pensiamo le macchine programmabili.',
                 'image' => 'turing/universal-machine.webp',
                 'background_image' => 'turing-universal-machine-background.webp',
-                'link_label' => 'Segui il filo del calcolo',
-                'link_url' => '#macchina-universale',
             ],
             [
                 'enabled' => true,
