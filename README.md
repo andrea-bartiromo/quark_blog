@@ -154,11 +154,6 @@ I test usano un database SQLite dedicato (configurato in `phpunit.xml`, isolato 
 - Sostituzione delle immagini placeholder con foto originali
 - Ottimizzazione delle performance
 
-## Licenza
-
-Progetto proprietario (vedi `composer.json`). Tutti i diritti riservati.
-
-**Autore:** Andrea Bartiromo — [github.com/andrea-bartiromo](https://github.com/andrea-bartiromo)
 
 
 ## Licenza e Copyright
