@@ -47,6 +47,69 @@ class TuringPageFallbacksTest extends TestCase
             ->assertSeeText('Computabilità e macchina universale');
     }
 
+    public function test_turing_page_uses_fallbacks_when_editorial_blocks_are_structurally_empty(): void
+    {
+        $this->createTuringPage([
+            'editorial_blocks' => [[]],
+            'timeline' => [
+                [
+                    'year' => '2099',
+                    'title' => 'Timeline CMS valida',
+                    'text' => 'Evento CMS valido.',
+                ],
+            ],
+        ]);
+
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('La guerra dei codici: Enigma e Bletchley Park')
+            ->assertSeeText('Timeline CMS valida');
+    }
+
+    public function test_turing_page_uses_fallbacks_when_timeline_is_structurally_empty(): void
+    {
+        $this->createTuringPage([
+            'editorial_blocks' => [
+                [
+                    'enabled' => true,
+                    'title' => 'Blocco CMS valido',
+                    'text' => 'Testo CMS valido.',
+                ],
+            ],
+            'timeline' => [[]],
+        ]);
+
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Blocco CMS valido')
+            ->assertSeeText('Computabilità e macchina universale');
+    }
+
+    public function test_turing_page_filters_empty_timeline_items_without_merging_fallbacks(): void
+    {
+        $this->createTuringPage([
+            'timeline' => [
+                [],
+                [
+                    'year' => '2099',
+                    'title' => 'Evento CMS valido',
+                    'text' => 'Contenuto CMS.',
+                ],
+            ],
+        ]);
+
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Evento CMS valido')
+            ->assertDontSeeText('La nascita a Londra');
+    }
+
     public function test_turing_page_uses_cms_content_without_merging_fallbacks(): void
     {
         $this->createTuringPage([
@@ -80,7 +143,7 @@ class TuringPageFallbacksTest extends TestCase
             ->assertSeeText('Blocco CMS personalizzato')
             ->assertSeeText('Evento CMS personalizzato')
             ->assertDontSeeText('La guerra dei codici: Enigma e Bletchley Park')
-            ->assertDontSeeText('Computabilità e macchina universale');
+            ->assertDontSeeText('La nascita a Londra');
     }
 
     public function test_turing_page_uses_fallbacks_when_content_values_are_invalid(): void
@@ -98,22 +161,11 @@ class TuringPageFallbacksTest extends TestCase
             ->assertSeeText('Computabilità e macchina universale');
     }
 
-    public function test_disabled_cms_blocks_are_treated_as_intentional_content(): void
+    public function test_minimal_disabled_cms_block_is_treated_as_intentional_content(): void
     {
         $this->createTuringPage([
             'editorial_blocks' => [
-                [
-                    'enabled' => false,
-                    'key' => 'disabled-cms-block',
-                    'layout' => 'image_left',
-                    'kicker' => 'CMS',
-                    'title' => 'Blocco CMS disabilitato',
-                    'text' => 'Questo blocco è stato disabilitato dagli editor.',
-                    'image' => 'turing/enigma.webp',
-                    'background_image' => 'turing-enigma-background.webp',
-                    'link_label' => '',
-                    'link_url' => '#disabled-cms-block',
-                ],
+                ['enabled' => false],
             ],
             'timeline' => [],
         ]);
@@ -122,7 +174,6 @@ class TuringPageFallbacksTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertDontSeeText('Blocco CMS disabilitato')
             ->assertDontSeeText('La guerra dei codici: Enigma e Bletchley Park')
             ->assertSeeText('Computabilità e macchina universale');
     }

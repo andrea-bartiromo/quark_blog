@@ -22,10 +22,20 @@ class TuringPageController extends Controller
             'hero' => $hero,
             'intro' => $intro,
             'cards' => collect($content['cards'] ?? []),
-            'editorialBlocks' => collect($this->contentItemsOrFallback($content, 'editorial_blocks', $this->defaultEditorialBlocks())),
+            'editorialBlocks' => collect($this->contentItemsOrFallback(
+                $content,
+                'editorial_blocks',
+                $this->defaultEditorialBlocks(),
+                fn (array $item) => $this->isRenderableEditorialBlock($item),
+            )),
             'why' => $why,
             'whyItems' => collect($why['items'] ?? []),
-            'timeline' => collect($this->contentItemsOrFallback($content, 'timeline', $this->defaultTimeline())),
+            'timeline' => collect($this->contentItemsOrFallback(
+                $content,
+                'timeline',
+                $this->defaultTimeline(),
+                fn (array $item) => $this->isRenderableTimelineEvent($item),
+            )),
             'final' => $final,
             'sectionImageFallbacks' => $this->sectionImageFallbacks(),
             'sectionBackgroundFallbacks' => $this->sectionBackgroundFallbacks(),
@@ -44,7 +54,7 @@ class TuringPageController extends Controller
         ]);
     }
 
-    private function contentItemsOrFallback(array $content, string $key, array $fallback): array
+    private function contentItemsOrFallback(array $content, string $key, array $fallback, callable $isRenderable): array
     {
         $items = $content[$key] ?? null;
 
@@ -52,9 +62,34 @@ class TuringPageController extends Controller
             return $fallback;
         }
 
-        $structuredItems = array_values(array_filter($items, 'is_array'));
+        $structuredItems = array_values(array_filter(
+            $items,
+            fn ($item) => is_array($item) && $isRenderable($item),
+        ));
 
         return $structuredItems === [] ? $fallback : $structuredItems;
+    }
+
+    private function isRenderableEditorialBlock(array $item): bool
+    {
+        return array_key_exists('enabled', $item)
+            || $this->hasFilledAny($item, ['title', 'text', 'kicker', 'key', 'image']);
+    }
+
+    private function isRenderableTimelineEvent(array $item): bool
+    {
+        return $this->hasFilledAny($item, ['year', 'title', 'text', 'image', 'url', 'link_url']);
+    }
+
+    private function hasFilledAny(array $item, array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $item) && filled($item[$key])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function defaultEditorialBlocks(): array
