@@ -1,5 +1,5 @@
 .turing-page {
-  background: #f8fafc;
+  background: #0f172a;
 }
 
 .turing-hero {
@@ -235,6 +235,10 @@
   color: #020617;
   background-size: cover;
   background-position: center;
+}
+
+.turing-page > .turing-section.has-bg + .turing-section.has-bg {
+  margin-top: 12px;
 }
 
 .turing-section[id] {
@@ -584,6 +588,10 @@
 @media (max-width: 480px) {
   .turing-hero__grid {
     padding-block: 2.4rem;
+  }
+
+  .turing-page > .turing-section.has-bg + .turing-section.has-bg {
+    margin-top: 10px;
   }
 
   .turing-portrait-card__image {
