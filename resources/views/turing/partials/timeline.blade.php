@@ -1,5 +1,5 @@
 @if($timeline->isNotEmpty())
-<section class="turing-section turing-section--dark" id="timeline">
+<section class="turing-section turing-section--dark {{ !empty($timelineBackgroundImage) ? 'has-bg' : '' }}" id="timeline" style="{{ $bg($timelineBackgroundImage) }}">
   <div class="container container--wide">
     <div class="turing-section__head">
       <p class="turing-kicker">Timeline</p>
