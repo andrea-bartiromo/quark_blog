@@ -159,3 +159,11 @@ I test usano un database SQLite dedicato (configurato in `phpunit.xml`, isolato 
 Progetto proprietario (vedi `composer.json`). Tutti i diritti riservati.
 
 **Autore:** Andrea Bartiromo — [github.com/andrea-bartiromo](https://github.com/andrea-bartiromo)
+
+
+Copyright © 2026 Andrea Bartiromo. All rights reserved.
+
+This repository is publicly available for portfolio and evaluation purposes.
+No permission is granted to copy, modify, redistribute, publish, sublicense,
+or use the source code or editorial content without prior written permission
+from the author.
