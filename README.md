@@ -161,9 +161,12 @@ Progetto proprietario (vedi `composer.json`). Tutti i diritti riservati.
 **Autore:** Andrea Bartiromo — [github.com/andrea-bartiromo](https://github.com/andrea-bartiromo)
 
 
-Copyright © 2026 Andrea Bartiromo. All rights reserved.
+## Licenza e Copyright
 
-This repository is publicly available for portfolio and evaluation purposes.
-No permission is granted to copy, modify, redistribute, publish, sublicense,
-or use the source code or editorial content without prior written permission
-from the author.
+Questo progetto è **proprietario** e **non è distribuito con una licenza open source**.
+
+Copyright © 2026 Andrea Bartiromo.
+Tutti i diritti riservati.
+Questa repository è resa pubblicamente consultabile esclusivamente per finalità di portfolio, studio e valutazione professionale.
+Salvo ove diversamente indicato, il codice sorgente, il design, la documentazione e i contenuti editoriali sono protetti dal diritto d'autore.
+Non è consentito copiare, modificare, redistribuire, pubblicare o utilizzare questo materiale, in tutto o in parte, senza il preventivo consenso scritto dell'autore.
