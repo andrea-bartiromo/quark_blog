@@ -1,12 +1,16 @@
 @if($cards->isNotEmpty())
   <div class="turing-route-grid">
     @foreach($cards as $card)
-      @php $cardUrl = $card['url'] ?? '#'; @endphp
-      <a href="{{ $cardUrl }}" class="turing-route-card turing-route-card--{{ $card['style'] ?? 'enigma' }}" style="{{ $bg($card['image'] ?? null) }}">
+      @php
+        $cardUrl = trim((string) ($card['url'] ?? ''));
+        $hasCardUrl = $cardUrl !== '' && $cardUrl !== '#';
+        $cardTag = $hasCardUrl ? 'a' : 'div';
+      @endphp
+      <{{ $cardTag }} @if($hasCardUrl) href="{{ $cardUrl }}" @endif class="turing-route-card turing-route-card--{{ $card['style'] ?? 'enigma' }}" style="{{ $bg($card['image'] ?? null) }}">
         <span>{{ $card['label'] ?? 'Percorso' }}</span>
         <h3>{{ $card['title'] ?? 'Approfondimento Turing' }}</h3>
         <p>{{ $card['text'] ?? '' }}</p>
-      </a>
+      </{{ $cardTag }}>
     @endforeach
   </div>
 @else
