@@ -35,3 +35,21 @@
 .turing-section.has-bg .turing-copy-panel p {
   opacity: .96 !important;
 }
+
+/* Il final card usava un proprio overlay chiaro (rgba(248,250,252,.78)),
+   molto meno visibile del trattamento scuro usato dalle altre sezioni con
+   sfondo: qui riceve lo stesso trattamento per coerenza visiva. */
+.turing-final-card.has-bg {
+  color: #fff !important;
+}
+
+.turing-final-card.has-bg::before {
+  background: rgba(3, 7, 18, .62) !important;
+}
+
+.turing-final-card.has-bg .turing-kicker,
+.turing-final-card.has-bg h2,
+.turing-final-card.has-bg p {
+  color: #fff !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45) !important;
+}
