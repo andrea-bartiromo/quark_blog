@@ -146,6 +146,18 @@ class TuringPageFallbacksTest extends TestCase
             ->assertDontSeeText('La nascita a Londra');
     }
 
+    public function test_universal_machine_fallback_block_does_not_render_a_self_link_cta(): void
+    {
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('La macchina universale e l’idea moderna di programma')
+            ->assertSee('id="macchina-universale"', false)
+            ->assertDontSee('href="#macchina-universale"', false)
+            ->assertDontSeeText('Segui il filo del calcolo');
+    }
+
     public function test_turing_page_uses_fallbacks_when_content_values_are_invalid(): void
     {
         $this->createTuringPage([
