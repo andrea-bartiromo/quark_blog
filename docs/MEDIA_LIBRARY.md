@@ -176,9 +176,11 @@ appartiene a `library/`; se lo perde, appartiene a `special-projects/<slug>/`.**
 
 ## 6. Standard tecnico
 
-Si applica a ogni cartella descritta in questo documento (`library/`, `placeholders/`, `special-projects/<slug>/`,
-non solo a `library/` in senso stretto), estendendo lo standard già in uso per gli asset Turing
-(`docs/TURING_EDITORIAL_ASSETS.md`):
+Si applica a `library/`, `placeholders/` e `special-projects/<slug>/` — le cartelle della Media Library vera e
+propria (sezione 2) — non solo a `library/` in senso stretto, estendendo lo standard già in uso per gli asset
+Turing (`docs/TURING_EDITORIAL_ASSETS.md`). Non si applica retroattivamente a `categories/` e
+`articles/covers/`, che restano fuori dallo scope di questo documento (sezione 2: "restano concettualmente come
+sono oggi"):
 
 - **Formato**: WebP per fotografie/immagini raster (qualità 80–85); SVG per elementi vettoriali/placeholder;
   nessun PNG/JPG lasciato sul disco dopo la conversione — l'originale pesante non deve convivere con la versione
