@@ -136,7 +136,8 @@ di `library/` e non sua sottocartella (sezione 2) — coerente con lo schema di 
 | `portrait` | Ritratto di una persona reale, isolato dal contesto narrativo | `heroPortraitImage`, `.turing-portrait-card__photo` |
 
 Il tipo di utilizzo determina **le proporzioni e il trattamento tecnico attesi** (si veda sezione 6), non la
-cartella: la cartella è determinata solo dalla categoria (sezione 3).
+cartella. All'interno di `library/`, la cartella è determinata solo dalla categoria (sezione 3); `placeholders/`
+e `special-projects/<slug>/` restano invece posizioni sorelle a sé stanti, fuori da questo asse (sezione 2).
 
 ## 5. Convenzione di naming
 
@@ -168,14 +169,16 @@ cartella: la cartella è determinata solo dalla categoria (sezione 3).
 | `space-01.png` | `library/abstract/deep-space-nebula--hero.webp` |
 | `tech-society-01.png` | `library/technology/connected-city-network--editorial.webp` |
 | `hero-placeholder.svg` | `placeholders/generic-image--hero.svg` |
-| `alan-turing-portrait.png` | `special-projects/turing/alan-turing--portrait.png` *(resta dedicato: è un ritratto reale)* |
+| `alan-turing-portrait.png` | `special-projects/turing/alan-turing--portrait.webp` *(resta dedicato: è un ritratto reale; convertito a WebP come da standard tecnico, sezione 6)* |
 
 Il principio guida: **se una descrizione del soggetto senza il nome del progetto ha ancora senso, l'asset
 appartiene a `library/`; se lo perde, appartiene a `special-projects/<slug>/`.**
 
 ## 6. Standard tecnico
 
-Estende a tutta la libreria lo standard già in uso per gli asset Turing (`docs/TURING_EDITORIAL_ASSETS.md`):
+Si applica a ogni cartella descritta in questo documento (`library/`, `placeholders/`, `special-projects/<slug>/`,
+non solo a `library/` in senso stretto), estendendo lo standard già in uso per gli asset Turing
+(`docs/TURING_EDITORIAL_ASSETS.md`):
 
 - **Formato**: WebP per fotografie/immagini raster (qualità 80–85); SVG per elementi vettoriali/placeholder;
   nessun PNG/JPG lasciato sul disco dopo la conversione — l'originale pesante non deve convivere con la versione
