@@ -6,6 +6,6 @@
       <p>{{ $intro['text'] ?? 'Questa area speciale racconta Turing come ponte tra tre mondi: il segreto militare, la nascita del computer e la domanda più difficile sull’intelligenza delle macchine.' }}</p>
     </div>
 
-    @include('turing.partials.route-grid')
+    <x-special.feature-cards :cards="$cards" label="Percorsi di approfondimento" />
   </div>
 </section>

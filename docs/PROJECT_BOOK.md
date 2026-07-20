@@ -234,3 +234,57 @@ convenzioni, senza toccare alcun asset o componente esistente — a garanzia che
 **Stato della Pull Request associata.** La Pull Request "docs(media): introduce reusable Media Library
 foundation" implementa questa Decisione #005. È stata aperta per revisione e non è stata mergiata: resta in
 attesa di approvazione, come da processo descritto nella sezione 3.
+
+## 14. Aggiornamento successivo alla Pull Request #39
+
+### Decision #006 – Feature Cards riutilizzabili
+Un'analisi della sezione "01 · Bletchley Park / 02 · Macchine intelligenti / 03 · Eredità" (in coda all'Intro
+di `/turing`) ha rilevato diversi problemi concreti, verificati empiricamente e non solo ipotizzati:
+
+- **Nessuno stile proprio.** `.turing-route-card` non aveva alcuna regola CSS in tutto il progetto: le tre
+  "card" erano testo semplice (span/h3/p con i soli stili di default del browser) sovrapposto a una fotografia
+  sfocata, con contrasto affidato al caso e non garantito.
+- **Una card non interattiva ma indistinguibile.** La terza card ("03 · Eredità") era un `<div>` privo di link:
+  non raggiungibile da tastiera (verificato via Tab), pur essendo visivamente identica alle altre due, che sono
+  invece link veri.
+- **Nessuna semantica di gruppo.** Il contenitore era un `<div>` generico, non un `<ul>`, senza `aria-label` che
+  ne comunicasse lo scopo (un gruppo di link di approfondimento correlati).
+- **Markup duplicato.** Lo stesso scheletro (span/h3/p dentro `turing-route-card`) era ripetuto quasi
+  identico fra un ciclo sui dati CMS e un fallback hard-coded specifico di Turing — lo stesso pattern già
+  risolto per la Timeline dalla Decisione #002.
+- Il modello dati sottostante (`label`, `title`, `text`, `url`, `image`, `style`) era già generico e già
+  alimentabile da CMS: solo il markup e il fallback la legavano a Turing.
+
+**Decisione.** La sezione diventa il componente riutilizzabile `<x-special.feature-cards>`
+(`:cards`, `label`, `id`), che renderizza un `<ul aria-label>` di card, ciascuna un `<a>` (se dotata di URL
+valido) o un `<div aria-disabled="true">` (altrimenti) — mai visivamente identiche: la card non interattiva
+riceve un trattamento distinto (bordo tratteggiato, nessun sollevamento al passaggio del mouse) oltre alla
+corretta esclusione dal tab order. Lo stile (`public/css/special-project.css`, namespace `.sp-feature-card*`)
+riusa deliberatamente la stessa superficie/ombra/hover/focus-visible già validata da `.sp-timeline__card`
+(Decisione #002): nessun nuovo linguaggio visivo viene introdotto, solo applicato a una sezione che non ne
+aveva mai ricevuto uno.
+
+**Nota su una scelta esplicita.** Correggere in modo affidabile il contrasto e lo stato di `:focus-visible`
+richiede necessariamente di dare alle card uno stile visibile per la prima volta — la sezione passa da testo
+piatto su foto a card bordate con superficie chiara, coerenti con `.sp-timeline__card`/`.sp-chapter` già
+presenti nella stessa pagina. Data la tensione con il vincolo "non modificare il design generale della pagina",
+questa scelta è stata sottoposta esplicitamente all'utente prima dell'implementazione, che ha confermato di
+procedere con lo stile completo. Il resto della pagina (Hero, Editorial, Legacy, Timeline, Chapter Opener,
+Final) non è stato toccato.
+
+Coerentemente con il pattern già stabilito da `contentItemsOrFallback` per `editorial_blocks` e `timeline`, il
+fallback di Turing (i tre percorsi attuali) è stato spostato da markup hard-coded nel Blade a dati in
+`TuringPageController::defaultRouteCards()`: la vista si limita a invocare il componente con `:cards="$cards"`,
+senza alcuna duplicazione. Il partial `turing/partials/route-grid.blade.php`, ridotto a una singola riga di
+passthrough, è stato rimosso; la chiamata al componente vive direttamente in `intro-section.blade.php`. Le
+regole CSS `.turing-route-grid`/`.turing-route-card` in `turing.css`, ormai morte, sono state rimosse.
+
+**Esplicitamente fuori scope di questa Pull Request:** i form CMS di amministrazione (`admin/turing*.blade.php`)
+conservano l'opzione "Stile" con valori Turing-specifici (Enigma/AI/Legacy) — non modificati, perché estranei
+alla sezione front-end analizzata; il file legacy `resources/views/turing.blade.php`, non instradato da alcuna
+rotta, contiene una propria copia inline dello stesso pattern — non toccato in quanto codice morto non
+raggiungibile, la sua rimozione non è stata richiesta ed è segnalata solo come osservazione.
+
+**Stato della Pull Request associata.** La Pull Request "refactor(turing): extract reusable feature cards
+component" implementa questa Decisione #006. È stata aperta per revisione e non è stata mergiata: resta in
+attesa di approvazione, come da processo descritto nella sezione 3.
