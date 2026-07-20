@@ -3,8 +3,10 @@
   (`Cover → (Chapter Opener → Events)` repeated), via a new reusable `<x-special.chapter-opener>` component.
   Events keep rendering through the existing `<x-special.timeline>` component, unchanged in markup.
 - Route: /turing
-- Branch / PR: claude/refactor-image-service-py7qtz / (PR opened against `main`, see PR description)
-- Commit: HEAD of this branch (single commit — `feat(timeline): introduce narrative chapters and reusable chapter opener`)
+- Branch / PR: claude/refactor-image-service-py7qtz / #37 (opened against `main`)
+- Commit: `96487ae` — follow-up on top of `7caac8c` (`feat(timeline): introduce narrative chapters and reusable
+  chapter opener`), addressing CodeRabbit review feedback on PR #37 (predicate fix, chapter-opener ids, Project
+  Book wording/roadmap, embedded evidence)
 - Viewports: 1440 / 820 / 390
 
 ## Results
@@ -21,7 +23,7 @@
 ## Evidence
 
 ### T1/T7 — DOM order (`.sp-timeline`, `.sp-chapter` in source order)
-```
+```text
 1. section.sp-timeline#timeline                  cover=yes  list=no   (Cover — "Una vita che attraversa il Novecento")
 2. section.sp-chapter#timeline-chapter-opener-1  media=yes  "1912–1939 — La formazione di un pensiero computazionale"
 3. section.sp-timeline#timeline-chapter-1        cover=no   list=yes  3 events (1912, 1936, 1938–1939)
@@ -84,17 +86,21 @@ Mobile (390px) screenshot confirms the Chapter Opener stacks (image above text) 
 ### T5 — Decision #001 + regressions
 - Cover screenshot (desktop) confirms the bounded photographic header from Decision #001 is unchanged in
   appearance (same title, same background image, same rounded/bounded treatment).
-- `git status --short` — only the expected files changed (plus, after this review round, the evidence images
-  under `docs/evidence/timeline-chapters/`):
-  ```
-   M .agents/skills/testing-special-project-timeline/SKILL.md
-   M app/Http/Controllers/TuringPageController.php
-   M public/css/special-project.css
-   M resources/views/components/special/timeline.blade.php
-   M resources/views/turing/partials/timeline.blade.php
-  ?? docs/PROJECT_BOOK.md
-  ?? docs/evidence/timeline-chapters/
-  ?? resources/views/components/special/chapter-opener.blade.php
+- `git diff --name-status origin/main HEAD` (full PR diff, both commits `7caac8c` and `96487ae`) — only the
+  expected files changed:
+  ```text
+  M	.agents/skills/testing-special-project-timeline/SKILL.md
+  M	app/Http/Controllers/TuringPageController.php
+  A	docs/PROJECT_BOOK.md
+  A	docs/evidence/timeline-chapters/chapter-1.png
+  A	docs/evidence/timeline-chapters/chapter-2.png
+  A	docs/evidence/timeline-chapters/chapter-3.png
+  A	docs/evidence/timeline-chapters/cover.png
+  M	public/css/special-project.css
+  A	resources/views/components/special/chapter-opener.blade.php
+  M	resources/views/components/special/timeline.blade.php
+  M	resources/views/turing/partials/timeline.blade.php
+  A	test-report.md
   ```
   Hero, Legacy, editorial blocks, Intro, final card partials: **no changes**.
 - Review-round fix: `TuringPageController::isRenderableTimelineEvent()` previously accepted `image`/`url`-only
@@ -124,7 +130,7 @@ Mobile (390px) screenshot confirms the Chapter Opener stacks (image above text) 
   hardcoded Turing dataset, so no CMS-authored content or existing admin flow changes behavior.
 
 ## Automated tests
-```
+```text
 php artisan test
 {"tool":"phpunit","result":"passed","tests":159,"passed":159,"assertions":665,"duration_ms":4695}
 ```
