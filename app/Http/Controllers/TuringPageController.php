@@ -16,6 +16,20 @@ class TuringPageController extends Controller
         $why = $content['why'] ?? [];
         $final = $content['final'] ?? [];
 
+        /* La struttura a capitoli temporali (Decision #003) si applica solo
+           quando la Timeline usa gli eventi di default: un override CMS del
+           campo "timeline" (flat) mantiene il rendering singolo precedente,
+           cosi' da non introdurre regressioni sui contenuti gia' pubblicati. */
+        $rawTimeline = $content['timeline'] ?? null;
+        $timelineOverrideItems = is_array($rawTimeline)
+            ? array_values(array_filter(
+                $rawTimeline,
+                fn ($item) => is_array($item) && $this->isRenderableTimelineEvent($item),
+            ))
+            : [];
+        $timelineEvents = $timelineOverrideItems !== [] ? $timelineOverrideItems : $this->defaultTimeline();
+        $timelineChapters = $timelineOverrideItems !== [] ? [] : $this->defaultTimelineChapters();
+
         return view('turing.index', [
             'page' => $page,
             'content' => $content,
@@ -30,12 +44,8 @@ class TuringPageController extends Controller
             )),
             'why' => $why,
             'whyItems' => collect($why['items'] ?? []),
-            'timeline' => collect($this->contentItemsOrFallback(
-                $content,
-                'timeline',
-                $this->defaultTimeline(),
-                fn (array $item) => $this->isRenderableTimelineEvent($item),
-            )),
+            'timeline' => collect($timelineEvents),
+            'timelineChapters' => collect($timelineChapters),
             'final' => $final,
             'sectionImageFallbacks' => $this->sectionImageFallbacks(),
             'sectionBackgroundFallbacks' => $this->sectionBackgroundFallbacks(),
@@ -79,7 +89,11 @@ class TuringPageController extends Controller
 
     private function isRenderableTimelineEvent(array $item): bool
     {
-        return $this->hasFilledAny($item, ['year', 'title', 'text', 'image', 'url', 'link_url']);
+        /* Deve rispecchiare esattamente il filtro di rendering di
+           <x-special.timeline> (year/title/text): un evento con solo
+           image/url non vi appare, quindi non deve poter disabilitare i
+           capitoli di default lasciando una Timeline senza eventi. */
+        return $this->hasFilledAny($item, ['year', 'title', 'text']);
     }
 
     private function hasFilledAny(array $item, array $keys): bool
@@ -192,6 +206,45 @@ class TuringPageController extends Controller
                 'year' => '2009–2013',
                 'title' => 'Scuse ufficiali e grazia reale',
                 'text' => 'Nel 2009 il governo britannico presenta scuse ufficiali per il trattamento subito da Turing. Nel 2013 arriva la grazia reale, distinta dalla successiva legislazione più ampia a favore di altre persone condannate per norme discriminatorie.',
+            ],
+        ];
+    }
+
+    /**
+     * Raggruppa gli eventi di default in capitoli temporali (Decision #003).
+     * Il contenuto (periodo/titolo/testo/immagine) e' specifico di questo
+     * Special Project: i componenti Blade restano generici e ricevono solo
+     * dati, cosi' da poter essere riusati da futuri Special Projects con i
+     * propri capitoli.
+     */
+    private function defaultTimelineChapters(): array
+    {
+        $events = $this->defaultTimeline();
+
+        return [
+            [
+                'period' => '1912–1939',
+                'title' => 'La formazione di un pensiero computazionale',
+                'intro' => 'Dagli anni della formazione alla definizione teorica di macchina universale: le basi concettuali che renderanno possibile, più avanti, il calcolo automatico.',
+                'image' => 'turing-universal-machine-background.webp',
+                'alt' => 'Pagine e schemi legati alla macchina universale di Turing',
+                'events' => array_slice($events, 0, 3),
+            ],
+            [
+                'period' => '1939–1946',
+                'title' => 'La guerra e il calcolo applicato',
+                'intro' => 'A Bletchley Park la crittoanalisi diventa lavoro collettivo su scala industriale; nel dopoguerra le stesse competenze confluiscono nei primi progetti di calcolatori elettronici.',
+                'image' => 'turing-enigma-panel.webp',
+                'alt' => 'Rotori e componenti crittoanalitici legati a Enigma e Bletchley Park',
+                'events' => array_slice($events, 3, 2),
+            ],
+            [
+                'period' => '1950–2013',
+                'title' => 'Il pensiero delle macchine e l’eredità',
+                'intro' => 'Dalla domanda sul pensiero delle macchine alla persecuzione subita e, decenni dopo, al riconoscimento pubblico: la parabola che rende Turing una figura ancora attuale.',
+                'image' => 'turing-legacy-panel.webp',
+                'alt' => 'Ritratto simbolico dell’eredità di Alan Turing',
+                'events' => array_slice($events, 5, 4),
             ],
         ];
     }

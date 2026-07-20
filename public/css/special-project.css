@@ -233,6 +233,84 @@
   color: var(--sp-accent);
 }
 
+/* ============================================================================
+   Componente: Chapter Opener (Decision #003)
+   ----------------------------------------------------------------------------
+   Stacco narrativo fra un capitolo temporale e il successivo. La fotografia
+   introduce il capitolo mantenendo proporzioni controllate (10.5): non e' mai
+   uno sfondo esteso a tutta sezione, ma un riquadro fotografico bordato
+   accanto al testo. Interamente basato sui token --sp-*, senza alcun
+   riferimento a un figura/Special Project specifico -> riusabile.
+   ========================================================================== */
+
+.sp-chapter {
+  /* Sfondo proprio (non trasparente): garantisce il contrasto del testo a
+     prescindere da cosa precede il capitolo (es. una sezione scura) e rende
+     lo stacco narrativo riconoscibile a colpo d'occhio (10.2). Stessa
+     superficie dell'area eventi che segue, cosi' capitolo+eventi si leggono
+     come un unico blocco coerente, distinto dalla sezione precedente. */
+  background: var(--sp-surface);
+  padding-block: clamp(2.75rem, 6vw, 4.5rem) 0;
+}
+
+.sp-chapter__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) 1fr;
+  gap: clamp(1.75rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.sp-chapter__media {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-card-shadow);
+}
+
+.sp-chapter__media img {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.sp-chapter__period {
+  margin: 0 0 .5rem;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: .78rem;
+  font-weight: 800;
+  color: var(--sp-accent);
+}
+
+.sp-chapter__title {
+  margin: 0 0 .75rem;
+  max-width: 26ch;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -.01em;
+  color: var(--sp-ink-strong);
+}
+
+.sp-chapter__intro {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--sp-ink-soft);
+  line-height: 1.75;
+}
+
+@media (max-width: 720px) {
+  .sp-chapter__inner {
+    grid-template-columns: 1fr;
+  }
+
+  .sp-chapter__media img {
+    height: 200px;
+  }
+}
+
 /* ---- Desktop/tablet: anno come colonna a sinistra -> gerarchia scansionabile */
 @media (min-width: 768px) {
   .sp-timeline__card {
