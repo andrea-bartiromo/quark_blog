@@ -72,6 +72,10 @@ against `/turing` specifics.
   swap the paths for the route under test (paths shown are `/turing`):
   ```bash
   BASE=origin/main
+  # 1. Full scope: every changed file must be expected — review anything unexpected.
+  git diff --name-only --merge-base "$BASE" HEAD
+  # 2. Targeted regression: the sensitive partials/component below must show no unintended changes
+  #    (swap the paths for the route under test; paths shown are /turing).
   git diff --merge-base "$BASE" HEAD -- \
     resources/views/turing/partials/hero.blade.php \
     resources/views/turing/partials/legacy-section.blade.php \
