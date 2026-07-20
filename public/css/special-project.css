@@ -354,3 +354,119 @@
     transform: none;
   }
 }
+
+/* ============================================================================
+   Componente: Feature Cards (percorsi di approfondimento / link correlati)
+   ----------------------------------------------------------------------------
+   Estratto dal pattern "01 / 02 / 03" gia' presente nella pagina Turing
+   (in precedenza markup duplicato fra un ciclo CMS e un fallback hard-coded,
+   privo di qualunque stile proprio). Riusa la stessa superficie/card gia'
+   validata da .sp-timeline__card, cosi' da non introdurre un nuovo linguaggio
+   visivo: stessa superficie chiara, stesso raggio, stessa ombra, stesso
+   comportamento hover/focus-visible.
+   ========================================================================== */
+
+.sp-feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sp-feature-cards[id] {
+  scroll-margin-top: 6rem;
+}
+
+.sp-feature-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.5rem 1.75rem;
+  border-radius: var(--sp-radius);
+  background: var(--sp-card-bg);
+  border: 1px solid var(--sp-card-border);
+  box-shadow: var(--sp-card-shadow);
+  color: inherit;
+}
+
+.sp-feature-card__media {
+  display: block;
+  width: 100%;
+  height: 140px;
+  margin-bottom: 1rem;
+  border-radius: var(--sp-radius);
+  background-color: var(--sp-surface-tint);
+  background-size: cover;
+  background-position: center;
+}
+
+.sp-feature-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.sp-feature-card__label {
+  display: inline-block;
+  margin-bottom: .5rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .78rem;
+  font-weight: 800;
+  color: var(--sp-accent);
+}
+
+.sp-feature-card__title {
+  margin: 0 0 .6rem;
+  font-family: var(--font-display);
+  font-size: 1.32rem;
+  line-height: 1.15;
+  color: var(--sp-ink-strong);
+}
+
+.sp-feature-card__text {
+  margin: 0;
+  color: var(--sp-ink-soft);
+  line-height: 1.7;
+}
+
+/* ---- Card interattiva: stesso comportamento hover/focus di .sp-timeline__card--link */
+.sp-feature-card--link {
+  text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.sp-feature-card--link:hover,
+.sp-feature-card--link:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(15, 118, 110, .38);
+  box-shadow: var(--sp-card-shadow-hover);
+  outline: none;
+}
+
+.sp-feature-card--link .sp-feature-card__title::after {
+  content: " \2192";
+  color: var(--sp-accent);
+}
+
+/* ---- Card non interattiva: nessun href disponibile per questo elemento.
+   Trattamento visivamente distinto (nessun sollevamento al passaggio del
+   mouse, bordo tratteggiato) cosi' che l'assenza di interattivita' sia
+   comunicabile anche visivamente, non solo via aria-disabled/markup. */
+.sp-feature-card--static {
+  border-style: dashed;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-feature-card--link {
+    transition: none;
+  }
+
+  .sp-feature-card--link:hover,
+  .sp-feature-card--link:focus-visible {
+    transform: none;
+  }
+}

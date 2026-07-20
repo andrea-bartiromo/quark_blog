@@ -305,14 +305,6 @@
   color: #475569 !important;
 }
 
-.turing-section.has-bg .turing-route-grid {
-  padding: clamp(1rem, 2vw, 1.25rem);
-  border: 1px solid rgba(15, 23, 42, .08);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, .58);
-  backdrop-filter: blur(10px);
-}
-
 .turing-section--split {
   background: #edf6ff;
 }
@@ -320,7 +312,9 @@
 /* La Timeline (testata fotografica + area eventi, Decision #001) e' stata
    promossa a componente riutilizzabile <x-special.timeline>: il suo stile
    vive ora in public/css/special-project.css (namespace .sp-timeline*),
-   condiviso da tutti gli Special Projects. */
+   condiviso da tutti gli Special Projects. Lo stesso vale per le Feature
+   Cards ("01 / 02 / 03", Decision #006): componente <x-special.feature-cards>,
+   stile in public/css/special-project.css (namespace .sp-feature-card*). */
 
 .turing-section__head {
   max-width: 900px;
@@ -341,12 +335,6 @@
   font-size: 1.04rem;
   line-height: 1.9;
   color: #475569;
-}
-
-.turing-route-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
 }
 
 .turing-split {
@@ -557,8 +545,7 @@
     min-height: 230px;
   }
 
-  .turing-section.has-bg .turing-section__head,
-  .turing-section.has-bg .turing-route-grid {
+  .turing-section.has-bg .turing-section__head {
     border-radius: 18px;
   }
 }

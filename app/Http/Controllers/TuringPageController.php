@@ -35,7 +35,12 @@ class TuringPageController extends Controller
             'content' => $content,
             'hero' => $hero,
             'intro' => $intro,
-            'cards' => collect($content['cards'] ?? []),
+            'cards' => collect($this->contentItemsOrFallback(
+                $content,
+                'cards',
+                $this->defaultRouteCards(),
+                fn (array $item) => $this->isRenderableRouteCard($item),
+            )),
             'editorialBlocks' => collect($this->contentItemsOrFallback(
                 $content,
                 'editorial_blocks',
@@ -96,6 +101,13 @@ class TuringPageController extends Controller
         return $this->hasFilledAny($item, ['year', 'title', 'text']);
     }
 
+    private function isRenderableRouteCard(array $item): bool
+    {
+        /* Deve rispecchiare esattamente il filtro di rendering di
+           <x-special.feature-cards> (label/title/text). */
+        return $this->hasFilledAny($item, ['label', 'title', 'text']);
+    }
+
     private function hasFilledAny(array $item, array $keys): bool
     {
         foreach ($keys as $key) {
@@ -105,6 +117,32 @@ class TuringPageController extends Controller
         }
 
         return false;
+    }
+
+    private function defaultRouteCards(): array
+    {
+        return [
+            [
+                'label' => '01 · Bletchley Park',
+                'title' => 'La guerra di Enigma',
+                'text' => 'Bombe, rotori, messaggi cifrati e una guerra combattuta anche con probabilità e logica.',
+                'url' => '/turing/enigma',
+                'style' => 'enigma',
+            ],
+            [
+                'label' => '02 · Macchine intelligenti',
+                'title' => 'Dal Test di Turing agli LLM',
+                'text' => 'La domanda “le macchine possono pensare?” riletta nell’epoca dell’IA generativa.',
+                'url' => '/turing/ai',
+                'style' => 'ai',
+            ],
+            [
+                'label' => '03 · Eredità',
+                'title' => 'Il genio inquieto',
+                'text' => 'La persecuzione, la riabilitazione e l’impatto culturale di una figura diventata simbolo.',
+                'style' => 'legacy',
+            ],
+        ];
     }
 
     private function defaultEditorialBlocks(): array
