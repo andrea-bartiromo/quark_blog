@@ -51,6 +51,5 @@
 <link rel="stylesheet" href="{{ asset('css/public-premium.css') }}">
 <link rel="stylesheet" href="{{ asset('css/public-unified.css') }}">
 <link rel="stylesheet" href="{{ asset('css/premium-fixes.css') }}">
-<link rel="stylesheet" href="{{ asset('css/turing-overrides.css') }}">
 
 @yield('head')
