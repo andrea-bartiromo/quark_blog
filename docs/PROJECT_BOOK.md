@@ -293,10 +293,10 @@ attesa di approvazione, come da processo descritto nella sezione 3.
 Prima di questa decisione, il trattamento scuro delle sezioni con sfondo (`.turing-section.has-bg` e
 `.turing-final-card.has-bg`) era prodotto da **due fonti in conflitto**:
 
-- `public/css/turing.css`, caricato solo dalle pagine Turing, che definiva per le stesse selettori un
+- `public/css/turing.css`, caricato solo dalle pagine Turing, che definiva per gli stessi selettori un
   trattamento **chiaro** (overlay chiaro, testo scuro), in parte con `!important`;
 - `public/css/turing-overrides.css`, incluso **globalmente** da `resources/views/layouts/partials/head.blade.php`
-  (quindi su **tutte** le pagine pubbliche, comprese quelle non-Turing), che ridefiniva le medesime selettori
+  (quindi su **tutte** le pagine pubbliche, comprese quelle non-Turing), che ridefiniva i medesimi selettori
   con un trattamento **scuro** (overlay `rgba(3,7,18,.62)`, testo bianco, `text-shadow`), interamente in
   `!important`.
 
@@ -323,7 +323,7 @@ quattro `!important` sulle regole di colore del pannello dell'head (`.turing-sec
 `… h2`, `… > p:not(.turing-kicker)`): la loro specificità è sufficiente a vincere senza `!important`, e la
 parità è stata dimostrata (stili calcolati identici e screenshot pixel-identici, vedi sotto). Le altre regole
 di overrides sono state riscritte **senza** `!important` (non più necessario dopo l'eliminazione della fonte
-concorrente). Nessun `!important` è stato mantenuto per queste selettori.
+concorrente). Nessun `!important` è stato mantenuto per questi selettori.
 
 **Verifica dell'area amministrativa.** `admin/turing.blade.php` usa `@extends('layouts.admin')`; il layout admin
 ha un proprio `<head>` che carica solo `css/admin.css` e **non** include `layouts.partials.head`: non caricava
