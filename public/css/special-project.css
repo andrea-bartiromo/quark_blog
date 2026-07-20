@@ -552,3 +552,94 @@
 /* La variante "final" non forza una dimensione: .turing-final-card p non
    aveva mai una regola propria, quindi il testo restava al corpo di
    default ereditato dalla pagina — invariato qui di proposito. */
+
+/* ============================================================================
+   Componente: Modal
+   ----------------------------------------------------------------------------
+   Base riutilizzabile per gli approfondimenti degli Special Projects (Decision
+   #009). Struttura ispirata a .newsletter-popup* (public/css/style.css):
+   contenitore fixed+overlay separato, apertura via classe (.is-open) per
+   consentire la transizione CSS — ma costruita sui token --sp-* e senza
+   riusarne le classi, per restare indipendente dal resto del sito.
+   ========================================================================== */
+
+.sp-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md, 1.5rem);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.sp-modal[hidden] {
+  display: flex;
+}
+
+.sp-modal.is-open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.sp-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 18, .58);
+  backdrop-filter: blur(4px);
+}
+
+.sp-modal__box {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--sp-card-bg);
+  color: var(--sp-ink);
+  border-radius: var(--sp-radius);
+  box-shadow: var(--sp-card-shadow-hover);
+  padding: 2rem;
+}
+
+.sp-modal--sm .sp-modal__box { max-width: 420px; }
+.sp-modal--md .sp-modal__box { max-width: 640px; }
+.sp-modal--lg .sp-modal__box { max-width: 880px; }
+
+.sp-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--sp-surface);
+  color: var(--sp-ink-soft);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-modal__close:hover {
+  background: var(--sp-surface-tint);
+}
+
+.sp-modal__title {
+  margin: 0 2.5rem 1rem 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--sp-ink-strong);
+}
+
+.sp-modal__body {
+  font-size: 1rem;
+  line-height: 1.75;
+}
