@@ -401,3 +401,46 @@ entrambe, la verifica ripetuta non mostra più alcuna differenza reale. `php art
 `turing/enigma.blade.php`, `turing/ai.blade.php` o `components/turing/article/*`; nessuna rimozione del
 namespace di componenti morto (segnalata come lavoro futuro); nessun commit né push in questa fase, come da
 richiesta esplicita.
+
+## 16. Aggiornamento successivo alla Pull Request #43
+
+### Decision #009 – Modal riutilizzabile per gli Special Projects
+Un'analisi del codebase, condotta prima di qualunque implementazione, ha rilevato che **nessun modale
+riutilizzabile esisteva nel progetto**. Erano presenti solo due precedenti, entrambi insufficienti come base
+architetturale: `components/newsletter-popup.blade.php` (unico markup con semantica ARIA reale — `role="dialog"`,
+`aria-modal`, `aria-labelledby` — ma completamente hardcoded, senza `@props` né slot, incluso globalmente in
+`layouts/app.blade.php`) e `admin/ads.blade.php` (stile e `onclick` interamente inline, nessun attributo ARIA,
+nessuna gestione di ESC, backdrop o focus). Il relativo controller (`layouts/partials/newsletter-scripts.blade.php`)
+presenta inoltre un ESC handler globale e incondizionato — chiude il popup ad ogni pressione di ESC ovunque nel
+sito, anche a popup chiuso — identificato come anti-pattern da non replicare. In nessun punto del progetto erano
+presenti focus trap, focus restore o soppressione (`inert`/`aria-hidden`) del contenuto di sfondo. Questa analisi
+esegue un item già annunciato dalla Roadmap (sezione 6: *"l'introduzione dei modal dedicati agli eventi della
+Timeline"*) e dalla Roadmap aggiornata della Decisione #003 (*"Timeline interattiva con card/modal in
+sovraimpressione per ogni evento"*).
+
+**Decisione.** Viene introdotto il componente riutilizzabile `<x-special.modal>` (`id`, `title`, `size` con
+valori `sm`/`md`/`lg`, `closeLabel`), che riproduce la struttura fixed+overlay+box già validata da
+`.newsletter-popup*` ma costruita sui token `--sp-*` (namespace CSS `.sp-modal*` in
+`public/css/special-project.css`), senza riusarne le classi. Coerentemente con il pattern di normalizzazione già
+stabilito dalla Decisione #008, `size` è validato con `in_array(..., true)` contro un insieme chiuso prima di
+comporre la classe CSS, con fallback sicuro a `md`. Il componente parte sempre chiuso (attributo `hidden`) e non
+espone alcuna prop per aprirlo lato server: l'apertura è un'azione client, gestita dal nuovo controller
+`public/js/special-modal.js`, generico e riutilizzabile (trigger via `[data-sp-modal-target]`, chiusura via
+`[data-sp-modal-close]`, overlay o tasto ESC), che corregge esplicitamente il bug dell'ESC handler globale
+osservato nel popup newsletter: l'handler agisce solo quando un modale è effettivamente aperto. Il controller
+implementa inoltre focus trap (ciclo del `Tab` contenuto nel dialog) e focus restore (ritorno del focus
+all'elemento che ha aperto il modale alla chiusura) — funzionalità assenti da qualunque precedente nel progetto.
+
+**Esplicitamente fuori scope di questa Pull Request.** Nessuna pagina o componente esistente istanzia ancora
+`<x-special.modal>`: né `turing/index.blade.php`, né `<x-special.timeline>`, né alcun'altra vista Turing sono
+state modificate. Il cablaggio tra gli eventi della Timeline e un modale (che richiederebbe di estendere il
+branching `<a>`/`<div>` di `timeline.blade.php` con un terzo caso `<button data-sp-modal-target>`) resta
+esplicitamente rimandato a una Pull Request successiva, per non alterare l'API pubblica di `<x-special.timeline>`
+(`events`, `kicker`, `title`, `background`, `id`) in questa fase. Il componente è quindi pronto ma non ancora
+collegato, secondo l'obiettivo dichiarato di "preparare il terreno" senza anticipare l'integrazione.
+
+**Test.** Il componente è validato da 10 test dedicati in `tests/Feature/SpecialModalTest.php` (pattern
+`Blade::render()` già introdotto dalla Decisione #008): semantica ARIA e contenuto dello slot, stato nascosto di
+default, omissione di `aria-labelledby` quando `title` è assente, label di chiusura personalizzabile e con
+default sicuro, normalizzazione di `size`, merge delle classi del chiamante, escaping di titolo e contenuto,
+oltre a un test di non regressione che conferma il rendering di `/turing` senza alcuna istanza del modale.
