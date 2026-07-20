@@ -288,3 +288,64 @@ raggiungibile, la sua rimozione non è stata richiesta ed è segnalata solo come
 **Stato della Pull Request associata.** La Pull Request "refactor(turing): extract reusable feature cards
 component" implementa questa Decisione #006. È stata aperta per revisione e non è stata mergiata: resta in
 attesa di approvazione, come da processo descritto nella sezione 3.
+
+### Decision #007 – Scoping dei CSS di Turing e consolidamento del trattamento `has-bg`
+Prima di questa decisione, il trattamento scuro delle sezioni con sfondo (`.turing-section.has-bg` e
+`.turing-final-card.has-bg`) era prodotto da **due fonti in conflitto**:
+
+- `public/css/turing.css`, caricato solo dalle pagine Turing, che definiva per le stesse selettori un
+  trattamento **chiaro** (overlay chiaro, testo scuro), in parte con `!important`;
+- `public/css/turing-overrides.css`, incluso **globalmente** da `resources/views/layouts/partials/head.blade.php`
+  (quindi su **tutte** le pagine pubbliche, comprese quelle non-Turing), che ridefiniva le medesime selettori
+  con un trattamento **scuro** (overlay `rgba(3,7,18,.62)`, testo bianco, `text-shadow`), interamente in
+  `!important`.
+
+Poiché `turing-overrides.css` era incluso in `head.blade.php` **prima** di `@yield('head')`, mentre le viste
+Turing caricano `turing.css` **dentro** `@section('head')`, l'ordine di cascata reale era
+`turing-overrides.css` → `turing.css`. Il rendering effettivo non era quindi "l'override vince", ma
+un'**interazione**: overlay scuro e testo bianco fuori dal pannello (da overrides), pannello chiaro dell'head
+con testo scuro (da turing.css, che a parità di specificità e `!important` vinceva perché caricato dopo). Questa
+duplicazione, oltre a essere fragile, imponeva un foglio di stile Turing su ogni pagina del sito.
+
+**Decisione.** `public/css/turing.css` diventa la **fonte unica di verità** per il trattamento `has-bg` di
+Turing. Le regole di `turing-overrides.css` sono state assorbite in `turing.css`, riconciliando i valori con il
+risultato **calcolato** effettivamente reso prima della modifica (overlay scuro `rgba(3,7,18,.62)`; testo base
+bianco; pannello chiaro dell'head con testo scuro, kicker teal e paragrafo slate; kicker liberi e copy-panel di
+Editorial/Legacy bianchi; `text-shadow 0 2px 18px rgba(0,0,0,.45)` dove già presente; `opacity .96` sui
+paragrafi di head e copy-panel; final card con lo stesso trattamento scuro). L'inclusione globale di
+`turing-overrides.css` è stata rimossa da `head.blade.php` e il file `public/css/turing-overrides.css` è stato
+eliminato. Tutte le pagine Turing (index, enigma, ai) caricano già `turing.css`, quindi il trattamento resta
+applicato esattamente dove serve, senza aggiungere include altrove; le pagine pubbliche non-Turing non
+ricevono più un foglio di stile Turing di cui non facevano uso.
+
+**`!important` rimossi e mantenuti.** Venuto meno il conflitto con l'override globale, sono stati rimossi i
+quattro `!important` sulle regole di colore del pannello dell'head (`.turing-section__head`, `… .turing-kicker`,
+`… h2`, `… > p:not(.turing-kicker)`): la loro specificità è sufficiente a vincere senza `!important`, e la
+parità è stata dimostrata (stili calcolati identici e screenshot pixel-identici, vedi sotto). Le altre regole
+di overrides sono state riscritte **senza** `!important` (non più necessario dopo l'eliminazione della fonte
+concorrente). Nessun `!important` è stato mantenuto per queste selettori.
+
+**Verifica dell'area amministrativa.** `admin/turing.blade.php` usa `@extends('layouts.admin')`; il layout admin
+ha un proprio `<head>` che carica solo `css/admin.css` e **non** include `layouts.partials.head`: non caricava
+`turing-overrides.css` né usa le classi pubbliche `.turing-section`/`has-bg` (è un editor CMS a form, non una
+preview del front-end; l'anteprima avviene aprendo la pagina pubblica reale). La rimozione dell'include globale
+ha quindi impatto **nullo** sull'admin e nessun cambiamento visivo è stato introdotto.
+
+**Parità visiva dimostrata.** La modifica non introduce **alcun cambiamento visivo intenzionale**. La parità è
+stata verificata confrontando gli stili calcolati (`getComputedStyle`) delle sezioni `has-bg` di `/turing`
+(0 proprietà differenti) e con screenshot a livello di elemento di tutte e sei le sezioni `has-bg` più la final
+card, a desktop 1440 px e mobile 390 px (0 pixel differenti). Le pagine `/turing/enigma` e `/turing/ai` non
+usano `.turing-section.has-bg`/`.turing-final-card.has-bg` (stili propri con namespace `enigma-*`/`ai-*`),
+quindi non sono influenzate; la homepage e le pagine pubbliche non-Turing non usano le classi `.turing-*` e
+restano invariate (pagina statica `chi-siamo` byte-identica prima/dopo). L'intera suite `php artisan test`
+(159/159) resta verde.
+
+**Esplicitamente fuori scope di questa Decisione.** Nessun componente Special Project, nessuna sezione
+applicativa (Hero, Intro, Editorial Blocks, Legacy, Final CTA), nessun elemento di Timeline / Chapter Opener /
+Feature Cards, nessuna integrazione della Media Library e nessuna modifica funzionale a Enigma/AI: gli unici
+effetti su queste pagine derivano automaticamente dal consolidamento di `turing.css`. La più generale
+proliferazione dei fogli di stile globali in `head.blade.php` resta un debito noto, non affrontato qui.
+
+**Stato della Pull Request associata.** La Pull Request "refactor(turing): consolidate has-bg dark treatment
+into turing.css and drop global override" implementa questa Decisione #007. È stata aperta per revisione e non
+è stata mergiata: resta in attesa di approvazione, come da processo descritto nella sezione 3.

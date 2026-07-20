@@ -256,9 +256,15 @@
   scroll-margin-top: 6rem;
 }
 
+/* --------------------------------------------------------------------------
+   Sezioni con sfondo (.has-bg): trattamento scuro.
+   Fonte UNICA di verita' (consolidata da public/css/turing-overrides.css,
+   rimosso: era caricato globalmente e sovrascriveva queste stesse regole via
+   !important). Il pannello chiaro dell'head resta l'unica superficie chiara.
+   -------------------------------------------------------------------------- */
 .turing-section.has-bg {
   position: relative;
-  color: #0f172a;
+  color: #fff;
   overflow: hidden;
   isolation: isolate;
   background-repeat: no-repeat;
@@ -272,9 +278,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, .9), rgba(248, 250, 252, .78)),
-    rgba(255, 255, 255, .2);
+  background: rgba(3, 7, 18, .62);
 }
 
 .turing-section.has-bg > .container {
@@ -288,21 +292,36 @@
   border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 22px;
   background: rgba(255, 255, 255, .68);
-  color: #0f172a !important;
+  color: #0f172a;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
   backdrop-filter: blur(12px);
   box-shadow: 0 16px 48px rgba(15, 23, 42, .08);
 }
 
 .turing-section.has-bg .turing-section__head .turing-kicker {
-  color: #0f766e !important;
+  color: #0f766e;
 }
 
 .turing-section.has-bg .turing-section__head h2 {
-  color: #0f172a !important;
+  color: #0f172a;
 }
 
 .turing-section.has-bg .turing-section__head > p:not(.turing-kicker) {
-  color: #475569 !important;
+  color: #475569;
+}
+
+/* Testo fuori dal pannello chiaro dell'head (kicker liberi e copy-panel di
+   Editorial/Legacy): bianco leggibile sull'overlay scuro. */
+.turing-section.has-bg .turing-kicker,
+.turing-section.has-bg .turing-copy-panel h2,
+.turing-section.has-bg .turing-copy-panel p {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
+}
+
+.turing-section.has-bg .turing-section__head p,
+.turing-section.has-bg .turing-copy-panel p {
+  opacity: .96;
 }
 
 .turing-section--split {
@@ -450,12 +469,25 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(248, 250, 252, .78);
+  background: rgba(3, 7, 18, .62);
 }
 
 .turing-final-card.has-bg > * {
   position: relative;
   z-index: 1;
+}
+
+/* Final card con sfondo: stesso trattamento scuro delle altre sezioni
+   has-bg (consolidato da turing-overrides.css). */
+.turing-final-card.has-bg {
+  color: #fff;
+}
+
+.turing-final-card.has-bg h2,
+.turing-final-card.has-bg .turing-kicker,
+.turing-final-card.has-bg p {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
 }
 
 .turing-final-card h2 {
