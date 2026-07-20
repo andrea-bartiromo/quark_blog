@@ -349,3 +349,55 @@ proliferazione dei fogli di stile globali in `head.blade.php` resta un debito no
 **Stato della Pull Request associata.** La Pull Request "refactor(turing): consolidate has-bg dark treatment
 into turing.css and drop global override" implementa questa Decisione #007. È stata aperta per revisione e non
 è stata mergiata: resta in attesa di approvazione, come da processo descritto nella sezione 3.
+
+## 15. Aggiornamento successivo alla Pull Request #41
+
+### Decision #008 – Section Header riutilizzabile
+Lo scheletro "kicker + titolo + testo introduttivo" ricorreva come markup Blade grezzo, non componentizzato, in
+almeno 11 punti del progetto: `turing/partials/intro-section.blade.php`, `editorial-blocks.blade.php` (una volta
+per blocco, in loop), `legacy-section.blade.php`, `final-card.blade.php`, oltre a un namespace di componenti
+`<x-turing.article.*>` (`hero`, `cta`, `callout`) risultato **codice morto** (mai istanziato da alcuna vista) e
+alle pagine monolitiche `turing/enigma.blade.php`/`turing/ai.blade.php`, che replicano lo stesso schema con CSS
+inline proprio (`enigma-*`/`ai-*`), non condiviso. Il modello dati sottostante (`kicker`/`title`/`text`) era già
+identico ovunque, ma la resa tipografica variava in modo non dichiarato fra tre scale diverse a seconda del
+contenitore in cui il markup veniva incollato (`.turing-section__head`, centrata e più grande;
+`.turing-copy-panel`, allineata a sinistra e più piccola; `.turing-final-card`, centrata con una terza scala).
+
+**Decisione.** Il pattern diventa il componente riutilizzabile `<x-special.section-header>`
+(`kicker`, `title`, `text`, `level` default `h2`, `align` con valori `left`/`center`, `variant` con valori
+espliciti `section`/`panel`/`final`, ciascuno corrispondente a una delle tre scale tipografiche già in uso).
+`level`, `align` e `variant` sono normalizzati contro un insieme chiuso di valori ammessi prima di comporre tag
+HTML o classi CSS: un valore non riconosciuto ricade sempre sul default sicuro (`h2`/`center`/`section`), così
+un dato arbitrario (es. proveniente da un campo CMS mal configurato) non può mai iniettare un tag o una classe
+non previsti. Lo stile (`public/css/special-project.css`, namespace `.sp-section-header*`) riproduce le tre
+scale tipografiche esistenti sui token `--sp-*`/`--font-display`, ma **non dichiara alcun colore** su titolo e
+testo: la cascata colore di `/turing` (incluso il trattamento `has-bg` consolidato dalla Decisione #007) resta
+governata invariata da `public/css/turing.css`, poiché i wrapper legacy (`.turing-section__head`,
+`.turing-copy-panel`, `.turing-final-card`) restano al loro posto nei partial migrati. Il kicker porta
+intenzionalmente due classi (`turing-kicker` e la nuova `sp-section-header__kicker`): la prima preserva
+esattamente la cascata colore già validata su Turing, la seconda offre una base leggibile autonoma (token
+`--sp-accent`) per un futuro Special Project privo di `turing.css`.
+
+**Migrazione.** Il componente sostituisce il markup grezzo in `intro-section.blade.php` (`variant="section"`),
+`editorial-blocks.blade.php` e `legacy-section.blade.php` (`variant="panel"`), `final-card.blade.php`
+(`variant="final"`). `hero.blade.php` (h1, struttura a griglia con ritratto affiancato — un pattern diverso, non
+forzato in questo componente), `turing/enigma.blade.php`, `turing/ai.blade.php` e il namespace morto
+`<x-turing.article.*>` sono rimasti **esplicitamente fuori scope**: i primi due sono pagine monolitiche con CSS
+proprio non condiviso, la cui migrazione richiederebbe un refactor di scala nettamente maggiore (l'intera
+pagina, non solo l'header); il namespace morto non è mai stato istanziato e la sua rimozione non è stata
+richiesta.
+
+**Verifica di parità visiva.** Come per la Decisione #007, la modifica è stata validata confrontando gli stili
+calcolati (`getComputedStyle`) di kicker/titolo/testo nelle quattro sezioni migrate prima e dopo (via
+`git stash`), tutte e quattro nel loro stato `has-bg` di default. Il primo tentativo ha rivelato due
+discrepanze reali (non il solo rumore `start`/`left`, equivalente in un documento LTR): `font-weight: 900`
+applicato per errore anche alle varianti `panel`/`final` (che nell'CSS originale restavano al bold 700 di
+default dell'h2, non dichiarato esplicitamente) e una dimensione/interlinea propria assegnata al testo della
+variante `final` (che nell'originale non aveva mai una regola dedicata, ereditando il corpo di default). Corrette
+entrambe, la verifica ripetuta non mostra più alcuna differenza reale. `php artisan test` resta verde (169/169,
+10 nuovi test dedicati al componente in `tests/Feature/SpecialSectionHeaderTest.php`).
+
+**Esplicitamente fuori scope di questa Decisione:** nessuna modifica a `hero.blade.php`,
+`turing/enigma.blade.php`, `turing/ai.blade.php` o `components/turing/article/*`; nessuna rimozione del
+namespace di componenti morto (segnalata come lavoro futuro); nessun commit né push in questa fase, come da
+richiesta esplicita.
