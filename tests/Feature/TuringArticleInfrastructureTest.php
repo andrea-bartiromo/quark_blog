@@ -24,7 +24,7 @@ class TuringArticleInfrastructureTest extends TestCase
         ];
 
         foreach ($components as $component) {
-            $this->assertFileExists(resource_path('views/' . $component));
+            $this->assertFileExists(resource_path('views/'.$component));
         }
     }
 
@@ -35,5 +35,26 @@ class TuringArticleInfrastructureTest extends TestCase
         $this->assertTrue(Route::has('turing.ai'));
 
         $this->get(route('turing'))->assertOk();
+    }
+
+    public function test_enigma_deep_dive_page_renders_with_fallback_text_when_no_cms_data_exists(): void
+    {
+        // Regressione: senza un blocco editoriale 'enigma' in CMS, $enigmaBlock
+        // e' un array vuoto e l'accesso a ['text'] deve ricadere sul fallback
+        // invece di generare un errore fatale (era `?:`, richiede la chiave).
+        $response = $this->get(route('turing.enigma'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Durante la Seconda guerra mondiale, Alan Turing contribuì al lavoro di Bletchley Park');
+    }
+
+    public function test_ai_deep_dive_page_renders_with_fallback_text_when_no_cms_data_exists(): void
+    {
+        $response = $this->get(route('turing.ai'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Nel 1950 Alan Turing pose una domanda destinata a cambiare il futuro della tecnologia');
     }
 }

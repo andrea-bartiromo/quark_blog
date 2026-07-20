@@ -74,7 +74,7 @@ class TuringPageController extends Controller
     {
         $items = $content[$key] ?? null;
 
-        if (!is_array($items) || $items === []) {
+        if (! is_array($items) || $items === []) {
             return $fallback;
         }
 
@@ -140,6 +140,7 @@ class TuringPageController extends Controller
                 'label' => '03 · Eredità',
                 'title' => 'Il genio inquieto',
                 'text' => 'La persecuzione, la riabilitazione e l’impatto culturale di una figura diventata simbolo.',
+                'url' => '#eredita',
                 'style' => 'legacy',
             ],
         ];
