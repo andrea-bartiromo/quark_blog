@@ -11,6 +11,7 @@
   {{-- Cover -> (Chapter Opener -> eventi) ripetuto per ogni capitolo temporale (Decision #003) --}}
   @foreach($timelineChapters as $index => $chapter)
     <x-special.chapter-opener
+      :id="'timeline-chapter-opener-'.($index + 1)"
       :period="$chapter['period'] ?? null"
       :title="$chapter['title'] ?? null"
       :intro="$chapter['intro'] ?? null"

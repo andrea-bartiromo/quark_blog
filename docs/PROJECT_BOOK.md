@@ -170,7 +170,7 @@ La soluzione consolida i principi di riusabilità, separazione delle responsabil
 
 **Validazione.** La verifica end-to-end della Timeline è stata completata con esito "Merge Ready". La validazione ha confermato il corretto comportamento strutturale, funzionale e responsive del componente e l'assenza di regressioni involontarie nelle sezioni adiacenti.
 
-**Standard di test riutilizzabile.** È in revisione la skill Devin `testing-special-project-timeline`, destinata a standardizzare i controlli pre-merge delle Pull Request che modificano la Timeline di uno Special Project. La skill dovrà essere indipendente dall'ambiente, utilizzare una route configurabile, distinguere i vincoli invarianti del Project Book dalla baseline visiva corrente e produrre un `test-report.md` con esiti tracciabili e un giudizio finale tra "Merge Ready", "Merge con piccoli fix" e "Da rivedere".
+**Standard di test riutilizzabile.** Era in revisione la skill Devin `testing-special-project-timeline`, destinata a standardizzare i controlli pre-merge delle Pull Request che modificano la Timeline di uno Special Project. La skill dovrà essere indipendente dall'ambiente, utilizzare una route configurabile, distinguere i vincoli invarianti del Project Book dalla baseline visiva corrente e produrre un `test-report.md` con esiti tracciabili e un giudizio finale tra "Merge Ready", "Merge con piccoli fix" e "Da rivedere".
 
 ## 12. Aggiornamento successivo alla Pull Request #36
 
@@ -200,4 +200,5 @@ Le sezioni Hero, Intro, Editorial, Legacy e Final saranno migrate progressivamen
 - [x] Aggiornamento della skill di test (`testing-special-project-timeline`, nuovo controllo T7) e produzione del `test-report.md` di validazione.
 - [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — non affrontata in questa Pull Request per esplicita scelta di scope.
 - [ ] Migrazione progressiva di Hero, Intro, Editorial, Legacy e Final verso componenti comuni `sp-*` (Decision #004) — non ancora avviata.
-- [ ] Test end-to-end e rifinitura finale — completati per l'ambito di questa Pull Request (Decisione #003); la rifinitura complessiva della pagina resta un'attività futura.
+- [x] Test end-to-end — completati per l'ambito di questa Pull Request (Decisione #003).
+- [ ] Rifinitura complessiva della pagina — resta un'attività futura.

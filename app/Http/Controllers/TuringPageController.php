@@ -89,7 +89,11 @@ class TuringPageController extends Controller
 
     private function isRenderableTimelineEvent(array $item): bool
     {
-        return $this->hasFilledAny($item, ['year', 'title', 'text', 'image', 'url', 'link_url']);
+        /* Deve rispecchiare esattamente il filtro di rendering di
+           <x-special.timeline> (year/title/text): un evento con solo
+           image/url non vi appare, quindi non deve poter disabilitare i
+           capitoli di default lasciando una Timeline senza eventi. */
+        return $this->hasFilledAny($item, ['year', 'title', 'text']);
     }
 
     private function hasFilledAny(array $item, array $keys): bool

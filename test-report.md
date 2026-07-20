@@ -22,17 +22,19 @@
 
 ### T1/T7 — DOM order (`.sp-timeline`, `.sp-chapter` in source order)
 ```
-1. section.sp-timeline#timeline        cover=yes  list=no   (Cover — "Una vita che attraversa il Novecento")
-2. section.sp-chapter                  media=yes  "1912–1939 — La formazione di un pensiero computazionale"
-3. section.sp-timeline#timeline-chapter-1   cover=no   list=yes  3 events (1912, 1936, 1938–1939)
-4. section.sp-chapter                  media=yes  "1939–1946 — La guerra e il calcolo applicato"
-5. section.sp-timeline#timeline-chapter-2   cover=no   list=yes  2 events (1939–1945, 1945–1946)
-6. section.sp-chapter                  media=yes  "1950–2013 — Il pensiero delle macchine e l'eredità"
-7. section.sp-timeline#timeline-chapter-3   cover=no   list=yes  4 events (1950, 1952, 1954, 2009–2013)
+1. section.sp-timeline#timeline                  cover=yes  list=no   (Cover — "Una vita che attraversa il Novecento")
+2. section.sp-chapter#timeline-chapter-opener-1  media=yes  "1912–1939 — La formazione di un pensiero computazionale"
+3. section.sp-timeline#timeline-chapter-1        cover=no   list=yes  3 events (1912, 1936, 1938–1939)
+4. section.sp-chapter#timeline-chapter-opener-2  media=yes  "1939–1946 — La guerra e il calcolo applicato"
+5. section.sp-timeline#timeline-chapter-2        cover=no   list=yes  2 events (1939–1945, 1945–1946)
+6. section.sp-chapter#timeline-chapter-opener-3  media=yes  "1950–2013 — Il pensiero delle macchine e l'eredità"
+7. section.sp-timeline#timeline-chapter-3        cover=no   list=yes  4 events (1950, 1952, 1954, 2009–2013)
 ```
 Confirms `Cover → (Chapter Opener → Events) × 3`, exactly as required. Total event count across chapters = 9,
-matching the page's full event set (no event dropped/duplicated by the grouping). All 7 section ids unique, no
-DOM id collisions.
+matching the page's full event set (no event dropped/duplicated by the grouping). All 7 sections now carry an
+explicit, unique `id` (the Chapter Opener sections previously had none — fixed by passing `:id` from the partial,
+forwarded automatically to `<x-special.chapter-opener>`'s root element via its `$attributes` bag) — verified via
+`document.querySelectorAll('[id]')`, no DOM id collisions anywhere on the page.
 
 ### T1 — Chapter Opener image is bounded, not full-bleed
 Measured via `getBoundingClientRect()` at 1440px: chapter image width = 300px vs. section width = 1440px
@@ -41,14 +43,22 @@ never a CSS section background. `alt` text present and descriptive for every cha
 
 Regression found and fixed during verification: the first render of `.sp-chapter` had no background of its own,
 so it inherited the dark Legacy section's background immediately above it, making the dark-ink title/intro text
-invisible (contrast failure). Fixed by giving `.sp-chapter` its own `background: var(--sp-surface)` — screenshot
-below confirms the fix.
+invisible (contrast failure). Fixed by giving `.sp-chapter` its own `background: var(--sp-surface)` — screenshots
+below confirm the fix (title/period/intro fully legible on all three chapters).
 
-Screenshots (desktop 1440, per chapter):
-- Chapter 1 ("La formazione di un pensiero computazionale", 1912–1939) — title, period and intro fully legible
-  next to a bounded photo of an Enigma-era machine.
-- Chapter 2 ("La guerra e il calcolo applicato", 1939–1946) — same pattern, distinct image.
-- Chapter 3 ("Il pensiero delle macchine e l'eredità", 1950–2013) — same pattern, distinct image.
+Screenshots (desktop 1440px, `docs/evidence/timeline-chapters/`):
+
+**Cover** (`#timeline`, Decision #001, unchanged):
+![Cover](docs/evidence/timeline-chapters/cover.png)
+
+**Chapter 1** (`#timeline-chapter-opener-1`, "La formazione di un pensiero computazionale", 1912–1939):
+![Chapter 1](docs/evidence/timeline-chapters/chapter-1.png)
+
+**Chapter 2** (`#timeline-chapter-opener-2`, "La guerra e il calcolo applicato", 1939–1946):
+![Chapter 2](docs/evidence/timeline-chapters/chapter-2.png)
+
+**Chapter 3** (`#timeline-chapter-opener-3`, "Il pensiero delle macchine e l'eredità", 1950–2013):
+![Chapter 3](docs/evidence/timeline-chapters/chapter-3.png)
 
 ### T3 — Responsive / no overflow
 `document.documentElement.scrollWidth <= window.innerWidth` asserted true at all three widths:
@@ -74,7 +84,8 @@ Mobile (390px) screenshot confirms the Chapter Opener stacks (image above text) 
 ### T5 — Decision #001 + regressions
 - Cover screenshot (desktop) confirms the bounded photographic header from Decision #001 is unchanged in
   appearance (same title, same background image, same rounded/bounded treatment).
-- `git status --short` — only the expected files changed:
+- `git status --short` — only the expected files changed (plus, after this review round, the evidence images
+  under `docs/evidence/timeline-chapters/`):
   ```
    M .agents/skills/testing-special-project-timeline/SKILL.md
    M app/Http/Controllers/TuringPageController.php
@@ -82,9 +93,16 @@ Mobile (390px) screenshot confirms the Chapter Opener stacks (image above text) 
    M resources/views/components/special/timeline.blade.php
    M resources/views/turing/partials/timeline.blade.php
   ?? docs/PROJECT_BOOK.md
+  ?? docs/evidence/timeline-chapters/
   ?? resources/views/components/special/chapter-opener.blade.php
   ```
   Hero, Legacy, editorial blocks, Intro, final card partials: **no changes**.
+- Review-round fix: `TuringPageController::isRenderableTimelineEvent()` previously accepted `image`/`url`-only
+  items as a "valid" CMS timeline override (it mirrored `isRenderableEditorialBlock`'s broader predicate).
+  `<x-special.timeline>` itself only renders an event with `year`/`title`/`text`, so an image/url-only CMS
+  override could have disabled the default chapters while rendering zero events. Narrowed the predicate to
+  `year`/`title`/`text` to match the component's own filter exactly — re-verified with `php artisan test`
+  (159/159 still green; no existing fixture relies on an image/url-only event).
 - `resources/views/components/special/timeline.blade.php` change is the minimal, strictly-necessary tweak:
   splitting the single `@if($items->isNotEmpty())` guard into two independent conditionals (cover-block,
   events-block) so the same component can be invoked cover-only (the page's overall Cover) or events-only (each
@@ -108,7 +126,7 @@ Mobile (390px) screenshot confirms the Chapter Opener stacks (image above text) 
 ## Automated tests
 ```
 php artisan test
-{"tool":"phpunit","result":"passed","tests":159,"passed":159,"assertions":665,"duration_ms":4556}
+{"tool":"phpunit","result":"passed","tests":159,"passed":159,"assertions":665,"duration_ms":4695}
 ```
 `php -l app/Http/Controllers/TuringPageController.php` — no syntax errors. `git diff --check` — clean.
 
