@@ -113,10 +113,14 @@ Note sulla struttura:
 | `science` | Laboratori, esperimenti, strumentazione, natura osservata scientificamente | Concetti astratti senza soggetto fisico → `abstract` |
 | `abstract` | Texture, pattern, concetti visivi non letterali (reti, dati, luce, movimento) | Fotografie di soggetti reali → una delle categorie sopra |
 | `ui` | Sfondi neutri, texture di supporto al layout, elementi puramente decorativi del sito | Contenuto editoriale/narrativo → una delle categorie sopra |
-| `placeholders` | Segnaposto generici (silhouette vuota, icona "immagine mancante") | Qualsiasi immagine con un soggetto reale |
 
 Le categorie sono **assi del soggetto**, ortogonali al tipo di utilizzo (sezione 4): una stessa immagine di
 categoria `technology` può essere usata come `hero` in un progetto e come `chapter` in un altro.
+
+`placeholders` **non è una categoria** di questo asse: un segnaposto non rappresenta un soggetto reale, quindi
+non ha senso classificarlo per soggetto. Vive infatti nella propria cartella dedicata `placeholders/`, sorella
+di `library/` e non sua sottocartella (sezione 2) — coerente con lo schema di naming (sezione 5.1), che per
+`placeholders/` omette del tutto il segmento `{categoria}`.
 
 ## 4. Tipi di utilizzo (asse "ruolo sulla pagina")
 
@@ -129,6 +133,7 @@ categoria `technology` può essere usata come `hero` in un progetto e come `chap
 | `background` | Sfondo di sezione, sempre bordato in altezza (Decision #001), mai esteso al contenuto | `sectionBackgroundFallbacks()`, `*-background.webp` |
 | `gallery` | Immagine in una sequenza/galleria di più immagini equivalenti | non ancora presente in codice — riservato per uso futuro |
 | `thumbnail` | Anteprima piccola (card, elenco, correlati) | `categories/categoria-*.webp` |
+| `portrait` | Ritratto di una persona reale, isolato dal contesto narrativo | `heroPortraitImage`, `.turing-portrait-card__photo` |
 
 Il tipo di utilizzo determina **le proporzioni e il trattamento tecnico attesi** (si veda sezione 6), non la
 cartella: la cartella è determinata solo dalla categoria (sezione 3).
@@ -147,8 +152,8 @@ cartella: la cartella è determinata solo dalla categoria (sezione 3).
   bilingue osservata in `turing/`), che descrivono cosa si vede, non a chi appartiene o dove viene usato
   (es. `circuit-board-macro`, non `turing-tech-image`).
 - **`--{tipo-utilizzo}`**: uno dei valori della sezione 4 (`hero`, `cover`, `chapter`, `editorial`, `background`,
-  `gallery`, `thumbnail`), separato con doppio trattino per non confondersi con i trattini interni al soggetto
-  descrittivo.
+  `gallery`, `thumbnail`, `portrait`), separato con doppio trattino per non confondersi con i trattini interni al
+  soggetto descrittivo.
 - **`[--variante]`**: opzionale, solo quando più asset condividono soggetto e tipo (es. `--01`, `--02` per una
   gallery, oppure `--dark`/`--light` per varianti tonali).
 - **`{estensione}`**: WebP di default (si veda sezione 6); SVG solo per `placeholders/` e `ui/` quando il
@@ -235,9 +240,10 @@ Request separate, nello spirito dei "piccoli passi incrementali" già definito i
    la versione migrata/ottimizzata è confermata in uso e non referenziata altrove con il vecchio nome.
 5. **Correzione dei riferimenti rotti individuati** (`placeholder-1.jpg`, `turing/test-turing.jpg`, sezione
    1.1, criticità #8) come parte della migrazione della cartella che li contiene.
-6. **Estensione della tabella `media`** (`app/Models/Media.php`) con colonne `category`, `usage_type`,
-   `credit` e `license`, così che l'uploader amministrativo (`admin/media.blade.php`) possa applicare la stessa
-   tassonomia anche ai caricamenti manuali futuri.
+6. **Estensione della tabella `media`**: una nuova migration che aggiunge le colonne `category`, `usage_type`,
+   `credit` e `license` allo schema, insieme ai corrispondenti aggiornamenti del model (`app/Models/Media.php`)
+   e dell'uploader amministrativo (`admin/media.blade.php`), così da poter applicare la stessa tassonomia anche
+   ai caricamenti manuali futuri.
 7. **Strumento di verifica automatica (facoltativo)** che segnali riferimenti a filename inesistenti nel
    codice (avrebbe intercettato la criticità #8 prima che arrivasse in produzione).
 

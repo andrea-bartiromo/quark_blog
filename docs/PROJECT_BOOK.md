@@ -215,11 +215,12 @@ che non esistono più sul disco. Questi problemi sono documentati nel dettaglio,
 contenuto della cartella, nel nuovo `docs/MEDIA_LIBRARY.md`.
 
 La Decisione introduce una **Media Library riutilizzabile** con due assi ortogonali — categoria del soggetto
-(`people`, `technology`, `history`, `science`, `abstract`, `ui`, `placeholders`) e tipo di utilizzo (`hero`,
-`cover`, `chapter`, `editorial`, `background`, `gallery`, `thumbnail`) — una convenzione di naming neutra e in
-inglese che non lega più permanentemente un asset generico a un singolo Special Project, e una distinzione
-esplicita tra `library/` (asset riusabili per definizione) e `special-projects/<slug>/` (asset intenzionalmente
-unici, come i ritratti reali). Generalizza inoltre lo standard tecnico e la convenzione di crediti/licenza già
+(`people`, `technology`, `history`, `science`, `abstract`, `ui`) e tipo di utilizzo (`hero`, `cover`, `chapter`,
+`editorial`, `background`, `gallery`, `thumbnail`, `portrait`) — una convenzione di naming neutra e in inglese
+che non lega più permanentemente un asset generico a un singolo Special Project, e una distinzione esplicita tra
+`library/` (asset riusabili per definizione), `placeholders/` (segnaposto generici, cartella propria perché non
+rappresentano un soggetto reale) e `special-projects/<slug>/` (asset intenzionalmente unici, come i ritratti
+reali). Generalizza inoltre lo standard tecnico e la convenzione di crediti/licenza già
 avviata solo per Turing in `docs/TURING_EDITORIAL_ASSETS.md`, rendendola la base condivisa per ogni Special
 Project futuro — coerente con i principi di riusabilità già definiti nella sezione 2 di questo documento.
 
