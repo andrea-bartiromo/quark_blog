@@ -202,3 +202,35 @@ Le sezioni Hero, Intro, Editorial, Legacy e Final saranno migrate progressivamen
 - [ ] Migrazione progressiva di Hero, Intro, Editorial, Legacy e Final verso componenti comuni `sp-*` (Decision #004) — non ancora avviata.
 - [x] Test end-to-end — completati per l'ambito di questa Pull Request (Decisione #003).
 - [ ] Rifinitura complessiva della pagina — resta un'attività futura.
+
+## 13. Aggiornamento successivo alla Pull Request #38
+
+### Decision #005 – Media Library per gli Special Projects
+Gli Special Projects generano asset fotografici/grafici a ritmo crescente (Turing conta oggi 20+ immagini), ma
+`public/assets/img/` è rimasta una cartella sostanzialmente piatta: nessuna organizzazione per soggetto o per
+tipo di utilizzo, due convenzioni incompatibili per gli stessi asset Turing (alcuni alla radice con prefisso,
+altri in `turing/` senza), naming bilingue incoerente, originali non ottimizzati mai rimossi dopo la conversione
+in WebP, export grezzi di strumenti di generazione mai rinominati e almeno due riferimenti nel codice a filename
+che non esistono più sul disco. Questi problemi sono documentati nel dettaglio, con evidenza diretta sul
+contenuto della cartella, nel nuovo `docs/MEDIA_LIBRARY.md`.
+
+La Decisione introduce una **Media Library riutilizzabile** con due assi ortogonali — categoria del soggetto
+(`people`, `technology`, `history`, `science`, `abstract`, `ui`) e tipo di utilizzo (`hero`, `cover`, `chapter`,
+`editorial`, `background`, `gallery`, `thumbnail`, `portrait`) — una convenzione di naming neutra e in inglese
+che non lega più permanentemente un asset generico a un singolo Special Project, e una distinzione esplicita tra
+`library/` (asset riusabili per definizione), `placeholders/` (segnaposto generici, cartella propria perché non
+rappresentano un soggetto reale) e `special-projects/<slug>/` (asset intenzionalmente unici, come i ritratti
+reali). Generalizza inoltre lo standard tecnico e la convenzione di crediti/licenza già
+avviata solo per Turing in `docs/TURING_EDITORIAL_ASSETS.md`, rendendola la base condivisa per ogni Special
+Project futuro — coerente con i principi di riusabilità già definiti nella sezione 2 di questo documento.
+
+**Esplicitamente fuori scope di questa Pull Request** (rimandato alla roadmap di popolazione in
+`docs/MEDIA_LIBRARY.md`, sezione 9): nessuna immagine viene scaricata, eliminata o rinominata; nessun file
+viene spostato nella nuova struttura; nessun componente Blade, controller o foglio di stile viene modificato;
+la tabella `media` (`app/Models/Media.php`) non viene estesa con le nuove colonne di categoria/tipo/credito.
+Questa Pull Request è esclusivamente architetturale e documentale: definisce la struttura di destinazione e le
+convenzioni, senza toccare alcun asset o componente esistente — a garanzia che non introduca alcuna regressione.
+
+**Stato della Pull Request associata.** La Pull Request "docs(media): introduce reusable Media Library
+foundation" implementa questa Decisione #005. È stata aperta per revisione e non è stata mergiata: resta in
+attesa di approvazione, come da processo descritto nella sezione 3.
