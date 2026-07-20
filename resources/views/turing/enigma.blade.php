@@ -416,7 +416,7 @@
                         </h1>
 
                         <p class="enigma-lead">
-                            {{ $enigmaBlock['text'] ?: 'Durante la Seconda guerra mondiale, Alan Turing contribuì al lavoro di Bletchley Park per decifrare i messaggi tedeschi prodotti dalla macchina Enigma. Quel lavoro accelerò la nascita del calcolo automatico moderno e cambiò per sempre il rapporto tra matematica, sicurezza e tecnologia.' }}
+                            {{ $enigmaBlock['text'] ?? 'Durante la Seconda guerra mondiale, Alan Turing contribuì al lavoro di Bletchley Park per decifrare i messaggi tedeschi prodotti dalla macchina Enigma. Quel lavoro accelerò la nascita del calcolo automatico moderno e cambiò per sempre il rapporto tra matematica, sicurezza e tecnologia.' }}
                         </p>
 
                         <div class="enigma-meta">

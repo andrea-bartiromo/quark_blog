@@ -438,7 +438,7 @@
                         <h1>{{ $aiBlock['title'] ?? 'Le macchine possono pensare?' }}</h1>
 
                         <p class="ai-lead">
-                            {{ $aiBlock['text'] ?: 'Nel 1950 Alan Turing pose una domanda destinata a cambiare il futuro della tecnologia. Oggi, nell’epoca dei modelli linguistici, delle reti neurali e dell’intelligenza artificiale generativa, quella domanda è più viva che mai.' }}
+                            {{ $aiBlock['text'] ?? 'Nel 1950 Alan Turing pose una domanda destinata a cambiare il futuro della tecnologia. Oggi, nell’epoca dei modelli linguistici, delle reti neurali e dell’intelligenza artificiale generativa, quella domanda è più viva che mai.' }}
                         </p>
 
                         <div class="ai-tags">
