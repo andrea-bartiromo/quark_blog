@@ -25,9 +25,13 @@
       @endif
 
       <div class="turing-copy-panel">
-        <p class="turing-kicker">{{ $blockData->get('kicker', 'Turing') }}</p>
-        <h2>{{ $blockData->get('title', 'Sezione editoriale') }}</h2>
-        <p>{{ $blockData->get('text', '') }}</p>
+        <x-special.section-header
+          variant="panel"
+          align="left"
+          :kicker="$blockData->get('kicker', 'Turing')"
+          :title="$blockData->get('title', 'Sezione editoriale')"
+          :text="$blockData->get('text', '')"
+        />
 
         @if($hasBlockUrl && filled($blockData->get('link_label')))
           <div class="turing-actions">

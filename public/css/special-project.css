@@ -470,3 +470,85 @@
     transform: none;
   }
 }
+
+/* ============================================================================
+   Componente: Section Header (kicker + titolo + testo introduttivo)
+   ----------------------------------------------------------------------------
+   Estratto dallo scheletro "kicker + h2 + p" ripetuto come markup grezzo in
+   intro-section/editorial-blocks/legacy-section/final-card (Decision #008).
+   Volutamente NON gestisce il colore del testo: su /turing quel ruolo resta
+   alla cascata gia' validata in public/css/turing.css (incluso il
+   trattamento has-bg), che continua ad applicarsi perche' il componente
+   mantiene invariati i wrapper/le classi legacy esistenti. Un futuro Special
+   Project privo di quella cascata riceve comunque una base leggibile tramite
+   i token --sp-* (kicker) e l'ereditarieta' del colore ambientale (titolo/
+   testo) dal proprio contesto.
+   ========================================================================== */
+
+.sp-section-header--left {
+  text-align: left;
+}
+
+.sp-section-header--center {
+  text-align: center;
+}
+
+/* ---- kicker: stessa resa di .turing-kicker (public/css/turing.css), qui
+   riproposta sui token --sp-* per un uso autonomo dal foglio di stile Turing. */
+.sp-section-header__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: .72rem;
+  font-weight: 800;
+  color: var(--sp-accent);
+}
+
+.sp-section-header__title {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+/* Il peso 900 replica solo .turing-section__head h2: .turing-copy-panel h2 e
+   .turing-final-card h2 non lo dichiaravano (restano al bold 700 di default
+   dell'h2), quindi qui resta scoped alla sola variante "section". */
+.sp-section-header--section .sp-section-header__title {
+  margin-top: .8rem;
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+  font-weight: 900;
+}
+
+.sp-section-header--panel .sp-section-header__title {
+  margin: 1rem 0 1.2rem;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+}
+
+.sp-section-header--final .sp-section-header__title {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1;
+  letter-spacing: -.045em;
+}
+
+.sp-section-header__text {
+  margin: 0;
+}
+
+.sp-section-header--section .sp-section-header__text {
+  font-size: 1.04rem;
+  line-height: 1.9;
+}
+
+.sp-section-header--panel .sp-section-header__text {
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+/* La variante "final" non forza una dimensione: .turing-final-card p non
+   aveva mai una regola propria, quindi il testo restava al corpo di
+   default ereditato dalla pagina — invariato qui di proposito. */
