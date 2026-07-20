@@ -47,26 +47,35 @@
 
   $cover = $resolveMedia($background);
   $titleId = $id . '-title';
+
+  /* Ogni blocco (cover, lista eventi) e' indipendente: cosi' lo stesso
+     componente puo' essere invocato "solo cover" (apertura di sezione, senza
+     eventi) oppure "solo eventi" (capitolo successivo alla propria apertura
+     narrativa), senza duplicarne il markup altrove. */
+  $hasCover = filled($title) || $cover;
 @endphp
 
-@if($items->isNotEmpty())
+@if($items->isNotEmpty() || $hasCover)
   <section
     {{ $attributes->merge(['class' => 'sp-timeline']) }}
     id="{{ $id }}"
     @if(filled($title)) aria-labelledby="{{ $titleId }}" @endif
   >
     <div class="container container--wide">
-      <header class="sp-timeline__cover" @if($cover) style="background-image:url('{{ $cover }}')" @endif>
-        <div class="sp-timeline__cover-inner">
-          @if(filled($kicker))
-            <p class="sp-timeline__kicker">{{ $kicker }}</p>
-          @endif
-          @if(filled($title))
-            <h2 id="{{ $titleId }}" class="sp-timeline__title">{{ $title }}</h2>
-          @endif
-        </div>
-      </header>
+      @if($hasCover)
+        <header class="sp-timeline__cover" @if($cover) style="background-image:url('{{ $cover }}')" @endif>
+          <div class="sp-timeline__cover-inner">
+            @if(filled($kicker))
+              <p class="sp-timeline__kicker">{{ $kicker }}</p>
+            @endif
+            @if(filled($title))
+              <h2 id="{{ $titleId }}" class="sp-timeline__title">{{ $title }}</h2>
+            @endif
+          </div>
+        </header>
+      @endif
 
+      @if($items->isNotEmpty())
       <ol class="sp-timeline__list">
         @foreach($items as $event)
           @php
@@ -103,6 +112,7 @@
           </li>
         @endforeach
       </ol>
+      @endif
     </div>
   </section>
 @endif

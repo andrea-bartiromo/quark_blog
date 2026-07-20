@@ -11,6 +11,13 @@ is the reusable component `resources/views/components/special/timeline.blade.php
 (`<x-special.timeline :events kicker title :background id>`), styled by `public/css/special-project.css`
 with `--sp-*` design tokens layered on the global brand tokens in `style.css`.
 
+Since Decision #003, the Timeline area is a sequence of **temporal chapters**: `Cover → (Chapter Opener →
+Events) → (Chapter Opener → Events) → ...`. The Cover is a `<x-special.timeline>` call with no events (header
+only). Each chapter pairs the reusable `resources/views/components/special/chapter-opener.blade.php`
+(`<x-special.chapter-opener :period :title :intro :image :alt>`) with its own `<x-special.timeline>` call
+carrying only that chapter's events (no `title`/`background`, so its built-in cover stays hidden). Both
+components are generic/data-driven — a future Special Project supplies its own chapters, no component change.
+
 `TARGET_ROUTE` = the Special Project route under test. **Default: `/turing`.** Any future Special Project sets
 its own `TARGET_ROUTE`; the skill must not depend on `/turing` specifically.
 
@@ -23,6 +30,10 @@ its own `TARGET_ROUTE`; the skill must not depend on `/turing` specifically.
 - §10.6 coherence over spectacle.
 - **Decision #001 (never reverse):** the Timeline uses a **bounded photographic cover + a separate events
   area** — never one image stretched over the whole section, and never `background-attachment: fixed`.
+- **Decision #003 (never reverse):** the Timeline is a sequence of **temporal chapters** — `Cover → (Chapter
+  Opener → Events)` repeated. Each Chapter Opener's photo is a **bounded, contained image** (never a full-bleed
+  section background) and sits next to `period`/`title`/`intro` text. Events keep rendering through
+  `<x-special.timeline>` — a chapter never re-implements the events markup itself.
 
 ## B. Visual baseline (reference, NOT an invariant)
 A **visual baseline** is the approved look of a specific `TARGET_ROUTE`, used only to detect unintended visual
@@ -52,7 +63,12 @@ exists (for `/turing`, section B). With no approved baseline, only section A is 
 against `/turing` specifics.
 
 - **T1 — chapter opener:** entering the Timeline reads as a new chapter, visually distinct from the previous
-  section, with a natural (not jarring) break. Cover is bounded (not edge-to-edge).
+  section, with a natural (not jarring) break. Cover is bounded (not edge-to-edge). Every temporal chapter is
+  introduced by a real `<x-special.chapter-opener>` instance rendering `period`/`title`/`intro`, and its image
+  is a **contained `<img>`**, not a section-wide background — check `getBoundingClientRect()` of the image is
+  meaningfully narrower than its section (not full-bleed), and that its text has a background behind it that
+  guarantees contrast regardless of the section immediately before it (a Chapter Opener must not inherit a dark
+  section's background and silently lose contrast on dark-on-dark or light-on-light text).
 - **T2 — component rendering + events area (§10.4):** the page renders the Timeline through the
   `<x-special.timeline>` component (not a bespoke per-page partial); internal structure is present
   (spine/nodes or equivalent), event cards are legible and separated from the surface, year→title→text
@@ -80,12 +96,20 @@ against `/turing` specifics.
     resources/views/turing/partials/hero.blade.php \
     resources/views/turing/partials/legacy-section.blade.php \
     resources/views/turing/partials/timeline.blade.php \
-    resources/views/components/special/timeline.blade.php
+    resources/views/components/special/timeline.blade.php \
+    resources/views/components/special/chapter-opener.blade.php
   ```
-- **T6 — reusability + design tokens:** generic API (`events, kicker, title, background, id`); no figure-specific
-  literals in the component; images resolved internally; **coherent use of `--sp-*` design tokens** (values
-  come from tokens, not duplicated hard-coded literals) and tokens/`.sp-*` reference the global brand tokens,
-  not a page namespace. A new figure = new data passed to the same component, no component code change.
+- **T6 — reusability + design tokens:** generic API (`events, kicker, title, background, id` for the Timeline;
+  `period, title, intro, image, alt` for the Chapter Opener); no figure-specific literals in either component;
+  images resolved internally; **coherent use of `--sp-*` design tokens** (values come from tokens, not
+  duplicated hard-coded literals) and tokens/`.sp-*` reference the global brand tokens, not a page namespace.
+  A new figure = new data (and, for the Timeline, its own chapter grouping) passed to the same components, no
+  component code change.
+- **T7 — chapter → events order (Decision #003):** walking the DOM in source order, the Timeline area is
+  `Cover, then (Chapter Opener, Events) repeated` — a Chapter Opener is never immediately followed by another
+  Chapter Opener, and events never appear before their own chapter's opener. Every `<x-special.timeline>`/
+  chapter section has a unique `id` (no duplicate DOM ids across chapters); the total renderable event count
+  across all chapters equals the page's total event count (no event dropped or duplicated by the grouping).
 
 ## Focus-state testing
 Provide a linkable card first: **fixture / test data** with an event carrying `url`/`link_url` (use a
@@ -125,6 +149,7 @@ use it only to reach the element, never as evidence of the focus-visible style. 
 | T4 | Semantics & keyboard accessibility | PASS / FAIL / NON CONCLUSIVO |
 | T5 | Decision #001 + regressions | PASS / FAIL / NON CONCLUSIVO |
 | T6 | Reusability + design tokens | PASS / FAIL / NON CONCLUSIVO |
+| T7 | Chapter → events order (Decision #003) | PASS / FAIL / NON CONCLUSIVO |
 
 ## Evidence
 <inline screenshots + recording links>
