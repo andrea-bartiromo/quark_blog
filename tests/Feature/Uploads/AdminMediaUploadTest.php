@@ -13,9 +13,9 @@ use Tests\TestCase;
 
 class AdminMediaUploadTest extends TestCase
 {
+    use InteractsWithTestImages;
     use RefreshDatabase;
     use UsesIsolatedPublicPath;
-    use InteractsWithTestImages;
 
     protected function setUp(): void
     {
@@ -41,7 +41,7 @@ class AdminMediaUploadTest extends TestCase
         $image = UploadedFile::fake()->image('foto.jpg', 800, 600);
 
         $response = $this->actingAs($editor)->post(route('admin.media.store'), [
-            'image'    => $image,
+            'image' => $image,
             'alt_text' => 'Testo alternativo di prova',
         ]);
 
@@ -53,7 +53,7 @@ class AdminMediaUploadTest extends TestCase
         $this->assertSame('foto.jpg', $media->filename);
         $this->assertSame($editor->id, $media->user_id);
         $this->assertSame('Testo alternativo di prova', $media->alt_text);
-        $this->assertFileExists(public_path('assets/img/' . $media->disk_name));
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
         $this->assertGreaterThan(0, $media->size);
     }
 
@@ -73,7 +73,7 @@ class AdminMediaUploadTest extends TestCase
 
         $this->assertDirectoryExists(public_path('assets/img'));
         $media = Media::latest('id')->firstOrFail();
-        $this->assertFileExists(public_path('assets/img/' . $media->disk_name));
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
     }
 
     public function test_media_image_is_resized_to_the_1600px_limit(): void
@@ -86,7 +86,7 @@ class AdminMediaUploadTest extends TestCase
         ]);
 
         $media = Media::latest('id')->firstOrFail();
-        [$w, $h] = getimagesize(public_path('assets/img/' . $media->disk_name));
+        [$w, $h] = getimagesize(public_path('assets/img/'.$media->disk_name));
 
         $this->assertSame(1600, $w);
         $this->assertSame(800, $h);
@@ -109,7 +109,7 @@ class AdminMediaUploadTest extends TestCase
         ]);
 
         $media = Media::latest('id')->firstOrFail();
-        $path = public_path('assets/img/' . $media->disk_name);
+        $path = public_path('assets/img/'.$media->disk_name);
 
         $img = imagecreatefrompng($path);
         $rgba = imagecolorat($img, (int) (imagesx($img) / 2), (int) (imagesy($img) / 2));
@@ -190,7 +190,7 @@ class AdminMediaUploadTest extends TestCase
         $response->assertSessionHas('success');
 
         $media = Media::latest('id')->firstOrFail();
-        $this->assertFileExists(public_path('assets/img/' . $media->disk_name));
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
 
         // Il preset Media abilita alwaysReencode: il file troncato ha header
         // leggibile ma decodifica GD "morbida" (nessuna eccezione nativa in
@@ -212,7 +212,7 @@ class AdminMediaUploadTest extends TestCase
                 continue;
             }
 
-            $path = $dir . '/' . $item;
+            $path = $dir.'/'.$item;
 
             if (is_dir($path) && ! is_link($path)) {
                 $this->deleteDirectoryForTest($path);

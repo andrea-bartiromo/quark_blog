@@ -1,16 +1,19 @@
 <?php
+
 /**
  * Il Laboratorio — Rivista italiana di divulgazione scientifica
  *
  * @author    Andrea Bartiromo <redazione@illaboratorio.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  * @license   Proprietario — tutti i diritti riservati
+ *
  * @link      https://www.illaboratorio.it
  */
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class Article extends Model
@@ -26,25 +29,25 @@ class Article extends Model
     ];
 
     protected $casts = [
-        'featured'          => 'boolean',
-        'published_at'      => 'datetime',
-        'verified_at'       => 'datetime',
+        'featured' => 'boolean',
+        'published_at' => 'datetime',
+        'verified_at' => 'datetime',
     ];
 
     // Etichette leggibili per lo stato di verifica
     public static array $verificationLabels = [
-        'unverified'    => 'Non verificato',
-        'in_progress'   => 'In verifica',
-        'verified'      => 'Verificato',
-        'needs_update'  => 'Aggiornamento necessario',
+        'unverified' => 'Non verificato',
+        'in_progress' => 'In verifica',
+        'verified' => 'Verificato',
+        'needs_update' => 'Aggiornamento necessario',
     ];
 
     // Colori badge per lo stato di verifica
     public static array $verificationColors = [
-        'unverified'    => '#ef4444',
-        'in_progress'   => '#f59e0b',
-        'verified'      => '#22c55e',
-        'needs_update'  => '#6366f1',
+        'unverified' => '#ef4444',
+        'in_progress' => '#f59e0b',
+        'verified' => '#22c55e',
+        'needs_update' => '#6366f1',
     ];
 
     public function getVerificationLabelAttribute(): string
@@ -95,7 +98,7 @@ class Article extends Model
 
     public function getReadTimeAttribute(): string
     {
-        return $this->read_minutes . ' min di lettura';
+        return $this->read_minutes.' min di lettura';
     }
 
     // ── Mutator ───────────────────────────────────────────────

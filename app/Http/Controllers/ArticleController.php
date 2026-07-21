@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\ArticleView;
 use App\Models\Category;
-use Illuminate\Http\Request;
 
 class ArticleController extends Controller
 {
@@ -57,7 +56,7 @@ class ArticleController extends Controller
             ->with('author', 'comments')
             ->firstOrFail();
 
-        $sessionKey = 'article_viewed_' . $article->id;
+        $sessionKey = 'article_viewed_'.$article->id;
 
         if (! session()->has($sessionKey)) {
 
