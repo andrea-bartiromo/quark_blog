@@ -23,7 +23,7 @@ class SpecialPage extends Model
     {
         $page = static::where('slug', $slug)->first();
 
-        if (!$page || !$page->is_active) {
+        if (! $page || ! $page->is_active) {
             return $fallback;
         }
 
