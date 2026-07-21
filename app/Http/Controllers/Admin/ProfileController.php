@@ -15,26 +15,28 @@ class ProfileController extends Controller
 
     public function update(Request $request)
     {
-        $user      = auth()->user();
+        $user = auth()->user();
         $validated = $request->validate([
-            'name'     => 'required|max:100',
-            'email'    => 'required|email|unique:users,email,' . $user->id,
-            'bio'      => 'nullable|max:500',
-            'twitter'  => 'nullable|max:50',
+            'name' => 'required|max:100',
+            'email' => 'required|email|unique:users,email,'.$user->id,
+            'bio' => 'nullable|max:500',
+            'twitter' => 'nullable|max:50',
             'linkedin' => 'nullable|url|max:200',
         ]);
         $user->update($validated);
+
         return back()->with('success', 'Profilo aggiornato.');
     }
 
     public function updatePhoto(Request $request)
     {
         $request->validate(['photo' => 'required|image|mimes:jpeg,png,webp|max:2048']);
-        $user     = auth()->user();
-        $file     = $request->file('photo');
-        $diskName = 'author-' . $user->id . '-' . now()->format('YmdHis') . '.' . $file->getClientOriginalExtension();
+        $user = auth()->user();
+        $file = $request->file('photo');
+        $diskName = 'author-'.$user->id.'-'.now()->format('YmdHis').'.'.$file->getClientOriginalExtension();
         $file->move(public_path('assets/img'), $diskName);
         $user->update(['photo' => $diskName]);
+
         return back()->with('success', 'Foto aggiornata.');
     }
 
@@ -42,13 +44,14 @@ class ProfileController extends Controller
     {
         $request->validate([
             'current_password' => 'required',
-            'password'         => 'required|min:8|confirmed',
+            'password' => 'required|min:8|confirmed',
         ]);
         $user = auth()->user();
-        if (!Hash::check($request->input('current_password'), $user->password)) {
+        if (! Hash::check($request->input('current_password'), $user->password)) {
             return back()->withErrors(['current_password' => 'Password attuale non corretta.']);
         }
         $user->update(['password' => Hash::make($request->input('password'))]);
+
         return back()->with('success', 'Password aggiornata.');
     }
 }

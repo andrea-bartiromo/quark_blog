@@ -40,11 +40,11 @@ class ContactController extends Controller
 
     private function messageBody(array $data): string
     {
-        return "Nuovo messaggio dal form contatti di Quark\n\n" .
-            "Nome: {$data['nome']}\n" .
-            "Email: {$data['email']}\n" .
-            "Oggetto: {$data['oggetto']}\n\n" .
-            "Messaggio:\n{$data['messaggio']}\n\n" .
-            "---\nInviato da: " . url('/contatti');
+        return "Nuovo messaggio dal form contatti di Quark\n\n".
+            "Nome: {$data['nome']}\n".
+            "Email: {$data['email']}\n".
+            "Oggetto: {$data['oggetto']}\n\n".
+            "Messaggio:\n{$data['messaggio']}\n\n".
+            "---\nInviato da: ".url('/contatti');
     }
 }
