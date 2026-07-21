@@ -94,11 +94,18 @@ class TuringComputationPageTest extends TestCase
         // quella route non esiste, mai a una route inesistente.
         $this->assertFalse(Route::has('turing.intelligence'));
 
+        // Percorso canonico letterale, non route('turing.ai'): quel nome e'
+        // duplicato da App\Providers\TuringServiceProvider (route /turing/ia,
+        // registrata dopo, vince la risoluzione) - bug preesistente,
+        // verificato ma non corretto in questa PR. Un assert basato su
+        // route('turing.ai') sarebbe auto-referenziale rispetto allo stesso
+        // bug e non lo rileverebbe.
         $this->get(route('turing.computation'))
             ->assertOk()
             ->assertDontSee('href="/turing/intelligence"', false)
             ->assertSeeText('Dal calcolo all’intelligenza')
-            ->assertSee('href="'.route('turing.ai').'"', false);
+            ->assertSee('href="/turing/ai"', false)
+            ->assertDontSee('href="/turing/ia"', false);
     }
 
     public function test_computation_page_renders_without_errors_when_no_optional_cms_data_exists(): void

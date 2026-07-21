@@ -108,7 +108,11 @@
         :actions="[
             ['label' => 'Torna allo speciale', 'url' => route('turing')],
             ['label' => 'Esplora Enigma', 'url' => route('turing.enigma')],
-            ['label' => 'Dal calcolo all’intelligenza', 'url' => route('turing.ai')],
+            // Percorso letterale, non route('turing.ai'): quel nome e' duplicato
+            // in App\Providers\TuringServiceProvider (route /turing/ia), che
+            // vince la risoluzione e restituirebbe /turing/ia invece del
+            // percorso canonico. Causa radice preesistente, fuori scope qui.
+            ['label' => 'Dal calcolo all’intelligenza', 'url' => '/turing/ai'],
         ]"
     />
 
