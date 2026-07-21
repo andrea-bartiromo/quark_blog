@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Comment;
 use App\Models\Article;
+use App\Models\Comment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -20,9 +20,9 @@ class CommentController extends Controller
 
         $validated = $request->validate([
             'article_id' => 'required|integer',
-            'name'       => 'required|max:80',
-            'email'      => 'required|email',
-            'body'       => 'required|min:10|max:1500',
+            'name' => 'required|max:80',
+            'email' => 'required|email',
+            'body' => 'required|min:10|max:1500',
         ]);
 
         $article = Article::published()
@@ -46,16 +46,16 @@ class CommentController extends Controller
 
                 Mail::send([], [], function ($m) use ($comment, $adminEmail, $articleTitle, $moderaUrl) {
                     $m->to($adminEmail)
-                      ->subject('💬 Nuovo commento da moderare — Quark')
-                      ->html("
+                        ->subject('💬 Nuovo commento da moderare — Quark')
+                        ->html("
                         <div style='font-family:Arial,sans-serif;max-width:500px;padding:1.5rem;'>
                           <h2 style='color:#0d9488;margin-bottom:.75rem;'>Nuovo commento da moderare</h2>
                           <table style='width:100%;border-collapse:collapse;font-size:.875rem;margin-bottom:1rem;'>
-                            <tr><td style='padding:.4rem 0;color:#6b7280;width:80px;'>Autore</td><td style='font-weight:600;'>" . htmlspecialchars($comment->name) . "</td></tr>
-                            <tr><td style='padding:.4rem 0;color:#6b7280;'>Articolo</td><td>" . htmlspecialchars($articleTitle) . "</td></tr>
+                            <tr><td style='padding:.4rem 0;color:#6b7280;width:80px;'>Autore</td><td style='font-weight:600;'>".htmlspecialchars($comment->name)."</td></tr>
+                            <tr><td style='padding:.4rem 0;color:#6b7280;'>Articolo</td><td>".htmlspecialchars($articleTitle)."</td></tr>
                           </table>
                           <div style='background:#f9fafb;border-radius:8px;padding:1rem;margin-bottom:1rem;font-size:.875rem;color:#374151;line-height:1.6;'>
-                            " . htmlspecialchars($comment->body) . "
+                            ".htmlspecialchars($comment->body)."
                           </div>
                           <a href='{$moderaUrl}' style='display:inline-block;background:#0d9488;color:#fff;padding:.6rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>
                             Modera commento →
@@ -69,7 +69,7 @@ class CommentController extends Controller
         }
 
         return response()->json([
-            'ok'      => true,
+            'ok' => true,
             'message' => 'Commento inviato. Sarà pubblicato dopo la moderazione.',
         ]);
     }

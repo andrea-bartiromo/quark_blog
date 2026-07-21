@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Article;
 use App\Models\Category;
 use App\Services\ImageService;
 use Illuminate\Http\Request;
@@ -10,9 +11,7 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService)
-    {
-    }
+    public function __construct(private readonly ImageService $imageService) {}
 
     public function index()
     {
@@ -41,7 +40,7 @@ class CategoryController extends Controller
         $category->update($data);
 
         if ($oldSlug !== $category->slug) {
-            \App\Models\Article::where('category', $oldSlug)
+            Article::where('category', $oldSlug)
                 ->update(['category' => $category->slug]);
         }
 
@@ -64,7 +63,7 @@ class CategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|max:100',
-            'slug' => 'nullable|max:120|unique:categories,slug,' . $ignoreId,
+            'slug' => 'nullable|max:120|unique:categories,slug,'.$ignoreId,
             'description' => 'nullable|max:500',
             'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
             'remove_image' => 'nullable|boolean',
@@ -98,7 +97,7 @@ class CategoryController extends Controller
             $fileName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis') . '-' . substr(md5((string) microtime(true)), 0, 6)
+                date('YmdHis').'-'.substr(md5((string) microtime(true)), 0, 6)
             );
             $uploadPath = public_path('assets/img/categories');
 
@@ -124,7 +123,7 @@ class CategoryController extends Controller
             return;
         }
 
-        $path = public_path('assets/img/categories/' . $fileName);
+        $path = public_path('assets/img/categories/'.$fileName);
 
         if (is_file($path)) {
             @unlink($path);

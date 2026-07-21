@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Newsletter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class NewsletterController extends Controller
 {
@@ -25,12 +24,12 @@ class NewsletterController extends Controller
         // Invia email di conferma
         try {
             Mail::send([], [], function ($message) use ($subscriber) {
-                $confirmUrl    = route('newsletter.confirm', ['token' => $subscriber->token]);
+                $confirmUrl = route('newsletter.confirm', ['token' => $subscriber->token]);
                 $unsubscribeUrl = route('newsletter.unsubscribe', ['token' => $subscriber->unsubscribe_token]);
 
                 $message->to($subscriber->email)
-                        ->subject('🧪 Un ultimo passo — conferma la tua iscrizione a Quark')
-                        ->html("
+                    ->subject('🧪 Un ultimo passo — conferma la tua iscrizione a Quark')
+                    ->html("
                             <div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:2rem;background:#ffffff;'>
 
                                 <div style='text-align:center;margin-bottom:2rem;'>
@@ -84,7 +83,7 @@ class NewsletterController extends Controller
                         ");
             });
         } catch (\Exception $e) {
-            \Log::warning('Newsletter email non inviata: ' . $e->getMessage());
+            \Log::warning('Newsletter email non inviata: '.$e->getMessage());
         }
 
         return redirect('/?newsletter=ok');
@@ -102,7 +101,7 @@ class NewsletterController extends Controller
 
         $subscriber->update([
             'confirmed' => true,
-            'token'     => null,
+            'token' => null,
         ]);
 
         return view('newsletter-confirmed');
@@ -117,7 +116,7 @@ class NewsletterController extends Controller
         // tratterebbe altrimenti un valore null come una whereNull()).
         $subscriber = $token ? Newsletter::where('unsubscribe_token', $token)->first() : null;
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             return view('newsletter-unsubscribed', ['notFound' => true]);
         }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\ImageService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithTestImages;
 use Tests\TestCase;
@@ -23,14 +24,15 @@ class ImageServiceTest extends TestCase
     use InteractsWithTestImages;
 
     private ImageService $service;
+
     private string $tempDir;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->service = new ImageService();
-        $this->tempDir = sys_get_temp_dir() . '/quark-imgsvc-' . uniqid('', true);
+        $this->service = new ImageService;
+        $this->tempDir = sys_get_temp_dir().'/quark-imgsvc-'.uniqid('', true);
         mkdir($this->tempDir, 0775, true);
     }
 
@@ -53,7 +55,7 @@ class ImageServiceTest extends TestCase
                 continue;
             }
 
-            $path = $dir . '/' . $item;
+            $path = $dir.'/'.$item;
             is_dir($path) ? $this->deleteDirectory($path) : @unlink($path);
         }
 
@@ -67,7 +69,7 @@ class ImageServiceTest extends TestCase
         $file = $this->makeSolidImageUpload('My Cover Photo!.jpg', 50, 50);
 
         // Stessa espressione usata in Admin\ArticleController::validated().
-        $suffix = date('YmdHis') . '-' . substr(md5(rand()), 0, 6);
+        $suffix = date('YmdHis').'-'.substr(md5(rand()), 0, 6);
         $name = $this->service->buildFileName($file, 'jpg', $suffix);
 
         $this->assertMatchesRegularExpression(
@@ -84,7 +86,7 @@ class ImageServiceTest extends TestCase
         $file = $this->makeSolidImageUpload('Beautiful Sunset.png', 50, 50, 'png');
 
         // Stessa espressione usata in Admin\MediaController::store().
-        $suffix = now()->format('YmdHis') . '-' . \Illuminate\Support\Str::random(6);
+        $suffix = now()->format('YmdHis').'-'.Str::random(6);
         $name = $this->service->buildFileName($file, 'png', $suffix);
 
         $this->assertMatchesRegularExpression(
@@ -100,7 +102,7 @@ class ImageServiceTest extends TestCase
         $file = $this->makeSolidImageUpload('Category Icon.jpg', 50, 50);
 
         // Stessa espressione usata in Admin\CategoryController::handleImageUpload().
-        $suffix = date('YmdHis') . '-' . substr(md5((string) microtime(true)), 0, 6);
+        $suffix = date('YmdHis').'-'.substr(md5((string) microtime(true)), 0, 6);
         $name = $this->service->buildFileName($file, 'jpg', $suffix);
 
         $this->assertMatchesRegularExpression(
@@ -108,12 +110,12 @@ class ImageServiceTest extends TestCase
             $name
         );
 
-        $destination = $this->tempDir . '/assets/img/categories';
+        $destination = $this->tempDir.'/assets/img/categories';
         $this->service->ensureDirectoryExists($destination, 0755);
         $fullPath = $this->service->upload($file, $destination, $name);
 
-        $this->assertStringEndsWith('assets/img/categories/' . $name, $fullPath);
-        $this->assertFileExists($destination . '/' . $name);
+        $this->assertStringEndsWith('assets/img/categories/'.$name, $fullPath);
+        $this->assertFileExists($destination.'/'.$name);
     }
 
     // ── 4. Naming — Redazione Article ────────────────────────────────
@@ -123,7 +125,7 @@ class ImageServiceTest extends TestCase
         $file = $this->makeSolidImageUpload('Articolo Bozza.jpg', 2000, 1000);
 
         // Stessa espressione usata in Redazione\ArticleController::store()/update().
-        $suffix = date('YmdHis') . '-' . \Illuminate\Support\Str::random(6);
+        $suffix = date('YmdHis').'-'.Str::random(6);
         $name = $this->service->buildFileName($file, 'jpg', $suffix);
 
         $this->assertMatchesRegularExpression(
@@ -131,7 +133,7 @@ class ImageServiceTest extends TestCase
             $name
         );
 
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, $name);
 
@@ -146,7 +148,7 @@ class ImageServiceTest extends TestCase
 
     public function test_ensure_directory_exists_creates_missing_nested_directory(): void
     {
-        $target = $this->tempDir . '/assets/img/categories';
+        $target = $this->tempDir.'/assets/img/categories';
         $this->assertDirectoryDoesNotExist($target);
 
         $this->service->ensureDirectoryExists($target, 0775);
@@ -160,7 +162,7 @@ class ImageServiceTest extends TestCase
             $this->markTestSkipped('I permessi POSIX non sono verificabili in modo portabile su Windows.');
         }
 
-        $target = $this->tempDir . '/assets/img';
+        $target = $this->tempDir.'/assets/img';
         $this->service->ensureDirectoryExists($target, 0775);
 
         $expected = 0775 & ~umask();
@@ -169,7 +171,7 @@ class ImageServiceTest extends TestCase
 
     public function test_ensure_directory_exists_is_a_no_op_when_directory_already_present(): void
     {
-        $target = $this->tempDir . '/assets/img';
+        $target = $this->tempDir.'/assets/img';
         mkdir($target, 0700, true);
 
         // Non deve tentare di ricreare (e quindi fallire) una directory esistente.
@@ -185,12 +187,12 @@ class ImageServiceTest extends TestCase
         $file = $this->makeSolidImageUpload('photo.jpg', 40, 40);
         $sourcePath = $file->getRealPath();
 
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
 
         $fullPath = $this->service->upload($file, $destination, 'final-name.jpg');
 
-        $this->assertSame($destination . '/final-name.jpg', $fullPath);
+        $this->assertSame($destination.'/final-name.jpg', $fullPath);
         $this->assertFileExists($fullPath);
         $this->assertFileDoesNotExist($sourcePath);
         $this->assertSame('jpg', pathinfo($fullPath, PATHINFO_EXTENSION));
@@ -201,8 +203,8 @@ class ImageServiceTest extends TestCase
     public static function resizePresetProvider(): array
     {
         return [
-            'Admin Article (1600px)'  => [1600, ['jpg' => 82, 'png' => 7, 'webp' => 82]],
-            'Admin Media (1600px)'    => [1600, ['jpg' => 82, 'png' => 7, 'webp' => 82]],
+            'Admin Article (1600px)' => [1600, ['jpg' => 82, 'png' => 7, 'webp' => 82]],
+            'Admin Media (1600px)' => [1600, ['jpg' => 82, 'png' => 7, 'webp' => 82]],
             'Admin Category (1200px)' => [1200, ['jpg' => 84, 'png' => 7, 'webp' => 84]],
         ];
     }
@@ -211,7 +213,7 @@ class ImageServiceTest extends TestCase
     public function test_resize_scales_down_to_max_width_preserving_aspect_ratio(int $maxWidth, array $quality): void
     {
         $file = $this->makeSolidImageUpload('big.jpg', 2000, 1000);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'big.jpg');
 
@@ -230,7 +232,7 @@ class ImageServiceTest extends TestCase
     public function test_admin_and_category_presets_leave_a_smaller_image_completely_untouched(): void
     {
         $file = $this->makeSolidImageUpload('small.jpg', 400, 300);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'small.jpg');
 
@@ -252,7 +254,7 @@ class ImageServiceTest extends TestCase
     public function test_media_preset_does_not_upscale_a_smaller_image_but_may_recompress_it(): void
     {
         $file = $this->makeSolidImageUpload('small.jpg', 400, 300);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'small.jpg');
 
@@ -273,7 +275,7 @@ class ImageServiceTest extends TestCase
     public function test_redazione_preset_never_calls_resize_and_preserves_original_bytes(): void
     {
         $file = $this->makeSolidImageUpload('big.jpg', 2000, 1200);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
 
         $fullPath = $this->service->upload($file, $destination, 'big.jpg');
@@ -293,7 +295,7 @@ class ImageServiceTest extends TestCase
     public function test_media_preset_preserves_png_transparency_when_resizing(): void
     {
         $file = $this->makeTransparentPngUpload('transparent.png', 2000, 2000);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'transparent.png');
 
@@ -320,7 +322,7 @@ class ImageServiceTest extends TestCase
         // comportamento attuale come guardia di regressione, senza
         // correggerlo (fuori scope per questo task).
         $file = $this->makeTransparentPngUpload('transparent.png', 2000, 2000);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'transparent.png');
 
@@ -339,7 +341,7 @@ class ImageServiceTest extends TestCase
     public function test_jpeg_remains_a_valid_readable_image_after_processing_with_real_quality_parameter(): void
     {
         $file = $this->makeSolidImageUpload('photo.jpg', 2000, 1500);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'photo.jpg');
 
@@ -361,7 +363,7 @@ class ImageServiceTest extends TestCase
         }
 
         $file = $this->makeSolidImageUpload('photo.webp', 2000, 1000, 'webp');
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'photo.webp');
 
@@ -391,7 +393,7 @@ class ImageServiceTest extends TestCase
         // ramo "GD assente" resta non testabile senza modifiche invasive
         // (skippare/mockare extension_loaded() richiederebbe un'estensione
         // di test PHP dedicata, esplicitamente fuori scope).
-        $missingPath = $this->tempDir . '/does-not-exist.jpg';
+        $missingPath = $this->tempDir.'/does-not-exist.jpg';
 
         $this->service->resizeAndCompress($missingPath, 'jpg', 1600, ['jpg' => 82]);
 
@@ -405,7 +407,7 @@ class ImageServiceTest extends TestCase
         Log::spy();
 
         $file = $this->makeNonImageUpload('fake.jpg');
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $this->service->upload($file, $destination, 'fake.jpg');
         $originalBytes = file_get_contents($fullPath);
@@ -437,7 +439,8 @@ class ImageServiceTest extends TestCase
         // meno invasivo per simulare un errore GD realmente catastrofico e
         // verificare il comportamento del blocco catch, senza introdurre
         // wrapper o dipendenze aggiuntive nel servizio di produzione.
-        $service = new class extends ImageService {
+        $service = new class extends ImageService
+        {
             protected function createImageResource(string $path, string $ext)
             {
                 throw new \RuntimeException('Errore GD simulato per il test');
@@ -445,7 +448,7 @@ class ImageServiceTest extends TestCase
         };
 
         $file = $this->makeSolidImageUpload('big.jpg', 2000, 1000);
-        $destination = $this->tempDir . '/assets/img';
+        $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $service->upload($file, $destination, 'big.jpg');
         $originalBytes = file_get_contents($fullPath);

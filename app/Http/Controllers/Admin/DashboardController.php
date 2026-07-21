@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Il Laboratorio — Rivista italiana di divulgazione scientifica
  *
  * @author    Andrea Bartiromo <redazione@illaboratorio.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  * @license   Proprietario — tutti i diritti riservati
+ *
  * @link      https://www.illaboratorio.it
  */
 
@@ -14,8 +16,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Comment;
 use App\Models\Newsletter;
-use App\Models\NewsletterOpen;
 use App\Models\NewsletterClick;
+use App\Models\NewsletterOpen;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -24,14 +26,14 @@ class DashboardController extends Controller
     {
         // Contatori principali
         $stats = [
-            'published'    => Article::where('status', 'published')->count(),
-            'drafts'       => Article::where('status', 'draft')->count(),
-            'unverified'   => Article::where('status', 'published')
-                                ->whereIn('verification_status', ['unverified', 'in_progress'])
-                                ->count(),
-            'newsletter'   => Newsletter::where('confirmed', true)->count(),
-            'comments'     => Comment::where('approved', false)->count(),
-            'total_views'  => Article::sum('views'),
+            'published' => Article::where('status', 'published')->count(),
+            'drafts' => Article::where('status', 'draft')->count(),
+            'unverified' => Article::where('status', 'published')
+                ->whereIn('verification_status', ['unverified', 'in_progress'])
+                ->count(),
+            'newsletter' => Newsletter::where('confirmed', true)->count(),
+            'comments' => Comment::where('approved', false)->count(),
+            'total_views' => Article::sum('views'),
         ];
 
         // Analytics newsletter
