@@ -20,7 +20,7 @@ class SeededArticleImagesTest extends TestCase
             ->pluck('cover_image')
             ->each(function (string $coverImage): void {
                 $this->assertFileExists(
-                    public_path('assets/img/' . $coverImage),
+                    public_path('assets/img/'.$coverImage),
                     "Seeded cover image [{$coverImage}] must exist in public/assets/img."
                 );
             });
@@ -41,7 +41,7 @@ class SeededArticleImagesTest extends TestCase
 
         $coverImages->each(function (string $coverImage): void {
             $this->assertStringEndsWith('.webp', $coverImage);
-            $this->assertFileExists(public_path('assets/img/' . $coverImage));
+            $this->assertFileExists(public_path('assets/img/'.$coverImage));
         });
     }
 }

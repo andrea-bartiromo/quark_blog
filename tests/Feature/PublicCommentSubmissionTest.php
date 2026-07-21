@@ -100,15 +100,15 @@ class PublicCommentSubmissionTest extends TestCase
     {
         $author = User::create([
             'name' => 'Autrice Test',
-            'email' => uniqid('author_', true) . '@example.com',
+            'email' => uniqid('author_', true).'@example.com',
             'password' => 'password',
             'role' => 'editor',
         ]);
 
         return Article::create([
             'user_id' => $author->id,
-            'title' => 'Articolo ' . $status,
-            'slug' => 'articolo-' . $status . '-' . uniqid(),
+            'title' => 'Articolo '.$status,
+            'slug' => 'articolo-'.$status.'-'.uniqid(),
             'excerpt' => 'Estratto di test per il commento pubblico.',
             'body' => 'Corpo articolo di test.',
             'category' => 'spazio',
