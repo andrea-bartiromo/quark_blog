@@ -501,6 +501,44 @@
   justify-content: center;
 }
 
+/* Usata da <x-turing.article.breadcrumb> (Decision #010): era priva di
+   qualunque regola in questo file, quindi non stilizzata. */
+.turing-article-breadcrumb {
+  padding-top: 2rem;
+}
+
+.turing-article-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.turing-article-breadcrumb li:not(:last-child)::after {
+  content: "/";
+  margin-left: .4rem;
+  color: var(--sp-ink-soft, #475569);
+}
+
+.turing-article-breadcrumb a {
+  color: var(--sp-accent, #0f766e);
+  text-decoration: none;
+}
+
+.turing-article-breadcrumb a:hover,
+.turing-article-breadcrumb a:focus-visible {
+  text-decoration: underline;
+}
+
+.turing-article-breadcrumb [aria-current="page"] {
+  color: var(--sp-ink-soft, #475569);
+}
+
 @media (max-width: 1024px) {
   .turing-hero__grid {
     grid-template-columns: minmax(0, 1fr) minmax(280px, .55fr);

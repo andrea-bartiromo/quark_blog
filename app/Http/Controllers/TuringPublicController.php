@@ -15,4 +15,9 @@ class TuringPublicController extends Controller
     {
         return view('turing.ai');
     }
+
+    public function legacy(): View
+    {
+        return view('turing.legacy');
+    }
 }

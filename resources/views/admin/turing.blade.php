@@ -43,7 +43,7 @@
           ['label' => 'Enigma', 'title' => '', 'text' => '', 'url' => '#enigma', 'style' => 'enigma', 'image' => ''],
           ['label' => 'IA', 'title' => '', 'text' => '', 'url' => '#intelligenza-artificiale', 'style' => 'ai', 
           'image' => ''],
-          ['label' => 'Eredità', 'title' => '', 'text' => '', 'url' => '#eredita', 'style' => 'legacy', 'image' => ''],
+          ['label' => 'Eredità', 'title' => '', 'text' => '', 'url' => '/turing/legacy', 'style' => 'legacy', 'image' => ''],
       ];
   }
 

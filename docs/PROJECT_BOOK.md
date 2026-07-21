@@ -444,3 +444,79 @@ collegato, secondo l'obiettivo dichiarato di "preparare il terreno" senza antici
 default, omissione di `aria-labelledby` quando `title` è assente, label di chiusura personalizzabile e con
 default sicuro, normalizzazione di `size`, merge delle classi del chiamante, escaping di titolo e contenuto,
 oltre a un test di non regressione che conferma il rendering di `/turing` senza alcuna istanza del modale.
+
+## 17. Aggiornamento successivo alla Pull Request #44
+
+### Decision #010 – Pagina di dettaglio dedicata all'Eredità di Turing
+La PR #42 aveva reso cliccabile la card "03 · Eredità" collegandola all'anchor `#eredita` della pagina
+principale. Un'analisi successiva ha stabilito che il requisito corretto è una pagina di dettaglio autonoma,
+analoga a `/turing/enigma` e `/turing/ai`, non un semplice anchor: la sezione sintetica esistente introduce il
+tema ma non può ospitare un approfondimento reale su eredità scientifica, guerra e crittoanalisi, intelligenza
+artificiale, processo e persecuzione, riabilitazione istituzionale e memoria culturale.
+
+**Decisione.** Viene introdotta la route pubblica `/turing/legacy` (nome `turing.legacy`), gestita da un nuovo
+metodo `TuringPublicController::legacy()`, coerente con `enigma()`/`ai()` (nessun dato passato alla vista, stessa
+responsabilità minima già in uso). La nuova vista `resources/views/turing/legacy.blade.php` **non** replica
+l'approccio monolitico di Enigma/AI (CSS bespoke `.enigma-*`/`.ai-*` interamente duplicato, nessun componente
+condiviso): un confronto diretto tra le due pagine, condotto prima di ogni implementazione, ha verificato che
+condividono solo una forma narrativa (hero → sezioni tematiche → CTA finale con link incrociati), non una riga di
+CSS o un componente in comune. Riprodurre una terza volta quello schema avrebbe significato un terzo blocco di
+CSS bespoke, in diretto contrasto con i principi di riuso della sezione 2 di questo documento.
+
+**Componenti adottati.** La pagina attiva per la prima volta il namespace `<x-turing.article.*>`
+(`breadcrumb`, `hero`, `body`, `callout`, `cta`), introdotto ma mai istanziato prima d'ora (segnalato come
+codice morto dalla Decisione #008, validato solo per esistenza da `TuringArticleInfrastructureTest`). Non è stato
+usato `quote`, perché nel repository non esiste alcuna citazione storica verificata da attribuire a Turing: il
+nucleo di sintesi conclusivo usa invece `callout` con un testo editoriale parafrasato, evitando di presentare una
+citazione non verificata come autentica. Non è stato usato `figure`, perché nessuna sezione richiede un'immagine
+distinta da quella già usata nell'hero e la Decisione esclude l'introduzione di nuovi asset. All'interno di ogni
+blocco `<x-turing.article.body>`, i titoli di sezione riusano `<x-special.section-header variant="panel"
+align="left">`, lo stesso componente e la stessa combinazione di varianti già usata da `editorial-blocks.blade.php`
+e `legacy-section.blade.php` — nessun nuovo trattamento tipografico introdotto.
+
+**Correzione motivata a `<x-turing.article.body>`.** Il componente, mai istanziato prima, renderizzava un
+elemento radice `<main>`. Poiché `layouts/app.blade.php` avvolge già `@yield('content')` in un proprio `<main>`,
+usarlo per la prima volta avrebbe prodotto un `<main>` annidato — HTML non valido e un doppio landmark per la
+lettura assistiva. L'elemento radice è stato cambiato in `<div>`: nessuna prop, slot o classe del componente è
+stata alterata, solo il tag HTML di un bug reale e mai emerso finora perché il componente non era mai stato usato.
+
+**Incoerenza CSS residua corretta.** `.turing-article-breadcrumb`, usata dalla nuova pagina, non aveva alcuna
+regola in `turing.css` (verificato, non presunto): sarebbe stata visivamente non stilizzata, lo stesso
+bug-pattern già trovato e corretto per le feature card dalla Decisione #006. Sono state aggiunte le sole regole
+minime necessarie, sui token `--sp-*` già esistenti (`--sp-ink-soft`, `--sp-accent`) con fallback identici ai
+valori già in uso altrove in `turing.css`, senza introdurre nuovi selettori globali, nuovi breakpoint o alcuna
+modifica agli stili di Enigma/AI. `.turing-article-figure` non è stata toccata, perché il componente `figure` non
+viene usato in questa Pull Request.
+
+**Navigazione.** La card "03 · Eredità" in `TuringPageController::defaultRouteCards()` punta ora a
+`/turing/legacy` invece di `#eredita` (stesso stile letterale già in uso per `/turing/enigma`/`/turing/ai` in
+quello stesso array, non `route()`). La sezione sintetica `#eredita` su `/turing`
+(`turing/partials/legacy-section.blade.php`) resta **invariata nel contenuto**: aggiunge solo una CTA
+(`.turing-actions`, stesso pattern già usato altrove) verso `route('turing.legacy')`. È stato inoltre verificato e
+corretto un valore predefinito `#eredita` in `resources/views/admin/turing.blade.php`, usato per precompilare il
+campo URL della card "Eredità" nel form CMS quando non esiste ancora alcun record `SpecialPage`: se salvato
+invariato da un admin, quel valore verrebbe persistito nel JSON `content.cards` e sovrascriverebbe silenziosamente
+il fallback pubblico, reintroducendo `#eredita` in produzione. Aggiornato a `/turing/legacy` per lo stesso motivo.
+Gli analoghi default `#enigma`/`#intelligenza-artificiale` per le altre due card in quello stesso file, disallineati
+anch'essi dai reali `/turing/enigma`/`/turing/ai`, restano un'incoerenza pre-esistente non affrontata da questa
+Decisione, perché estranea al suo scopo.
+
+**Esplicitamente fuori scope di questa Pull Request.** Nessuna modifica a `/turing/enigma` o `/turing/ai`; nessun
+refactoring dei due controller Turing in uno solo; nessuna estrazione generale della logica CMS duplicata nelle
+viste Enigma/AI; nessun uso del componente `<x-special.modal>` (introdotto dalla Decisione #009, resta
+infrastruttura non collegata); nessun nuovo JavaScript; nessun nuovo asset grafico (l'immagine dell'hero riusa
+`turing-legacy-panel.webp`, già esistente e validata da `TuringEditorialAssetsTest`).
+
+**Test.** Nuovo file `tests/Feature/TuringLegacyPageTest.php` (9 test): risposta 200, esistenza della route,
+rendering dei contenuti principali di ciascuna sezione, presenza del breadcrumb con `aria-current="page"`, link
+verso `/turing`, `/turing/enigma` e `/turing/ai`, rendering corretto in assenza di dati CMS opzionali.
+`TuringPageFallbacksTest` aggiornato: il test sulla card Eredità ora verifica `href="/turing/legacy"` e l'assenza
+di `href="#eredita"`, oltre alla permanenza di `id="eredita"` e della nuova CTA sulla pagina principale.
+`TuringArticleInfrastructureTest` esteso con la registrazione di `turing.legacy` e un test che verifica la
+risposta 200 di tutte e tre le pagine di approfondimento Turing.
+
+### Roadmap aggiornata
+- [x] Trasformazione della sezione "03 · Eredità" in una pagina di approfondimento dedicata (questa Decisione).
+- [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — resta un item separato e
+  distinto, non affrontato da questa Pull Request; l'infrastruttura del modale (Decisione #009) resta pronta ma
+  non collegata.
