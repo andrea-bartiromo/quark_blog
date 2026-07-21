@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Quark — Schedulazione comandi
  *

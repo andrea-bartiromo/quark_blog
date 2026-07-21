@@ -9,6 +9,4 @@ namespace App\Http\Requests\Admin;
  * `rules()` e `authorize()` da StoreArticleRequest senza ridefinirli,
  * cosi che le regole abbiano un'unica fonte per quest'area.
  */
-class UpdateArticleRequest extends StoreArticleRequest
-{
-}
+class UpdateArticleRequest extends StoreArticleRequest {}
