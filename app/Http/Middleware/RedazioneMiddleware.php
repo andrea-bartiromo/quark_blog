@@ -9,11 +9,11 @@ class RedazioneMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('redazione.login');
         }
 
-        if (!auth()->user()->canAccessRedazione()) {
+        if (! auth()->user()->canAccessRedazione()) {
             abort(403, 'Accesso non autorizzato.');
         }
 
