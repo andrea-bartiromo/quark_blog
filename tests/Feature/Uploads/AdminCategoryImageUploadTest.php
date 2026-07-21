@@ -54,7 +54,7 @@ class AdminCategoryImageUploadTest extends TestCase
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
 
         $this->assertNotNull($category->image);
-        $this->assertFileExists(public_path('assets/img/categories/' . $category->image));
+        $this->assertFileExists(public_path('assets/img/categories/'.$category->image));
     }
 
     public function test_image_upload_creates_the_categories_directory_when_missing(): void
@@ -71,7 +71,7 @@ class AdminCategoryImageUploadTest extends TestCase
 
         $this->assertDirectoryExists(public_path('assets/img/categories'));
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
-        $this->assertFileExists(public_path('assets/img/categories/' . $category->image));
+        $this->assertFileExists(public_path('assets/img/categories/'.$category->image));
     }
 
     public function test_category_image_is_resized_to_the_1200px_limit(): void
@@ -84,7 +84,7 @@ class AdminCategoryImageUploadTest extends TestCase
         ]));
 
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
-        [$w, $h] = getimagesize(public_path('assets/img/categories/' . $category->image));
+        [$w, $h] = getimagesize(public_path('assets/img/categories/'.$category->image));
 
         $this->assertSame(1200, $w);
         $this->assertSame(600, $h);
@@ -138,7 +138,7 @@ class AdminCategoryImageUploadTest extends TestCase
         ]));
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
         $oldImage = $category->image;
-        $oldPath = public_path('assets/img/categories/' . $oldImage);
+        $oldPath = public_path('assets/img/categories/'.$oldImage);
         $this->assertFileExists($oldPath);
 
         $newImage = UploadedFile::fake()->image('nuova.jpg', 400, 300);
@@ -150,7 +150,7 @@ class AdminCategoryImageUploadTest extends TestCase
 
         $category->refresh();
         $this->assertNotSame($oldImage, $category->image);
-        $this->assertFileExists(public_path('assets/img/categories/' . $category->image));
+        $this->assertFileExists(public_path('assets/img/categories/'.$category->image));
         $this->assertFileDoesNotExist($oldPath);
     }
 
@@ -163,7 +163,7 @@ class AdminCategoryImageUploadTest extends TestCase
             'image_upload' => $original,
         ]));
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
-        $oldPath = public_path('assets/img/categories/' . $category->image);
+        $oldPath = public_path('assets/img/categories/'.$category->image);
         $this->assertFileExists($oldPath);
 
         $response = $this->actingAs($editor)->put(route('admin.categories.update', $category), $this->categoryPayload([
@@ -188,7 +188,7 @@ class AdminCategoryImageUploadTest extends TestCase
                 continue;
             }
 
-            $path = $dir . '/' . $item;
+            $path = $dir.'/'.$item;
 
             if (is_dir($path) && ! is_link($path)) {
                 $this->deleteDirectoryForTest($path);

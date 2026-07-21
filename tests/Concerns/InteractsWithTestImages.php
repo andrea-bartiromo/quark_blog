@@ -37,7 +37,7 @@ trait InteractsWithTestImages
         $base = tempnam(sys_get_temp_dir(), 'quark-img-');
         @unlink($base);
 
-        $path = $base . '.' . $ext;
+        $path = $base.'.'.$ext;
         $this->tempImageFiles[] = $path;
 
         return $path;

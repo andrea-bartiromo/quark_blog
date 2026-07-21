@@ -22,13 +22,13 @@ trait UsesIsolatedPublicPath
 
     protected function setUpIsolatedPublicPath(): void
     {
-        $this->isolatedPublicPath = sys_get_temp_dir() . '/' . self::MARKER . uniqid('', true);
+        $this->isolatedPublicPath = sys_get_temp_dir().'/'.self::MARKER.uniqid('', true);
 
         // Le rotte Admin\ArticleController e Redazione\ArticleController
         // non chiamano ensureDirectoryExists(): nel progetto reale
         // public/assets/img esiste gia su disco, quindi la fixture deve
         // pre-crearla per riprodurre fedelmente quella precondizione.
-        mkdir($this->isolatedPublicPath . '/assets/img/categories', 0775, true);
+        mkdir($this->isolatedPublicPath.'/assets/img/categories', 0775, true);
 
         $this->app->usePublicPath($this->isolatedPublicPath);
     }
@@ -53,7 +53,7 @@ trait UsesIsolatedPublicPath
                 continue;
             }
 
-            $path = $dir . '/' . $item;
+            $path = $dir.'/'.$item;
 
             if (is_dir($path) && ! is_link($path)) {
                 $this->deleteDirectoryRecursively($path);

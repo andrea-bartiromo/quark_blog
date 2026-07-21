@@ -36,9 +36,9 @@ class RedazioneArticleImageUploadTest extends TestCase
     private function articlePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'    => 'Articolo redazione',
-            'excerpt'  => 'Sommario di prova',
-            'body'     => 'Corpo articolo di prova.',
+            'title' => 'Articolo redazione',
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
             'category' => 'energia',
         ], $overrides);
     }
@@ -58,7 +58,7 @@ class RedazioneArticleImageUploadTest extends TestCase
         $article = Article::where('title', 'Articolo redazione')->firstOrFail();
 
         $this->assertNotNull($article->cover_image);
-        $this->assertFileExists(public_path('assets/img/' . $article->cover_image));
+        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
         $this->assertSame('review', $article->status);
     }
 
@@ -75,7 +75,7 @@ class RedazioneArticleImageUploadTest extends TestCase
         ]));
 
         $article = Article::where('title', 'Articolo redazione')->firstOrFail();
-        [$w, $h] = getimagesize(public_path('assets/img/' . $article->cover_image));
+        [$w, $h] = getimagesize(public_path('assets/img/'.$article->cover_image));
 
         $this->assertSame(2400, $w);
         $this->assertSame(1200, $h);
@@ -126,7 +126,7 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $article->refresh();
         $this->assertNotSame($oldCover, $article->cover_image);
-        $this->assertFileExists(public_path('assets/img/' . $article->cover_image));
+        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
     }
 
     public function test_updating_without_a_new_cover_keeps_the_existing_one(): void
