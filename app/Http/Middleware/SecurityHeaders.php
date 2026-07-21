@@ -1,9 +1,10 @@
 <?php
+
 /**
- 
  * @author    Andrea Bartiromo <redazione@illaboratorio.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  * @license   Proprietario — tutti i diritti riservati
+ *
  * @link      https://www.illaboratorio.it
  */
 
