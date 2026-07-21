@@ -28,6 +28,20 @@ class TuringComputationPageTest extends TestCase
             ->assertSeeText('La macchina universale e l’idea moderna di programma');
     }
 
+    public function test_computation_hero_image_points_to_an_existing_asset(): void
+    {
+        // Regressione: la riorganizzazione degli asset Turing (PR #46) ha
+        // spostato questo file in turing/backgrounds/ senza aggiornare il
+        // riferimento hardcoded qui, lasciando l'immagine hero rotta (404).
+        $path = 'turing/backgrounds/turing-universal-machine-background.webp';
+
+        $this->assertFileExists(public_path('assets/img/'.$path));
+
+        $this->get(route('turing.computation'))
+            ->assertOk()
+            ->assertSee('assets/img/'.$path, false);
+    }
+
     public function test_computation_page_covers_the_core_concepts(): void
     {
         $response = $this->get(route('turing.computation'));
@@ -86,26 +100,18 @@ class TuringComputationPageTest extends TestCase
         $this->get(route('turing.legacy'))->assertOk();
     }
 
-    public function test_computation_page_does_not_link_to_the_not_yet_existing_intelligence_page(): void
+    public function test_computation_page_links_to_the_dedicated_intelligence_page(): void
     {
-        // La pagina /turing/intelligence e' esplicitamente fuori scope di
-        // questa PR (sara' oggetto di una PR successiva): il collegamento
-        // "Dal calcolo all'intelligenza" deve puntare a /turing/ai finche'
-        // quella route non esiste, mai a una route inesistente.
-        $this->assertFalse(Route::has('turing.intelligence'));
+        // /turing/intelligence esiste ora (PR #46): il collegamento "Dal
+        // calcolo all'intelligenza" punta alla destinazione dedicata, non
+        // piu' al rimando generico a /turing/ai usato provvisoriamente nella
+        // PR #45.
+        $this->assertTrue(Route::has('turing.intelligence'));
 
-        // Percorso canonico letterale, non route('turing.ai'): quel nome e'
-        // duplicato da App\Providers\TuringServiceProvider (route /turing/ia,
-        // registrata dopo, vince la risoluzione) - bug preesistente,
-        // verificato ma non corretto in questa PR. Un assert basato su
-        // route('turing.ai') sarebbe auto-referenziale rispetto allo stesso
-        // bug e non lo rileverebbe.
         $this->get(route('turing.computation'))
             ->assertOk()
-            ->assertDontSee('href="/turing/intelligence"', false)
             ->assertSeeText('Dal calcolo all’intelligenza')
-            ->assertSee('href="/turing/ai"', false)
-            ->assertDontSee('href="/turing/ia"', false);
+            ->assertSee('href="'.route('turing.intelligence').'"', false);
     }
 
     public function test_computation_page_renders_without_errors_when_no_optional_cms_data_exists(): void

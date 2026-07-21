@@ -43,6 +43,8 @@ Route::get('/turing/ai',        [TuringPublicController::class, 'ai'])->name('tu
 Route::get('/turing/legacy',    [TuringPublicController::class, 'legacy'])->name('turing.legacy');
 Route::get('/turing/computation', [TuringPublicController::class, 'computation'])
     ->name('turing.computation');
+Route::get('/turing/intelligence', [TuringPublicController::class, 'intelligence'])
+    ->name('turing.intelligence');
 
 // ── Newsletter pubblica ────────────────────────────────────────
 Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
