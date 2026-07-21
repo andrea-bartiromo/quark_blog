@@ -9,11 +9,11 @@ class EditorMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->isEditor()) {
+        if (! auth()->user()->isEditor()) {
             // Collaboratore loggato → manda alla sua dashboard
             return redirect()->route('redazione.dashboard')
                 ->with('error', 'Non hai i permessi per accedere al pannello admin.');

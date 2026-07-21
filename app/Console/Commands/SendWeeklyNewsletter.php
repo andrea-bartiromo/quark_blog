@@ -45,6 +45,7 @@ class SendWeeklyNewsletter extends Command
 
         if ($articles->isEmpty()) {
             $this->error('Nessun articolo disponibile.');
+
             return 1;
         }
 
@@ -52,13 +53,14 @@ class SendWeeklyNewsletter extends Command
 
         if ($subscribers->isEmpty()) {
             $this->warn('Nessun iscritto.');
+
             return 0;
         }
 
         if ($dryRun) {
             $this->warn('-- DRY RUN --');
-            $this->info('Articoli trovati: ' . $articles->count());
-            $this->info('Iscritti trovati: ' . $subscribers->count());
+            $this->info('Articoli trovati: '.$articles->count());
+            $this->info('Iscritti trovati: '.$subscribers->count());
 
             return 0;
         }

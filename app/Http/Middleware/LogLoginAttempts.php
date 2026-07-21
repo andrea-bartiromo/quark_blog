@@ -13,9 +13,9 @@ class LogLoginAttempts
         $response = $next($request);
 
         if ($request->isMethod('POST') && str_contains($request->path(), 'login')) {
-            $ip      = $request->ip();
-            $email   = $request->input('email', 'N/A');
-            $success = !session()->has('errors');
+            $ip = $request->ip();
+            $email = $request->input('email', 'N/A');
+            $success = ! session()->has('errors');
 
             if ($success && auth()->check()) {
                 Log::info("Login riuscito — IP: {$ip} | Email: {$email}");
