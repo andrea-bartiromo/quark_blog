@@ -11,7 +11,7 @@ class ImageService
     {
         $baseName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
 
-        return $baseName . '-' . $suffix . '.' . $extension;
+        return $baseName.'-'.$suffix.'.'.$extension;
     }
 
     public function ensureDirectoryExists(string $path, int $permissions): void
@@ -25,13 +25,13 @@ class ImageService
     {
         $file->move($destinationPath, $fileName);
 
-        return $destinationPath . '/' . $fileName;
+        return $destinationPath.'/'.$fileName;
     }
 
     /**
      * Ridimensiona (se oltre $maxWidth) e comprime un'immagine già salvata su disco tramite GD.
      *
-     * @param array{jpg?: int, png?: int, webp?: int} $quality
+     * @param  array{jpg?: int, png?: int, webp?: int}  $quality
      */
     public function resizeAndCompress(
         string $fullPath,
@@ -54,7 +54,7 @@ class ImageService
             }
 
             if ($w > $maxWidth) {
-                $newWidth  = $maxWidth;
+                $newWidth = $maxWidth;
                 $newHeight = (int) round($h * ($maxWidth / $w));
 
                 $src = $this->createImageResource($fullPath, $ext);
@@ -81,7 +81,7 @@ class ImageService
             }
         } catch (\Throwable $e) {
             if ($logErrors) {
-                \Log::warning('Ottimizzazione immagine fallita: ' . $e->getMessage());
+                \Log::warning('Ottimizzazione immagine fallita: '.$e->getMessage());
             }
         }
     }
@@ -89,7 +89,7 @@ class ImageService
     /**
      * Ricomprime un'immagine senza ridimensionarla (fallback silenzioso in caso di errore).
      *
-     * @param array{jpg?: int, png?: int, webp?: int} $quality
+     * @param  array{jpg?: int, png?: int, webp?: int}  $quality
      */
     private function compressOnly(string $path, string $ext, array $quality): void
     {
@@ -111,22 +111,22 @@ class ImageService
     {
         return match ($ext) {
             'jpg', 'jpeg' => imagecreatefromjpeg($path),
-            'png'         => imagecreatefrompng($path),
-            'webp'        => imagecreatefromwebp($path),
-            default       => null,
+            'png' => imagecreatefrompng($path),
+            'webp' => imagecreatefromwebp($path),
+            default => null,
         };
     }
 
     /**
-     * @param array{jpg?: int, png?: int, webp?: int} $quality
+     * @param  array{jpg?: int, png?: int, webp?: int}  $quality
      */
     private function saveImageResource($image, string $path, string $ext, array $quality): void
     {
         match ($ext) {
             'jpg', 'jpeg' => imagejpeg($image, $path, $quality['jpg'] ?? 82),
-            'png'         => imagepng($image, $path, $quality['png'] ?? 7),
-            'webp'        => imagewebp($image, $path, $quality['webp'] ?? 82),
-            default       => null,
+            'png' => imagepng($image, $path, $quality['png'] ?? 7),
+            'webp' => imagewebp($image, $path, $quality['webp'] ?? 82),
+            default => null,
         };
     }
 }
