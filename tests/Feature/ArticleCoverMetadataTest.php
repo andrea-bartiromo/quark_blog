@@ -24,14 +24,14 @@ class ArticleCoverMetadataTest extends TestCase
     private function publishedArticle(User $author, array $overrides = []): Article
     {
         return Article::create(array_merge([
-            'user_id'      => $author->id,
-            'title'        => 'Articolo di prova',
-            'slug'         => 'articolo-di-prova-' . uniqid(),
-            'excerpt'      => 'Sommario di prova',
-            'body'         => 'Corpo articolo di prova.',
-            'category'     => 'intelligenza-artificiale',
-            'cover_image'  => 'copertina.jpg',
-            'status'       => 'published',
+            'user_id' => $author->id,
+            'title' => 'Articolo di prova',
+            'slug' => 'articolo-di-prova-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'intelligenza-artificiale',
+            'cover_image' => 'copertina.jpg',
+            'status' => 'published',
             'published_at' => now(),
         ], $overrides));
     }
@@ -41,17 +41,17 @@ class ArticleCoverMetadataTest extends TestCase
         $editor = $this->editor();
 
         $response = $this->actingAs($editor)->post(route('admin.articles.store'), [
-            'title'            => 'Nuovo articolo con metadati',
-            'excerpt'          => 'Sommario breve',
-            'body'             => 'Corpo articolo di prova.',
-            'category'         => 'intelligenza-artificiale',
-            'status'           => 'draft',
-            'cover_alt'        => 'Testo alternativo',
-            'cover_caption'    => 'Una didascalia',
-            'cover_credit'     => 'Foto di Mario Rossi',
-            'cover_source'     => 'NASA',
+            'title' => 'Nuovo articolo con metadati',
+            'excerpt' => 'Sommario breve',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'intelligenza-artificiale',
+            'status' => 'draft',
+            'cover_alt' => 'Testo alternativo',
+            'cover_caption' => 'Una didascalia',
+            'cover_credit' => 'Foto di Mario Rossi',
+            'cover_source' => 'NASA',
             'cover_source_url' => 'https://nasa.gov',
-            'cover_license'    => 'CC BY 4.0',
+            'cover_license' => 'CC BY 4.0',
         ]);
 
         $response->assertRedirect(route('admin.articles'));
@@ -71,11 +71,11 @@ class ArticleCoverMetadataTest extends TestCase
         $article = $this->publishedArticle($editor);
 
         $response = $this->actingAs($editor)->put(route('admin.articles.update', $article), [
-            'title'        => $article->title,
-            'body'         => $article->body,
-            'category'     => $article->category,
-            'status'       => $article->status,
-            'cover_alt'    => 'Alt aggiornato',
+            'title' => $article->title,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => $article->status,
+            'cover_alt' => 'Alt aggiornato',
             'cover_credit' => 'Credito aggiornato',
         ]);
 
@@ -91,10 +91,10 @@ class ArticleCoverMetadataTest extends TestCase
         $editor = $this->editor();
 
         $response = $this->actingAs($editor)->post(route('admin.articles.store'), [
-            'title'            => 'Articolo con URL non valido',
-            'body'             => 'Corpo articolo.',
-            'category'         => 'energia',
-            'status'           => 'draft',
+            'title' => 'Articolo con URL non valido',
+            'body' => 'Corpo articolo.',
+            'category' => 'energia',
+            'status' => 'draft',
             'cover_source_url' => 'non-una-url',
         ]);
 
@@ -107,10 +107,10 @@ class ArticleCoverMetadataTest extends TestCase
         $editor = $this->editor();
 
         $response = $this->actingAs($editor)->post(route('admin.articles.store'), [
-            'title'    => 'Articolo senza metadati copertina',
-            'body'     => 'Corpo articolo.',
+            'title' => 'Articolo senza metadati copertina',
+            'body' => 'Corpo articolo.',
             'category' => 'energia',
-            'status'   => 'draft',
+            'status' => 'draft',
         ]);
 
         $response->assertSessionDoesntHaveErrors();
@@ -153,7 +153,7 @@ class ArticleCoverMetadataTest extends TestCase
     {
         $author = $this->author();
         $article = $this->publishedArticle($author, [
-            'title'     => 'Titolo usato come fallback alt',
+            'title' => 'Titolo usato come fallback alt',
             'cover_alt' => null,
         ]);
 
@@ -173,12 +173,12 @@ class ArticleCoverMetadataTest extends TestCase
         $response->assertDontSee('<figcaption>', false);
 
         $withMeta = $this->publishedArticle($author, [
-            'title'            => 'Con metadati copertina',
-            'cover_caption'    => 'Vista al microscopio di una cellula',
-            'cover_credit'     => 'Foto di Jane Doe',
-            'cover_source'     => 'Wikimedia Commons',
+            'title' => 'Con metadati copertina',
+            'cover_caption' => 'Vista al microscopio di una cellula',
+            'cover_credit' => 'Foto di Jane Doe',
+            'cover_source' => 'Wikimedia Commons',
             'cover_source_url' => 'https://commons.wikimedia.org/example',
-            'cover_license'    => 'CC BY-SA 4.0',
+            'cover_license' => 'CC BY-SA 4.0',
         ]);
         $response = $this->get(route('articolo', $withMeta->slug));
         $response->assertOk();

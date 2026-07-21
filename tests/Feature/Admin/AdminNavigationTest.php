@@ -49,7 +49,7 @@ class AdminNavigationTest extends TestCase
     private function assertNavLinkActive(TestResponse $response, string $routeName): void
     {
         $nav = $this->normalizeWhitespace($this->navFragment($response));
-        $expected = '<a href="' . route($routeName) . '" class="active" aria-current="page" >';
+        $expected = '<a href="'.route($routeName).'" class="active" aria-current="page" >';
 
         $this->assertStringContainsString($expected, $nav);
     }
@@ -57,7 +57,7 @@ class AdminNavigationTest extends TestCase
     private function assertNavLinkNotActive(TestResponse $response, string $routeName): void
     {
         $nav = $this->normalizeWhitespace($this->navFragment($response));
-        $activeMarker = '<a href="' . route($routeName) . '" class="active" aria-current="page" >';
+        $activeMarker = '<a href="'.route($routeName).'" class="active" aria-current="page" >';
 
         $this->assertStringNotContainsString($activeMarker, $nav);
     }
@@ -173,13 +173,13 @@ class AdminNavigationTest extends TestCase
     {
         $editor = $this->editor();
         $article = Article::create([
-            'user_id'  => $editor->id,
-            'title'    => 'Articolo di prova',
-            'slug'     => 'articolo-di-prova-' . uniqid(),
-            'excerpt'  => 'Sommario',
-            'body'     => 'Corpo articolo.',
+            'user_id' => $editor->id,
+            'title' => 'Articolo di prova',
+            'slug' => 'articolo-di-prova-'.uniqid(),
+            'excerpt' => 'Sommario',
+            'body' => 'Corpo articolo.',
             'category' => 'energia',
-            'status'   => 'draft',
+            'status' => 'draft',
         ]);
 
         $this->assertNavLinkActive($this->actingAs($editor)->get(route('admin.articles')), 'admin.articles');
@@ -283,10 +283,10 @@ class AdminNavigationTest extends TestCase
         $nav = $this->navFragment($response);
 
         $this->assertStringContainsString(
-            '<form id="logout-form" action="' . route('admin.logout') . '" method="POST"',
+            '<form id="logout-form" action="'.route('admin.logout').'" method="POST"',
             $nav
         );
-        $this->assertStringNotContainsString('href="' . route('admin.logout') . '"', $nav);
+        $this->assertStringNotContainsString('href="'.route('admin.logout').'"', $nav);
     }
 
     public function test_no_navigation_links_point_to_missing_routes(): void

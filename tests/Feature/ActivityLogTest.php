@@ -41,11 +41,11 @@ class ActivityLogTest extends TestCase
         ActivityLog::record('Evento di prova', 'article', 42, 'Titolo di prova');
 
         $this->assertDatabaseHas('activity_log', [
-            'action'        => 'Evento di prova',
-            'subject_type'  => 'article',
-            'subject_id'    => 42,
+            'action' => 'Evento di prova',
+            'subject_type' => 'article',
+            'subject_id' => 42,
             'subject_title' => 'Titolo di prova',
-            'user_id'       => $user->id,
+            'user_id' => $user->id,
         ]);
     }
 
@@ -70,9 +70,9 @@ class ActivityLogTest extends TestCase
         ActivityLog::record('Evento senza soggetto');
 
         $this->assertDatabaseHas('activity_log', [
-            'action'       => 'Evento senza soggetto',
+            'action' => 'Evento senza soggetto',
             'subject_type' => null,
-            'subject_id'   => null,
+            'subject_id' => null,
         ]);
     }
 
@@ -80,21 +80,21 @@ class ActivityLogTest extends TestCase
     {
         $editor = $this->editor();
         $article = Article::create([
-            'user_id'  => $editor->id,
-            'title'    => 'Articolo da eliminare',
-            'slug'     => 'articolo-da-eliminare',
-            'body'     => 'Corpo articolo.',
+            'user_id' => $editor->id,
+            'title' => 'Articolo da eliminare',
+            'slug' => 'articolo-da-eliminare',
+            'body' => 'Corpo articolo.',
             'category' => 'energia',
-            'status'   => 'draft',
+            'status' => 'draft',
         ]);
 
         $response = $this->actingAs($editor)->delete(route('admin.articles.destroy', $article));
 
         $response->assertRedirect(route('admin.articles'));
         $this->assertDatabaseHas('activity_log', [
-            'action'       => 'Articolo eliminato',
+            'action' => 'Articolo eliminato',
             'subject_type' => 'article',
-            'subject_id'   => $article->id,
+            'subject_id' => $article->id,
         ]);
     }
 
@@ -107,9 +107,9 @@ class ActivityLogTest extends TestCase
 
         $response->assertRedirect(route('admin.collaborators'));
         $this->assertDatabaseHas('activity_log', [
-            'action'        => 'Collaboratore rimosso',
-            'subject_type'  => 'user',
-            'subject_id'    => null,
+            'action' => 'Collaboratore rimosso',
+            'subject_type' => 'user',
+            'subject_id' => null,
             'subject_title' => $collaborator->name,
         ]);
     }

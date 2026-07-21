@@ -20,14 +20,14 @@ class AdTest extends TestCase
     private function validPayload(array $overrides = []): array
     {
         return array_merge([
-            'name'     => 'Banner sidebar test',
+            'name' => 'Banner sidebar test',
             'position' => 'sidebar',
-            'type'     => 'banner',
-            'active'   => '1',
+            'type' => 'banner',
+            'active' => '1',
             'priority' => 10,
             'banner_image' => 'banner-test.jpg',
-            'banner_url'   => 'https://example.org/promo',
-            'banner_alt'   => 'Promo di prova',
+            'banner_url' => 'https://example.org/promo',
+            'banner_alt' => 'Promo di prova',
         ], $overrides);
     }
 
@@ -49,10 +49,10 @@ class AdTest extends TestCase
     public function test_ad_model_saves_and_rereads_a_valid_record(): void
     {
         $ad = Ad::create([
-            'name'     => 'Annuncio di prova',
+            'name' => 'Annuncio di prova',
             'position' => 'articolo-top',
-            'type'     => 'html',
-            'active'   => true,
+            'type' => 'html',
+            'active' => true,
             'priority' => 5,
             'html_code' => '<div>ads</div>',
         ]);
@@ -69,10 +69,10 @@ class AdTest extends TestCase
     public function test_nullable_fields_are_accepted(): void
     {
         $ad = Ad::create([
-            'name'     => 'Solo campi minimi',
+            'name' => 'Solo campi minimi',
             'position' => 'footer',
-            'type'     => 'adsense',
-            'active'   => false,
+            'type' => 'adsense',
+            'active' => false,
         ]);
 
         $fresh = Ad::find($ad->id);
@@ -90,10 +90,10 @@ class AdTest extends TestCase
     public function test_active_and_priority_casts_work(): void
     {
         $ad = Ad::create([
-            'name'     => 'Cast test',
+            'name' => 'Cast test',
             'position' => 'lista',
-            'type'     => 'banner',
-            'active'   => '1',
+            'type' => 'banner',
+            'active' => '1',
             'priority' => '42',
             'banner_image' => 'x.jpg',
         ]);
@@ -123,10 +123,10 @@ class AdTest extends TestCase
 
         $response->assertRedirect(route('admin.ads'));
         $this->assertDatabaseHas('ads', [
-            'name'     => 'Banner sidebar test',
+            'name' => 'Banner sidebar test',
             'position' => 'sidebar',
-            'type'     => 'banner',
-            'active'   => true,
+            'type' => 'banner',
+            'active' => true,
             'priority' => 10,
         ]);
     }
@@ -135,16 +135,16 @@ class AdTest extends TestCase
     {
         $editor = $this->editor();
         $ad = Ad::create([
-            'name'     => 'Originale',
+            'name' => 'Originale',
             'position' => 'sidebar',
-            'type'     => 'banner',
-            'active'   => false,
+            'type' => 'banner',
+            'active' => false,
             'priority' => 1,
             'banner_image' => 'orig.jpg',
         ]);
 
         $response = $this->actingAs($editor)->put(route('admin.ads.update', $ad), $this->validPayload([
-            'name'     => 'Annuncio aggiornato',
+            'name' => 'Annuncio aggiornato',
             'priority' => 20,
         ]));
 
@@ -160,10 +160,10 @@ class AdTest extends TestCase
     {
         $editor = $this->editor();
         $ad = Ad::create([
-            'name'     => 'Da eliminare',
+            'name' => 'Da eliminare',
             'position' => 'footer',
-            'type'     => 'html',
-            'active'   => true,
+            'type' => 'html',
+            'active' => true,
             'html_code' => '<div></div>',
         ]);
 

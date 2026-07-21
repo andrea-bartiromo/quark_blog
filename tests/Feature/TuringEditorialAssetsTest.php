@@ -34,7 +34,7 @@ class TuringEditorialAssetsTest extends TestCase
     {
         $this->assertStringEndsWith('.webp', $asset);
 
-        $path = public_path('assets/img/' . $asset);
+        $path = public_path('assets/img/'.$asset);
 
         $this->assertFileExists($path, "Turing asset [{$asset}] must exist.");
 
