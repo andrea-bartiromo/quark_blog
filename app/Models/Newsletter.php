@@ -7,17 +7,19 @@ use Illuminate\Support\Str;
 
 class Newsletter extends Model
 {
-    protected $table    = 'newsletter';
+    protected $table = 'newsletter';
+
     protected $fillable = ['email', 'confirmed', 'token', 'unsubscribe_token'];
-    protected $casts    = ['confirmed' => 'boolean'];
+
+    protected $casts = ['confirmed' => 'boolean'];
 
     public static function subscribe(string $email): static
     {
         return static::updateOrCreate(
             ['email' => $email],
             [
-                'confirmed'         => false,
-                'token'             => Str::random(64),
+                'confirmed' => false,
+                'token' => Str::random(64),
                 'unsubscribe_token' => Str::random(32),
             ]
         );

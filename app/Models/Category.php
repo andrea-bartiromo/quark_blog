@@ -44,7 +44,7 @@ class Category extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return $this->image ? asset('assets/img/categories/' . $this->image) : null;
+        return $this->image ? asset('assets/img/categories/'.$this->image) : null;
     }
 
     public function setNameAttribute(string $value): void
