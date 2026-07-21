@@ -22,8 +22,8 @@ class NewsletterClick extends Model
         'clicked_at' => 'datetime',
     ];
 
-   public function article()
-{
-    return $this->belongsTo(\App\Models\Article::class);
-}
+    public function article()
+    {
+        return $this->belongsTo(Article::class);
+    }
 }
