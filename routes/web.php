@@ -41,6 +41,8 @@ Route::get('/turing',           [TuringPageController::class, 'index'])->name('t
 Route::get('/turing/enigma',    [TuringPublicController::class, 'enigma'])->name('turing.enigma');
 Route::get('/turing/ai',        [TuringPublicController::class, 'ai'])->name('turing.ai');
 Route::get('/turing/legacy',    [TuringPublicController::class, 'legacy'])->name('turing.legacy');
+Route::get('/turing/computation', [TuringPublicController::class, 'computation'])
+    ->name('turing.computation');
 
 // ── Newsletter pubblica ────────────────────────────────────────
 Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])

@@ -20,4 +20,9 @@ class TuringPublicController extends Controller
     {
         return view('turing.legacy');
     }
+
+    public function computation(): View
+    {
+        return view('turing.computation');
+    }
 }
