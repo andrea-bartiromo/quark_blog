@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\NewsSuggestion;
 use App\Models\Article;
+use App\Models\NewsSuggestion;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Str;
 
 class SuggestionController extends Controller
 {
@@ -18,11 +18,11 @@ class SuggestionController extends Controller
     {
         return view('admin.suggestions', [
             'suggestions' => NewsSuggestion::latest()->paginate(20),
-            'counts'      => [
-                'pending'   => NewsSuggestion::where('status', 'pending')->count(),
-                'approved'  => NewsSuggestion::where('status', 'approved')->count(),
+            'counts' => [
+                'pending' => NewsSuggestion::where('status', 'pending')->count(),
+                'approved' => NewsSuggestion::where('status', 'approved')->count(),
                 'published' => NewsSuggestion::where('status', 'published')->count(),
-                'rejected'  => NewsSuggestion::where('status', 'rejected')->count(),
+                'rejected' => NewsSuggestion::where('status', 'rejected')->count(),
             ],
         ]);
     }
@@ -41,7 +41,7 @@ class SuggestionController extends Controller
         } catch (\Throwable $e) {
             return redirect()
                 ->route('admin.suggestions')
-                ->with('error', 'Errore durante il fetch: ' . $e->getMessage());
+                ->with('error', 'Errore durante il fetch: '.$e->getMessage());
         }
     }
 
@@ -61,26 +61,26 @@ class SuggestionController extends Controller
     public function publish(Request $request, NewsSuggestion $suggestion)
     {
         $validated = $request->validate([
-            'title'    => 'required|max:255',
-            'excerpt'  => 'nullable|max:300',
-            'body'     => 'required',
+            'title' => 'required|max:255',
+            'excerpt' => 'nullable|max:300',
+            'body' => 'required',
             'category' => 'required',
         ]);
 
         $article = Article::create([
-            'user_id'      => auth()->id(),
-            'title'        => $validated['title'],
-            'slug'         => Str::slug($validated['title']),
-            'excerpt'      => $validated['excerpt'],
-            'body'         => $validated['body'],
-            'category'     => $validated['category'],
-            'status'       => 'draft',
-            'featured'     => false,
+            'user_id' => auth()->id(),
+            'title' => $validated['title'],
+            'slug' => Str::slug($validated['title']),
+            'excerpt' => $validated['excerpt'],
+            'body' => $validated['body'],
+            'category' => $validated['category'],
+            'status' => 'draft',
+            'featured' => false,
             'read_minutes' => max(1, (int) (str_word_count($validated['body']) / 200)),
         ]);
 
         $suggestion->update([
-            'status'     => 'published',
+            'status' => 'published',
             'article_id' => $article->id,
         ]);
 
