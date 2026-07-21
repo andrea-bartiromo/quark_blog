@@ -22,11 +22,11 @@
 
     $heroImage = $aiBlock['background_image']
         ?? $aiBlock['image']
-        ?? 'turing-ai-background.webp';
+        ?? 'turing/backgrounds/turing-ai-background.webp';
 
     $panelImage = $aiBlock['image']
         ?? $aiBlock['background_image']
-        ?? 'turing-ai-panel.webp';
+        ?? 'turing/backgrounds/turing-ai-panel.webp';
 @endphp
 
 @section('title', 'Turing e l’IA moderna — Quark')

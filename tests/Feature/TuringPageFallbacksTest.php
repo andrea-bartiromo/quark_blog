@@ -122,7 +122,7 @@ class TuringPageFallbacksTest extends TestCase
                     'title' => 'Blocco CMS personalizzato',
                     'text' => 'Testo personalizzato salvato dal CMS.',
                     'image' => 'turing/enigma.webp',
-                    'background_image' => 'turing-enigma-background.webp',
+                    'background_image' => 'turing/enigma/turing-enigma-background.webp',
                     'link_label' => 'Azione CMS',
                     'link_url' => '#cms-block',
                 ],

@@ -14,7 +14,7 @@
       <figure class="turing-portrait-card" aria-label="Ritratto editoriale di Alan Turing">
         <div class="turing-portrait-card__image">
           <img class="turing-portrait-card__photo"
-               src="{{ asset('assets/img/alan-turing-portrait.png') }}"
+               src="{{ asset('assets/img/turing/portraits/alan-turing-portrait.png') }}"
                alt="Alan Mathison Turing"
                loading="lazy"
                decoding="async">
