@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Artisan;
 
 class NewsletterPreviewController extends Controller
 {
@@ -31,10 +31,10 @@ class NewsletterPreviewController extends Controller
     public function send(Request $request)
     {
         // Invoca il comando newsletter:send
-        \Illuminate\Support\Facades\Artisan::call('newsletter:send');
-        $output = \Illuminate\Support\Facades\Artisan::output();
+        Artisan::call('newsletter:send');
+        $output = Artisan::output();
 
         return redirect()->route('admin.newsletter')
-            ->with('success', 'Newsletter inviata! ' . trim($output));
+            ->with('success', 'Newsletter inviata! '.trim($output));
     }
 }
