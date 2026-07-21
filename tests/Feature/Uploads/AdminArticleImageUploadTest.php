@@ -34,11 +34,11 @@ class AdminArticleImageUploadTest extends TestCase
     private function articlePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'    => 'Articolo con copertina',
-            'excerpt'  => 'Sommario di prova',
-            'body'     => 'Corpo articolo di prova.',
+            'title' => 'Articolo con copertina',
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
             'category' => 'energia',
-            'status'   => 'draft',
+            'status' => 'draft',
         ], $overrides);
     }
 
@@ -57,7 +57,7 @@ class AdminArticleImageUploadTest extends TestCase
         $article = Article::where('title', 'Articolo con copertina')->firstOrFail();
 
         $this->assertNotNull($article->cover_image);
-        $this->assertFileExists(public_path('assets/img/' . $article->cover_image));
+        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
     }
 
     public function test_cover_is_resized_to_the_1600px_limit(): void
@@ -70,7 +70,7 @@ class AdminArticleImageUploadTest extends TestCase
         ]));
 
         $article = Article::where('title', 'Articolo con copertina')->firstOrFail();
-        [$w, $h] = getimagesize(public_path('assets/img/' . $article->cover_image));
+        [$w, $h] = getimagesize(public_path('assets/img/'.$article->cover_image));
 
         $this->assertSame(1600, $w);
         $this->assertSame(800, $h);
@@ -127,15 +127,15 @@ class AdminArticleImageUploadTest extends TestCase
 
         $newCover = UploadedFile::fake()->image('new.jpg', 800, 600);
         $response = $this->actingAs($editor)->put(route('admin.articles.update', $article), $this->articlePayload([
-            'title'               => 'Articolo con copertina',
-            'cover_image_upload'  => $newCover,
+            'title' => 'Articolo con copertina',
+            'cover_image_upload' => $newCover,
         ]));
 
         $response->assertRedirect(route('admin.articles'));
 
         $article->refresh();
         $this->assertNotSame($oldCover, $article->cover_image);
-        $this->assertFileExists(public_path('assets/img/' . $article->cover_image));
+        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
     }
 
     public function test_update_without_a_new_cover_keeps_the_existing_one(): void
@@ -153,7 +153,7 @@ class AdminArticleImageUploadTest extends TestCase
         // con il nome file attuale: replichiamo esattamente questo, senza
         // allegare un nuovo cover_image_upload.
         $response = $this->actingAs($editor)->put(route('admin.articles.update', $article), $this->articlePayload([
-            'title'       => 'Articolo con copertina',
+            'title' => 'Articolo con copertina',
             'cover_image' => $oldCover,
         ]));
 
