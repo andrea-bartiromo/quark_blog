@@ -1,4 +1,11 @@
 <?php
+
+use App\Console\Commands\FetchNewsAndGenerateDrafts;
+use App\Http\Middleware\EditorMiddleware;
+use App\Http\Middleware\LoginRateLimiter;
+use App\Http\Middleware\LogLoginAttempts;
+use App\Http\Middleware\RedazioneMiddleware;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -11,21 +18,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
-        \App\Console\Commands\FetchNewsAndGenerateDrafts::class,
+        FetchNewsAndGenerateDrafts::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'redazione'   => \App\Http\Middleware\RedazioneMiddleware::class,
-            'editor'      => \App\Http\Middleware\EditorMiddleware::class,
-            'login.limit' => \App\Http\Middleware\LoginRateLimiter::class,
-            'login.log'   => \App\Http\Middleware\LogLoginAttempts::class,
+            'redazione' => RedazioneMiddleware::class,
+            'editor' => EditorMiddleware::class,
+            'login.limit' => LoginRateLimiter::class,
+            'login.log' => LogLoginAttempts::class,
         ]);
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(SecurityHeaders::class);
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (HttpException $e, $request) {
-            $code    = $e->getStatusCode();
+            $code = $e->getStatusCode();
             $viewMap = [404 => 'errors.404', 403 => 'errors.403', 500 => 'errors.500'];
             if (isset($viewMap[$code]) && view()->exists($viewMap[$code])) {
                 return response()->view($viewMap[$code], ['exception' => $e], $code);

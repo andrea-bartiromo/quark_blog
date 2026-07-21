@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Newsletter;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -21,8 +22,8 @@ class NewsletterUnsubscribeTokenTest extends TestCase
     public function test_model_saves_and_rereads_the_token(): void
     {
         $subscriber = Newsletter::create([
-            'email'             => 'model-roundtrip@example.com',
-            'confirmed'         => true,
+            'email' => 'model-roundtrip@example.com',
+            'confirmed' => true,
             'unsubscribe_token' => 'a-known-32-char-token-value-xx',
         ]);
 
@@ -54,19 +55,19 @@ class NewsletterUnsubscribeTokenTest extends TestCase
     public function test_unique_constraint_prevents_duplicate_tokens(): void
     {
         Newsletter::create([
-            'email'             => 'first@example.com',
-            'confirmed'         => false,
+            'email' => 'first@example.com',
+            'confirmed' => false,
             'unsubscribe_token' => 'duplicate-token-value-000000000',
         ]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         DB::table('newsletter')->insert([
-            'email'             => 'second@example.com',
-            'confirmed'         => false,
+            'email' => 'second@example.com',
+            'confirmed' => false,
             'unsubscribe_token' => 'duplicate-token-value-000000000',
-            'created_at'        => now(),
-            'updated_at'        => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
@@ -75,11 +76,11 @@ class NewsletterUnsubscribeTokenTest extends TestCase
         // Simula un iscritto legacy come quelli che lo script manuale
         // fix_newsletter.php doveva sanare: unsubscribe_token nullo.
         DB::table('newsletter')->insert([
-            'email'             => 'legacy@example.com',
-            'confirmed'         => true,
+            'email' => 'legacy@example.com',
+            'confirmed' => true,
             'unsubscribe_token' => null,
-            'created_at'        => now(),
-            'updated_at'        => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         // Nessun parametro token in query string: senza la guardia nel
@@ -96,7 +97,7 @@ class NewsletterUnsubscribeTokenTest extends TestCase
         Mail::fake();
 
         $target = Newsletter::subscribe('target@example.com');
-        $other  = Newsletter::subscribe('other@example.com');
+        $other = Newsletter::subscribe('other@example.com');
 
         $response = $this->get(route('newsletter.unsubscribe', ['token' => $target->unsubscribe_token]));
 
