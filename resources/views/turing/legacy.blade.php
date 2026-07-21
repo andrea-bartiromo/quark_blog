@@ -97,8 +97,8 @@
     <x-turing.article.callout kicker="In sintesi" title="Perché questa storia resta attuale">
         <p>
             L’eredità di Turing non si esaurisce in un’invenzione tecnica: è anche il racconto di quanto possa costare,
-            a una persona reale, essere in anticipo sul proprio tempo — e di quanto lentamente le istituzioni possano
-            impiegare a riconoscerlo.
+            a una persona reale, essere in anticipo sul proprio tempo — e di quanto tempo le istituzioni possano
+            impiegare per riconoscerlo.
         </p>
     </x-turing.article.callout>
 
