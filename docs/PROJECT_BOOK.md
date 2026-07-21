@@ -520,3 +520,77 @@ risposta 200 di tutte e tre le pagine di approfondimento Turing.
 - [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — resta un item separato e
   distinto, non affrontato da questa Pull Request; l'infrastruttura del modale (Decisione #009) resta pronta ma
   non collegata.
+
+## 18. Aggiornamento successivo alla Pull Request #45
+
+### Decision #011 – Pagina di dettaglio dedicata alla Computazione di Turing
+La sezione editoriale "Computazione" della pagina principale (`editorial_blocks`, chiave `macchina-universale`,
+kicker "Computazione", titolo "La macchina universale e l'idea moderna di programma") era, a differenza dei
+blocchi "Enigma" e "AI moderna", priva di qualunque collegamento: introduceva il tema della macchina universale e
+della computabilità senza offrire un reale approfondimento, né un percorso di continuazione per il lettore.
+
+**Decisione.** Viene introdotta la route pubblica `/turing/computation` (nome `turing.computation`), gestita da
+un nuovo metodo `TuringPublicController::computation()`, con la stessa responsabilità minima già stabilita da
+`enigma()`/`ai()`/`legacy()` (nessun dato passato alla vista). La nuova vista
+`resources/views/turing/computation.blade.php` segue esattamente il modello architetturale introdotto dalla
+Decisione #010: nessuna vista monolitica con CSS bespoke, riuso completo del namespace `<x-turing.article.*>`
+(`breadcrumb`, `hero`, `body`, `callout`, `cta`) e di `<x-special.section-header variant="panel" align="left">`
+per i titoli interni. Nessun nuovo file CSS è stato introdotto: l'intera pagina si appoggia sulle classi e sui
+componenti già validati da `/turing/legacy`.
+
+**Contenuto.** Sei sezioni tematiche distinguono esplicitamente il modello teorico dai computer elettronici
+reali (prima dei computer, la macchina di Turing come modello matematico, algoritmi e computabilità — incluso un
+accenno prudente al problema dell'arresto —, la macchina universale, l'influenza reale ma non lineare
+sull'informatica successiva, i limiti del calcolo). Il testo evita deliberatamente l'affermazione semplicistica
+secondo cui "Turing avrebbe inventato da solo il computer moderno". In assenza di una citazione storica verificata
+già presente nel repository, non è stato usato il componente `quote`: il secondo box editoriale (oltre al callout
+di sintesi richiesto) usa `callout` con un testo chiaramente parafrasato, mai presentato come citazione diretta —
+stessa scelta già motivata dalla Decisione #010.
+
+**Correzione di un'incoerenza CMS realmente verificata.** L'analisi ha accertato che `resources/views/admin/turing.blade.php`,
+corretto nella Decisione #010 per un default `#eredita` sulla card "Eredità", **non è in realtà instradato da
+alcuna route**: `Admin\TuringController::edit()` renderizza `admin.turing-lite`, non `admin.turing`. La correzione
+della Decisione #010 era quindi innocua ma basata su un file irraggiungibile; lo si segnala qui per trasparenza,
+senza rimuovere il file morto, la cui pulizia non è stata richiesta. Il file realmente vivo,
+`resources/views/admin/turing-lite.blade.php`, conteneva per il blocco `macchina-universale` un default
+`link_url => '#macchina-universale'` con `link_label` vuota: reso innocuo dallo stesso guard già presente in
+`editorial-blocks.blade.php` (confronto tra `link_url` e `'#'.$blockId`), ma **effettivamente rilevante** perché
+quel blocco, in questa vista amministrativa "lite", non è editabile dall'interfaccia e viene sempre reinviato
+invariato come campo nascosto a ogni salvataggio: se un record CMS esiste già, il suo contenuto prevale su
+`TuringPageController::defaultEditorialBlocks()`. Il default è stato quindi aggiornato a `/turing/computation`
+con un'etichetta reale ("Scopri la macchina universale"), identica alla CTA introdotta nel fallback pubblico.
+Resta un limite noto, non affrontato da questa Decisione: un record `SpecialPage` già esistente, salvato prima di
+questa modifica, continuerebbe a contenere il vecchio valore finché non viene risalvato dall'area admin — non è
+un problema di codice, ma di dati già persistiti, fuori portata di una modifica applicativa.
+
+**Osservazione fuori scope, non affrontata.** L'analisi ha inoltre rilevato che `App\Providers\TuringServiceProvider`
+registra un secondo gruppo di route Turing (`/turing`, `/turing/enigma`, e `/turing/ia` con nome `turing.ai`,
+duplicato rispetto a `/turing/ai` in `routes/web.php`) tramite `Route::view()`, indipendente da questa Pull
+Request e preesistente a tutte le Decision di questo documento. Non introduce alcun conflitto con le route
+introdotte qui (`turing.legacy` e `turing.computation` non vi sono duplicate) e non è stato toccato: la sua
+razionalizzazione, se necessaria, è un intervento distinto e non richiesto da questa PR.
+
+**Navigazione.** Il blocco `macchina-universale` in `TuringPageController::defaultEditorialBlocks()` guadagna
+`link_label`/`link_url`, attivando lo stesso meccanismo di CTA a blocco intero già usato da `enigma`/`ai-moderna`
+in `editorial-blocks.blade.php`, senza alcuna modifica al partial. Nessun'altra sezione Turing (Enigma, AI,
+Legacy, Timeline, Hero) è stata toccata.
+
+**Esplicitamente fuori scope di questa Pull Request.** Nessuna pagina `/turing/intelligence` (rimandata a una PR
+successiva: il collegamento "Dal calcolo all'intelligenza" nella CTA finale punta a `/turing/ai`, l'unica route
+esistente, non a una route non ancora creata); nessuna integrazione del componente `<x-special.modal>` con la
+Timeline; nessun redesign generale; nessuna modifica a Enigma, AI o Legacy.
+
+**Test.** Nuovo file `tests/Feature/TuringComputationPageTest.php` (13 test): risposta 200, esistenza della
+route, titolo e concetti principali (macchina di Turing, computabilità, macchina universale, limiti del calcolo),
+breadcrumb, link di ritorno a `/turing`, assenza di `<main>` annidati, collegamento dalla pagina principale con
+rimozione del vecchio self-link, invarianza delle altre pagine Turing, assenza di link verso la non ancora
+esistente `/turing/intelligence`, assenza di regressioni con contenuti CMS non correlati.
+`TuringPageFallbacksTest` aggiornato: il test sul blocco `macchina-universale` ora verifica la presenza del link
+reale oltre alla persistente assenza del self-link. `TuringArticleInfrastructureTest` esteso con la nuova route e
+la relativa risposta 200.
+
+### Roadmap aggiornata
+- [x] Introduzione di una pagina di approfondimento dedicata per la sezione "Computazione" (questa Decisione).
+- [ ] Pagina `/turing/intelligence` — pianificata per una Pull Request successiva.
+- [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — non affrontata da questa Pull
+  Request.

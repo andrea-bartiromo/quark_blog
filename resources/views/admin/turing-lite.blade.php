@@ -69,8 +69,8 @@
                 'text' => '',
                 'image' => '',
                 'background_image' => '',
-                'link_label' => '',
-                'link_url' => '#macchina-universale',
+                'link_label' => 'Scopri la macchina universale',
+                'link_url' => '/turing/computation',
             ],
             [
                 'enabled' => true,

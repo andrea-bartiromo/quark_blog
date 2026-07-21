@@ -202,7 +202,7 @@ class TuringPageFallbacksTest extends TestCase
             ->assertSee('href="/turing/ai"', false);
     }
 
-    public function test_universal_machine_fallback_block_does_not_render_a_self_link_cta(): void
+    public function test_universal_machine_fallback_block_links_to_the_dedicated_computation_page(): void
     {
         $response = $this->get(route('turing'));
 
@@ -210,8 +210,12 @@ class TuringPageFallbacksTest extends TestCase
             ->assertOk()
             ->assertSeeText('La macchina universale e l’idea moderna di programma')
             ->assertSee('id="macchina-universale"', false)
+            // Non e' piu' un self-link inerte: punta ora alla pagina di
+            // approfondimento dedicata (PR #45), non piu' a se stesso.
             ->assertDontSee('href="#macchina-universale"', false)
-            ->assertDontSeeText('Segui il filo del calcolo');
+            ->assertDontSeeText('Segui il filo del calcolo')
+            ->assertSee('href="/turing/computation"', false)
+            ->assertSeeText('Scopri la macchina universale');
     }
 
     public function test_turing_page_uses_fallbacks_when_content_values_are_invalid(): void
