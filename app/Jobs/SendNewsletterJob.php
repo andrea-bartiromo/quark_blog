@@ -40,9 +40,9 @@ class SendNewsletterJob implements ShouldQueue
                     'token' => $this->subscriber->unsubscribe_token,
                 ]);
 
-                $trackingPixel = "<img src='" . route('newsletter.open', $this->subscriber->id) . "' width='1' height='1' style='display:none;'>";
+                $trackingPixel = "<img src='".route('newsletter.open', $this->subscriber->id)."' width='1' height='1' style='display:none;'>";
 
-                $fullHtml = $html . "
+                $fullHtml = $html."
                     {$trackingPixel}
 
                     <div style='border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;text-align:center;'>
@@ -58,7 +58,7 @@ class SendNewsletterJob implements ShouldQueue
                     ->html($fullHtml);
             });
         } catch (\Throwable $e) {
-            Log::error("Errore newsletter {$this->subscriber->email}: " . $e->getMessage());
+            Log::error("Errore newsletter {$this->subscriber->email}: ".$e->getMessage());
 
             throw $e;
         }
@@ -92,7 +92,7 @@ class SendNewsletterJob implements ShouldQueue
 
     private function generateIntro($articles): string
     {
-        return "Abbiamo selezionato per te gli articoli più interessanti della settimana. Scopri cosa sta succedendo nel mondo della scienza.";
+        return 'Abbiamo selezionato per te gli articoli più interessanti della settimana. Scopri cosa sta succedendo nel mondo della scienza.';
     }
 
     private function buildHtml($articles, string $intro = '', ?Newsletter $subscriber = null): string
@@ -105,7 +105,7 @@ class SendNewsletterJob implements ShouldQueue
         foreach ($articles as $art) {
             $url = $subscriber
                 ? route('newsletter.click', [$subscriber->id, $art->id])
-                : $base . '/articolo/' . $art->slug;
+                : $base.'/articolo/'.$art->slug;
 
             $cat = $cats[$art->category] ?? $art->category;
 
