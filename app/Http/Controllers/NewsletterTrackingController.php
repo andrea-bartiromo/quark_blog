@@ -14,10 +14,10 @@ class NewsletterTrackingController extends Controller
     {
         NewsletterOpen::create([
             'newsletter_id' => $subscriber->id,
-            'email'         => $subscriber->email,
-            'ip_hash'       => hash('sha256', $request->ip()),
-            'user_agent'    => substr((string) $request->userAgent(), 0, 1000),
-            'opened_at'     => now(),
+            'email' => $subscriber->email,
+            'ip_hash' => hash('sha256', $request->ip()),
+            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+            'opened_at' => now(),
         ]);
 
         $pixel = base64_decode(
@@ -25,9 +25,9 @@ class NewsletterTrackingController extends Controller
         );
 
         return response($pixel, 200, [
-            'Content-Type'  => 'image/gif',
+            'Content-Type' => 'image/gif',
             'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma'        => 'no-cache',
+            'Pragma' => 'no-cache',
         ]);
     }
 
@@ -37,12 +37,12 @@ class NewsletterTrackingController extends Controller
 
         NewsletterClick::create([
             'newsletter_subscriber_id' => $subscriber->id,
-            'article_id'               => $article->id,
-            'email'                    => $subscriber->email,
-            'ip_hash'                  => hash('sha256', $request->ip()),
-            'user_agent'               => substr((string) $request->userAgent(), 0, 1000),
-            'url'                      => $url,
-            'clicked_at'               => now(),
+            'article_id' => $article->id,
+            'email' => $subscriber->email,
+            'ip_hash' => hash('sha256', $request->ip()),
+            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+            'url' => $url,
+            'clicked_at' => now(),
         ]);
 
         return redirect()->away($url);

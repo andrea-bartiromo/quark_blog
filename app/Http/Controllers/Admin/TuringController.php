@@ -134,13 +134,15 @@ class TuringController extends Controller
     private function resolveTopLevelImages(Request $request, array $data, array $existingContent): array
     {
         foreach ($this->topLevelImageFields() as $field => $contentPath) {
-            if ($request->boolean($field . '_remove')) {
+            if ($request->boolean($field.'_remove')) {
                 $data[$field] = null;
+
                 continue;
             }
 
-            if ($uploaded = $this->uploadedImage($request, $field . '_upload')) {
+            if ($uploaded = $this->uploadedImage($request, $field.'_upload')) {
                 $data[$field] = $uploaded;
+
                 continue;
             }
 
@@ -269,7 +271,7 @@ class TuringController extends Controller
     {
         return collect($request->input('editorial_blocks', []))
             ->map(function ($item, $index) use ($request) {
-                $item['enabled'] = !empty($item['enabled']);
+                $item['enabled'] = ! empty($item['enabled']);
                 $item['image'] = $this->resolveNestedImage($request, $item, "editorial_blocks.$index", 'image');
                 $item['background_image'] = $this->resolveNestedImage($request, $item, "editorial_blocks.$index", 'background_image');
 
@@ -285,11 +287,11 @@ class TuringController extends Controller
 
     private function resolveNestedImage(Request $request, array $item, string $baseKey, string $field): ?string
     {
-        if ($request->boolean($baseKey . '.' . $field . '_remove')) {
+        if ($request->boolean($baseKey.'.'.$field.'_remove')) {
             return null;
         }
 
-        $uploaded = $this->uploadedImage($request, $baseKey . '.' . $field . '_upload');
+        $uploaded = $this->uploadedImage($request, $baseKey.'.'.$field.'_upload');
         $manual = trim((string) ($item[$field] ?? ''));
 
         return $uploaded ?: ($manual !== '' ? $manual : null);
@@ -297,17 +299,17 @@ class TuringController extends Controller
 
     private function uploadedImage(Request $request, string $key): ?string
     {
-        if (!$request->hasFile($key) || !$request->file($key)->isValid()) {
+        if (! $request->hasFile($key) || ! $request->file($key)->isValid()) {
             return null;
         }
 
         $file = $request->file($key);
         $extension = strtolower($file->getClientOriginalExtension());
         $filename = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
-        $diskName = $filename . '-' . date('YmdHis') . '-' . substr(md5((string) random_int(1, PHP_INT_MAX)), 0, 6) . '.' . $extension;
+        $diskName = $filename.'-'.date('YmdHis').'-'.substr(md5((string) random_int(1, PHP_INT_MAX)), 0, 6).'.'.$extension;
         $uploadPath = public_path('assets/img');
 
-        if (!is_dir($uploadPath)) {
+        if (! is_dir($uploadPath)) {
             mkdir($uploadPath, 0755, true);
         }
 

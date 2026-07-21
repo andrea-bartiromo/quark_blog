@@ -18,9 +18,9 @@ class ProfileController extends Controller
         $user = auth()->user();
 
         $data = $request->validate([
-            'name'     => 'required|max:100',
-            'bio'      => 'nullable|max:500',
-            'twitter'  => 'nullable|max:100',
+            'name' => 'required|max:100',
+            'bio' => 'nullable|max:500',
+            'twitter' => 'nullable|max:100',
             'linkedin' => 'nullable|url|max:255',
         ]);
 
@@ -34,12 +34,12 @@ class ProfileController extends Controller
     {
         $request->validate([
             'current_password' => 'required',
-            'password'         => 'required|min:8|confirmed',
+            'password' => 'required|min:8|confirmed',
         ]);
 
         $user = auth()->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             return back()->withErrors(['current_password' => 'La password attuale non è corretta.']);
         }
 
