@@ -10,9 +10,7 @@ use Illuminate\Support\Str;
 
 class MediaController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService)
-    {
-    }
+    public function __construct(private readonly ImageService $imageService) {}
 
     public function index()
     {
@@ -24,19 +22,19 @@ class MediaController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'image'    => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
+            'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
             'alt_text' => 'nullable|max:200',
         ]);
 
-        $file     = $request->file('image');
+        $file = $request->file('image');
         $original = $file->getClientOriginalName();
-        $ext      = strtolower($file->getClientOriginalExtension());
+        $ext = strtolower($file->getClientOriginalExtension());
 
         // Nome univoco
         $diskName = $this->imageService->buildFileName(
             $file,
             $ext,
-            now()->format('YmdHis') . '-' . Str::random(6)
+            now()->format('YmdHis').'-'.Str::random(6)
         );
 
         $uploadPath = public_path('assets/img');
@@ -56,20 +54,20 @@ class MediaController extends Controller
         );
 
         $media = Media::create([
-            'user_id'   => auth()->id(),
-            'filename'  => $original,
+            'user_id' => auth()->id(),
+            'filename' => $original,
             'disk_name' => $diskName,
             'mime_type' => $file->getClientMimeType(),
-            'size'      => filesize($fullPath) ?: 0,
-            'alt_text'  => $request->input('alt_text'),
+            'size' => filesize($fullPath) ?: 0,
+            'alt_text' => $request->input('alt_text'),
         ]);
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
-                'ok'       => true,
+                'ok' => true,
                 'filename' => $diskName,
-                'url'      => asset('assets/img/' . $diskName),
-                'id'       => $media->id,
+                'url' => asset('assets/img/'.$diskName),
+                'id' => $media->id,
             ]);
         }
 
@@ -78,12 +76,13 @@ class MediaController extends Controller
 
     public function destroy(Media $media)
     {
-        $path = public_path('assets/img/' . $media->disk_name);
+        $path = public_path('assets/img/'.$media->disk_name);
         if (file_exists($path)) {
             unlink($path);
         }
 
         $media->delete();
+
         return back()->with('success', 'Immagine eliminata.');
     }
 }
