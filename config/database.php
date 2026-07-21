@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Str;
+
 // use Pdo\Mysql; // Richiede PHP 8.5+ — commentato per compatibilità con PHP 8.3
 
 return [
