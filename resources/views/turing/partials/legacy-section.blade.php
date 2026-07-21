@@ -21,6 +21,10 @@
             @endforeach
           </div>
         @endif
+
+        <div class="turing-actions">
+          <a href="{{ route('turing.legacy') }}">Approfondisci l’eredità di Turing</a>
+        </div>
       </div>
     </div>
   </div>

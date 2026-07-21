@@ -140,7 +140,7 @@ class TuringPageController extends Controller
                 'label' => '03 · Eredità',
                 'title' => 'Il genio inquieto',
                 'text' => 'La persecuzione, la riabilitazione e l’impatto culturale di una figura diventata simbolo.',
-                'url' => '#eredita',
+                'url' => '/turing/legacy',
                 'style' => 'legacy',
             ],
         ];

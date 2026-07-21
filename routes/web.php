@@ -40,6 +40,7 @@ Route::get('/autore/{user}',    [AuthorController::class, 'show'])->name('autore
 Route::get('/turing',           [TuringPageController::class, 'index'])->name('turing');
 Route::get('/turing/enigma',    [TuringPublicController::class, 'enigma'])->name('turing.enigma');
 Route::get('/turing/ai',        [TuringPublicController::class, 'ai'])->name('turing.ai');
+Route::get('/turing/legacy',    [TuringPublicController::class, 'legacy'])->name('turing.legacy');
 
 // ── Newsletter pubblica ────────────────────────────────────────
 Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])

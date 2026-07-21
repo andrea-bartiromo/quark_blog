@@ -183,17 +183,20 @@ class TuringPageFallbacksTest extends TestCase
             ->assertDontSee('href="#"', false);
     }
 
-    public function test_default_legacy_route_card_links_to_the_eredita_section(): void
+    public function test_default_legacy_route_card_links_to_the_dedicated_legacy_page(): void
     {
         $response = $this->get(route('turing'));
 
         $response
             ->assertOk()
-            // La terza card ("03 · Eredità") deve essere un link reale verso
-            // la sezione Legacy della stessa pagina, non piu' una card inerte.
-            ->assertSee('href="#eredita"', false)
-            // La sezione di destinazione deve esistere davvero nella pagina.
+            // La terza card ("03 · Eredità") deve puntare alla pagina di
+            // dettaglio dedicata (PR #44), non piu' all'anchor #eredita.
+            ->assertSee('href="/turing/legacy"', false)
+            ->assertDontSee('href="#eredita"', false)
+            // La sezione sintetica sulla pagina principale resta visibile.
             ->assertSee('id="eredita"', false)
+            // La sezione sintetica offre ora una CTA verso l'approfondimento.
+            ->assertSeeText('Approfondisci l’eredità di Turing')
             // Le altre due card di default mantengono i propri collegamenti.
             ->assertSee('href="/turing/enigma"', false)
             ->assertSee('href="/turing/ai"', false);
