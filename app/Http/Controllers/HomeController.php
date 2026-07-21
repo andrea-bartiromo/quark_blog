@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Quark — Blog di divulgazione scientifica
  *
@@ -21,10 +22,10 @@ class HomeController extends Controller
         $featured = Article::published()->featured()->with('author')->first();
 
         $latest = Article::published()->with('author')
-                        ->when($featured, fn($q) => $q->where('id', '!=', $featured->id))
-                        ->orderByDesc('published_at')
-                        ->limit(6)
-                        ->get();
+            ->when($featured, fn ($q) => $q->where('id', '!=', $featured->id))
+            ->orderByDesc('published_at')
+            ->limit(6)
+            ->get();
 
         // Trending 24h basato su visualizzazioni reali
         $trendingIds = ArticleView::query()
@@ -50,7 +51,7 @@ class HomeController extends Controller
             $arts = Article::published()
                 ->byCategory($slug)
                 ->with('author')
-                ->when($featured, fn($q) => $q->where('id', '!=', $featured->id))
+                ->when($featured, fn ($q) => $q->where('id', '!=', $featured->id))
                 ->orderByDesc('published_at')
                 ->limit(3)
                 ->get();
@@ -94,7 +95,7 @@ class HomeController extends Controller
             ],
             'style' => $backgroundImage
                 ? "background-image:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.06),rgba(255,255,255,0)),url('".asset('assets/img/'.$backgroundImage)."');"
-                : "background:linear-gradient(135deg,#ecfeff,#f8fafc);",
+                : 'background:linear-gradient(135deg,#ecfeff,#f8fafc);',
         ];
     }
 }
