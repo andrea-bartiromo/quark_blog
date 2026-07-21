@@ -37,6 +37,7 @@ class TuringArticleInfrastructureTest extends TestCase
         // il namespace <x-turing.article.*> descritto da questa classe.
         $this->assertTrue(Route::has('turing.legacy'));
         $this->assertTrue(Route::has('turing.computation'));
+        $this->assertTrue(Route::has('turing.intelligence'));
 
         $this->get(route('turing'))->assertOk();
     }
@@ -47,6 +48,7 @@ class TuringArticleInfrastructureTest extends TestCase
         $this->get(route('turing.ai'))->assertOk();
         $this->get(route('turing.legacy'))->assertOk();
         $this->get(route('turing.computation'))->assertOk();
+        $this->get(route('turing.intelligence'))->assertOk();
     }
 
     public function test_enigma_deep_dive_page_renders_with_fallback_text_when_no_cms_data_exists(): void

@@ -22,7 +22,7 @@
         kicker="Computazione"
         title="La macchina universale e l’idea moderna di programma"
         lead="Nel 1936 Alan Turing propose un modello astratto capace di descrivere con precisione che cosa significhi eseguire un procedimento meccanico. Da quell’esperimento teorico nacque una nuova grammatica del calcolo, destinata a influenzare l’informatica moderna."
-        image="turing-universal-machine-background.webp"
+        image="turing/backgrounds/turing-universal-machine-background.webp"
     />
 
     <x-turing.article.body>
@@ -108,11 +108,10 @@
         :actions="[
             ['label' => 'Torna allo speciale', 'url' => route('turing')],
             ['label' => 'Esplora Enigma', 'url' => route('turing.enigma')],
-            // Percorso letterale, non route('turing.ai'): quel nome e' duplicato
-            // in App\Providers\TuringServiceProvider (route /turing/ia), che
-            // vince la risoluzione e restituirebbe /turing/ia invece del
-            // percorso canonico. Causa radice preesistente, fuori scope qui.
-            ['label' => 'Dal calcolo all’intelligenza', 'url' => '/turing/ai'],
+            // Ora che /turing/intelligence esiste (PR #46), e' la destinazione
+            // piu' precisa per questa CTA, al posto del rimando generico a
+            // /turing/ai usato provvisoriamente nella PR #45.
+            ['label' => 'Dal calcolo all’intelligenza', 'url' => route('turing.intelligence')],
         ]"
     />
 

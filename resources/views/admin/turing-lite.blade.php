@@ -81,8 +81,8 @@
                 'text' => '',
                 'image' => '',
                 'background_image' => '',
-                'link_label' => '',
-                'link_url' => '#test-turing',
+                'link_label' => 'Leggi la domanda',
+                'link_url' => '/turing/intelligence',
             ],
             [
                 'enabled' => true,

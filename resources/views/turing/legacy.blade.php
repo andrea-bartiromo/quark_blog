@@ -22,7 +22,7 @@
         kicker="Eredità"
         title="Il genio inquieto"
         lead="Oltre Enigma e la domanda sull’intelligenza delle macchine, la storia di Alan Turing è anche quella di un uomo perseguitato per ciò che era, riabilitato troppo tardi e diventato, decenni dopo, un simbolo che va oltre l’informatica."
-        image="turing-legacy-panel.webp"
+        image="turing/backgrounds/turing-legacy-panel.webp"
     />
 
     <x-turing.article.body>

@@ -183,7 +183,7 @@ class TuringPageController extends Controller
                 'image' => 'turing/turing-test.webp',
                 'background_image' => 'turing/backgrounds/turing-test-background.webp',
                 'link_label' => 'Leggi la domanda',
-                'link_url' => '#test-turing',
+                'link_url' => '/turing/intelligence',
             ],
             [
                 'enabled' => true,

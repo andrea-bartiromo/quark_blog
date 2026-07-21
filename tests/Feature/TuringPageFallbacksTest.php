@@ -218,6 +218,21 @@ class TuringPageFallbacksTest extends TestCase
             ->assertSeeText('Scopri la macchina universale');
     }
 
+    public function test_turing_test_fallback_block_links_to_the_dedicated_intelligence_page(): void
+    {
+        $response = $this->get(route('turing'));
+
+        $response
+            ->assertOk()
+            ->assertSeeText('Il gioco dell’imitazione e la domanda sulle macchine pensanti')
+            ->assertSee('id="test-turing"', false)
+            // Non e' piu' un self-link inerte: punta ora alla pagina di
+            // approfondimento dedicata (PR #46), non piu' a se stesso.
+            ->assertDontSee('href="#test-turing"', false)
+            ->assertSee('href="/turing/intelligence"', false)
+            ->assertSeeText('Leggi la domanda');
+    }
+
     public function test_turing_page_uses_fallbacks_when_content_values_are_invalid(): void
     {
         $this->createTuringPage([

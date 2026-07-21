@@ -76,6 +76,20 @@ class TuringLegacyPageTest extends TestCase
             ->assertSeeText('Memoria e simbolo');
     }
 
+    public function test_legacy_hero_image_points_to_an_existing_asset(): void
+    {
+        // Regressione: la riorganizzazione degli asset Turing (PR #46) ha
+        // spostato questo file in turing/backgrounds/ senza aggiornare il
+        // riferimento hardcoded qui, lasciando l'immagine hero rotta (404).
+        $path = 'turing/backgrounds/turing-legacy-panel.webp';
+
+        $this->assertFileExists(public_path('assets/img/'.$path));
+
+        $this->get(route('turing.legacy'))
+            ->assertOk()
+            ->assertSee('assets/img/'.$path, false);
+    }
+
     public function test_legacy_page_renders_without_errors_when_no_optional_cms_data_exists(): void
     {
         // La vista non dipende da alcun blocco 'legacy' nel CMS: il

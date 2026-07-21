@@ -594,3 +594,80 @@ la relativa risposta 200.
 - [ ] Pagina `/turing/intelligence` — pianificata per una Pull Request successiva.
 - [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — non affrontata da questa Pull
   Request.
+
+## 19. Aggiornamento successivo alla Pull Request #47
+
+### Decision #012 – Pagina di dettaglio dedicata all'Intelligenza (Test di Turing)
+Dei quattro blocchi editoriali della pagina principale (`enigma`, `macchina-universale`, `test-turing`,
+`ai-moderna`), tre avevano già un approfondimento dedicato dopo le Decision #010 e #011 (`/turing/legacy`,
+`/turing/computation`, e `ai-moderna` che punta a `/turing/ai`, esistente da prima di questa serie di Decision).
+Il blocco `test-turing` (kicker "Intelligenza", "Il gioco dell'imitazione e la domanda sulle macchine pensanti")
+restava l'unico con lo stesso pattern di self-link inerte già corretto due volte in precedenza
+(`link_url => '#test-turing'`, identico ai bug già risolti su `#eredita` e `#macchina-universale`).
+
+**Decisione.** Viene introdotta la route pubblica `/turing/intelligence` (nome `turing.intelligence`), gestita da
+`TuringPublicController::intelligence()`, con la stessa responsabilità minima di `enigma()`/`ai()`/`legacy()`/
+`computation()`. La nuova vista `resources/views/turing/intelligence.blade.php` segue esattamente lo stesso
+modello architetturale delle Decision #010/#011: riuso completo di `<x-turing.article.*>` (`breadcrumb`, `hero`,
+`body`, `callout`, `cta`) e di `<x-special.section-header variant="panel" align="left">`, nessuna vista
+monolitica, nessun nuovo file CSS.
+
+**Contenuto e distinzione da `/turing/ai`.** La pagina si concentra sul saggio del 1950 *Computing Machinery and
+Intelligence* e sulla struttura originale del gioco dell'imitazione (giudice, interlocutore umano, macchina,
+conversazione scritta), su cosa il test misura realmente (comportamento osservabile, non coscienza — un
+equivoco esplicitamente segnalato nel testo), sulle obiezioni che lo stesso Turing anticipò nel saggio, e sulla
+rinnovata attualità del test nell'epoca dei modelli linguistici. Quest'ultimo punto rimanda esplicitamente a
+`/turing/ai` per l'approfondimento sull'IA moderna, evitando di duplicarne il contenuto: le due pagine restano
+distinte, una sul framing storico-concettuale del test, l'altra sul dibattito contemporaneo. Come già nelle
+Decision #010/#011, non è stato usato il componente `quote` (nessuna citazione storica verificata nel
+repository): il secondo box editoriale usa `callout` con un testo parafrasato sull'origine del formato del test
+come gioco di società, mai presentato come citazione diretta.
+
+**Aggiornamento coerente della CTA di `/turing/computation`.** Con `/turing/intelligence` ora esistente, il
+collegamento "Dal calcolo all'intelligenza" nella CTA finale di `/turing/computation` (Decision #011) è stato
+aggiornato per puntare alla nuova destinazione dedicata tramite `route('turing.intelligence')`, al posto del
+rimando provvisorio a `/turing/ai` usato quando quella pagina non esisteva ancora. Nessun'altra modifica a
+`computation.blade.php`.
+
+**Navigazione.** Il blocco `test-turing` in `TuringPageController::defaultEditorialBlocks()` cambia solo
+`link_url` (da `#test-turing` a `/turing/intelligence`); l'etichetta `link_label` ("Leggi la domanda") era già
+appropriata e non è stata modificata. Lo stesso default è stato corretto nel file amministrativo realmente
+instradato, `resources/views/admin/turing-lite.blade.php` (non `admin/turing.blade.php`, verificato dead code
+dalla Decision #011): stesso ragionamento già applicato al blocco `macchina-universale`, dato che quel blocco non
+è editabile dall'interfaccia "lite" e viene sempre reinviato invariato come campo nascosto a ogni salvataggio.
+
+**Correzione di una regressione rilevata durante la preparazione di questa pagina.** La riorganizzazione degli
+asset Turing (Pull Request #46, non tracciata in questo Decision Log) aveva spostato `turing-legacy-panel.webp` e
+`turing-universal-machine-background.webp` in `turing/backgrounds/`, senza aggiornare i riferimenti hardcoded a
+quei file già presenti in `turing/legacy.blade.php` (Decision #010) e `turing/computation.blade.php` (Decision
+#011): le immagini hero di entrambe le pagine risultavano di conseguenza non funzionanti (404), verificato
+empiricamente. La nuova pagina `/turing/intelligence` non riproduce il problema — usa fin dall'inizio il percorso
+corretto `turing/backgrounds/turing-test-background.webp`. Data l'oggettività e la circoscrizione del bug (un solo
+percorso hardcoded per file, causato direttamente dalla PR #46), la correzione dei due riferimenti è stata inclusa
+in questo stesso lavoro, senza altre modifiche a quei due file. Aggiunto un test dedicato per ciascuna delle tre
+pagine (`Legacy`, `Computation`, `Intelligence`) che verifica sia l'esistenza reale del file sull'asset via
+`assertFileExists`, sia la presenza del percorso corretto nell'HTML renderizzato — a prevenzione di regressioni
+analoghe in futuro.
+
+**Esplicitamente fuori scope di questa Pull Request.** Nessuna integrazione del componente `<x-special.modal>`
+con la Timeline; nessun redesign generale; nessuna modifica a Enigma, AI o Legacy; nessuna razionalizzazione di
+`App\Providers\TuringServiceProvider` (causa della route `turing.ai` duplicata, già verificata e aggirata con un
+percorso letterale in questa pagina, come già fatto in `computation.blade.php`).
+
+**Test.** Nuovo file `tests/Feature/TuringIntelligencePageTest.php` (14 test): risposta 200, esistenza della
+route, titolo e concetti principali, breadcrumb, link di ritorno a `/turing`, assenza di `<main>` annidati,
+collegamento dalla pagina principale con rimozione del self-link, collegamento a `/turing/computation` e al
+percorso canonico `/turing/ai`, correttezza dell'immagine hero, invarianza delle altre pagine Turing, assenza di
+regressioni con contenuti CMS non correlati. `TuringPageFallbacksTest` aggiornato con un nuovo test dedicato al
+blocco `test-turing`. `TuringArticleInfrastructureTest` esteso con la nuova route e la relativa risposta 200.
+`TuringComputationPageTest` aggiornato: il test che presupponeva l'assenza di `/turing/intelligence` non è più
+valido per costruzione (la route ora esiste) ed è stato sostituito con un test che verifica il nuovo
+collegamento reale; aggiunto anche un test sulla correttezza dell'immagine hero. `TuringLegacyPageTest` esteso
+con lo stesso tipo di test per la propria immagine hero.
+
+### Roadmap aggiornata
+- [x] Introduzione di una pagina di approfondimento dedicata per la sezione "Intelligenza" (questa Decisione).
+- [x] Correzione dei riferimenti immagine rotti in `/turing/legacy` e `/turing/computation` (regressione della
+  PR #46, risolta in questo stesso lavoro).
+- [ ] Timeline interattiva con card/modal in sovraimpressione per ogni evento — non affrontata da questa Pull
+  Request.

@@ -25,4 +25,9 @@ class TuringPublicController extends Controller
     {
         return view('turing.computation');
     }
+
+    public function intelligence(): View
+    {
+        return view('turing.intelligence');
+    }
 }
