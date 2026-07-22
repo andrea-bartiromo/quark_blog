@@ -19,12 +19,16 @@ use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\Category;
 use App\Services\ImageService;
+use App\Services\MediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService) {}
+    public function __construct(
+        private readonly ImageService $imageService,
+        private readonly MediaService $mediaService
+    ) {}
 
     public function index()
     {
@@ -76,6 +80,8 @@ class ArticleController extends Controller
     {
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
+            $filename = $file->getClientOriginalName();
+            $mimeType = $file->getMimeType();
             $ext = strtolower($file->getClientOriginalExtension());
             $diskName = $this->imageService->buildFileName(
                 $file,
@@ -90,6 +96,14 @@ class ArticleController extends Controller
                 $ext,
                 1600,
                 ['jpg' => 82, 'png' => 7, 'webp' => 82]
+            );
+
+            $this->mediaService->register(
+                $request->user(),
+                $filename,
+                $diskName,
+                $mimeType,
+                filesize($fullPath)
             );
 
             $data['cover_image'] = $diskName;
