@@ -3,6 +3,7 @@
 namespace Tests\Feature\Uploads;
 
 use App\Models\Category;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -52,9 +53,18 @@ class AdminCategoryImageUploadTest extends TestCase
         $response->assertSessionHas('success', 'Categoria creata con successo.');
 
         $category = Category::where('name', 'Nuova Categoria')->firstOrFail();
+        $fullPath = public_path('assets/img/categories/'.$category->image);
 
         $this->assertNotNull($category->image);
-        $this->assertFileExists(public_path('assets/img/categories/'.$category->image));
+        $this->assertFileExists($fullPath);
+
+        $media = Media::where('disk_name', 'categories/'.$category->image)->firstOrFail();
+
+        $this->assertSame($editor->id, $media->user_id);
+        $this->assertSame('cat.jpg', $media->filename);
+        $this->assertSame('categories/'.$category->image, $media->disk_name);
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame(filesize($fullPath), $media->size);
     }
 
     public function test_image_upload_creates_the_categories_directory_when_missing(): void
