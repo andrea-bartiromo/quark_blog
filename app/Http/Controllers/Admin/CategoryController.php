@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Category;
 use App\Services\ImageService;
+use App\Services\MediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService) {}
+    public function __construct(
+        private readonly ImageService $imageService,
+        private readonly MediaService $mediaService
+    ) {}
 
     public function index()
     {
@@ -93,6 +97,8 @@ class CategoryController extends Controller
             }
 
             $file = $request->file('image_upload');
+            $originalName = $file->getClientOriginalName();
+            $mimeType = $file->getMimeType();
             $ext = strtolower($file->getClientOriginalExtension());
             $fileName = $this->imageService->buildFileName(
                 $file,
@@ -109,6 +115,14 @@ class CategoryController extends Controller
                 $ext,
                 1200,
                 ['jpg' => 84, 'png' => 7, 'webp' => 84]
+            );
+
+            $this->mediaService->register(
+                $request->user(),
+                $originalName,
+                'categories/'.$fileName,
+                $mimeType,
+                filesize($fullPath)
             );
 
             $data['image'] = $fileName;
