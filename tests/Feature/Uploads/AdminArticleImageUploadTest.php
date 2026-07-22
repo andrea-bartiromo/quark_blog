@@ -3,6 +3,7 @@
 namespace Tests\Feature\Uploads;
 
 use App\Models\Article;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -55,9 +56,18 @@ class AdminArticleImageUploadTest extends TestCase
         $response->assertSessionHas('success', 'Articolo creato.');
 
         $article = Article::where('title', 'Articolo con copertina')->firstOrFail();
+        $fullPath = public_path('assets/img/'.$article->cover_image);
 
         $this->assertNotNull($article->cover_image);
-        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
+        $this->assertFileExists($fullPath);
+
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertSame($editor->id, $media->user_id);
+        $this->assertSame('cover.jpg', $media->filename);
+        $this->assertSame($article->cover_image, $media->disk_name);
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame(filesize($fullPath), $media->size);
     }
 
     public function test_cover_is_resized_to_the_1600px_limit(): void
