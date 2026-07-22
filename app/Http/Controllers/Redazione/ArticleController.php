@@ -9,12 +9,16 @@ use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\User;
 use App\Services\ImageService;
+use App\Services\MediaService;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService) {}
+    public function __construct(
+        private readonly ImageService $imageService,
+        private readonly MediaService $mediaService
+    ) {}
 
     public function index()
     {
@@ -39,13 +43,24 @@ class ArticleController extends Controller
         // Upload immagine
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
+            $originalName = $file->getClientOriginalName();
+            $mimeType = $file->getMimeType();
             $ext = strtolower($file->getClientOriginalExtension());
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
                 date('YmdHis').'-'.Str::random(6)
             );
-            $this->imageService->upload($file, public_path('assets/img'), $diskName);
+            $fullPath = $this->imageService->upload($file, public_path('assets/img'), $diskName);
+
+            $this->mediaService->register(
+                $request->user(),
+                $originalName,
+                $diskName,
+                $mimeType,
+                filesize($fullPath)
+            );
+
             $data['cover_image'] = $diskName;
         }
 
@@ -103,13 +118,24 @@ class ArticleController extends Controller
 
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
+            $originalName = $file->getClientOriginalName();
+            $mimeType = $file->getMimeType();
             $ext = strtolower($file->getClientOriginalExtension());
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
                 date('YmdHis').'-'.Str::random(6)
             );
-            $this->imageService->upload($file, public_path('assets/img'), $diskName);
+            $fullPath = $this->imageService->upload($file, public_path('assets/img'), $diskName);
+
+            $this->mediaService->register(
+                $request->user(),
+                $originalName,
+                $diskName,
+                $mimeType,
+                filesize($fullPath)
+            );
+
             $data['cover_image'] = $diskName;
         }
 
