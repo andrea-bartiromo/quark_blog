@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\ActivityLog;
 use App\Models\Article;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -15,8 +16,8 @@ class CollaboratorController extends Controller
     public function index()
     {
         $collaborators = User::where('role', 'author')
-            ->withCount(['articles', 'articles as published_count' => fn($q) => $q->where('status', 'published'),
-                         'articles as review_count' => fn($q) => $q->where('status', 'review')])
+            ->withCount(['articles', 'articles as published_count' => fn ($q) => $q->where('status', 'published'),
+                'articles as review_count' => fn ($q) => $q->where('status', 'review')])
             ->orderBy('name')
             ->get();
 
@@ -31,22 +32,22 @@ class CollaboratorController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'     => 'required|max:100',
-            'email'    => 'required|email|unique:users,email',
-            'bio'      => 'nullable|max:500',
-            'twitter'  => 'nullable|max:100',
+            'name' => 'required|max:100',
+            'email' => 'required|email|unique:users,email',
+            'bio' => 'nullable|max:500',
+            'twitter' => 'nullable|max:100',
             'linkedin' => 'nullable|url|max:255',
         ]);
 
         $password = Str::random(12);
 
         $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
+            'name' => $data['name'],
+            'email' => $data['email'],
             'password' => Hash::make($password),
-            'role'     => 'author',
-            'bio'      => $data['bio'] ?? null,
-            'twitter'  => $data['twitter'] ?? null,
+            'role' => 'author',
+            'bio' => $data['bio'] ?? null,
+            'twitter' => $data['twitter'] ?? null,
             'linkedin' => $data['linkedin'] ?? null,
         ]);
 
@@ -55,8 +56,8 @@ class CollaboratorController extends Controller
             $loginUrl = route('redazione.login');
             Mail::send([], [], function ($m) use ($user, $password, $loginUrl) {
                 $m->to($user->email)
-                  ->subject('🎉 Benvenuto nella redazione di Quark!')
-                  ->html("
+                    ->subject('🎉 Benvenuto nella redazione di Quark!')
+                    ->html("
                     <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
                         <h1 style='color:#0d9488;margin-bottom:.5rem;'>Quark.</h1>
                         <p style='color:#6b7280;font-size:.82rem;margin-bottom:1.5rem;'>La scienza spiegata come si deve</p>
@@ -87,7 +88,7 @@ class CollaboratorController extends Controller
             // Silenzioso
         }
 
-        \App\Models\ActivityLog::record('Collaboratore aggiunto', 'user', $user->id, $user->name);
+        ActivityLog::record('Collaboratore aggiunto', 'user', $user->id, $user->name);
 
         return redirect()->route('admin.collaborators')
             ->with('success', "Collaboratore {$user->name} aggiunto. Email di benvenuto inviata a {$user->email}.");
@@ -95,25 +96,30 @@ class CollaboratorController extends Controller
 
     public function edit(User $user)
     {
-        if ($user->role === 'editor') abort(403);
+        if ($user->role === 'editor') {
+            abort(403);
+        }
+
         return view('admin.collaborator-form', compact('user'));
     }
 
     public function update(Request $request, User $user)
     {
-        if ($user->role === 'editor') abort(403);
+        if ($user->role === 'editor') {
+            abort(403);
+        }
 
         $data = $request->validate([
-            'name'     => 'required|max:100',
-            'email'    => 'required|email|unique:users,email,'.$user->id,
-            'bio'      => 'nullable|max:500',
-            'twitter'  => 'nullable|max:100',
+            'name' => 'required|max:100',
+            'email' => 'required|email|unique:users,email,'.$user->id,
+            'bio' => 'nullable|max:500',
+            'twitter' => 'nullable|max:100',
             'linkedin' => 'nullable|url|max:255',
         ]);
 
         $user->update($data);
 
-        \App\Models\ActivityLog::record('Collaboratore modificato', 'user', $user->id, $user->name);
+        ActivityLog::record('Collaboratore modificato', 'user', $user->id, $user->name);
 
         return redirect()->route('admin.collaborators')
             ->with('success', "Profilo di {$user->name} aggiornato.");
@@ -121,7 +127,9 @@ class CollaboratorController extends Controller
 
     public function resetPassword(User $user)
     {
-        if ($user->role === 'editor') abort(403);
+        if ($user->role === 'editor') {
+            abort(403);
+        }
 
         $password = Str::random(12);
         $user->update(['password' => Hash::make($password)]);
@@ -129,8 +137,8 @@ class CollaboratorController extends Controller
         try {
             Mail::send([], [], function ($m) use ($user, $password) {
                 $m->to($user->email)
-                  ->subject('🔑 Password reimpostata — Quark')
-                  ->html("
+                    ->subject('🔑 Password reimpostata — Quark')
+                    ->html("
                     <div style='font-family:Arial,sans-serif;max-width:480px;padding:1.5rem;'>
                         <h2 style='color:#0d9488;'>Password reimpostata</h2>
                         <p style='color:#374151;'>Ciao {$user->name}, la tua password è stata reimpostata dall'editor.</p>
@@ -138,13 +146,14 @@ class CollaboratorController extends Controller
                             <p style='margin:0;'>Nuova password temporanea: <strong style='font-family:monospace;background:#e5e7eb;padding:.1rem .4rem;border-radius:4px;'>{$password}</strong></p>
                         </div>
                         <p style='color:#6b7280;font-size:.82rem;'>Cambia la password dal tuo profilo dopo l'accesso.</p>
-                        <a href='" . route('redazione.login') . "' style='display:inline-block;background:#0d9488;color:#fff;padding:.6rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>
+                        <a href='".route('redazione.login')."' style='display:inline-block;background:#0d9488;color:#fff;padding:.6rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>
                             Accedi →
                         </a>
                     </div>
                   ");
             });
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
 
         return redirect()->route('admin.collaborators')
             ->with('success', "Password di {$user->name} reimpostata. Email inviata.");
@@ -152,8 +161,12 @@ class CollaboratorController extends Controller
 
     public function destroy(User $user)
     {
-        if ($user->role === 'editor') abort(403);
-        if ($user->id === auth()->id()) abort(403);
+        if ($user->role === 'editor') {
+            abort(403);
+        }
+        if ($user->id === auth()->id()) {
+            abort(403);
+        }
 
         $name = $user->name;
 
@@ -165,7 +178,7 @@ class CollaboratorController extends Controller
 
         $user->delete();
 
-        \App\Models\ActivityLog::record('Collaboratore rimosso', 'user', null, $name);
+        ActivityLog::record('Collaboratore rimosso', 'user', null, $name);
 
         return redirect()->route('admin.collaborators')
             ->with('success', "Collaboratore {$name} rimosso. I suoi articoli sono stati riassegnati.");

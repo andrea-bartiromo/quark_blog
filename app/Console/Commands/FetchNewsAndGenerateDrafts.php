@@ -1,16 +1,18 @@
 <?php
+
 /**
  * Il Laboratorio — Rivista italiana di divulgazione scientifica
  *
  * @author    Andrea Bartiromo <redazione@illaboratorio.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  * @license   Proprietario — tutti i diritti riservati
+ *
  * @link      https://www.illaboratorio.it
  */
+
 namespace App\Console\Commands;
 
 use App\Models\NewsSuggestion;
-use App\Models\Article;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -29,7 +31,8 @@ use Illuminate\Support\Str;
  */
 class FetchNewsAndGenerateDrafts extends Command
 {
-    protected $signature   = 'news:fetch {--dry-run : Mostra le notizie trovate senza salvare} {--category= : Filtra per categoria}';
+    protected $signature = 'news:fetch {--dry-run : Mostra le notizie trovate senza salvare} {--category= : Filtra per categoria}';
+
     protected $description = 'Raccoglie notizie scientifiche da feed RSS verificati e genera bozze con AI nel rispetto dei criteri editoriali';
 
     /**
@@ -86,9 +89,9 @@ class FetchNewsAndGenerateDrafts extends Command
         $this->info('═══════════════════════════════════════════════════════════');
 
         $categoryFilter = $this->option('category');
-        $isDryRun       = $this->option('dry-run');
-        $totalSaved     = 0;
-        $totalSkipped   = 0;
+        $isDryRun = $this->option('dry-run');
+        $totalSaved = 0;
+        $totalSkipped = 0;
 
         $feeds = $categoryFilter
             ? [$categoryFilter => ($this->feeds[$categoryFilter] ?? [])]
@@ -103,15 +106,17 @@ class FetchNewsAndGenerateDrafts extends Command
 
                 if (empty($items)) {
                     $this->line("   ⚠ Feed non raggiungibile: {$feedUrl}");
+
                     continue;
                 }
 
                 $source = parse_url($feedUrl, PHP_URL_HOST);
-                $this->line("   📡 " . count($items) . " notizie da: {$source}");
+                $this->line('   📡 '.count($items)." notizie da: {$source}");
 
                 foreach ($items as $item) {
-                    if (!$this->isRelevant($item)) {
+                    if (! $this->isRelevant($item)) {
                         $totalSkipped++;
+
                         continue;
                     }
 
@@ -119,22 +124,22 @@ class FetchNewsAndGenerateDrafts extends Command
                         continue;
                     }
 
-                    $this->line("   ✓ Trovata: <fg=green>" . Str::limit($item['title'], 70) . "</>");
+                    $this->line('   ✓ Trovata: <fg=green>'.Str::limit($item['title'], 70).'</>');
 
-                    if (!$isDryRun) {
+                    if (! $isDryRun) {
                         $draft = $this->generateDraftWithAI($item, $category, $source);
 
                         NewsSuggestion::create([
-                            'source_title'      => $item['title'],
-                            'source_url'        => $item['url'],
-                            'source_name'       => $source,
-                            'source_excerpt'    => $item['excerpt'] ?? null,
-                            'category'          => $category,
-                            'generated_title'   => $draft['title']   ?? null,
+                            'source_title' => $item['title'],
+                            'source_url' => $item['url'],
+                            'source_name' => $source,
+                            'source_excerpt' => $item['excerpt'] ?? null,
+                            'category' => $category,
+                            'generated_title' => $draft['title'] ?? null,
                             'generated_excerpt' => $draft['excerpt'] ?? null,
-                            'generated_body'    => $draft['body']    ?? null,
-                            'status'            => 'pending',
-                            'fetched_at'        => now(),
+                            'generated_body' => $draft['body'] ?? null,
+                            'status' => 'pending',
+                            'fetched_at' => now(),
                         ]);
 
                         $totalSaved++;
@@ -144,10 +149,10 @@ class FetchNewsAndGenerateDrafts extends Command
         }
 
         $this->info('');
-        $this->info("════════════════════════════════════════════════════════");
+        $this->info('════════════════════════════════════════════════════════');
 
         if ($isDryRun) {
-            $this->info("🔍 DRY RUN — nessun dato salvato.");
+            $this->info('🔍 DRY RUN — nessun dato salvato.');
         } else {
             $this->info("✅ Bozze generate: <fg=green>{$totalSaved}</>");
             $this->info("⏭  Notizie non pertinenti: {$totalSkipped}");
@@ -161,8 +166,8 @@ class FetchNewsAndGenerateDrafts extends Command
                 $this->info('   3. Aggiungi le fonti primarie nel campo apposito');
                 $this->info('   4. Solo dopo contrassegna come "Verificato" nel pannello');
                 $this->info('');
-                $this->info('   Pannello suggerimenti: ' . config('app.url') . '/admin/suggerimenti');
-                $this->info('   Pannello verifica:     ' . config('app.url') . '/admin/verifica');
+                $this->info('   Pannello suggerimenti: '.config('app.url').'/admin/suggerimenti');
+                $this->info('   Pannello verifica:     '.config('app.url').'/admin/verifica');
             }
         }
 
@@ -176,35 +181,43 @@ class FetchNewsAndGenerateDrafts extends Command
         try {
             $context = stream_context_create([
                 'http' => [
-                    'timeout'    => 10,
+                    'timeout' => 10,
                     'user_agent' => 'Il Laboratorio RSS Reader/1.0',
                 ],
             ]);
 
             $xmlContent = @file_get_contents($url, false, $context);
-            if (!$xmlContent) return [];
+            if (! $xmlContent) {
+                return [];
+            }
 
             libxml_use_internal_errors(true);
             $xml = simplexml_load_string($xmlContent);
             libxml_clear_errors();
-            if (!$xml) return [];
+            if (! $xml) {
+                return [];
+            }
 
             $entries = $xml->channel->item ?? $xml->entry ?? [];
 
             foreach ($entries as $entry) {
-                $title   = trim((string) ($entry->title ?? ''));
-                $link    = trim((string) ($entry->link ?? $entry->guid ?? ''));
-                $desc    = trim(strip_tags((string) ($entry->description ?? $entry->summary ?? '')));
+                $title = trim((string) ($entry->title ?? ''));
+                $link = trim((string) ($entry->link ?? $entry->guid ?? ''));
+                $desc = trim(strip_tags((string) ($entry->description ?? $entry->summary ?? '')));
                 $pubDate = (string) ($entry->pubDate ?? $entry->published ?? '');
 
-                if (!$title || !$link) continue;
-                if ($pubDate && strtotime($pubDate) < strtotime('-7 days')) continue;
+                if (! $title || ! $link) {
+                    continue;
+                }
+                if ($pubDate && strtotime($pubDate) < strtotime('-7 days')) {
+                    continue;
+                }
 
                 $items[] = [
-                    'title'   => $title,
-                    'url'     => $link,
+                    'title' => $title,
+                    'url' => $link,
                     'excerpt' => Str::limit($desc, 500),
-                    'date'    => $pubDate,
+                    'date' => $pubDate,
                 ];
             }
         } catch (\Exception $e) {
@@ -216,12 +229,13 @@ class FetchNewsAndGenerateDrafts extends Command
 
     private function isRelevant(array $item): bool
     {
-        $text = strtolower($item['title'] . ' ' . ($item['excerpt'] ?? ''));
+        $text = strtolower($item['title'].' '.($item['excerpt'] ?? ''));
         foreach ($this->keywords as $keyword) {
             if (str_contains($text, strtolower($keyword))) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -239,13 +253,14 @@ class FetchNewsAndGenerateDrafts extends Command
     {
         $apiKey = config('services.anthropic.key');
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             $this->warn('   ⚠ ANTHROPIC_API_KEY non configurata.');
+
             return [];
         }
 
         $catLabels = config('laboratorio.categories');
-        $catLabel  = $catLabels[$category] ?? $category;
+        $catLabel = $catLabels[$category] ?? $category;
 
         $prompt = <<<PROMPT
 Sei il caporedattore de "Il Laboratorio", una rivista italiana di divulgazione scientifica e tecnologica con rigorosi standard editoriali. Stai scrivendo la prima bozza di un articolo da una notizia ricevuta da una fonte esterna.
@@ -290,7 +305,9 @@ PROMPT;
 
         try {
             $response = $this->callAnthropicAPI($prompt, $apiKey);
-            if (!$response) return [];
+            if (! $response) {
+                return [];
+            }
 
             $json = json_decode($response, true);
 
@@ -302,7 +319,8 @@ PROMPT;
             return $json ?? [];
 
         } catch (\Exception $e) {
-            $this->warn("   ⚠ Errore AI: " . $e->getMessage());
+            $this->warn('   ⚠ Errore AI: '.$e->getMessage());
+
             return [];
         }
     }
@@ -310,17 +328,17 @@ PROMPT;
     private function callAnthropicAPI(string $prompt, string $apiKey): ?string
     {
         $payload = json_encode([
-            'model'      => 'claude-sonnet-4-6',
+            'model' => 'claude-sonnet-4-6',
             'max_tokens' => 2000,
-            'messages'   => [['role' => 'user', 'content' => $prompt]],
+            'messages' => [['role' => 'user', 'content' => $prompt]],
         ]);
 
         $context = stream_context_create([
             'http' => [
-                'method'  => 'POST',
-                'header'  => implode("\r\n", [
+                'method' => 'POST',
+                'header' => implode("\r\n", [
                     'Content-Type: application/json',
-                    'x-api-key: ' . $apiKey,
+                    'x-api-key: '.$apiKey,
                     'anthropic-version: 2023-06-01',
                 ]),
                 'content' => $payload,
@@ -329,9 +347,12 @@ PROMPT;
         ]);
 
         $result = @file_get_contents('https://api.anthropic.com/v1/messages', false, $context);
-        if (!$result) return null;
+        if (! $result) {
+            return null;
+        }
 
         $data = json_decode($result, true);
+
         return $data['content'][0]['text'] ?? null;
     }
 }

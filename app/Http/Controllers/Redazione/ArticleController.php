@@ -5,17 +5,16 @@ namespace App\Http\Controllers\Redazione;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Redazione\StoreArticleRequest;
 use App\Http\Requests\Redazione\UpdateArticleRequest;
-use App\Models\Article;
 use App\Models\ActivityLog;
+use App\Models\Article;
+use App\Models\User;
 use App\Services\ImageService;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
-    public function __construct(private readonly ImageService $imageService)
-    {
-    }
+    public function __construct(private readonly ImageService $imageService) {}
 
     public function index()
     {
@@ -29,6 +28,7 @@ class ArticleController extends Controller
     public function create()
     {
         $categories = config('laboratorio.categories');
+
         return view('redazione.article-form', compact('categories'));
     }
 
@@ -39,11 +39,11 @@ class ArticleController extends Controller
         // Upload immagine
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
-            $ext  = strtolower($file->getClientOriginalExtension());
+            $ext = strtolower($file->getClientOriginalExtension());
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis') . '-' . Str::random(6)
+                date('YmdHis').'-'.Str::random(6)
             );
             $this->imageService->upload($file, public_path('assets/img'), $diskName);
             $data['cover_image'] = $diskName;
@@ -51,23 +51,23 @@ class ArticleController extends Controller
 
         $wordCount = str_word_count(strip_tags($data['body'] ?? ''));
         $article = Article::create([
-            'user_id'             => auth()->id(),
-            'title'               => $data['title'],
-            'slug'                => Str::slug($data['title']) . '-' . time(),
-            'excerpt'             => $data['excerpt'] ?? null,
-            'body'                => $data['body'],
-            'category'            => $data['category'],
-            'cover_image'         => $data['cover_image'] ?? null,
-            'cover_alt'           => $data['cover_alt'] ?? null,
-            'cover_caption'       => $data['cover_caption'] ?? null,
-            'cover_credit'        => $data['cover_credit'] ?? null,
-            'cover_source'        => $data['cover_source'] ?? null,
-            'cover_source_url'    => $data['cover_source_url'] ?? null,
-            'cover_license'       => $data['cover_license'] ?? null,
-            'status'              => 'review', // ← sempre in revisione
-            'read_minutes'        => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'user_id' => auth()->id(),
+            'title' => $data['title'],
+            'slug' => Str::slug($data['title']).'-'.time(),
+            'excerpt' => $data['excerpt'] ?? null,
+            'body' => $data['body'],
+            'category' => $data['category'],
+            'cover_image' => $data['cover_image'] ?? null,
+            'cover_alt' => $data['cover_alt'] ?? null,
+            'cover_caption' => $data['cover_caption'] ?? null,
+            'cover_credit' => $data['cover_credit'] ?? null,
+            'cover_source' => $data['cover_source'] ?? null,
+            'cover_source_url' => $data['cover_source_url'] ?? null,
+            'cover_license' => $data['cover_license'] ?? null,
+            'status' => 'review', // ← sempre in revisione
+            'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
             'verification_status' => 'unverified',
-            'published_at'        => now(),
+            'published_at' => now(),
         ]);
 
         // Notifica email all'editor
@@ -93,6 +93,7 @@ class ArticleController extends Controller
         }
 
         $categories = config('laboratorio.categories');
+
         return view('redazione.article-form', compact('article', 'categories'));
     }
 
@@ -102,11 +103,11 @@ class ArticleController extends Controller
 
         if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
             $file = $request->file('cover_image_upload');
-            $ext  = strtolower($file->getClientOriginalExtension());
+            $ext = strtolower($file->getClientOriginalExtension());
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis') . '-' . Str::random(6)
+                date('YmdHis').'-'.Str::random(6)
             );
             $this->imageService->upload($file, public_path('assets/img'), $diskName);
             $data['cover_image'] = $diskName;
@@ -114,19 +115,19 @@ class ArticleController extends Controller
 
         $wordCount = str_word_count(strip_tags($data['body'] ?? ''));
         $article->update([
-            'title'            => $data['title'],
-            'excerpt'          => $data['excerpt'] ?? null,
-            'body'             => $data['body'],
-            'category'         => $data['category'],
-            'cover_image'      => $data['cover_image'] ?? $article->cover_image,
-            'cover_alt'        => $data['cover_alt'] ?? null,
-            'cover_caption'    => $data['cover_caption'] ?? null,
-            'cover_credit'     => $data['cover_credit'] ?? null,
-            'cover_source'     => $data['cover_source'] ?? null,
+            'title' => $data['title'],
+            'excerpt' => $data['excerpt'] ?? null,
+            'body' => $data['body'],
+            'category' => $data['category'],
+            'cover_image' => $data['cover_image'] ?? $article->cover_image,
+            'cover_alt' => $data['cover_alt'] ?? null,
+            'cover_caption' => $data['cover_caption'] ?? null,
+            'cover_credit' => $data['cover_credit'] ?? null,
+            'cover_source' => $data['cover_source'] ?? null,
             'cover_source_url' => $data['cover_source_url'] ?? null,
-            'cover_license'    => $data['cover_license'] ?? null,
-            'status'           => 'review', // rinvia in revisione dopo modifica
-            'read_minutes'     => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'cover_license' => $data['cover_license'] ?? null,
+            'status' => 'review', // rinvia in revisione dopo modifica
+            'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
         ]);
 
         $this->notifyEditor($article, true);
@@ -138,10 +139,15 @@ class ArticleController extends Controller
 
     public function destroy(Article $article)
     {
-        if ($article->user_id !== auth()->id()) abort(403);
-        if ($article->status === 'published') abort(403);
+        if ($article->user_id !== auth()->id()) {
+            abort(403);
+        }
+        if ($article->status === 'published') {
+            abort(403);
+        }
 
         $article->delete();
+
         return redirect()->route('redazione.articles')
             ->with('success', 'Articolo eliminato.');
     }
@@ -149,28 +155,30 @@ class ArticleController extends Controller
     private function notifyEditor(Article $article, bool $isUpdate = false): void
     {
         try {
-            $editorEmail = \App\Models\User::where('role', 'editor')->value('email');
-            if (!$editorEmail) return;
+            $editorEmail = User::where('role', 'editor')->value('email');
+            if (! $editorEmail) {
+                return;
+            }
 
             $subject = $isUpdate
                 ? '✏️ Articolo modificato — in attesa di revisione'
                 : '📝 Nuovo articolo da revisionare — Quark';
 
             $reviewUrl = route('admin.articles.edit', $article);
-            $author    = auth()->user()->name;
-            $cat       = config('laboratorio.categories.' . $article->category);
+            $author = auth()->user()->name;
+            $cat = config('laboratorio.categories.'.$article->category);
 
             Mail::send([], [], function ($m) use ($editorEmail, $article, $subject, $reviewUrl, $author, $cat, $isUpdate) {
                 $m->to($editorEmail)->subject($subject)->html("
                     <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
                         <h2 style='color:#0d9488;margin-bottom:.75rem;'>
-                            " . ($isUpdate ? '✏️ Articolo modificato' : '📝 Nuovo articolo') . "
+                            ".($isUpdate ? '✏️ Articolo modificato' : '📝 Nuovo articolo')."
                         </h2>
                         <table style='width:100%;border-collapse:collapse;font-size:.875rem;margin-bottom:1rem;'>
                             <tr><td style='padding:.4rem 0;color:#6b7280;width:90px;'>Autore</td>
                                 <td style='font-weight:600;'>{$author}</td></tr>
                             <tr><td style='padding:.4rem 0;color:#6b7280;'>Titolo</td>
-                                <td style='font-weight:600;'>" . htmlspecialchars($article->title) . "</td></tr>
+                                <td style='font-weight:600;'>".htmlspecialchars($article->title)."</td></tr>
                             <tr><td style='padding:.4rem 0;color:#6b7280;'>Categoria</td>
                                 <td>{$cat}</td></tr>
                         </table>
