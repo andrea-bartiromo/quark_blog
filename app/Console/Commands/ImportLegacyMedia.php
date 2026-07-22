@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Media;
 use App\Models\User;
+use App\Services\MediaFolderService;
 use App\Services\MediaService;
 use Illuminate\Console\Command;
 use RecursiveDirectoryIterator;
@@ -24,7 +25,7 @@ class ImportLegacyMedia extends Command
 
     private const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-    public function handle(MediaService $mediaService): int
+    public function handle(MediaService $mediaService, MediaFolderService $mediaFolderService): int
     {
         $user = $this->resolveUser();
         if (! $user) {
@@ -55,7 +56,7 @@ class ImportLegacyMedia extends Command
         $fileInfo = new \finfo(FILEINFO_MIME_TYPE);
 
         foreach ($iterator as $file) {
-            $this->processFile($file, $mediaRoot, $user, $mediaService, $dryRun, $fileInfo, $counts);
+            $this->processFile($file, $mediaRoot, $user, $mediaService, $mediaFolderService, $dryRun, $fileInfo, $counts);
         }
 
         $this->newLine();
@@ -147,6 +148,7 @@ class ImportLegacyMedia extends Command
         string $mediaRoot,
         User $user,
         MediaService $mediaService,
+        MediaFolderService $mediaFolderService,
         bool $dryRun,
         \finfo $fileInfo,
         array &$counts
@@ -207,6 +209,10 @@ class ImportLegacyMedia extends Command
             $counts['registered']++;
             $this->line('GIA REGISTRATO '.$diskName);
 
+            if (! $dryRun) {
+                $this->syncFolders($mediaFolderService, $diskName, $user, $counts);
+            }
+
             return;
         }
 
@@ -227,9 +233,21 @@ class ImportLegacyMedia extends Command
                 $counts['registered']++;
                 $this->line('GIA REGISTRATO '.$diskName);
             }
+
+            $this->syncFolders($mediaFolderService, $diskName, $user, $counts);
         } catch (Throwable $exception) {
             $counts['errors']++;
             $this->warn('Errore durante la registrazione di '.$diskName.': '.$exception->getMessage());
+        }
+    }
+
+    private function syncFolders(MediaFolderService $service, string $diskName, User $user, array &$counts): void
+    {
+        try {
+            $service->ensureHierarchyForDiskName($diskName, $user);
+        } catch (Throwable $exception) {
+            $counts['errors']++;
+            $this->warn('Media importato, categorie non sincronizzate per '.$diskName.': '.$exception->getMessage());
         }
     }
 

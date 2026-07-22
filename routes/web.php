@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
@@ -141,6 +142,8 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/media', [MediaController::class, 'store'])->name('media.store');
     Route::post('/media/upload-ajax', [MediaController::class, 'store'])->name('media.upload');
     Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
+    Route::post('/media-folders', [MediaFolderController::class, 'store'])->name('media-folders.store');
+    Route::delete('/media-folders/{mediaFolder}', [MediaFolderController::class, 'destroy'])->name('media-folders.destroy');
 
     // Profilo
     Route::get('/profilo', [ProfileController::class, 'edit'])->name('profile');

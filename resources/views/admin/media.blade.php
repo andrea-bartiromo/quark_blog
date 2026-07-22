@@ -4,136 +4,182 @@
 @section('content')
 
 <div class="admin-topbar">
-  <h1 class="admin-page-title">Libreria media</h1>
-  <span style="font-size:.82rem;color:#6b7280;">{{ $files->total() }} file caricati</span>
+  <div>
+    <h1 class="admin-page-title">Libreria media</h1>
+    <div style="font-size:.78rem;color:#6b7280;margin-top:.2rem;">
+      {{ $currentFolder?->hierarchicalLabel($foldersById) ?? 'Radice' }} · {{ $files->total() }} immagini dirette
+    </div>
+  </div>
+  <a href="#nuova-categoria" class="btn btn--secondary">＋ Nuova categoria</a>
 </div>
 
-{{-- Messaggio successo/errore --}}
 @if(session('success'))
-<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
-            padding:.85rem 1.1rem;margin-bottom:1rem;color:#065f46;font-size:.875rem;">
+<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:.85rem 1.1rem;margin-bottom:1rem;color:#065f46;font-size:.875rem;">
   ✅ {{ session('success') }}
 </div>
 @endif
 
+@if(session('error'))
+<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:.85rem 1.1rem;margin-bottom:1rem;color:#991b1b;font-size:.875rem;">
+  ❌ {{ session('error') }}
+</div>
+@endif
+
 @if($errors->any())
-<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;
-            padding:.85rem 1.1rem;margin-bottom:1rem;color:#991b1b;font-size:.875rem;">
+<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:.85rem 1.1rem;margin-bottom:1rem;color:#991b1b;font-size:.875rem;">
   ❌ {{ $errors->first() }}
 </div>
 @endif
 
-{{-- Form upload semplice --}}
-<div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
-            padding:1.5rem;margin-bottom:1.5rem;">
-  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
-              letter-spacing:.1em;color:#6b7280;margin-bottom:1rem;">
-    Carica nuova immagine
-  </div>
+{{-- Breadcrumb --}}
+<nav aria-label="Percorso categoria immagini" style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:1rem;font-size:.82rem;">
+  <a href="{{ route('admin.media') }}" style="color:#0d9488;text-decoration:none;">Libreria media</a>
+  @foreach($breadcrumb as $ancestor)
+    <span style="color:#9ca3af;">/</span>
+    <a href="{{ route('admin.media', ['folder' => $ancestor->id]) }}" style="color:#0d9488;text-decoration:none;">{{ $ancestor->name }}</a>
+  @endforeach
+  @if($currentFolder)
+    <span style="color:#9ca3af;">/</span>
+    <strong style="color:#111827;">{{ $currentFolder->name }}</strong>
+  @endif
+</nav>
 
-  <form method="POST" action="{{ route('admin.media.store') }}"
-        enctype="multipart/form-data">
+@if($currentFolder)
+<div style="margin-bottom:1rem;">
+  <a href="{{ $currentFolder->parent_id ? route('admin.media', ['folder' => $currentFolder->parent_id]) : route('admin.media') }}"
+     style="font-size:.78rem;color:#0d9488;text-decoration:none;">← Cartella superiore</a>
+</div>
+@endif
+
+{{-- Creazione categoria --}}
+<details id="nuova-categoria" style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1rem 1.25rem;margin-bottom:1.25rem;" @if($errors->has('name') || $errors->has('parent_id')) open @endif>
+  <summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#111827;">Nuova categoria immagini</summary>
+  <form method="POST" action="{{ route('admin.media-folders.store') }}" style="margin-top:1rem;">
     @csrf
-    <div style="display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:end;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
       <div>
-        <label style="display:block;font-size:.78rem;font-weight:600;color:#111827;margin-bottom:.35rem;">
-          Seleziona immagine (JPEG, PNG, WebP — max 5MB)
-        </label>
-        <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
-               required
-               style="width:100%;padding:.55rem .85rem;border:1px solid #e5e7eb;
-                      border-radius:6px;font-size:.875rem;font-family:inherit;
-                      background:#fff;color:#111827;">
+        <label class="form-label">Nome</label>
+        <input class="form-input" name="name" value="{{ old('name') }}" maxlength="100" required>
       </div>
-      <button type="submit" class="btn btn--primary" style="white-space:nowrap;">
-        ⬆ Carica
-      </button>
+      <div>
+        <label class="form-label">Categoria superiore</label>
+        <select class="form-select" name="parent_id">
+          <option value="">Radice</option>
+          @foreach($allFolders as $folder)
+            <option value="{{ $folder->id }}" @selected((string) old('parent_id', $currentFolder?->id) === (string) $folder->id)>
+              {{ str_repeat('— ', $folder->depth() - 1) }}{{ $folder->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Descrizione (opzionale)</label>
+        <input class="form-input" name="description" value="{{ old('description') }}" maxlength="500">
+      </div>
+      <div>
+        <label class="form-label">Icona (opzionale)</label>
+        <input class="form-input" name="icon" value="{{ old('icon') }}" maxlength="50" placeholder="es. 📁">
+      </div>
     </div>
-    <div style="margin-top:.5rem;">
-      <label style="font-size:.78rem;font-weight:600;color:#111827;">
-        Testo alternativo (opzionale)
-      </label>
-      <input type="text" name="alt_text" placeholder="Descrivi l'immagine..."
-             maxlength="200"
-             style="width:100%;padding:.45rem .75rem;border:1px solid #e5e7eb;
-                    border-radius:6px;font-size:.82rem;margin-top:.25rem;">
+    <button type="submit" class="btn btn--primary" style="margin-top:.85rem;">Crea categoria</button>
+  </form>
+</details>
+
+{{-- Upload --}}
+<div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1.5rem;margin-bottom:1.5rem;">
+  <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:1rem;">Carica nuova immagine</div>
+  <form method="POST" action="{{ route('admin.media.store') }}" enctype="multipart/form-data">
+    @csrf
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.6fr) auto;gap:.75rem;align-items:end;">
+      <div>
+        <label class="form-label">Immagine (JPEG, PNG, WebP, GIF — max 5MB)</label>
+        <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" required class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Categoria di destinazione</label>
+        <select class="form-select" name="media_folder_id">
+          <option value="">Radice</option>
+          @foreach($allFolders as $folder)
+            <option value="{{ $folder->id }}" @selected((string) old('media_folder_id', $defaultFolder?->id) === (string) $folder->id)>
+              {{ str_repeat('— ', $folder->depth() - 1) }}{{ $folder->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+      <button type="submit" class="btn btn--primary" style="white-space:nowrap;">⬆ Carica</button>
+    </div>
+    <div style="margin-top:.65rem;">
+      <label class="form-label">Testo alternativo (opzionale)</label>
+      <input type="text" name="alt_text" value="{{ old('alt_text') }}" maxlength="200" class="form-input" placeholder="Descrivi l'immagine...">
     </div>
   </form>
 </div>
 
-{{-- Griglia immagini --}}
+{{-- Categorie dirette --}}
+@if($folders->isNotEmpty())
+<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:.75rem;">Categorie immagini</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  @foreach($folders as $folder)
+  @php($directCount = $folderCounts[$folder->path] ?? 0)
+  <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1rem;border:1px solid #f3f4f6;">
+    <a href="{{ route('admin.media', ['folder' => $folder->id]) }}" style="display:flex;gap:.75rem;color:inherit;text-decoration:none;">
+      <span style="font-size:1.65rem;line-height:1;">{{ $folder->icon ?: '📁' }}</span>
+      <span style="min-width:0;">
+        <strong style="display:block;font-size:.86rem;color:#111827;overflow:hidden;text-overflow:ellipsis;">{{ $folder->name }}</strong>
+        <span style="display:block;font-size:.68rem;color:#6b7280;margin-top:.2rem;">{{ $directCount }} {{ $directCount === 1 ? 'immagine' : 'immagini' }}</span>
+      </span>
+    </a>
+    @if($folder->description)
+      <p style="font-size:.7rem;color:#6b7280;margin:.65rem 0 0;">{{ $folder->description }}</p>
+    @endif
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;padding-top:.6rem;border-top:1px solid #f3f4f6;">
+      @if($folder->is_protected)
+        <span style="font-size:.65rem;color:#9a3412;">🔒 Protetta</span>
+      @else
+        <span></span>
+        @if($directCount === 0 && $folder->children_count === 0)
+        <form method="POST" action="{{ route('admin.media-folders.destroy', $folder) }}" onsubmit="return confirm('Eliminare questa categoria vuota?')">
+          @csrf @method('DELETE')
+          <button type="submit" style="background:none;border:none;color:#6b7280;font-size:.65rem;cursor:pointer;">Elimina</button>
+        </form>
+        @endif
+      @endif
+    </div>
+  </div>
+  @endforeach
+</div>
+@endif
+
+{{-- Media diretti --}}
+<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:.75rem;">Immagini nella categoria corrente</div>
+
 @if($files->isEmpty())
-<div style="text-align:center;color:#6b7280;padding:3rem;background:#fff;
-            border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-  <p style="font-size:2rem;margin-bottom:.5rem;">🖼</p>
-  <p>Nessuna immagine ancora. Carica la prima usando il form sopra.</p>
+<div style="text-align:center;color:#6b7280;padding:3rem;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+  <p style="font-size:2rem;margin-bottom:.5rem;">{{ $folders->isEmpty() ? '🖼' : '📂' }}</p>
+  <p>{{ $currentFolder ? 'Questa categoria non contiene immagini dirette.' : 'Nessuna immagine nella radice.' }}</p>
+  @if($folders->isEmpty())
+    <p style="font-size:.75rem;margin-top:.35rem;">Puoi creare una categoria o caricare una nuova immagine.</p>
+  @endif
 </div>
 @else
-
-<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
-            letter-spacing:.1em;color:#6b7280;margin-bottom:.75rem;">
-  Clicca su un'immagine per copiare il nome e usarla negli articoli
-</div>
-
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;">
   @foreach($files as $file)
-  <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
-              overflow:hidden;border:2px solid transparent;transition:all .2s;cursor:pointer;"
-       id="card-{{ $file->id }}"
-       title="{{ $file->disk_name }}">
-
-    {{-- Immagine --}}
-    <div style="aspect-ratio:4/3;overflow:hidden;background:#f5f5f4;position:relative;">
-      <img src="{{ asset('assets/img/'.$file->disk_name) }}"
-           alt="{{ $file->alt_text ?? $file->filename }}"
-           style="width:100%;height:100%;object-fit:cover;"
-           loading="lazy"
-           onerror="this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem;\'>🖼</div>'">
-      <div id="check-{{ $file->id }}"
-           style="display:none;position:absolute;top:6px;right:6px;
-                  background:#0d9488;color:#fff;border-radius:50%;
-                  width:24px;height:24px;display:none;align-items:center;
-                  justify-content:center;font-size:.8rem;">✓</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;">
+    <div style="aspect-ratio:4/3;overflow:hidden;background:#f5f5f4;">
+      <img src="{{ asset('assets/img/'.$file->disk_name) }}" alt="{{ $file->alt_text ?? $file->filename }}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
     </div>
-
-    {{-- Info --}}
     <div style="padding:.65rem .75rem;">
-      <div style="font-size:.72rem;font-weight:600;color:#111827;overflow:hidden;
-                  text-overflow:ellipsis;white-space:nowrap;" title="{{ $file->disk_name }}">
-        {{ $file->disk_name }}
-      </div>
-      <div style="font-size:.65rem;color:#6b7280;display:flex;
-                  justify-content:space-between;margin-top:.2rem;">
-        <span>{{ $file->human_size }}</span>
-        <span>{{ $file->created_at->format('d/m/Y') }}</span>
-      </div>
+      <div style="font-size:.72rem;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ basename($file->disk_name) }}">{{ basename($file->disk_name) }}</div>
+      <div style="font-size:.63rem;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:.18rem;" title="{{ $file->disk_name }}">{{ $file->disk_name }}</div>
+      <div style="font-size:.65rem;color:#6b7280;display:flex;justify-content:space-between;margin-top:.25rem;"><span>{{ $file->human_size }}</span><span>{{ $file->created_at->format('d/m/Y') }}</span></div>
     </div>
-
-    {{-- Azioni --}}
     <div style="padding:.5rem .75rem;border-top:1px solid #f3f4f6;">
-      {{-- Campo selezionabile con nome file --}}
-      <div style="display:flex;gap:.35rem;align-items:center;margin-bottom:.4rem;">
-        <input type="text" readonly
-               value="{{ $file->disk_name }}"
-               onclick="this.select();"
-               style="flex:1;font-size:.65rem;padding:.25rem .4rem;
-                      border:1px solid #e5e7eb;border-radius:4px;
-                      background:#f9fafb;color:#111827;cursor:pointer;"
-               title="Clicca per selezionare il nome">
-      </div>
+      <input type="text" readonly value="{{ $file->disk_name }}" onclick="this.select();copyMediaName(this.value)" class="form-input" style="font-size:.65rem;padding:.25rem .4rem;margin-bottom:.4rem;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank"
-           style="font-size:.65rem;color:#0d9488;text-decoration:none;">
-          Apri →
-        </a>
-        <form method="POST" action="{{ route('admin.media.destroy', $file) }}"
-              onsubmit="return confirm('Eliminare questa immagine?')">
+        <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank" style="font-size:.65rem;color:#0d9488;text-decoration:none;">Apri →</a>
+        <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
           @csrf @method('DELETE')
-          <button type="submit"
-                  style="background:none;border:none;cursor:pointer;
-                         font-size:.65rem;color:#6b7280;">
-            Elimina
-          </button>
+          <button type="submit" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Elimina</button>
         </form>
       </div>
     </div>
@@ -141,61 +187,31 @@
   @endforeach
 </div>
 
-{{-- Paginazione --}}
 @if($files->hasPages())
-<div style="margin-top:1.5rem;">
-  {{ $files->links('components.pagination') }}
-</div>
+<div style="margin-top:1.5rem;">{{ $files->links('components.pagination') }}</div>
+@endif
 @endif
 
-@endif
-
-{{-- Toast notifica --}}
-<div id="toast" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;
-     z-index:9999;background:#111827;color:#fff;font-size:.82rem;
-     padding:.65rem 1.1rem;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);">
-</div>
+<div id="toast" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:#111827;color:#fff;font-size:.82rem;padding:.65rem 1.1rem;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);"></div>
 
 @endsection
 
 @section('scripts')
 <script>
-let selectedCard = null;
+function copyMediaName(filename) {
+  const done = () => {
+    const toast = document.getElementById('toast');
+    toast.textContent = '✓ "' + filename + '" copiato negli appunti';
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 2500);
+  };
 
-function selectImage(filename, id) {
-  // Rimuovi selezione precedente
-  if (selectedCard) {
-    document.getElementById('card-' + selectedCard).style.borderColor = 'transparent';
-    const prevCheck = document.getElementById('check-' + selectedCard);
-    if (prevCheck) prevCheck.style.display = 'none';
-  }
-
-  // Seleziona nuova card
-  selectedCard = id;
-  document.getElementById('card-' + id).style.borderColor = '#0d9488';
-  const check = document.getElementById('check-' + id);
-  if (check) check.style.display = 'flex';
-
-  // Copia negli appunti
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(filename).then(() => showToast('✓ "' + filename + '" copiato negli appunti'));
+    navigator.clipboard.writeText(filename).then(done);
   } else {
-    // Fallback
-    const ta = document.createElement('textarea');
-    ta.value = filename;
-    document.body.appendChild(ta);
-    ta.select();
     document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✓ "' + filename + '" copiato negli appunti');
+    done();
   }
-}
-
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 2500);
 }
 </script>
 @endsection

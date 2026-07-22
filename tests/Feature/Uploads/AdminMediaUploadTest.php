@@ -3,6 +3,7 @@
 namespace Tests\Feature\Uploads;
 
 use App\Models\Media;
+use App\Models\MediaFolder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -53,6 +54,7 @@ class AdminMediaUploadTest extends TestCase
         $this->assertSame('foto.jpg', $media->filename);
         $this->assertSame($editor->id, $media->user_id);
         $this->assertSame('Testo alternativo di prova', $media->alt_text);
+        $this->assertStringStartsWith('_da-classificare/', $media->disk_name);
         $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
         $this->assertGreaterThan(0, $media->size);
     }
@@ -174,6 +176,52 @@ class AdminMediaUploadTest extends TestCase
         $media = Media::latest('id')->firstOrFail();
         $response->assertJsonPath('filename', $media->disk_name);
         $response->assertJsonPath('id', $media->id);
+        $response->assertJsonPath('url', asset('assets/img/'.$media->disk_name));
+    }
+
+    public function test_upload_can_target_a_selected_category(): void
+    {
+        $editor = $this->editor();
+        $folder = MediaFolder::create([
+            'name' => 'Copertine',
+            'slug' => 'covers',
+            'path' => 'articles/covers',
+        ]);
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => UploadedFile::fake()->image('cover.jpg', 400, 300),
+            'media_folder_id' => $folder->id,
+        ])->assertSessionHasNoErrors();
+
+        $media = Media::latest('id')->firstOrFail();
+        $this->assertStringStartsWith('articles/covers/', $media->disk_name);
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
+    }
+
+    public function test_upload_can_explicitly_target_the_root(): void
+    {
+        $editor = $this->editor();
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => UploadedFile::fake()->image('root.jpg', 400, 300),
+            'media_folder_id' => '',
+        ])->assertSessionHasNoErrors();
+
+        $media = Media::latest('id')->firstOrFail();
+        $this->assertStringNotContainsString('/', $media->disk_name);
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
+    }
+
+    public function test_upload_rejects_a_missing_destination_category(): void
+    {
+        $editor = $this->editor();
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => UploadedFile::fake()->image('missing.jpg', 400, 300),
+            'media_folder_id' => 999999,
+        ])->assertSessionHasErrors('media_folder_id');
+
+        $this->assertSame(0, Media::count());
     }
 
     public function test_a_gd_optimization_failure_is_logged_but_the_media_record_is_still_created(): void
