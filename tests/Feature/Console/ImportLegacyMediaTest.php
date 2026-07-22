@@ -3,6 +3,7 @@
 namespace Tests\Feature\Console;
 
 use App\Models\Media;
+use App\Models\MediaFolder;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,6 +62,9 @@ class ImportLegacyMediaTest extends TestCase
             'disk_name' => 'categories/nested/legacy.jpg',
             'mime_type' => 'image/jpeg',
         ]);
+        $categories = MediaFolder::where('path', 'categories')->firstOrFail();
+        $nested = MediaFolder::where('path', 'categories/nested')->firstOrFail();
+        $this->assertSame($categories->id, $nested->parent_id);
     }
 
     public function test_it_ignores_non_image_files(): void
@@ -73,6 +77,7 @@ class ImportLegacyMediaTest extends TestCase
             ->assertExitCode(Command::SUCCESS);
 
         $this->assertSame(0, Media::count());
+        $this->assertSame(0, MediaFolder::count());
     }
 
     public function test_it_does_not_duplicate_or_reassign_an_existing_record(): void
@@ -116,6 +121,7 @@ class ImportLegacyMediaTest extends TestCase
             ->assertExitCode(Command::SUCCESS);
 
         $this->assertSame(0, Media::count());
+        $this->assertSame(0, MediaFolder::count());
     }
 
     public function test_it_fails_when_the_user_does_not_exist(): void
