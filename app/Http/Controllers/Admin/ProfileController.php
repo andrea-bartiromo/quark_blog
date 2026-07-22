@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\MediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class ProfileController extends Controller
 {
+    public function __construct(private readonly MediaService $mediaService) {}
+
     public function edit()
     {
         return view('admin.profile', ['user' => auth()->user()]);
@@ -33,8 +36,20 @@ class ProfileController extends Controller
         $request->validate(['photo' => 'required|image|mimes:jpeg,png,webp|max:2048']);
         $user = auth()->user();
         $file = $request->file('photo');
+        $originalName = $file->getClientOriginalName();
+        $mimeType = $file->getMimeType();
         $diskName = 'author-'.$user->id.'-'.now()->format('YmdHis').'.'.$file->getClientOriginalExtension();
         $file->move(public_path('assets/img'), $diskName);
+        $fullPath = public_path('assets/img/'.$diskName);
+
+        $this->mediaService->register(
+            $request->user(),
+            $originalName,
+            $diskName,
+            $mimeType,
+            filesize($fullPath)
+        );
+
         $user->update(['photo' => $diskName]);
 
         return back()->with('success', 'Foto aggiornata.');
