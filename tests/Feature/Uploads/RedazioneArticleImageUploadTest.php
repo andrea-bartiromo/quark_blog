@@ -3,6 +3,7 @@
 namespace Tests\Feature\Uploads;
 
 use App\Models\Article;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -56,10 +57,19 @@ class RedazioneArticleImageUploadTest extends TestCase
         $response->assertSessionHas('success');
 
         $article = Article::where('title', 'Articolo redazione')->firstOrFail();
+        $fullPath = public_path('assets/img/'.$article->cover_image);
 
         $this->assertNotNull($article->cover_image);
-        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
+        $this->assertFileExists($fullPath);
         $this->assertSame('review', $article->status);
+
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertSame($author->id, $media->user_id);
+        $this->assertSame('cover.jpg', $media->filename);
+        $this->assertSame($article->cover_image, $media->disk_name);
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame(filesize($fullPath), $media->size);
     }
 
     public function test_the_cover_is_not_resized_by_the_redazione_flow(): void
@@ -126,7 +136,16 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $article->refresh();
         $this->assertNotSame($oldCover, $article->cover_image);
-        $this->assertFileExists(public_path('assets/img/'.$article->cover_image));
+        $fullPath = public_path('assets/img/'.$article->cover_image);
+        $this->assertFileExists($fullPath);
+
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertSame($author->id, $media->user_id);
+        $this->assertSame('nuova.jpg', $media->filename);
+        $this->assertSame($article->cover_image, $media->disk_name);
+        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame(filesize($fullPath), $media->size);
     }
 
     public function test_updating_without_a_new_cover_keeps_the_existing_one(): void
