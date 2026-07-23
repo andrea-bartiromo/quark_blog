@@ -20,4 +20,53 @@ return [
         'turing/portraits/alan-turing-portrait.png',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cartelle di classificazione automatica
+    |--------------------------------------------------------------------------
+    |
+    | Destinazione proposta da MediaClassificationService per ciascun dominio
+    | logico di utilizzo, quando un Media e riferito da un solo dominio in
+    | modo inequivocabile. Le cartelle "article" e "category" coincidono
+    | volutamente con quelle gia create da MediaFolderSeeder (rispettivamente
+    | "Copertine" sotto Articoli, e la cartella Categorie di primo livello),
+    | perche gia usate con lo stesso significato dai flussi di upload
+    | esistenti. Le cartelle "ad", "user" e "special_page" non esistono
+    | ancora: vengono create solo al momento dell'applicazione (--apply) e
+    | solo se esiste davvero un media da classificare in quel dominio,
+    | tramite MediaFolderService::upsertDefinition() (idempotente).
+    */
+    'classification_folders' => [
+        'article' => [
+            'name' => 'Copertine',
+            'slug' => 'covers',
+            'path' => 'articles/covers',
+            'parent_path' => 'articles',
+        ],
+        'ad' => [
+            'name' => 'Pubblicità',
+            'slug' => 'ads',
+            'path' => 'ads',
+            'parent_path' => null,
+        ],
+        'category' => [
+            'name' => 'Categorie',
+            'slug' => 'categories',
+            'path' => 'categories',
+            'parent_path' => null,
+        ],
+        'user' => [
+            'name' => 'Autori',
+            'slug' => 'authors',
+            'path' => 'authors',
+            'parent_path' => null,
+        ],
+        'special_page' => [
+            'name' => 'Pagine speciali',
+            'slug' => 'special-pages',
+            'path' => 'special-pages',
+            'parent_path' => null,
+        ],
+    ],
+
 ];
