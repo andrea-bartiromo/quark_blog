@@ -177,12 +177,36 @@
       <input type="text" readonly value="{{ $file->disk_name }}" onclick="this.select();copyMediaName(this.value)" class="form-input" style="font-size:.65rem;padding:.25rem .4rem;margin-bottom:.4rem;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank" style="font-size:.65rem;color:#0d9488;text-decoration:none;">Apri →</a>
-        <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
-          @csrf @method('DELETE')
-          <button type="submit" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Elimina</button>
-        </form>
+        <div style="display:flex;gap:.6rem;">
+          <button type="button" onclick="document.getElementById('sposta-{{ $file->id }}').open = !document.getElementById('sposta-{{ $file->id }}').open" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#0d9488;">Sposta</button>
+          <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
+            @csrf @method('DELETE')
+            <button type="submit" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Elimina</button>
+          </form>
+        </div>
       </div>
     </div>
+    <details id="sposta-{{ $file->id }}" style="border-top:1px solid #f3f4f6;padding:.65rem .75rem;">
+      <summary style="display:none;"></summary>
+      <div style="font-size:.68rem;color:#6b7280;margin-bottom:.4rem;">
+        Cartella attuale: <strong>{{ $file->disk_name && str_contains($file->disk_name, '/') ? $foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name) : 'Radice' }}</strong>
+      </div>
+      <select class="form-select js-move-target" data-media-id="{{ $file->id }}" data-preflight-url="{{ route('admin.media.move-preflight', $file) }}" style="font-size:.72rem;margin-bottom:.5rem;">
+        <option value="">Radice</option>
+        @foreach($allFolders as $folder)
+          <option value="{{ $folder->id }}">{{ str_repeat('— ', $folder->depth() - 1) }}{{ $folder->name }}</option>
+        @endforeach
+      </select>
+      <div class="js-move-preflight" style="font-size:.65rem;color:#6b7280;margin-bottom:.5rem;min-height:1.2em;"></div>
+      <form method="POST" action="{{ route('admin.media.move', $file) }}" class="js-move-form">
+        @csrf @method('PATCH')
+        <input type="hidden" name="media_folder_id" class="js-move-hidden-input">
+        <div style="display:flex;gap:.5rem;">
+          <button type="submit" class="btn btn--secondary js-move-confirm" style="font-size:.68rem;padding:.35rem .7rem;" disabled>Conferma spostamento</button>
+          <button type="button" onclick="document.getElementById('sposta-{{ $file->id }}').open = false" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Annulla</button>
+        </div>
+      </form>
+    </details>
   </div>
   @endforeach
 </div>
@@ -213,5 +237,48 @@ function copyMediaName(filename) {
     done();
   }
 }
+
+document.querySelectorAll('.js-move-target').forEach(function (select) {
+  const panel = select.closest('details');
+  const preflightBox = panel.querySelector('.js-move-preflight');
+  const confirmBtn = panel.querySelector('.js-move-confirm');
+  const hiddenInput = panel.querySelector('.js-move-hidden-input');
+
+  select.addEventListener('change', function () {
+    hiddenInput.value = select.value;
+    confirmBtn.disabled = true;
+    preflightBox.textContent = 'Verifica in corso…';
+
+    const url = select.dataset.preflightUrl + (select.value ? ('?media_folder_id=' + encodeURIComponent(select.value)) : '');
+
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (data.is_noop) {
+          preflightBox.textContent = 'Il file si trova già in questa destinazione.';
+          confirmBtn.disabled = true;
+
+          return;
+        }
+
+        const updatable = data.updatable_references.length;
+        const blocking = data.blocking_references.length;
+
+        if (blocking > 0) {
+          preflightBox.textContent = '⚠ Bloccato: ' + blocking + ' riferimento/i non aggiornabile/i in sicurezza.';
+          confirmBtn.disabled = true;
+
+          return;
+        }
+
+        preflightBox.textContent = 'Nuovo percorso: ' + data.new_disk_name + (updatable > 0 ? ' · ' + updatable + ' riferimento/i verranno aggiornati.' : ' · nessun riferimento da aggiornare.');
+        confirmBtn.disabled = false;
+      })
+      .catch(function () {
+        preflightBox.textContent = 'Verifica non riuscita. Riprova.';
+        confirmBtn.disabled = true;
+      });
+  });
+});
 </script>
 @endsection
