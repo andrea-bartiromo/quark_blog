@@ -142,6 +142,8 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/media', [MediaController::class, 'store'])->name('media.store');
     Route::post('/media/upload-ajax', [MediaController::class, 'store'])->name('media.upload');
     Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
+    Route::get('/media/{media}/move-preflight', [MediaController::class, 'movePreflight'])->name('media.move-preflight');
+    Route::patch('/media/{media}/move', [MediaController::class, 'move'])->name('media.move');
     Route::post('/media-folders', [MediaFolderController::class, 'store'])->name('media-folders.store');
     Route::delete('/media-folders/{mediaFolder}', [MediaFolderController::class, 'destroy'])->name('media-folders.destroy');
 

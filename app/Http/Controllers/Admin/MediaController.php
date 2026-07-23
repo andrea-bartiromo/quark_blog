@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\MoveMediaRequest;
 use App\Models\Media;
 use App\Models\MediaFolder;
 use App\Services\ImageService;
 use App\Services\MediaFolderService;
+use App\Services\MediaMoveService;
+use App\Services\MediaReferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -14,7 +17,9 @@ class MediaController extends Controller
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly MediaFolderService $mediaFolderService
+        private readonly MediaFolderService $mediaFolderService,
+        private readonly MediaMoveService $mediaMoveService,
+        private readonly MediaReferenceService $mediaReferenceService
     ) {}
 
     public function index(Request $request)
@@ -119,5 +124,61 @@ class MediaController extends Controller
         $media->delete();
 
         return back()->with('success', 'Immagine eliminata.');
+    }
+
+    public function movePreflight(Request $request, Media $media)
+    {
+        $request->validate([
+            'media_folder_id' => 'nullable|integer|exists:media_folders,id',
+        ]);
+
+        $destination = $request->filled('media_folder_id')
+            ? MediaFolder::findOrFail($request->integer('media_folder_id'))
+            : null;
+
+        $newDiskName = $this->mediaFolderService->diskName($destination, basename($media->disk_name));
+
+        if ($newDiskName === $media->disk_name) {
+            return response()->json([
+                'old_disk_name' => $media->disk_name,
+                'new_disk_name' => $newDiskName,
+                'is_noop' => true,
+                'can_move' => true,
+                'updatable_references' => [],
+                'blocking_references' => [],
+                'informational_references' => [],
+                'total_usage_count' => 0,
+            ]);
+        }
+
+        $preflight = $this->mediaReferenceService->preflight($media, $newDiskName);
+
+        return response()->json([
+            'old_disk_name' => $media->disk_name,
+            'new_disk_name' => $newDiskName,
+            'is_noop' => false,
+            ...$preflight,
+        ]);
+    }
+
+    public function move(MoveMediaRequest $request, Media $media)
+    {
+        $result = $this->mediaMoveService->move(
+            $media->id,
+            $request->filled('media_folder_id') ? $request->integer('media_folder_id') : null,
+            $request->user()?->id
+        );
+
+        if ($result->isBlocked()) {
+            $blockedCount = count($result->preflight['blocking_references']);
+
+            return back()->with('error', "Spostamento bloccato: {$blockedCount} riferimento/i non aggiornabile/i in sicurezza.");
+        }
+
+        if ($result->isNoop()) {
+            return back()->with('success', $result->message);
+        }
+
+        return back()->with('success', 'Immagine spostata in "'.$result->newDiskName.'".');
     }
 }
