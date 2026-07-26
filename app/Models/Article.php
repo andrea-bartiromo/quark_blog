@@ -81,7 +81,9 @@ class Article extends Model
 
     public function scopePublished(Builder $q): Builder
     {
-        return $q->where('status', 'published')->orderByDesc('published_at');
+        return $q->where('status', 'published')
+            ->where('published_at', '<=', now())
+            ->orderByDesc('published_at');
     }
 
     public function scopeFeatured(Builder $q): Builder
