@@ -44,7 +44,7 @@
   'kicker' => 'Intelligenza',
   'title' => 'Il Test di Turing',
   'text' => 'Una domanda sul linguaggio, sulle macchine e sul significato del pensare.',
-  'image' => 'turing/test-turing.jpg',
+  'image' => 'turing/turing-test.webp',
   'background_image' => '',
   'link_label' => '',
   'link_url' => '#test-turing',
