@@ -290,6 +290,17 @@
     $inSubfolder = str_contains($file->disk_name, '/');
     $hasDistinctPath = $file->disk_name !== $file->filename;
     $formatLabel = $formatLabels[$file->mime_type] ?? strtoupper(pathinfo($file->disk_name, PATHINFO_EXTENSION));
+    $usage = $usageByDiskName[$file->disk_name] ?? [];
+    $usageCount = count($usage);
+    $isProtected = $file->isProtected();
+    $usageBadgeLabel = $usageCount === 0
+        ? 'Non utilizzata'
+        : ($usageCount === 1 ? 'Usata in 1 contenuto' : "Usata in {$usageCount} contenuti");
+    $deleteBlockedReason = $isProtected
+        ? 'File protetto: riferimento statico nel codice del sito, non eliminabile.'
+        : ($usageCount === 1
+            ? 'Usata in 1 contenuto: non eliminabile finché è ancora collegata.'
+            : "Usata in {$usageCount} contenuti: non eliminabile finché è ancora collegata.");
   @endphp
   <li class="media-card">
     <div class="media-card__preview">
@@ -300,6 +311,12 @@
       @if($hasDistinctPath)
         <p class="media-card__path" title="{{ $file->disk_name }}">{{ $file->disk_name }}</p>
       @endif
+      <p class="media-card__usage">
+        <span class="badge {{ $usageCount === 0 ? 'badge--usage-none' : 'badge--usage-used' }}">{{ $usageBadgeLabel }}</span>
+        @if($isProtected)
+          <span class="badge badge--protected"><span aria-hidden="true">🔒</span> Protetta</span>
+        @endif
+      </p>
       <p class="media-card__meta">{{ $formatLabel }} · {{ $file->human_size }} · {{ $file->created_at->format('d/m/Y') }}</p>
       @if($file->user)
         <p class="media-card__meta media-card__meta--muted">Caricata da {{ $file->user->name }}</p>
@@ -317,10 +334,16 @@
         </summary>
         <div class="media-card__more-menu">
           <button type="button" class="js-copy-path" data-path="{{ $file->disk_name }}" aria-label="Copia il percorso di {{ $file->filename }} negli appunti">Copia percorso</button>
-          <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
-            @csrf @method('DELETE')
-            <button type="submit" class="media-card__action--danger" aria-label="Elimina {{ $file->filename }}">Elimina</button>
-          </form>
+          <button type="button" class="js-toggle-usage" data-target="utilizzi-{{ $file->id }}" aria-expanded="false" aria-controls="utilizzi-{{ $file->id }}" aria-label="Mostra utilizzi di {{ $file->filename }}">Mostra utilizzi</button>
+          @if($isProtected || $usageCount > 0)
+            <button type="button" class="media-card__action--danger" disabled aria-describedby="delete-note-{{ $file->id }}">Elimina</button>
+            <p id="delete-note-{{ $file->id }}" class="media-card__blocked-note">{{ $deleteBlockedReason }}</p>
+          @else
+            <form method="POST" action="{{ route('admin.media.destroy', $file) }}" class="js-confirm-delete" data-filename="{{ $file->filename }}">
+              @csrf @method('DELETE')
+              <button type="submit" class="media-card__action--danger" aria-label="Elimina {{ $file->filename }}">Elimina</button>
+            </form>
+          @endif
         </div>
       </details>
     </div>
@@ -344,6 +367,27 @@
           <button type="button" class="js-cancel-move media-card__move-cancel" data-target="sposta-{{ $file->id }}">Annulla</button>
         </div>
       </form>
+    </details>
+    <details id="utilizzi-{{ $file->id }}" class="media-card__usage-detail">
+      <summary style="display:none;"></summary>
+      @if($usageCount === 0)
+        <p class="media-card__usage-empty">Nessun utilizzo rilevato.</p>
+      @else
+        <ul class="media-card__usage-list">
+          @foreach($usage as $record)
+            <li>
+              <span class="media-card__usage-type">{{ $record['usage_type_label'] }}</span>
+              <span class="media-card__usage-title">{{ $record['content_type'] }}: {{ $record['title'] }}</span>
+              @if($record['status'])
+                <span class="media-card__usage-status">{{ $record['status'] }}</span>
+              @endif
+              @if($record['edit_url'])
+                <a href="{{ $record['edit_url'] }}" class="media-card__usage-link">Apri</a>
+              @endif
+            </li>
+          @endforeach
+        </ul>
+      @endif
     </details>
   </li>
   @endforeach
@@ -402,12 +446,22 @@ function fallbackCopy(text, done) {
   }
 }
 
-document.querySelectorAll('.js-toggle-move').forEach(function (button) {
+document.querySelectorAll('.js-toggle-move, .js-toggle-usage').forEach(function (button) {
   button.addEventListener('click', function () {
     const panel = document.getElementById(button.dataset.target);
     const willOpen = !panel.open;
     panel.open = willOpen;
     button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  });
+});
+
+document.querySelectorAll('.js-confirm-delete').forEach(function (form) {
+  form.addEventListener('submit', function (event) {
+    const filename = form.dataset.filename;
+
+    if (!confirm('Eliminare definitivamente "' + filename + '"? L\'operazione non può essere annullata.')) {
+      event.preventDefault();
+    }
   });
 });
 

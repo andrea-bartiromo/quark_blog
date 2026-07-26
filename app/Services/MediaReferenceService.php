@@ -8,9 +8,12 @@ use App\Models\Category;
 use App\Models\Media;
 use App\Models\SpecialPage;
 use App\Models\User;
+use App\Services\Concerns\ScansJsonContentLeaves;
 
 class MediaReferenceService
 {
+    use ScansJsonContentLeaves;
+
     /**
      * Analizza tutti i riferimenti conosciuti al disk_name attuale di un Media
      * e determina quali possono essere aggiornati in sicurezza verso il
@@ -274,47 +277,6 @@ class MediaReferenceService
                 'Il disk_name e hardcoded in file versionati del repository (controller, viste, seeder) ed e protetto esplicitamente in config/media.php.'
             );
         }
-    }
-
-    /**
-     * @return list<array{path: string, value: string}>
-     */
-    private function collectStringLeaves(mixed $node, string $path = ''): array
-    {
-        $leaves = [];
-
-        if (is_array($node)) {
-            foreach ($node as $key => $value) {
-                $childPath = $path === '' ? (string) $key : $path.'.'.$key;
-                array_push($leaves, ...$this->collectStringLeaves($value, $childPath));
-            }
-        } elseif (is_string($node) && $node !== '') {
-            $leaves[] = ['path' => $path, 'value' => $node];
-        }
-
-        return $leaves;
-    }
-
-    private function isSupportedContentPath(string $path): bool
-    {
-        $normalized = preg_replace('/\.\d+\./', '.*.', '.'.$path.'.');
-        $normalized = trim($normalized, '.');
-
-        return in_array($normalized, [
-            'hero.background_image',
-            'hero.portrait_image',
-            'home_teaser.background_image',
-            'intro.background_image',
-            'why.background_image',
-            'final.background_image',
-            'cards.*.image',
-            'editorial_blocks.*.image',
-            'editorial_blocks.*.background_image',
-            'internal_links.*.image',
-            'decorative_images.*.image',
-            'why.items.*.image',
-            'timeline.*.image',
-        ], true);
     }
 
     /**

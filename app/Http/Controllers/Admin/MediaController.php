@@ -10,6 +10,7 @@ use App\Services\ImageService;
 use App\Services\MediaFolderService;
 use App\Services\MediaMoveService;
 use App\Services\MediaReferenceService;
+use App\Services\MediaUsageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -20,7 +21,8 @@ class MediaController extends Controller
         private readonly ImageService $imageService,
         private readonly MediaFolderService $mediaFolderService,
         private readonly MediaMoveService $mediaMoveService,
-        private readonly MediaReferenceService $mediaReferenceService
+        private readonly MediaReferenceService $mediaReferenceService,
+        private readonly MediaUsageService $mediaUsageService,
     ) {}
 
     public function index(Request $request)
@@ -88,6 +90,10 @@ class MediaController extends Controller
             ->paginate(24)
             ->withQueryString();
 
+        // Una sola passata batch (poche query, non una per card) per l'intera
+        // pagina corrente: vedi MediaUsageService per il dettaglio.
+        $usageByDiskName = $this->mediaUsageService->usageForMany($files->getCollection());
+
         return view('admin.media', [
             'files' => $files,
             'folders' => $folders,
@@ -101,6 +107,7 @@ class MediaController extends Controller
             'type' => $type,
             'sort' => $sort,
             'hasActiveFilters' => $search !== '' || $type !== null || $sort !== 'newest',
+            'usageByDiskName' => $usageByDiskName,
         ]);
     }
 
@@ -165,6 +172,18 @@ class MediaController extends Controller
 
     public function destroy(Media $media)
     {
+        if ($media->isProtected()) {
+            return back()->with('error', 'Questo file è protetto: è un riferimento statico usato nel codice del sito e non può essere eliminato.');
+        }
+
+        $usage = $this->mediaUsageService->usageFor($media);
+        if ($usage !== []) {
+            $count = count($usage);
+            $noun = $count === 1 ? 'contenuto' : 'contenuti';
+
+            return back()->with('error', "Questa immagine è utilizzata in {$count} {$noun} e non può essere eliminata finché è ancora collegata.");
+        }
+
         $path = public_path('assets/img/'.$media->disk_name);
         if (file_exists($path)) {
             unlink($path);
