@@ -341,6 +341,79 @@ class MediaLibrarySearchAndFiltersTest extends TestCase
         $response->assertSee('archivio/foto-nidificata.jpg');
     }
 
+    // Copertura del caso realmente riscontrato: un'anteprima che non carica
+    // (file mancante sul disco) non deve produrre un secondo testo identico
+    // al titolo. L'immagine rotta viene nascosta via JS (hook
+    // js-media-preview, gestito in resources/views/admin/media.blade.php)
+    // cosi il fallback nativo del browser (icona rotta + testo alt, spesso
+    // uguale al filename) non compare mai accanto al titolo della card.
+    public function test_preview_image_has_the_broken_image_fallback_hook(): void
+    {
+        $editor = $this->editor();
+        $this->media($editor, 'file-mancante-sul-disco.jpg', ['filename' => 'file-mancante-sul-disco.jpg']);
+
+        $response = $this->actingAs($editor)->get(route('admin.media'));
+
+        $response->assertOk();
+        $response->assertSee('js-media-preview', false);
+    }
+
+    public function test_card_shows_both_title_and_path_when_disk_name_differs_from_filename_without_a_subfolder(): void
+    {
+        $editor = $this->editor();
+        $this->media($editor, 'hero-ai-premium-20260507195549-f08dba.png', [
+            'filename' => 'hero-ai-premium.png',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.media'));
+
+        $response->assertOk();
+        $response->assertSee('media-card__path', false);
+        $response->assertSee('hero-ai-premium.png');
+        $response->assertSee('hero-ai-premium-20260507195549-f08dba.png');
+    }
+
+    // 20. L'URL pubblico generato per un media reale punta a un file
+    // effettivamente presente sul disco pubblico. Nota architetturale: il
+    // client di test di Laravel dispaccia le richieste attraverso il Kernel
+    // HTTP dell'applicazione, che gestisce solo le rotte registrate. Un
+    // asset statico sotto public/assets/img non ha una rotta propria: in
+    // produzione viene servito direttamente dal webserver (o, in sviluppo,
+    // dal server integrato di "php artisan serve"), bypassando il router di
+    // Laravel. Richiedere quell'URL con $this->get() restituirebbe quindi
+    // sempre 404 dal Kernel, indipendentemente dalla reale esistenza del
+    // file: non sarebbe un test significativo. La verifica equivalente e
+    // affidabile in questa architettura e che il file esista fisicamente nel
+    // percorso che asset()/Media::url risolvono (stessa tecnica gia usata
+    // nei test di upload, es. AdminMediaUploadTest).
+    public function test_the_public_url_of_a_real_media_resolves_to_a_file_that_exists_on_disk(): void
+    {
+        $editor = $this->editor();
+        $this->createRealFile('verifica-url-pubblico.jpg');
+        $media = $this->media($editor, 'verifica-url-pubblico.jpg', ['filename' => 'Verifica URL pubblico.jpg']);
+
+        $this->assertSame(asset('assets/img/'.$media->disk_name), $media->url);
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
+
+        $response = $this->actingAs($editor)->get(route('admin.media'));
+        $response->assertOk();
+        $response->assertSee($media->url, false);
+    }
+
+    private function createRealFile(string $relativeDiskName): void
+    {
+        $path = public_path('assets/img/'.$relativeDiskName);
+        $directory = dirname($path);
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0775, true);
+        }
+
+        $image = imagecreatetruecolor(10, 10);
+        imagejpeg($image, $path);
+        imagedestroy($image);
+    }
+
     // 19. Stato vuoto specifico quando i filtri non producono risultati
     public function test_empty_state_when_filters_produce_no_results(): void
     {

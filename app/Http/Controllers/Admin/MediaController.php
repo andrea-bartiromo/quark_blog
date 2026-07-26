@@ -119,6 +119,7 @@ class MediaController extends Controller
         $file = $request->file('image');
         $original = $file->getClientOriginalName();
         $ext = strtolower($file->getClientOriginalExtension());
+        $mimeType = $file->getMimeType();
 
         $diskName = $this->imageService->buildFileName(
             $file,
@@ -145,7 +146,7 @@ class MediaController extends Controller
             'user_id' => auth()->id(),
             'filename' => $original,
             'disk_name' => $diskName,
-            'mime_type' => $file->getClientMimeType(),
+            'mime_type' => $mimeType,
             'size' => filesize($fullPath) ?: 0,
             'alt_text' => $request->input('alt_text'),
         ]);

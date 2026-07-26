@@ -713,6 +713,22 @@ ul.media-grid {
   object-fit: cover;
 }
 
+.media-card__preview--broken img {
+  display: none;
+}
+
+.media-card__preview--broken::after {
+  content: "Anteprima non disponibile";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0.5rem;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--admin-muted);
+}
+
 .media-card__body {
   padding: 0.75rem 0.85rem;
   flex: 1 1 auto;
