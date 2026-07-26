@@ -341,6 +341,21 @@ class MediaLibrarySearchAndFiltersTest extends TestCase
         $response->assertSee('archivio/foto-nidificata.jpg');
     }
 
+    public function test_card_shows_both_title_and_path_when_disk_name_differs_from_filename_without_a_subfolder(): void
+    {
+        $editor = $this->editor();
+        $this->media($editor, 'hero-ai-premium-20260507195549-f08dba.png', [
+            'filename' => 'hero-ai-premium.png',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.media'));
+
+        $response->assertOk();
+        $response->assertSee('media-card__path', false);
+        $response->assertSee('hero-ai-premium.png');
+        $response->assertSee('hero-ai-premium-20260507195549-f08dba.png');
+    }
+
     // 19. Stato vuoto specifico quando i filtri non producono risultati
     public function test_empty_state_when_filters_produce_no_results(): void
     {

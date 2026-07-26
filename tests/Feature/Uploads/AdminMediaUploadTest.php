@@ -135,6 +135,29 @@ class AdminMediaUploadTest extends TestCase
         $this->assertSame('animata.gif', $media->filename);
     }
 
+    public function test_mime_type_is_detected_from_the_real_file_content_not_the_extension(): void
+    {
+        // Simula un file PNG salvato erroneamente con estensione .jpg (il
+        // caso reale riscontrato in libreria): l'upload deve registrare il
+        // MIME rilevato dal contenuto reale, non quello dichiarato dal
+        // client in base all'estensione.
+        $editor = $this->editor();
+        $image = imagecreatetruecolor(400, 300);
+        $tmp = tempnam(sys_get_temp_dir(), 'quark-mismatch-');
+        imagepng($image, $tmp);
+        imagedestroy($image);
+        $mismatched = new UploadedFile($tmp, 'falso.jpg', 'image/jpeg', null, true);
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => $mismatched,
+        ])->assertSessionHasNoErrors();
+
+        $media = Media::latest('id')->firstOrFail();
+        $this->assertSame('image/png', $media->mime_type);
+
+        @unlink($tmp);
+    }
+
     public function test_validation_rejects_an_unsupported_image_format(): void
     {
         $editor = $this->editor();

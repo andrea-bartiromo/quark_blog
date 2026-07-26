@@ -244,8 +244,8 @@
 <ul class="media-grid">
   @foreach($files as $file)
   @php
-    $basename = basename($file->disk_name);
-    $showFullPath = $basename !== $file->disk_name;
+    $inSubfolder = str_contains($file->disk_name, '/');
+    $hasDistinctPath = $file->disk_name !== $file->filename;
     $formatLabel = $formatLabels[$file->mime_type] ?? strtoupper(pathinfo($file->disk_name, PATHINFO_EXTENSION));
   @endphp
   <li class="media-card">
@@ -262,7 +262,7 @@
       @if($file->alt_text)
         <p class="media-card__alt">Alt: {{ $file->alt_text }}</p>
       @endif
-      @if($showFullPath)
+      @if($hasDistinctPath)
         <p class="media-card__path" title="{{ $file->disk_name }}">{{ $file->disk_name }}</p>
       @endif
     </div>
@@ -278,7 +278,7 @@
     <details id="sposta-{{ $file->id }}" class="media-card__move">
       <summary style="display:none;"></summary>
       <div style="font-size:.68rem;color:#6b7280;margin-bottom:.4rem;">
-        Cartella attuale: <strong>{{ $showFullPath ? ($foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name)) : 'Radice' }}</strong>
+        Cartella attuale: <strong>{{ $inSubfolder ? ($foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name)) : 'Radice' }}</strong>
       </div>
       <select class="form-select js-move-target" data-media-id="{{ $file->id }}" data-preflight-url="{{ route('admin.media.move-preflight', $file) }}" style="font-size:.72rem;margin-bottom:.5rem;">
         <option value="">Radice</option>
