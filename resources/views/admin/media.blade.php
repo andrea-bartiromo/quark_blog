@@ -3,11 +3,22 @@
 
 @section('content')
 
+@php
+    $formatLabels = [
+        'image/jpeg' => 'JPEG',
+        'image/jpg' => 'JPEG',
+        'image/png' => 'PNG',
+        'image/webp' => 'WEBP',
+        'image/gif' => 'GIF',
+    ];
+    $folderQuery = $currentFolder ? ['folder' => $currentFolder->id] : [];
+@endphp
+
 <div class="admin-topbar">
   <div>
     <h1 class="admin-page-title">Libreria media</h1>
     <div style="font-size:.78rem;color:#6b7280;margin-top:.2rem;">
-      {{ $currentFolder?->hierarchicalLabel($foldersById) ?? 'Radice' }} · {{ $files->total() }} immagini dirette
+      {{ $currentFolder?->hierarchicalLabel($foldersById) ?? 'Radice' }}
     </div>
   </div>
   <a href="#nuova-categoria" class="btn btn--secondary">＋ Nuova categoria</a>
@@ -120,7 +131,9 @@
 <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:.75rem;">Categorie immagini</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1rem;margin-bottom:1.5rem;">
   @foreach($folders as $folder)
-  @php($directCount = $folderCounts[$folder->path] ?? 0)
+  @php
+    $directCount = $folderCounts[$folder->path] ?? 0;
+  @endphp
   <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1rem;border:1px solid #f3f4f6;">
     <a href="{{ route('admin.media', ['folder' => $folder->id]) }}" style="display:flex;gap:.75rem;color:inherit;text-decoration:none;">
       <span style="font-size:1.65rem;line-height:1;">{{ $folder->icon ?: '📁' }}</span>
@@ -150,46 +163,122 @@
 </div>
 @endif
 
-{{-- Media diretti --}}
+{{-- Toolbar: ricerca, filtro formato, ordinamento --}}
 <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin-bottom:.75rem;">Immagini nella categoria corrente</div>
 
+<form method="GET" action="{{ route('admin.media') }}" class="media-toolbar" role="search" aria-label="Ricerca e filtri nella libreria media">
+  @foreach($folderQuery as $key => $value)
+    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+  @endforeach
+
+  <div class="media-toolbar__field media-toolbar__field--search">
+    <label class="form-label" for="media-search">Cerca</label>
+    <input type="search" id="media-search" name="q" value="{{ $search }}" maxlength="100"
+           class="form-input" placeholder="Nome file, percorso o testo alternativo…"
+           aria-label="Cerca per nome file, percorso o testo alternativo">
+  </div>
+
+  <div class="media-toolbar__field">
+    <label class="form-label" for="media-type">Formato</label>
+    <select id="media-type" name="type" class="form-select" aria-label="Filtra per formato immagine">
+      <option value="">Tutti i formati</option>
+      <option value="jpeg" @selected($type === 'jpeg')>JPEG</option>
+      <option value="png" @selected($type === 'png')>PNG</option>
+      <option value="webp" @selected($type === 'webp')>WebP</option>
+      <option value="gif" @selected($type === 'gif')>GIF</option>
+    </select>
+  </div>
+
+  <div class="media-toolbar__field">
+    <label class="form-label" for="media-sort">Ordina per</label>
+    <select id="media-sort" name="sort" class="form-select" aria-label="Ordina i risultati">
+      <option value="newest" @selected($sort === 'newest')>Più recenti</option>
+      <option value="oldest" @selected($sort === 'oldest')>Più vecchie</option>
+      <option value="name_asc" @selected($sort === 'name_asc')>Nome A–Z</option>
+      <option value="name_desc" @selected($sort === 'name_desc')>Nome Z–A</option>
+      <option value="size_desc" @selected($sort === 'size_desc')>Dimensione maggiore</option>
+      <option value="size_asc" @selected($sort === 'size_asc')>Dimensione minore</option>
+    </select>
+  </div>
+
+  <div class="media-toolbar__actions">
+    <button type="submit" class="btn btn--primary">Filtra</button>
+    @if($hasActiveFilters)
+      <a href="{{ route('admin.media', $folderQuery) }}" class="btn btn--secondary">Azzera filtri</a>
+    @endif
+  </div>
+
+  <div class="media-toolbar__count" role="status">
+    {{ $files->total() }} {{ $files->total() === 1 ? 'risultato' : 'risultati' }}
+  </div>
+</form>
+
+{{-- Media diretti --}}
 @if($files->isEmpty())
-<div style="text-align:center;color:#6b7280;padding:3rem;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
-  <p style="font-size:2rem;margin-bottom:.5rem;">{{ $folders->isEmpty() ? '🖼' : '📂' }}</p>
-  <p>{{ $currentFolder ? 'Questa categoria non contiene immagini dirette.' : 'Nessuna immagine nella radice.' }}</p>
-  @if($folders->isEmpty())
-    <p style="font-size:.75rem;margin-top:.35rem;">Puoi creare una categoria o caricare una nuova immagine.</p>
+  @if($hasActiveFilters)
+  <div style="text-align:center;color:#6b7280;padding:3rem;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <p style="font-size:2rem;margin-bottom:.5rem;">🔍</p>
+    <p>Nessuna immagine corrisponde ai filtri selezionati.</p>
+    <p style="font-size:.75rem;margin-top:.5rem;">
+      <a href="{{ route('admin.media', $folderQuery) }}" style="color:#0d9488;">Azzera filtri</a>
+    </p>
+  </div>
+  @else
+  <div style="text-align:center;color:#6b7280;padding:3rem;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <p style="font-size:2rem;margin-bottom:.5rem;">{{ $folders->isEmpty() ? '🖼' : '📂' }}</p>
+    <p>
+      @if($folders->isNotEmpty())
+        Questa categoria non contiene immagini dirette, ma contiene sottocategorie.
+      @elseif($currentFolder)
+        Questa categoria non contiene immagini dirette.
+      @else
+        Nessuna immagine nella radice.
+      @endif
+    </p>
+    @if($folders->isEmpty())
+      <p style="font-size:.75rem;margin-top:.35rem;">Puoi creare una categoria o caricare una nuova immagine.</p>
+    @endif
+  </div>
   @endif
-</div>
 @else
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;">
+<ul class="media-grid">
   @foreach($files as $file)
-  <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;">
-    <div style="aspect-ratio:4/3;overflow:hidden;background:#f5f5f4;">
-      <img src="{{ asset('assets/img/'.$file->disk_name) }}" alt="{{ $file->alt_text ?? $file->filename }}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+  @php
+    $basename = basename($file->disk_name);
+    $showFullPath = $basename !== $file->disk_name;
+    $formatLabel = $formatLabels[$file->mime_type] ?? strtoupper(pathinfo($file->disk_name, PATHINFO_EXTENSION));
+  @endphp
+  <li class="media-card">
+    <div class="media-card__preview">
+      <img src="{{ asset('assets/img/'.$file->disk_name) }}" alt="{{ $file->alt_text ?? $file->filename }}" loading="lazy">
     </div>
-    <div style="padding:.65rem .75rem;">
-      <div style="font-size:.72rem;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ basename($file->disk_name) }}">{{ basename($file->disk_name) }}</div>
-      <div style="font-size:.63rem;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:.18rem;" title="{{ $file->disk_name }}">{{ $file->disk_name }}</div>
-      <div style="font-size:.65rem;color:#6b7280;display:flex;justify-content:space-between;margin-top:.25rem;"><span>{{ $file->human_size }}</span><span>{{ $file->created_at->format('d/m/Y') }}</span></div>
+    <div class="media-card__body">
+      <p class="media-card__name" title="{{ $file->filename }}">{{ $file->filename }}</p>
+      <p class="media-card__meta">{{ $formatLabel }} · {{ $file->human_size }}</p>
+      <p class="media-card__meta">{{ $file->created_at->format('d/m/Y') }}</p>
+      @if($file->user)
+        <p class="media-card__meta">Caricata da {{ $file->user->name }}</p>
+      @endif
+      @if($file->alt_text)
+        <p class="media-card__alt">Alt: {{ $file->alt_text }}</p>
+      @endif
+      @if($showFullPath)
+        <p class="media-card__path" title="{{ $file->disk_name }}">{{ $file->disk_name }}</p>
+      @endif
     </div>
-    <div style="padding:.5rem .75rem;border-top:1px solid #f3f4f6;">
-      <input type="text" readonly value="{{ $file->disk_name }}" onclick="this.select();copyMediaName(this.value)" class="form-input" style="font-size:.65rem;padding:.25rem .4rem;margin-bottom:.4rem;cursor:pointer;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank" style="font-size:.65rem;color:#0d9488;text-decoration:none;">Apri →</a>
-        <div style="display:flex;gap:.6rem;">
-          <button type="button" onclick="document.getElementById('sposta-{{ $file->id }}').open = !document.getElementById('sposta-{{ $file->id }}').open" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#0d9488;">Sposta</button>
-          <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
-            @csrf @method('DELETE')
-            <button type="submit" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Elimina</button>
-          </form>
-        </div>
-      </div>
+    <div class="media-card__actions">
+      <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank" rel="noopener" aria-label="Apri {{ $file->filename }} in una nuova scheda">Apri</a>
+      <button type="button" class="js-copy-path" data-path="{{ $file->disk_name }}" aria-label="Copia il percorso di {{ $file->filename }} negli appunti">Copia percorso</button>
+      <button type="button" class="js-toggle-move" data-target="sposta-{{ $file->id }}" aria-expanded="false" aria-controls="sposta-{{ $file->id }}">Sposta</button>
+      <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
+        @csrf @method('DELETE')
+        <button type="submit" aria-label="Elimina {{ $file->filename }}">Elimina</button>
+      </form>
     </div>
-    <details id="sposta-{{ $file->id }}" style="border-top:1px solid #f3f4f6;padding:.65rem .75rem;">
+    <details id="sposta-{{ $file->id }}" class="media-card__move">
       <summary style="display:none;"></summary>
       <div style="font-size:.68rem;color:#6b7280;margin-bottom:.4rem;">
-        Cartella attuale: <strong>{{ $file->disk_name && str_contains($file->disk_name, '/') ? $foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name) : 'Radice' }}</strong>
+        Cartella attuale: <strong>{{ $showFullPath ? ($foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name)) : 'Radice' }}</strong>
       </div>
       <select class="form-select js-move-target" data-media-id="{{ $file->id }}" data-preflight-url="{{ route('admin.media.move-preflight', $file) }}" style="font-size:.72rem;margin-bottom:.5rem;">
         <option value="">Radice</option>
@@ -203,40 +292,78 @@
         <input type="hidden" name="media_folder_id" class="js-move-hidden-input">
         <div style="display:flex;gap:.5rem;">
           <button type="submit" class="btn btn--secondary js-move-confirm" style="font-size:.68rem;padding:.35rem .7rem;" disabled>Conferma spostamento</button>
-          <button type="button" onclick="document.getElementById('sposta-{{ $file->id }}').open = false" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Annulla</button>
+          <button type="button" class="js-cancel-move" data-target="sposta-{{ $file->id }}" style="background:none;border:none;cursor:pointer;font-size:.65rem;color:#6b7280;">Annulla</button>
         </div>
       </form>
     </details>
-  </div>
+  </li>
   @endforeach
-</div>
+</ul>
 
 @if($files->hasPages())
 <div style="margin-top:1.5rem;">{{ $files->links('components.pagination') }}</div>
 @endif
 @endif
 
-<div id="toast" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:#111827;color:#fff;font-size:.82rem;padding:.65rem 1.1rem;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);"></div>
+<div id="toast" role="status" aria-live="polite" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:#111827;color:#fff;font-size:.82rem;padding:.65rem 1.1rem;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);"></div>
 
 @endsection
 
 @section('scripts')
 <script>
-function copyMediaName(filename) {
-  const done = () => {
-    const toast = document.getElementById('toast');
-    toast.textContent = '✓ "' + filename + '" copiato negli appunti';
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 2500);
-  };
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2500);
+}
 
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(filename).then(done);
-  } else {
+document.querySelectorAll('.js-copy-path').forEach(function (button) {
+  button.addEventListener('click', function () {
+    const path = button.dataset.path;
+    const done = () => showToast('✓ "' + path + '" copiato negli appunti');
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(path).then(done).catch(() => fallbackCopy(path, done));
+    } else {
+      fallbackCopy(path, done);
+    }
+  });
+});
+
+function fallbackCopy(text, done) {
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.focus();
+  input.select();
+  try {
     document.execCommand('copy');
     done();
+  } finally {
+    document.body.removeChild(input);
   }
 }
+
+document.querySelectorAll('.js-toggle-move').forEach(function (button) {
+  button.addEventListener('click', function () {
+    const panel = document.getElementById(button.dataset.target);
+    const willOpen = !panel.open;
+    panel.open = willOpen;
+    button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  });
+});
+
+document.querySelectorAll('.js-cancel-move').forEach(function (button) {
+  button.addEventListener('click', function () {
+    const panel = document.getElementById(button.dataset.target);
+    panel.open = false;
+    document.querySelector('.js-toggle-move[data-target="' + button.dataset.target + '"]')
+      ?.setAttribute('aria-expanded', 'false');
+  });
+});
 
 document.querySelectorAll('.js-move-target').forEach(function (select) {
   const panel = select.closest('details');
