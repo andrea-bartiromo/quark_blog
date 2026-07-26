@@ -250,7 +250,7 @@
   @endphp
   <li class="media-card">
     <div class="media-card__preview">
-      <img src="{{ asset('assets/img/'.$file->disk_name) }}" alt="{{ $file->alt_text ?? $file->filename }}" loading="lazy">
+      <img src="{{ $file->url }}" alt="{{ $file->alt_text ?? $file->filename }}" loading="lazy" class="js-media-preview">
     </div>
     <div class="media-card__body">
       <p class="media-card__name" title="{{ $file->filename }}">{{ $file->filename }}</p>
@@ -267,7 +267,7 @@
       @endif
     </div>
     <div class="media-card__actions">
-      <a href="{{ asset('assets/img/'.$file->disk_name) }}" target="_blank" rel="noopener" aria-label="Apri {{ $file->filename }} in una nuova scheda">Apri</a>
+      <a href="{{ $file->url }}" target="_blank" rel="noopener" aria-label="Apri {{ $file->filename }} in una nuova scheda">Apri</a>
       <button type="button" class="js-copy-path" data-path="{{ $file->disk_name }}" aria-label="Copia il percorso di {{ $file->filename }} negli appunti">Copia percorso</button>
       <button type="button" class="js-toggle-move" data-target="sposta-{{ $file->id }}" aria-expanded="false" aria-controls="sposta-{{ $file->id }}">Sposta</button>
       <form method="POST" action="{{ route('admin.media.destroy', $file) }}" onsubmit="return confirm('Eliminare questa immagine?')">
@@ -317,6 +317,12 @@ function showToast(message) {
   toast.style.display = 'block';
   setTimeout(() => { toast.style.display = 'none'; }, 2500);
 }
+
+document.querySelectorAll('.js-media-preview').forEach(function (img) {
+  img.addEventListener('error', function () {
+    img.closest('.media-card__preview')?.classList.add('media-card__preview--broken');
+  });
+});
 
 document.querySelectorAll('.js-copy-path').forEach(function (button) {
   button.addEventListener('click', function () {
