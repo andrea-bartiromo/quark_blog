@@ -1043,6 +1043,38 @@ body.admin-body textarea {
   color: #ffffff;
 }
 
+/* Libreria media — badge di utilizzo sulla card */
+.media-card__usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.35rem 0 0;
+}
+
+.badge--usage-none {
+  background: var(--admin-border-light);
+  color: var(--admin-muted);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.badge--usage-used {
+  background: var(--admin-primary-light);
+  color: var(--admin-primary-dark);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.badge--protected {
+  background: #fef3c7;
+  color: #9a3412;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* Libreria media — stato vuoto */
 .media-empty-state {
   text-align: center;
@@ -1254,6 +1286,7 @@ ul.media-grid {
   flex-direction: column;
   gap: 0.15rem;
   min-width: 150px;
+  max-width: 220px;
   background: var(--admin-white);
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
@@ -1283,6 +1316,24 @@ ul.media-grid {
 .media-card__more-menu button:focus-visible {
   outline: 2px solid var(--admin-primary);
   outline-offset: -2px;
+}
+
+.media-card__more-menu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.media-card__more-menu button:disabled:hover {
+  background: none;
+}
+
+.media-card__blocked-note {
+  margin: 0 0 0.2rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--admin-muted);
+  white-space: normal;
 }
 
 .media-card__action--danger {
@@ -1330,6 +1381,61 @@ ul.media-grid {
 .media-card__move-cancel:focus-visible {
   outline: 2px solid var(--admin-primary);
   outline-offset: 2px;
+}
+
+.media-card__usage-detail {
+  border-top: 1px solid var(--admin-border-light);
+  padding: 0.65rem 0.85rem;
+}
+
+.media-card__usage-empty {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--admin-muted);
+}
+
+.media-card__usage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.media-card__usage-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.media-card__usage-type {
+  font-weight: 700;
+  color: var(--admin-ink);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.media-card__usage-title {
+  color: var(--admin-ink-soft);
+}
+
+.media-card__usage-status {
+  color: var(--admin-muted);
+  font-style: italic;
+}
+
+.media-card__usage-link {
+  color: var(--admin-primary);
+  font-weight: 600;
+}
+
+.media-card__usage-link:hover {
+  text-decoration: underline;
 }
 
 /* Upload */
