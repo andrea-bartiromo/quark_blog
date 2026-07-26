@@ -25,8 +25,10 @@ class MediaController extends Controller
 
     public function index(Request $request)
     {
+        // 'folder' non e validato qui: MediaFolder::findOrFail() sotto deve
+        // continuare a restituire 404 per un ID inesistente (comportamento
+        // preesistente e testato), non un redirect di validazione.
         $validated = $request->validate([
-            'folder' => 'nullable|integer|exists:media_folders,id',
             'q' => 'nullable|string|max:100',
             'type' => 'nullable|in:jpeg,png,webp,gif',
             'sort' => 'nullable|in:newest,oldest,name_asc,name_desc,size_desc,size_asc',
@@ -50,11 +52,13 @@ class MediaController extends Controller
 
         $search = trim((string) ($validated['q'] ?? ''));
         if ($search !== '') {
-            $query->where(function (Builder $builder) use ($search) {
+            $escapedSearch = $this->escapeLike($search);
+
+            $query->where(function (Builder $builder) use ($escapedSearch) {
                 $builder
-                    ->where('filename', 'like', '%'.$search.'%')
-                    ->orWhere('disk_name', 'like', '%'.$search.'%')
-                    ->orWhere('alt_text', 'like', '%'.$search.'%');
+                    ->whereRaw("filename LIKE ? ESCAPE '!'", ['%'.$escapedSearch.'%'])
+                    ->orWhereRaw("disk_name LIKE ? ESCAPE '!'", ['%'.$escapedSearch.'%'])
+                    ->orWhereRaw("alt_text LIKE ? ESCAPE '!'", ['%'.$escapedSearch.'%']);
             });
         }
 
@@ -224,5 +228,10 @@ class MediaController extends Controller
         }
 
         return back()->with('success', 'Immagine spostata in "'.$result->newDiskName.'".');
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 }
