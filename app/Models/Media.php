@@ -37,4 +37,15 @@ class Media extends Model
 
         return round($size, 1).' '.$units[$unit];
     }
+
+    /**
+     * Riferimento statico protetto (hardcoded in controller/viste/seeder
+     * versionati, elencato in config/media.php): non eliminabile ne'
+     * spostabile, indipendentemente dal fatto che risulti "usato" nei
+     * contenuti dinamici del database.
+     */
+    public function isProtected(): bool
+    {
+        return in_array($this->disk_name, config('media.protected_disk_names', []), true);
+    }
 }
