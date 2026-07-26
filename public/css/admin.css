@@ -46,6 +46,38 @@
   box-sizing: border-box;
 }
 
+/* Utility: testo visibile solo alla tecnologia assistiva */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link: nascosto finché non riceve il focus da tastiera */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  transform: translateY(-100%);
+  background: var(--admin-primary);
+  color: #ffffff;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 html,
 body {
   margin: 0;
