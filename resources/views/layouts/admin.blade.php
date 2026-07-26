@@ -13,6 +13,7 @@
 </head>
 
 <body class="admin-body admin-has-sidebar-toggle">
+<a href="#admin-main-content" class="skip-link">Vai al contenuto principale</a>
 <button type="button"
         class="admin-sidebar-toggle"
         aria-label="Apri menu amministrazione"
@@ -195,7 +196,7 @@
 
   </aside>
 
-  <main class="admin-main">
+  <main class="admin-main" id="admin-main-content" tabindex="-1">
 
     <div style="margin-bottom:1.25rem;" x-data>
       <form method="GET" action="{{ route('admin.articles') }}"
