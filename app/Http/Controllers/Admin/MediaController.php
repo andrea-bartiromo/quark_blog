@@ -10,6 +10,7 @@ use App\Services\ImageService;
 use App\Services\MediaFolderService;
 use App\Services\MediaMoveService;
 use App\Services\MediaReferenceService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -24,6 +25,13 @@ class MediaController extends Controller
 
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'folder' => 'nullable|integer|exists:media_folders,id',
+            'q' => 'nullable|string|max:100',
+            'type' => 'nullable|in:jpeg,png,webp,gif',
+            'sort' => 'nullable|in:newest,oldest,name_asc,name_desc,size_desc,size_asc',
+        ]);
+
         $currentFolder = $request->filled('folder')
             ? MediaFolder::findOrFail($request->integer('folder'))
             : null;
@@ -35,10 +43,44 @@ class MediaController extends Controller
             ->ordered()
             ->get();
         $folderCounts = $this->mediaFolderService->directMediaCounts($folders);
-        $files = $this->mediaFolderService
+
+        $query = $this->mediaFolderService
             ->scopeDirectMedia(Media::query(), $currentFolder)
-            ->latest()
-            ->with('user')
+            ->with('user');
+
+        $search = trim((string) ($validated['q'] ?? ''));
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search) {
+                $builder
+                    ->where('filename', 'like', '%'.$search.'%')
+                    ->orWhere('disk_name', 'like', '%'.$search.'%')
+                    ->orWhere('alt_text', 'like', '%'.$search.'%');
+            });
+        }
+
+        $type = $validated['type'] ?? null;
+        if ($type) {
+            $mimeTypes = match ($type) {
+                'jpeg' => ['image/jpeg', 'image/jpg'],
+                'png' => ['image/png'],
+                'webp' => ['image/webp'],
+                'gif' => ['image/gif'],
+            };
+
+            $query->whereIn('mime_type', $mimeTypes);
+        }
+
+        $sort = $validated['sort'] ?? 'newest';
+        match ($sort) {
+            'oldest' => $query->oldest(),
+            'name_asc' => $query->orderBy('filename')->orderBy('id'),
+            'name_desc' => $query->orderByDesc('filename')->orderByDesc('id'),
+            'size_desc' => $query->orderByDesc('size')->orderByDesc('id'),
+            'size_asc' => $query->orderBy('size')->orderBy('id'),
+            default => $query->latest(),
+        };
+
+        $files = $query
             ->paginate(24)
             ->withQueryString();
 
@@ -51,6 +93,10 @@ class MediaController extends Controller
             'currentFolder' => $currentFolder,
             'breadcrumb' => $currentFolder?->parentChain($foldersById) ?? collect(),
             'defaultFolder' => MediaFolder::where('path', '_da-classificare')->first(),
+            'search' => $search,
+            'type' => $type,
+            'sort' => $sort,
+            'hasActiveFilters' => $search !== '' || $type !== null || $sort !== 'newest',
         ]);
     }
 
@@ -70,7 +116,6 @@ class MediaController extends Controller
         $original = $file->getClientOriginalName();
         $ext = strtolower($file->getClientOriginalExtension());
 
-        // Nome univoco
         $diskName = $this->imageService->buildFileName(
             $file,
             $ext,
@@ -82,7 +127,6 @@ class MediaController extends Controller
         $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
         $diskName = $this->mediaFolderService->diskName($folder, $diskName);
 
-        // Ottimizzazione immagine con GD (se disponibile)
         $this->imageService->resizeAndCompress(
             $fullPath,
             $ext,
