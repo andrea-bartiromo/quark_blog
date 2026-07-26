@@ -48,10 +48,14 @@ class HomeController extends Controller
         $byCategory = [];
 
         foreach ($categoryOptions as $slug => $label) {
+            // Niente esclusione dell'articolo featured qui: a differenza di
+            // $latest, questa query serve solo a stabilire se la categoria ha
+            // contenuto pubblicato (la tile mostra la categoria, non
+            // l'articolo). Escluderlo può far sparire l'intera categoria
+            // quando il suo unico articolo pubblicato è quello in evidenza.
             $arts = Article::published()
                 ->byCategory($slug)
                 ->with('author')
-                ->when($featured, fn ($q) => $q->where('id', '!=', $featured->id))
                 ->orderByDesc('published_at')
                 ->limit(3)
                 ->get();
