@@ -481,6 +481,78 @@ body.admin-body textarea {
   flex-wrap: wrap;
 }
 
+/* Azioni di riga riutilizzabili (Articoli, Commenti, Categorie): erano
+   usate in tutte e tre le viste ma non erano mai state stilizzate, quindi
+   comparivano come link/bottoni di default del browser. */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: var(--admin-white);
+  color: var(--admin-ink-soft);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.action-btn:hover {
+  background: #f9fafb;
+  border-color: var(--admin-muted);
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
+.action-btn--danger {
+  color: var(--admin-danger);
+  border-color: #fca5a5;
+}
+
+.action-btn--danger:hover {
+  background: var(--admin-danger-bg);
+}
+
+/* Tabella Articoli: variante compatta per aumentare la densita' senza
+   toccare il padding condiviso da Commenti e Categorie. */
+.admin-table--compact td {
+  padding: 0.5rem 0.85rem;
+}
+
+.articles-table .article-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  max-width: none;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--admin-border-light);
+}
+
+.articles-table td:first-child {
+  width: 56px;
+}
+
+.article-title-cell {
+  display: -webkit-box;
+  max-width: 340px;
+  overflow: hidden;
+  color: var(--admin-ink);
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 /* Form */
 .form-group {
   margin-bottom: 1rem;
@@ -1612,5 +1684,52 @@ ul.media-grid {
 
   .media-folder-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Tabella Articoli: nasconde progressivamente le colonne meno essenziali
+   invece di forzare lo scroll orizzontale su schermi stretti. Scoperta
+   tramite classe dedicata (.articles-table) cosi' da non toccare le
+   tabelle di Commenti e Categorie, che condividono .admin-table ma non
+   hanno queste colonne. */
+@media (max-width: 900px) {
+  .articles-table .col-author,
+  .articles-table .col-views {
+    display: none;
+  }
+
+  .article-title-cell {
+    max-width: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .articles-table .col-category,
+  .articles-table .col-date {
+    display: none;
+  }
+
+  .articles-table .article-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .articles-table td:first-child {
+    width: 44px;
+    padding-right: 0.4rem;
+  }
+
+  .articles-table td {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .article-title-cell {
+    max-width: 130px;
+  }
+
+  .articles-table .action-btn {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.68rem;
   }
 }

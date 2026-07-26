@@ -10,16 +10,16 @@
 </div>
 
 <div class="admin-table-wrap">
-  <table class="admin-table">
+  <table class="admin-table admin-table--compact articles-table">
     <thead>
       <tr>
-        <th></th>
+        <th class="sr-only">Anteprima</th>
         <th>Titolo</th>
-        <th>Categoria</th>
-        <th>Autore</th>
+        <th class="col-category">Categoria</th>
+        <th class="col-author">Autore</th>
         <th>Stato</th>
-        <th>Views</th>
-        <th>Data</th>
+        <th class="col-views">Views</th>
+        <th class="col-date">Data</th>
         <th>Azioni</th>
       </tr>
     </thead>
@@ -31,12 +31,12 @@
                src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.jpg')) }}"
                alt="">
         </td>
-        <td class="article-title-cell">{{ Str::limit($article->title,55) }}</td>
-        <td>{{ $article->category }}</td>
-        <td>{{ $article->author->name }}</td>
+        <td class="article-title-cell" title="{{ $article->title }}">{{ Str::limit($article->title,55) }}</td>
+        <td class="col-category">{{ $article->category }}</td>
+        <td class="col-author">{{ $article->author->name }}</td>
         <td><span class="status status--{{ $article->status }}">{{ $article->status }}</span></td>
-        <td>{{ number_format($article->views) }}</td>
-        <td>{{ $article->created_at->format('d/m/Y') }}</td>
+        <td class="col-views">{{ number_format($article->views) }}</td>
+        <td class="col-date">{{ $article->created_at->format('d/m/Y') }}</td>
         <td>
           <div class="actions">
             <a href="{{ route('admin.articles.edit', $article) }}" class="action-btn">Modifica</a>
