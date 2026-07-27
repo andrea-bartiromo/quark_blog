@@ -83,6 +83,16 @@ class ArticleController extends Controller
             'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
             'verification_status' => 'unverified',
             'published_at' => now(),
+            'seo_title' => $data['seo_title'] ?? null,
+            'seo_description' => $data['seo_description'] ?? null,
+            'canonical_url' => $data['canonical_url'] ?? null,
+            'robots' => $data['robots'] ?? null,
+            'og_title' => $data['og_title'] ?? null,
+            'og_description' => $data['og_description'] ?? null,
+            'og_image' => $data['og_image'] ?? null,
+            'twitter_title' => $data['twitter_title'] ?? null,
+            'twitter_description' => $data['twitter_description'] ?? null,
+            'twitter_image' => $data['twitter_image'] ?? null,
         ]);
 
         // Notifica email all'editor
@@ -154,6 +164,16 @@ class ArticleController extends Controller
             'cover_license' => $data['cover_license'] ?? null,
             'status' => 'review', // rinvia in revisione dopo modifica
             'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'seo_title' => $data['seo_title'] ?? null,
+            'seo_description' => $data['seo_description'] ?? null,
+            'canonical_url' => $data['canonical_url'] ?? null,
+            'robots' => $data['robots'] ?? null,
+            'og_title' => $data['og_title'] ?? null,
+            'og_description' => $data['og_description'] ?? null,
+            'og_image' => $data['og_image'] ?? null,
+            'twitter_title' => $data['twitter_title'] ?? null,
+            'twitter_description' => $data['twitter_description'] ?? null,
+            'twitter_image' => $data['twitter_image'] ?? null,
         ]);
 
         $this->notifyEditor($article, true);
