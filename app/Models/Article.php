@@ -26,6 +26,9 @@ class Article extends Model
         'verified_at', 'verified_by', 'primary_sources',
         'cover_alt', 'cover_caption', 'cover_credit',
         'cover_source', 'cover_source_url', 'cover_license',
+        'seo_title', 'seo_description', 'canonical_url', 'robots',
+        'og_title', 'og_description', 'og_image',
+        'twitter_title', 'twitter_description', 'twitter_image',
     ];
 
     protected $casts = [
@@ -128,5 +131,90 @@ class Article extends Model
             ->with('author')
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Combinazioni valide per il meta tag robots (nessun campo composto: il
+     * valore memorizzato è già nel formato pronto per l'attributo content).
+     * Condiviso dalle FormRequest Admin e Redazione per evitare di
+     * duplicare l'elenco in due punti diversi.
+     *
+     * @return array<int, string>
+     */
+    public static function robotsOptions(): array
+    {
+        return ['index,follow', 'noindex,follow', 'index,nofollow', 'noindex,nofollow'];
+    }
+
+    // ── SEO / Meta ────────────────────────────────────────────
+    //
+    // Ogni metodo restituisce il valore da usare in pagina, applicando la
+    // catena di fallback quando il campo editoriale è vuoto. I campi grezzi
+    // (es. $article->seo_title) restano quelli salvati sul record — anche se
+    // vuoti — cosi il form di modifica può continuare a mostrare il valore
+    // realmente memorizzato senza il fallback già applicato.
+
+    public function metaTitle(): string
+    {
+        return filled($this->seo_title) ? $this->seo_title : $this->title;
+    }
+
+    public function metaDescription(): string
+    {
+        if (filled($this->seo_description)) {
+            return $this->seo_description;
+        }
+
+        if (filled($this->excerpt)) {
+            return $this->excerpt;
+        }
+
+        $plainBody = trim(preg_replace('/\s+/', ' ', strip_tags((string) $this->body)) ?? '');
+
+        return Str::limit($plainBody, 160, '');
+    }
+
+    public function metaCanonicalUrl(): string
+    {
+        return filled($this->canonical_url) ? $this->canonical_url : route('articolo', $this->slug);
+    }
+
+    public function metaRobots(): string
+    {
+        return filled($this->robots) ? $this->robots : 'index,follow';
+    }
+
+    public function metaOgTitle(): string
+    {
+        return filled($this->og_title) ? $this->og_title : $this->metaTitle();
+    }
+
+    public function metaOgDescription(): string
+    {
+        return filled($this->og_description) ? $this->og_description : $this->metaDescription();
+    }
+
+    public function metaOgImage(): string
+    {
+        $diskName = filled($this->og_image) ? $this->og_image : ($this->cover_image ?: 'hero-placeholder.svg');
+
+        return asset('assets/img/'.$diskName);
+    }
+
+    public function metaTwitterTitle(): string
+    {
+        return filled($this->twitter_title) ? $this->twitter_title : $this->metaTitle();
+    }
+
+    public function metaTwitterDescription(): string
+    {
+        return filled($this->twitter_description) ? $this->twitter_description : $this->metaDescription();
+    }
+
+    public function metaTwitterImage(): string
+    {
+        $diskName = filled($this->twitter_image) ? $this->twitter_image : ($this->cover_image ?: 'hero-placeholder.svg');
+
+        return asset('assets/img/'.$diskName);
     }
 }
