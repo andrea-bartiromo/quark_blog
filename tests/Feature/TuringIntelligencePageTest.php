@@ -81,10 +81,11 @@ class TuringIntelligencePageTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('href="'.route('turing.computation').'"', false)
-            // Percorso canonico letterale, non route('turing.ai'): quel nome e'
-            // duplicato da App\Providers\TuringServiceProvider (route /turing/ia,
-            // registrata dopo, vince la risoluzione) - bug preesistente,
-            // gia' verificato nella PR #45, non corretto qui.
+            // Percorso canonico letterale invece di route('turing.ai'): la
+            // scelta risale a quando quel nome era duplicato da
+            // App\Providers\TuringServiceProvider (route /turing/ia), rimosso
+            // dal fix del conflitto di route Turing. Il literal resta invariato
+            // (stesso output), l'assenza di /turing/ia e' verificata sotto.
             ->assertSee('href="/turing/ai"', false)
             ->assertDontSee('href="/turing/ia"', false);
     }

@@ -107,9 +107,8 @@
         :actions="[
             ['label' => 'Torna allo speciale', 'url' => route('turing')],
             ['label' => 'La macchina universale', 'url' => route('turing.computation')],
-            // Percorso letterale, non route('turing.ai'): quel nome e' duplicato
-            // in App\Providers\TuringServiceProvider (route /turing/ia), che
-            // vince la risoluzione. Stessa scelta gia' fatta in computation.blade.php.
+            // Percorso letterale invece di route('turing.ai'): stessa scelta
+            // gia' fatta in computation.blade.php, invariata da questa PR.
             ['label' => 'L’IA moderna', 'url' => '/turing/ai'],
         ]"
     />
