@@ -30,10 +30,22 @@ class ArticleController extends Controller
         private readonly MediaService $mediaService
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim((string) $request->input('q', ''));
+
+        $query = Article::latest()->with('author');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('excerpt', 'like', "%{$search}%")
+                    ->orWhere('body', 'like', "%{$search}%");
+            });
+        }
+
         return view('admin.articles', [
-            'articles' => Article::latest()->with('author')->get(),
+            'articles' => $query->get(),
         ]);
     }
 

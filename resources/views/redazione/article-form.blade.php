@@ -25,7 +25,8 @@
 <form method="POST"
       action="{{ isset($article) ? route('redazione.articles.update', $article) : route('redazione.articles.store') }}"
       enctype="multipart/form-data"
-      style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;">
+      class="article-form-grid"
+      style="display:grid;gap:1.5rem;align-items:start;">
   @csrf
   @if(isset($article)) @method('PUT') @endif
 

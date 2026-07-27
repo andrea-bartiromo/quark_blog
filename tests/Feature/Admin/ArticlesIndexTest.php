@@ -72,4 +72,64 @@ class ArticlesIndexTest extends TestCase
 
         $response->assertRedirect(route('redazione.dashboard'));
     }
+
+    // La ricerca "q" filtra realmente l'elenco invece di essere ignorata.
+    public function test_search_filters_articles_by_title(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, ['title' => 'Come proteggere le api']);
+        $this->article($editor, ['title' => 'Fotovoltaico organico']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles', ['q' => 'proteggere le api']));
+
+        $response->assertOk();
+        $response->assertSee('Come proteggere le api');
+        $response->assertDontSee('Fotovoltaico organico');
+    }
+
+    public function test_search_matches_excerpt_and_body_too(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, [
+            'title' => 'Articolo con parola nel sommario',
+            'excerpt' => 'Contiene la parola criptovaluta nel sommario',
+        ]);
+        $this->article($editor, [
+            'title' => 'Articolo con parola nel corpo',
+            'body' => 'Il testo parla di criptovaluta nel corpo articolo.',
+        ]);
+        $this->article($editor, ['title' => 'Articolo non pertinente']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles', ['q' => 'criptovaluta']));
+
+        $response->assertOk();
+        $response->assertSee('Articolo con parola nel sommario');
+        $response->assertSee('Articolo con parola nel corpo');
+        $response->assertDontSee('Articolo non pertinente');
+    }
+
+    public function test_search_with_no_matches_returns_an_empty_list_without_error(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, ['title' => 'Articolo esistente']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles', ['q' => 'termine-inesistente-xyz']));
+
+        $response->assertOk();
+        $response->assertDontSee('Articolo esistente');
+    }
+
+    // Senza parametro "q" il comportamento resta quello di sempre: elenco completo.
+    public function test_empty_search_shows_all_articles_as_before(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, ['title' => 'Primo articolo']);
+        $this->article($editor, ['title' => 'Secondo articolo']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('Primo articolo');
+        $response->assertSee('Secondo articolo');
+    }
 }

@@ -16,7 +16,8 @@
 <form method="POST"
       action="{{ $article ? route('admin.articles.update',$article) : route('admin.articles.store') }}"
       enctype="multipart/form-data"
-      style="display:grid;grid-template-columns:1fr 300px;gap:1.5rem;align-items:start;">
+      class="article-form-grid"
+      style="display:grid;gap:1.5rem;align-items:start;">
   @csrf
   @if($article) @method('PUT') @endif
 

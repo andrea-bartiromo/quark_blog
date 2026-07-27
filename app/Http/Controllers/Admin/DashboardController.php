@@ -32,7 +32,7 @@ class DashboardController extends Controller
                 ->whereIn('verification_status', ['unverified', 'in_progress'])
                 ->count(),
             'newsletter' => Newsletter::where('confirmed', true)->count(),
-            'comments' => Comment::where('approved', false)->count(),
+            'comments' => Comment::pending()->count(),
             'total_views' => Article::sum('views'),
         ];
 
