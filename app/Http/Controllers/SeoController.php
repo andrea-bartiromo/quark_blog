@@ -119,6 +119,12 @@ class SeoController extends Controller
             ['/chi-siamo', '0.5', 'monthly'],
             ['/pubblicita', '0.4', 'monthly'],
             ['/contatti', '0.4', 'monthly'],
+            ['/turing', '0.8', 'monthly'],
+            ['/turing/enigma', '0.6', 'monthly'],
+            ['/turing/ai', '0.6', 'monthly'],
+            ['/turing/legacy', '0.6', 'monthly'],
+            ['/turing/computation', '0.6', 'monthly'],
+            ['/turing/intelligence', '0.6', 'monthly'],
         ];
     }
 }
