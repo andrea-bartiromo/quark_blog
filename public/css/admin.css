@@ -599,6 +599,18 @@ body.admin-body textarea {
   color: var(--admin-muted);
 }
 
+.js-char-counter {
+  float: right;
+  font-weight: 400;
+  font-size: 0.72rem;
+  color: var(--admin-muted);
+}
+
+.js-char-counter.char-counter--over {
+  color: var(--admin-danger);
+  font-weight: 700;
+}
+
 /* Bottoni */
 .btn {
   display: inline-flex;
