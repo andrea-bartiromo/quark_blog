@@ -27,7 +27,7 @@
   @endif
 
   @if($isHtml)
-    {!! $mainBody !!}
+    {!! $mainBodyWithTocIds !!}
   @else
     @php
       $html = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', e($mainBody));

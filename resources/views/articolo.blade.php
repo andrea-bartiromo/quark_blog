@@ -33,6 +33,16 @@
   $sources = isset($bodyParts[1]) ? trim($bodyParts[1]) : null;
   $isHtml = strip_tags($mainBody) !== $mainBody;
   $relatedItems = collect($related ?? []);
+
+  // L'indice si costruisce solo sul body HTML vero e proprio (non sul ramo
+  // di fallback per contenuti in solo testo, che non contiene h2/h3 reali):
+  // gli id vengono generati qui, solo per il rendering, senza toccare mai
+  // $article->body salvato nel database.
+  $toc = $isHtml
+      ? app(\App\Services\TableOfContentsService::class)->build($mainBody)
+      : ['html' => $mainBody, 'items' => []];
+  $mainBodyWithTocIds = $toc['html'];
+  $tocItems = $toc['items'];
 @endphp
 
 <div class="public-shell">
@@ -42,12 +52,14 @@
 
     <div class="article-premium__layout">
       <main>
+        @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
         @include('articles.partials.body')
         @include('articles.partials.newsletter-band')
         @include('articles.partials.related-articles')
       </main>
 
       <aside class="article-premium__aside">
+        @include('articles.partials.toc', ['tocVariant' => 'toc-panel--desktop'])
         @include('articles.partials.author-card')
         @include('articles.partials.share-card')
 
