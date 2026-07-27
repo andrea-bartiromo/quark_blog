@@ -1,14 +1,18 @@
 @extends('layouts.app')
 
-@section('title', $article->title.' — '.config('laboratorio.name'))
-@section('description', $article->excerpt)
+@section('title', $article->metaTitle().' — '.config('laboratorio.name'))
+@section('description', $article->metaDescription())
 @section('og_type', 'article')
+@section('robots', $article->metaRobots())
+@section('canonical', $article->metaCanonicalUrl())
+@section('og_title', $article->metaOgTitle())
+@section('og_description', $article->metaOgDescription())
+@section('og_image', $article->metaOgImage())
+@section('twitter_title', $article->metaTwitterTitle())
+@section('twitter_description', $article->metaTwitterDescription())
+@section('twitter_image', $article->metaTwitterImage())
 
 @section('head')
-<link rel="canonical" href="{{ route('articolo', $article->slug) }}">
-<meta property="og:image" content="{{ asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg')) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
 <meta property="article:published_time" content="{{ $article->published_at->toIso8601String() }}">
 <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
 <meta property="article:author" content="{{ $article->author->name }}">
