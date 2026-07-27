@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(MediaFolderSeeder::class);
+        $this->call(TuringSeeder::class);
 
         // ── Utenti ────────────────────────────────────────────────
         $editor = User::create([
