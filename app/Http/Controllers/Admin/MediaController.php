@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\MoveMediaRequest;
+use App\Http\Requests\Admin\UpdateMediaRequest;
 use App\Models\Media;
 use App\Models\MediaFolder;
 use App\Services\ImageService;
@@ -124,6 +125,37 @@ class MediaController extends Controller
         ]);
     }
 
+    /**
+     * Metadati editoriali di un media esistente, individuato per disk_name
+     * (non per id: il form articolo conosce solo il percorso salvato in
+     * cover_image). Usato per precompilare i campi copertina dell'articolo
+     * quando l'autore seleziona un'immagine già presente in libreria, senza
+     * sovrascrivere valori che l'autore ha già personalizzato (la logica di
+     * "non sovrascrivere" vive lato client, qui si restituiscono solo i dati).
+     */
+    public function lookup(Request $request)
+    {
+        $request->validate([
+            'disk_name' => 'required|string|max:255',
+        ]);
+
+        $media = Media::where('disk_name', $request->string('disk_name'))->first();
+
+        if (! $media) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'alt_text' => $media->alt_text,
+            'caption' => $media->caption,
+            'credit' => $media->credit,
+            'source' => $media->source,
+            'source_url' => $media->source_url,
+            'license' => $media->license,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -181,6 +213,13 @@ class MediaController extends Controller
         }
 
         return back()->with('success', "Immagine \"{$original}\" caricata con successo.");
+    }
+
+    public function update(UpdateMediaRequest $request, Media $media)
+    {
+        $media->update($request->validated());
+
+        return back()->with('success', "Dettagli di \"{$media->filename}\" aggiornati.");
     }
 
     public function destroy(Media $media)

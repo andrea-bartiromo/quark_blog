@@ -29,6 +29,7 @@ class Media extends Model
 
     protected $fillable = [
         'user_id', 'filename', 'disk_name', 'mime_type', 'size', 'alt_text',
+        'caption', 'credit', 'source', 'source_url', 'license',
     ];
 
     protected $appends = ['url', 'human_size'];

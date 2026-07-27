@@ -139,8 +139,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Media
     Route::get('/media', [MediaController::class, 'index'])->name('media');
+    Route::get('/media/lookup', [MediaController::class, 'lookup'])->name('media.lookup');
     Route::post('/media', [MediaController::class, 'store'])->name('media.store');
     Route::post('/media/upload-ajax', [MediaController::class, 'store'])->name('media.upload');
+    Route::patch('/media/{media}', [MediaController::class, 'update'])->name('media.update');
     Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
     Route::get('/media/{media}/move-preflight', [MediaController::class, 'movePreflight'])->name('media.move-preflight');
     Route::patch('/media/{media}/move', [MediaController::class, 'move'])->name('media.move');

@@ -272,4 +272,52 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const coverImageInput = document.getElementById('cover_image');
+  if (! coverImageInput) {
+    return;
+  }
+
+  const metadataFields = {
+    alt_text: document.getElementById('cover_alt'),
+    caption: document.getElementById('cover_caption'),
+    credit: document.getElementById('cover_credit'),
+    source: document.getElementById('cover_source'),
+    source_url: document.getElementById('cover_source_url'),
+    license: document.getElementById('cover_license'),
+  };
+
+  // Precompila i campi copertina con i metadati già salvati sul file della
+  // libreria media, ma solo quando il campo dell'articolo e' ancora vuoto:
+  // non deve mai sovrascrivere dati che la redazione ha già personalizzato.
+  coverImageInput.addEventListener('change', function () {
+    const diskName = coverImageInput.value.trim();
+    if (! diskName) {
+      return;
+    }
+
+    fetch('{{ route('admin.media.lookup') }}?disk_name=' + encodeURIComponent(diskName), {
+      headers: { 'Accept': 'application/json' },
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (! data.found) {
+          return;
+        }
+
+        Object.keys(metadataFields).forEach(function (key) {
+          const field = metadataFields[key];
+          if (field && ! field.value.trim() && data[key]) {
+            field.value = data[key];
+          }
+        });
+      })
+      .catch(function () {
+        // Silenzioso: il prefill e' un aiuto, non un requisito per salvare l'articolo.
+      });
+  });
+});
+</script>
 @endsection

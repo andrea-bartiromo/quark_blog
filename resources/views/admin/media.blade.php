@@ -332,6 +332,9 @@
         : ($usageCount === 1
             ? 'Usata in 1 contenuto: non eliminabile finché è ancora collegata.'
             : "Usata in {$usageCount} contenuti: non eliminabile finché è ancora collegata.");
+    $currentFolderLabel = $inSubfolder
+        ? ($foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name))
+        : 'Radice';
   @endphp
   <li class="media-card">
     <div class="media-card__preview">
@@ -364,6 +367,7 @@
           <span aria-hidden="true">⋯</span><span class="sr-only">Altre azioni</span>
         </summary>
         <div class="media-card__more-menu">
+          <button type="button" class="js-toggle-details" data-target="dettagli-{{ $file->id }}" aria-expanded="false" aria-controls="dettagli-{{ $file->id }}" aria-label="Modifica dettagli di {{ $file->filename }}">Modifica dettagli</button>
           <button type="button" class="js-copy-path" data-path="{{ $file->disk_name }}" aria-label="Copia il percorso di {{ $file->filename }} negli appunti">Copia percorso</button>
           <button type="button" class="js-toggle-usage" data-target="utilizzi-{{ $file->id }}" aria-expanded="false" aria-controls="utilizzi-{{ $file->id }}" aria-label="Mostra utilizzi di {{ $file->filename }}">Mostra utilizzi</button>
           @if($isProtected || $usageCount > 0)
@@ -378,10 +382,77 @@
         </div>
       </details>
     </div>
+    <details id="dettagli-{{ $file->id }}" class="media-card__details">
+      <summary style="display:none;"></summary>
+
+      <dl class="media-card__details-readonly">
+        <div class="media-card__details-row"><dt>Nome originale</dt><dd>{{ $file->filename }}</dd></div>
+        <div class="media-card__details-row"><dt>Formato</dt><dd>{{ $formatLabel }} ({{ $file->mime_type }})</dd></div>
+        <div class="media-card__details-row"><dt>Dimensione</dt><dd>{{ $file->human_size }}</dd></div>
+        <div class="media-card__details-row"><dt>Caricato il</dt><dd>{{ $file->created_at->format('d/m/Y H:i') }}</dd></div>
+        @if($file->user)
+          <div class="media-card__details-row"><dt>Caricato da</dt><dd>{{ $file->user->name }}</dd></div>
+        @endif
+        <div class="media-card__details-row"><dt>Cartella</dt><dd>{{ $currentFolderLabel }}</dd></div>
+        <div class="media-card__details-row"><dt>Utilizzo</dt><dd>{{ $usageBadgeLabel }}</dd></div>
+      </dl>
+
+      @if($usageCount > 0)
+        <div class="media-card__details-usage">
+          <p class="media-card__details-subheading">Utilizzato in:</p>
+          @include('admin.media._usage-list', ['usage' => $usage, 'usageCount' => $usageCount])
+        </div>
+      @endif
+
+      <form method="POST" action="{{ route('admin.media.update', $file) }}" class="media-card__details-form">
+        @csrf
+        @method('PATCH')
+
+        <div class="form-group">
+          <label class="form-label" for="alt_text-{{ $file->id }}">Testo alternativo</label>
+          <input class="form-input" type="text" id="alt_text-{{ $file->id }}" name="alt_text"
+                 maxlength="200" value="{{ $file->alt_text }}">
+          <small class="form-hint">
+            Descrizione del file per l'accessibilità: quando disponibile, è importante soprattutto per le immagini.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="caption-{{ $file->id }}">Didascalia</label>
+          <textarea class="form-textarea" id="caption-{{ $file->id }}" name="caption"
+                    maxlength="1000" style="min-height:60px;">{{ $file->caption }}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="credit-{{ $file->id }}">Credito</label>
+          <input class="form-input" type="text" id="credit-{{ $file->id }}" name="credit" maxlength="255" value="{{ $file->credit }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="source-{{ $file->id }}">Fonte</label>
+          <input class="form-input" type="text" id="source-{{ $file->id }}" name="source" maxlength="255" value="{{ $file->source }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="source_url-{{ $file->id }}">URL della fonte</label>
+          <input class="form-input" type="url" id="source_url-{{ $file->id }}" name="source_url" maxlength="2048" value="{{ $file->source_url }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="license-{{ $file->id }}">Licenza</label>
+          <input class="form-input" type="text" id="license-{{ $file->id }}" name="license" maxlength="255" value="{{ $file->license }}">
+        </div>
+
+        <div class="media-card__move-actions">
+          <button type="submit" class="btn btn--secondary btn--sm">Salva dettagli</button>
+          <button type="button" class="js-cancel-details media-card__move-cancel" data-target="dettagli-{{ $file->id }}">Annulla</button>
+        </div>
+      </form>
+    </details>
     <details id="sposta-{{ $file->id }}" class="media-card__move">
       <summary style="display:none;"></summary>
       <div class="media-card__move-current">
-        Cartella attuale: <strong>{{ $inSubfolder ? ($foldersById->first(fn ($f) => $f->path === dirname($file->disk_name))?->name ?? dirname($file->disk_name)) : 'Radice' }}</strong>
+        Cartella attuale: <strong>{{ $currentFolderLabel }}</strong>
       </div>
       <select class="form-select js-move-target media-card__move-select" data-media-id="{{ $file->id }}" data-preflight-url="{{ route('admin.media.move-preflight', $file) }}">
         <option value="">Radice</option>
@@ -401,24 +472,7 @@
     </details>
     <details id="utilizzi-{{ $file->id }}" class="media-card__usage-detail">
       <summary style="display:none;"></summary>
-      @if($usageCount === 0)
-        <p class="media-card__usage-empty">Nessun utilizzo rilevato.</p>
-      @else
-        <ul class="media-card__usage-list">
-          @foreach($usage as $record)
-            <li>
-              <span class="media-card__usage-type">{{ $record['usage_type_label'] }}</span>
-              <span class="media-card__usage-title">{{ $record['content_type'] }}: {{ $record['title'] }}</span>
-              @if($record['status'])
-                <span class="media-card__usage-status">{{ $record['status'] }}</span>
-              @endif
-              @if($record['edit_url'])
-                <a href="{{ $record['edit_url'] }}" class="media-card__usage-link">Apri</a>
-              @endif
-            </li>
-          @endforeach
-        </ul>
-      @endif
+      @include('admin.media._usage-list', ['usage' => $usage, 'usageCount' => $usageCount])
     </details>
   </li>
   @endforeach
@@ -477,7 +531,7 @@ function fallbackCopy(text, done) {
   }
 }
 
-document.querySelectorAll('.js-toggle-move, .js-toggle-usage').forEach(function (button) {
+document.querySelectorAll('.js-toggle-move, .js-toggle-usage, .js-toggle-details').forEach(function (button) {
   button.addEventListener('click', function () {
     const panel = document.getElementById(button.dataset.target);
     const willOpen = !panel.open;
@@ -501,6 +555,15 @@ document.querySelectorAll('.js-cancel-move').forEach(function (button) {
     const panel = document.getElementById(button.dataset.target);
     panel.open = false;
     document.querySelector('.js-toggle-move[data-target="' + button.dataset.target + '"]')
+      ?.setAttribute('aria-expanded', 'false');
+  });
+});
+
+document.querySelectorAll('.js-cancel-details').forEach(function (button) {
+  button.addEventListener('click', function () {
+    const panel = document.getElementById(button.dataset.target);
+    panel.open = false;
+    document.querySelector('.js-toggle-details[data-target="' + button.dataset.target + '"]')
       ?.setAttribute('aria-expanded', 'false');
   });
 });
