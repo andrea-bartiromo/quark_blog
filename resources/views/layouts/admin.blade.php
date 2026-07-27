@@ -203,7 +203,8 @@
             style="display:flex;gap:.5rem;max-width:400px;">
         <input type="text" name="q"
                value="{{ request('q') }}"
-               placeholder="🔍 Cerca articoli, commenti..."
+               placeholder="🔍 Cerca articoli..."
+               aria-label="Cerca articoli per titolo, sommario o testo"
                style="flex:1;padding:.45rem .75rem;border:1px solid #e5e7eb;
                       border-radius:6px;font-size:.82rem;font-family:inherit;
                       background:#fff;">
