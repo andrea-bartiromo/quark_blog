@@ -854,6 +854,37 @@ body.admin-body textarea {
   text-decoration: underline;
 }
 
+/* Libreria media — statistiche aggregate */
+.media-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+  margin: 0 0 1.25rem;
+}
+
+.media-stats__item {
+  background: var(--admin-white);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  padding: 0.85rem 1.1rem;
+}
+
+.media-stats__item dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-muted);
+  margin-bottom: 0.3rem;
+}
+
+.media-stats__item dd {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--admin-ink);
+}
+
 /* Libreria media — pannelli comprimibili (nuova cartella / upload) */
 .media-panel {
   margin-bottom: 1.25rem;
