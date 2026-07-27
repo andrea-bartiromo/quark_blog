@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Article;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreArticleRequest extends FormRequest
 {
@@ -12,7 +14,7 @@ class StoreArticleRequest extends FormRequest
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public function rules(): array
     {
@@ -32,6 +34,16 @@ class StoreArticleRequest extends FormRequest
             'status' => 'required|in:draft,published,review',
             'read_minutes' => 'integer|min:1|max:60',
             'featured' => 'boolean',
+            'seo_title' => 'nullable|string|max:70',
+            'seo_description' => 'nullable|string|max:200',
+            'canonical_url' => 'nullable|url|max:2048',
+            'robots' => ['nullable', Rule::in(Article::robotsOptions())],
+            'og_title' => 'nullable|string|max:70',
+            'og_description' => 'nullable|string|max:200',
+            'og_image' => 'nullable|max:255',
+            'twitter_title' => 'nullable|string|max:70',
+            'twitter_description' => 'nullable|string|max:200',
+            'twitter_image' => 'nullable|max:255',
         ];
     }
 }

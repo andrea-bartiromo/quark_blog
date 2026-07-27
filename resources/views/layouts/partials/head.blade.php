@@ -3,15 +3,35 @@
 
 <title>@yield('title', config('laboratorio.name').' — '.config('laboratorio.tagline'))</title>
 <meta name="description" content="@yield('description', config('laboratorio.description'))">
+<meta name="robots" content="@yield('robots', 'index,follow')">
+
+@hasSection('canonical')
+<link rel="canonical" href="@yield('canonical')">
+@endif
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
-{{-- Open Graph --}}
+{{-- Open Graph: og:title/og:description riusano 'title'/'description' quando
+     la pagina non definisce un valore Open Graph dedicato, esattamente come
+     accadeva prima di introdurre le sezioni og_title/og_description --}}
 <meta property="og:site_name" content="{{ config('laboratorio.name') }}">
 <meta property="og:type" content="@yield('og_type','website')">
-<meta property="og:title" content="@yield('title')">
-<meta property="og:description" content="@yield('description')">
+<meta property="og:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title')@endif">
+<meta property="og:description" content="@hasSection('og_description')@yield('og_description')@else@yield('description')@endif">
 <meta property="og:url" content="{{ url()->current() }}">
+@hasSection('og_image')
+<meta property="og:image" content="@yield('og_image')">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+@endif
+
+{{-- Twitter Card: stessa logica di fallback di Open Graph --}}
+<meta name="twitter:card" content="@yield('twitter_card', 'summary_large_image')">
+<meta name="twitter:title" content="@hasSection('twitter_title')@yield('twitter_title')@else@yield('title')@endif">
+<meta name="twitter:description" content="@hasSection('twitter_description')@yield('twitter_description')@else@yield('description')@endif">
+@hasSection('twitter_image')
+<meta name="twitter:image" content="@yield('twitter_image')">
+@endif
 
 {{-- Google Analytics 4 --}}
 {{--

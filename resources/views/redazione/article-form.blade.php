@@ -156,6 +156,109 @@
 
     <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1.25rem;">
       <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
+                  letter-spacing:.1em;margin-bottom:1rem;">SEO</div>
+
+      <div class="form-group">
+        <label class="form-label" for="seo_title">
+          SEO title
+          <span class="js-char-counter" data-target="seo_title" data-recommended="60"></span>
+        </label>
+        <input class="form-input" type="text" id="seo_title" name="seo_title" maxlength="70"
+               value="{{ old('seo_title', $article->seo_title ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">
+          Se vuoto, viene usato il titolo dell'articolo. Consigliati fino a 60 caratteri per evitare troncamenti nei risultati di ricerca.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="seo_description">
+          SEO description
+          <span class="js-char-counter" data-target="seo_description" data-recommended="160"></span>
+        </label>
+        <textarea class="form-textarea" id="seo_description" name="seo_description" maxlength="200"
+                  style="min-height:70px;font-size:.82rem;">{{ old('seo_description', $article->seo_description ?? '') }}</textarea>
+        <small class="form-hint">
+          Se vuoto, viene usato il sommario; se anche quello è vuoto, le prime righe del testo. Consigliati fino a 160 caratteri.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="canonical_url">URL canonico (opzionale)</label>
+        <input class="form-input" type="url" id="canonical_url" name="canonical_url" maxlength="2048"
+               value="{{ old('canonical_url', $article->canonical_url ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">
+          Da usare solo se questo contenuto è pubblicato anche altrove. Se vuoto, viene usato l'URL dell'articolo.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="robots">Robots</label>
+        @php $currentRobots = old('robots', $article->robots ?? ''); @endphp
+        <select class="form-select" id="robots" name="robots" style="font-size:.82rem;">
+          <option value="" {{ $currentRobots === '' ? 'selected' : '' }}>Predefinito (index, follow)</option>
+          <option value="index,follow" {{ $currentRobots === 'index,follow' ? 'selected' : '' }}>index, follow</option>
+          <option value="noindex,follow" {{ $currentRobots === 'noindex,follow' ? 'selected' : '' }}>noindex, follow</option>
+          <option value="index,nofollow" {{ $currentRobots === 'index,nofollow' ? 'selected' : '' }}>index, nofollow</option>
+          <option value="noindex,nofollow" {{ $currentRobots === 'noindex,nofollow' ? 'selected' : '' }}>noindex, nofollow</option>
+        </select>
+        <small class="form-hint">Usa "noindex" per escludere l'articolo dai motori di ricerca.</small>
+      </div>
+
+      <div style="border-top:1px solid #e5e7eb;margin:1rem 0 .85rem;padding-top:.85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;">
+        Open Graph (Facebook, LinkedIn)
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="og_title">OG title</label>
+        <input class="form-input" type="text" id="og_title" name="og_title" maxlength="70"
+               value="{{ old('og_title', $article->og_title ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="og_description">OG description</label>
+        <textarea class="form-textarea" id="og_description" name="og_description" maxlength="200"
+                  style="min-height:60px;font-size:.82rem;">{{ old('og_description', $article->og_description ?? '') }}</textarea>
+        <small class="form-hint">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="og_image">OG image</label>
+        <input class="form-input" type="text" id="og_image" name="og_image" maxlength="255"
+               placeholder="nome file dalla libreria media"
+               value="{{ old('og_image', $article->og_image ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">Se vuoto, viene usata l'immagine di copertina.</small>
+      </div>
+
+      <div style="border-top:1px solid #e5e7eb;margin:1rem 0 .85rem;padding-top:.85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;">
+        Twitter Card
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="twitter_title">Twitter title</label>
+        <input class="form-input" type="text" id="twitter_title" name="twitter_title" maxlength="70"
+               value="{{ old('twitter_title', $article->twitter_title ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="twitter_description">Twitter description</label>
+        <textarea class="form-textarea" id="twitter_description" name="twitter_description" maxlength="200"
+                  style="min-height:60px;font-size:.82rem;">{{ old('twitter_description', $article->twitter_description ?? '') }}</textarea>
+        <small class="form-hint">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="twitter_image">Twitter image</label>
+        <input class="form-input" type="text" id="twitter_image" name="twitter_image" maxlength="255"
+               placeholder="nome file dalla libreria media"
+               value="{{ old('twitter_image', $article->twitter_image ?? '') }}" style="font-size:.82rem;">
+        <small class="form-hint">Se vuoto, viene usata l'immagine di copertina.</small>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1.25rem;">
+      <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
                   letter-spacing:.1em;margin-bottom:.75rem;">Linee guida editoriali</div>
       @foreach([
         'Verifica ogni dato sulla fonte primaria',
@@ -202,4 +305,6 @@ tinymce.init({
   }
 });
 </script>
+
+@include('partials.char-counter-script')
 @endsection
