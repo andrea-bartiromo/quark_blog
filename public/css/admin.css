@@ -1647,6 +1647,15 @@ ul.media-grid {
   margin-top: 0;
 }
 
+/* Colonna principale + pannelli laterali del form articolo (Admin e
+   Redazione condividono lo stesso markup): la larghezza fissa della
+   colonna laterale va rimossa sotto i 900px, stesso breakpoint già usato
+   per il resto del pannello admin, cosi' il contenuto principale può
+   occupare tutta la larghezza disponibile invece di essere schiacciato. */
+.article-form-grid {
+  grid-template-columns: 1fr 300px;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .admin-sidebar {
@@ -1711,6 +1720,10 @@ ul.media-grid {
 
   .admin-has-sidebar-toggle .admin-main {
     padding: 4.25rem 1rem 1rem;
+  }
+
+  .article-form-grid {
+    grid-template-columns: 1fr;
   }
 }
 
