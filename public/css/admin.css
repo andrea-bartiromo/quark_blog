@@ -592,6 +592,13 @@ body.admin-body textarea {
   resize: vertical;
 }
 
+.form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--admin-muted);
+}
+
 /* Bottoni */
 .btn {
   display: inline-flex;
@@ -1517,6 +1524,52 @@ ul.media-grid {
 
 .media-card__usage-link:hover {
   text-decoration: underline;
+}
+
+.media-card__details {
+  border-top: 1px solid var(--admin-border-light);
+  padding: 0.65rem 0.85rem;
+}
+
+.media-card__details-readonly {
+  margin: 0 0 0.75rem;
+}
+
+.media-card__details-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.7rem;
+  border-bottom: 1px solid var(--admin-border-light);
+}
+
+.media-card__details-row dt {
+  color: var(--admin-muted);
+}
+
+.media-card__details-row dd {
+  margin: 0;
+  color: var(--admin-ink);
+  font-weight: 600;
+  text-align: right;
+}
+
+.media-card__details-usage {
+  margin-bottom: 0.85rem;
+}
+
+.media-card__details-subheading {
+  margin: 0 0 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-muted);
+}
+
+.media-card__details-form .form-group:last-of-type {
+  margin-bottom: 0.75rem;
 }
 
 /* Upload */
