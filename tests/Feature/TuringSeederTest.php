@@ -17,7 +17,7 @@ class TuringSeederTest extends TestCase
         return User::factory()->create(['role' => 'editor']);
     }
 
-    // updateOrCreate() su 'slug' deve rendere il seeder sicuro da eseguire
+    // firstOrCreate() su 'slug' deve rendere il seeder sicuro da eseguire
     // più volte: nessuna riga duplicata, nessun errore di vincolo unique.
     public function test_running_the_seeder_twice_does_not_create_duplicate_rows(): void
     {
@@ -30,12 +30,31 @@ class TuringSeederTest extends TestCase
     public function test_running_the_seeder_twice_produces_the_same_content(): void
     {
         $this->seed(TuringSeeder::class);
-        $first = SpecialPage::where('slug', 'turing')->first()->content;
+        $first = SpecialPage::where('slug', 'turing')->firstOrFail()->content;
 
         $this->seed(TuringSeeder::class);
-        $second = SpecialPage::where('slug', 'turing')->first()->content;
+        $second = SpecialPage::where('slug', 'turing')->firstOrFail()->content;
 
         $this->assertSame($first, $second);
+    }
+
+    public function test_running_the_seeder_does_not_overwrite_existing_cms_content(): void
+    {
+        $this->seed(TuringSeeder::class);
+
+        $page = SpecialPage::where('slug', 'turing')->firstOrFail();
+
+        $page->update([
+            'title' => 'Titolo modificato dal CMS',
+            'description' => 'Descrizione personalizzata',
+        ]);
+
+        $this->seed(TuringSeeder::class);
+
+        $page->refresh();
+
+        $this->assertSame('Titolo modificato dal CMS', $page->title);
+        $this->assertSame('Descrizione personalizzata', $page->description);
     }
 
     public function test_seeder_creates_an_active_page_with_the_expected_top_level_fields(): void
@@ -54,12 +73,18 @@ class TuringSeederTest extends TestCase
     {
         $this->seed(TuringSeeder::class);
 
-        $cards = SpecialPage::where('slug', 'turing')->first()->content['cards'];
+        $cards = SpecialPage::where('slug', 'turing')->firstOrFail()->content['cards'];
 
         $this->assertCount(3, $cards);
+
         $urls = array_column($cards, 'url');
-        $this->assertSame(['/turing/enigma', '/turing/ai', '/turing/legacy'], $urls);
-        // La regressione storica (PR-T1): mai /turing/ia, mai un url nullo.
+
+        $this->assertSame(
+            ['/turing/enigma', '/turing/ai', '/turing/legacy'],
+            $urls
+        );
+
+        // La regressione storica (PR-T1): mai /turing/ia, mai un URL nullo.
         $this->assertNotContains('/turing/ia', $urls);
     }
 
@@ -67,7 +92,9 @@ class TuringSeederTest extends TestCase
     {
         $this->seed(TuringSeeder::class);
 
-        $blocks = SpecialPage::where('slug', 'turing')->first()->content['editorial_blocks'];
+        $blocks = SpecialPage::where('slug', 'turing')
+            ->firstOrFail()
+            ->content['editorial_blocks'];
 
         $this->assertCount(4, $blocks);
         $this->assertSame(
@@ -89,7 +116,7 @@ class TuringSeederTest extends TestCase
         // del controller continua a fornirla.
         $this->seed(TuringSeeder::class);
 
-        $content = SpecialPage::where('slug', 'turing')->first()->content;
+        $content = SpecialPage::where('slug', 'turing')->firstOrFail()->content;
 
         $this->assertArrayNotHasKey('timeline', $content);
     }
@@ -107,7 +134,10 @@ class TuringSeederTest extends TestCase
     {
         $this->seed(TuringSeeder::class);
 
-        $this->get(route('turing'))->assertOk()->assertSeeText('Alan Turing');
+        $this->get(route('turing'))
+            ->assertOk()
+            ->assertSeeText('Alan Turing');
+
         $this->get(route('turing.enigma'))->assertOk();
         $this->get(route('turing.ai'))->assertOk();
         $this->get(route('turing.legacy'))->assertOk();
@@ -152,6 +182,7 @@ class TuringSeederTest extends TestCase
             $this->extractBackgroundImageUrls($enigmaBefore),
             $this->extractBackgroundImageUrls($enigmaAfter)
         );
+
         $this->assertSame(
             $this->extractBackgroundImageUrls($aiBefore),
             $this->extractBackgroundImageUrls($aiAfter)
@@ -160,7 +191,11 @@ class TuringSeederTest extends TestCase
 
     private function extractBackgroundImageUrls(string $html): array
     {
-        preg_match_all('/background-image:url\(\'([^\']+)\'\)/', $html, $matches);
+        preg_match_all(
+            '/background-image:url\(\'([^\']+)\'\)/',
+            $html,
+            $matches
+        );
 
         return $matches[1];
     }
@@ -169,13 +204,21 @@ class TuringSeederTest extends TestCase
     {
         $this->seed(TuringSeeder::class);
 
-        $response = $this->actingAs($this->editor())->get(route('admin.turing'));
+        $response = $this
+            ->actingAs($this->editor())
+            ->get(route('admin.turing'));
 
         $response->assertOk();
+
         $response->assertViewHas('page', function (SpecialPage $page) {
             return $page->content['hero']['title'] === 'Alan Turing'
-                && $page->content['intro']['title'] === 'Dalla crittografia alla coscienza artificiale';
+                && $page->content['intro']['title']
+                    === 'Dalla crittografia alla coscienza artificiale';
         });
-        $response->assertSee('Dalla crittografia alla coscienza artificiale', false);
+
+        $response->assertSee(
+            'Dalla crittografia alla coscienza artificiale',
+            false
+        );
     }
 }

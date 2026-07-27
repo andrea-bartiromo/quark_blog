@@ -9,10 +9,10 @@ class TuringSeeder extends Seeder
 {
     public function run(): void
     {
-        // updateOrCreate su 'slug' (colonna unique nella migrazione) rende il
-        // seeder idempotente: eseguirlo più volte aggiorna la stessa riga
-        // invece di crearne di nuove.
-        SpecialPage::updateOrCreate(
+        // firstOrCreate su 'slug' inizializza la pagina soltanto se non esiste.
+        // Le esecuzioni successive non duplicano la riga e non sovrascrivono
+        // eventuali contenuti modificati dagli amministratori tramite il CMS.
+        SpecialPage::firstOrCreate(
             ['slug' => 'turing'],
             [
                 'title' => 'Alan Turing',
