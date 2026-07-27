@@ -10,6 +10,7 @@ use App\Services\ImageService;
 use App\Services\MediaFolderService;
 use App\Services\MediaMoveService;
 use App\Services\MediaReferenceService;
+use App\Services\MediaStatsService;
 use App\Services\MediaUsageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class MediaController extends Controller
         private readonly MediaMoveService $mediaMoveService,
         private readonly MediaReferenceService $mediaReferenceService,
         private readonly MediaUsageService $mediaUsageService,
+        private readonly MediaStatsService $mediaStatsService,
     ) {}
 
     public function index(Request $request)
@@ -33,6 +35,7 @@ class MediaController extends Controller
         $validated = $request->validate([
             'q' => 'nullable|string|max:100',
             'type' => 'nullable|in:jpeg,png,webp,gif',
+            'category' => 'nullable|in:images,documents,others',
             'sort' => 'nullable|in:newest,oldest,name_asc,name_desc,size_desc,size_asc',
         ]);
 
@@ -76,6 +79,14 @@ class MediaController extends Controller
             $query->whereIn('mime_type', $mimeTypes);
         }
 
+        $category = $validated['category'] ?? null;
+        match ($category) {
+            'images' => $query->images(),
+            'documents' => $query->documents(),
+            'others' => $query->others(),
+            default => null,
+        };
+
         $sort = $validated['sort'] ?? 'newest';
         match ($sort) {
             'oldest' => $query->oldest(),
@@ -105,9 +116,11 @@ class MediaController extends Controller
             'defaultFolder' => MediaFolder::where('path', '_da-classificare')->first(),
             'search' => $search,
             'type' => $type,
+            'category' => $category,
             'sort' => $sort,
-            'hasActiveFilters' => $search !== '' || $type !== null || $sort !== 'newest',
+            'hasActiveFilters' => $search !== '' || $type !== null || $category !== null || $sort !== 'newest',
             'usageByDiskName' => $usageByDiskName,
+            'stats' => $this->mediaStatsService->global(),
         ]);
     }
 

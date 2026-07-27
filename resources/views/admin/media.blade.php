@@ -12,6 +12,7 @@
         'image/gif' => 'GIF',
     ];
     $typeLabels = ['jpeg' => 'JPEG', 'png' => 'PNG', 'webp' => 'WebP', 'gif' => 'GIF'];
+    $categoryLabels = ['images' => 'Immagini', 'documents' => 'Documenti', 'others' => 'Altro'];
     $sortLabels = [
         'oldest' => 'Più vecchie',
         'name_asc' => 'Nome A–Z',
@@ -21,7 +22,7 @@
     ];
     $folderQuery = $currentFolder ? ['folder' => $currentFolder->id] : [];
     $uploadHasErrors = $errors->has('image') || $errors->has('alt_text');
-    $advancedFiltersActive = $type !== null || $sort !== 'newest' || $errors->has('type') || $errors->has('sort');
+    $advancedFiltersActive = $type !== null || $category !== null || $sort !== 'newest' || $errors->has('type') || $errors->has('category') || $errors->has('sort');
 @endphp
 
 <header class="media-header">
@@ -65,6 +66,25 @@
     @endif
   </div>
 </header>
+
+<dl class="admin-grid admin-grid--stats media-stats" aria-label="Statistiche della libreria media">
+  <div class="stat-card">
+    <dt class="stat-card__label">File totali</dt>
+    <dd class="stat-card__value">{{ number_format($stats['total_files']) }}</dd>
+  </div>
+  <div class="stat-card">
+    <dt class="stat-card__label">Spazio utilizzato</dt>
+    <dd class="stat-card__value">{{ $stats['total_size_human'] }}</dd>
+  </div>
+  <div class="stat-card">
+    <dt class="stat-card__label">Immagini</dt>
+    <dd class="stat-card__value">{{ number_format($stats['image_count']) }}</dd>
+  </div>
+  <div class="stat-card">
+    <dt class="stat-card__label">Documenti</dt>
+    <dd class="stat-card__value">{{ number_format($stats['document_count']) }}</dd>
+  </div>
+</dl>
 
 @if(session('success'))
 <div class="admin-alert admin-alert--success" role="status">
@@ -214,6 +234,16 @@
     </summary>
     <div class="media-filters__body">
       <div class="media-toolbar__field">
+        <label class="form-label" for="media-category">Tipo</label>
+        <select id="media-category" name="category" class="form-select" aria-label="Filtra per tipo di file">
+          <option value="">Tutti i tipi</option>
+          <option value="images" @selected($category === 'images')>Immagini</option>
+          <option value="documents" @selected($category === 'documents')>Documenti</option>
+          <option value="others" @selected($category === 'others')>Altro</option>
+        </select>
+      </div>
+
+      <div class="media-toolbar__field">
         <label class="form-label" for="media-type">Formato</label>
         <select id="media-type" name="type" class="form-select" aria-label="Filtra per formato immagine">
           <option value="">Tutti i formati</option>
@@ -247,9 +277,10 @@
     </div>
   </div>
 
-  @if($search !== '' || $type || ($sort && $sort !== 'newest'))
+  @if($search !== '' || $type || $category || ($sort && $sort !== 'newest'))
   <div class="media-filter-badges" aria-label="Filtri attivi">
     @if($search !== '')<span class="badge badge--filter">Ricerca: “{{ $search }}”</span>@endif
+    @if($category)<span class="badge badge--filter">Tipo: {{ $categoryLabels[$category] }}</span>@endif
     @if($type)<span class="badge badge--filter">Formato: {{ $typeLabels[$type] }}</span>@endif
     @if($sort && $sort !== 'newest')<span class="badge badge--filter">Ordina: {{ $sortLabels[$sort] }}</span>@endif
   </div>

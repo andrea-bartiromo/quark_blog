@@ -854,6 +854,15 @@ body.admin-body textarea {
   text-decoration: underline;
 }
 
+/* Libreria media — statistiche aggregate (riusa .admin-grid--stats/.stat-card) */
+.media-stats {
+  margin: 0 0 1.25rem;
+}
+
+.media-stats dd {
+  margin: 0;
+}
+
 /* Libreria media — pannelli comprimibili (nuova cartella / upload) */
 .media-panel {
   margin-bottom: 1.25rem;
@@ -1641,6 +1650,10 @@ ul.media-grid {
 }
 
 @media (max-width: 640px) {
+  .media-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .media-header__top {
     align-items: stretch;
   }
