@@ -67,22 +67,22 @@
   </div>
 </header>
 
-<dl class="media-stats" aria-label="Statistiche della libreria media">
-  <div class="media-stats__item">
-    <dt>File totali</dt>
-    <dd>{{ number_format($stats['total_files']) }}</dd>
+<dl class="admin-grid admin-grid--stats media-stats" aria-label="Statistiche della libreria media">
+  <div class="stat-card">
+    <dt class="stat-card__label">File totali</dt>
+    <dd class="stat-card__value">{{ number_format($stats['total_files']) }}</dd>
   </div>
-  <div class="media-stats__item">
-    <dt>Spazio utilizzato</dt>
-    <dd>{{ $stats['total_size_human'] }}</dd>
+  <div class="stat-card">
+    <dt class="stat-card__label">Spazio utilizzato</dt>
+    <dd class="stat-card__value">{{ $stats['total_size_human'] }}</dd>
   </div>
-  <div class="media-stats__item">
-    <dt>Immagini</dt>
-    <dd>{{ number_format($stats['image_count']) }}</dd>
+  <div class="stat-card">
+    <dt class="stat-card__label">Immagini</dt>
+    <dd class="stat-card__value">{{ number_format($stats['image_count']) }}</dd>
   </div>
-  <div class="media-stats__item">
-    <dt>Documenti</dt>
-    <dd>{{ number_format($stats['document_count']) }}</dd>
+  <div class="stat-card">
+    <dt class="stat-card__label">Documenti</dt>
+    <dd class="stat-card__value">{{ number_format($stats['document_count']) }}</dd>
   </div>
 </dl>
 

@@ -79,7 +79,7 @@ class MediaLibraryStatsAndCategoryTest extends TestCase
 
         $stats = $this->statsBlockHtml($response->getContent());
         // 2 file in libreria, anche se la cartella+ricerca corrente non ne mostra nessuno.
-        $this->assertStringContainsString('<dd>2</dd>', $stats);
+        $this->assertStringContainsString('<dd class="stat-card__value">2</dd>', $stats);
     }
 
     private function statsBlockHtml(string $fullHtml): string

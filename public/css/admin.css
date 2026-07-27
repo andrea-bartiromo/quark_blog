@@ -854,35 +854,13 @@ body.admin-body textarea {
   text-decoration: underline;
 }
 
-/* Libreria media — statistiche aggregate */
+/* Libreria media — statistiche aggregate (riusa .admin-grid--stats/.stat-card) */
 .media-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.85rem;
   margin: 0 0 1.25rem;
 }
 
-.media-stats__item {
-  background: var(--admin-white);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-lg);
-  padding: 0.85rem 1.1rem;
-}
-
-.media-stats__item dt {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--admin-muted);
-  margin-bottom: 0.3rem;
-}
-
-.media-stats__item dd {
+.media-stats dd {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--admin-ink);
 }
 
 /* Libreria media — pannelli comprimibili (nuova cartella / upload) */
@@ -1672,6 +1650,10 @@ ul.media-grid {
 }
 
 @media (max-width: 640px) {
+  .media-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .media-header__top {
     align-items: stretch;
   }
