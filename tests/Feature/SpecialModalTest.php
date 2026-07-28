@@ -93,12 +93,14 @@ class SpecialModalTest extends TestCase
         $this->assertStringNotContainsString('<script>alert(2)</script>', $html);
     }
 
-    public function test_turing_page_still_renders_without_any_modal_instance(): void
+    public function test_turing_page_renders_modal_instances_for_timeline_events_with_details(): void
     {
-        // Decision #009: il componente e' pronto ma non ancora collegato a
-        // nessuna vista Turing in questa PR (fuori scope).
+        // Decision #009 introduce il componente; la Timeline lo collega per
+        // gli eventi con un approfondimento (campo 'details').
         $response = $this->get(route('turing'));
 
         $response->assertOk();
+        $response->assertSee('sp-modal', false);
+        $response->assertSee('data-sp-modal-target', false);
     }
 }

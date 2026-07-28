@@ -567,6 +567,36 @@
                 @endforeach
             </section>
 
+            @if(!empty($timeline))
+                <section class="turing-lite-card">
+                    <h2>Approfondimenti Timeline</h2>
+                    <p class="turing-lite-hint">
+                        Testo lungo mostrato nella modale "Approfondisci" di ogni evento,
+                        visibile soltanto quando questa pagina usa un elenco Timeline
+                        personalizzato invece di quello predefinito. Anno, titolo e testo
+                        breve di ogni evento non sono ancora modificabili da qui.
+                    </p>
+
+                    @foreach($timeline as $i => $event)
+                        @php
+                            $eventYear = $event['year'] ?? null;
+                            $eventTitle = $event['title'] ?? ('Evento '.($i + 1));
+                            $eventLabel = filled($eventYear) ? "{$eventYear} — {$eventTitle}" : $eventTitle;
+                        @endphp
+                        <div class="form-group">
+                            <label class="form-label">{{ $eventLabel }}</label>
+                            <textarea
+                                class="form-textarea"
+                                name="timeline[{{ $i }}][details]"
+                                maxlength="2000"
+                            >{{ old("timeline.$i.details", $event['details'] ?? '') }}</textarea>
+                        </div>
+
+                        {!! $renderHidden("timeline[$i]", collect($event)->except('details')->all()) !!}
+                    @endforeach
+                </section>
+            @endif
+
             <section id="settings" class="turing-lite-card">
                 <h2>Impostazioni pagina</h2>
 
@@ -620,7 +650,6 @@
                 <input type="hidden" name="final_text" value="{{ $final['text'] ?? 'Vuoi partire dalla guerra dei codici o dalla domanda sull’intelligenza artificiale?' }}">
                 <input type="hidden" name="final_background_image" value="{{ $final['background_image'] ?? '' }}">
 
-                {!! $renderHidden('timeline', $timeline) !!}
                 {!! $renderHidden('internal_links', $internalLinks) !!}
                 {!! $renderHidden('decorative_images', $decorativeImages) !!}
             </div>
