@@ -128,6 +128,7 @@ class TuringController extends Controller
             'decorative_images' => 'nullable|array',
             'why_items' => 'nullable|array',
             'timeline' => 'nullable|array',
+            'timeline.*.details' => 'nullable|max:2000',
         ]);
     }
 
