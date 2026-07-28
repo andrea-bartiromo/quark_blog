@@ -57,6 +57,47 @@ class TuringSeederTest extends TestCase
         $this->assertSame('Descrizione personalizzata', $page->description);
     }
 
+    // TuringSeeder non scrive alcuna chiave 'timeline' (vedi commento nel
+    // file): farlo disattiverebbe la Timeline a capitoli (Decision #003), una
+    // regressione esplicitamente da evitare. Gli approfondimenti degli eventi
+    // di default sono quindi "inizializzati" dai default del controller, non
+    // da una riga scritta dal seeder — ma per un'installazione appena
+    // seedata il risultato e' lo stesso: subito disponibili, senza alcun
+    // intervento manuale.
+    public function test_seeder_leaves_default_timeline_details_to_the_controller_and_does_not_disable_chapters(): void
+    {
+        $this->seed(TuringSeeder::class);
+
+        $content = SpecialPage::where('slug', 'turing')->firstOrFail()->content;
+        $this->assertArrayNotHasKey('timeline', $content);
+
+        $this->get(route('turing'))
+            ->assertOk()
+            ->assertSee('data-sp-modal-target="timeline-chapter-1-event-0"', false);
+    }
+
+    public function test_reseeding_does_not_overwrite_a_cms_edited_timeline_override(): void
+    {
+        $this->seed(TuringSeeder::class);
+
+        $page = SpecialPage::where('slug', 'turing')->firstOrFail();
+        $page->update([
+            'content' => array_merge($page->content, [
+                'timeline' => [
+                    ['year' => '1999', 'title' => 'Evento CMS', 'text' => 'Testo.', 'details' => 'Approfondimento scritto da un redattore.'],
+                ],
+            ]),
+        ]);
+
+        $this->seed(TuringSeeder::class);
+
+        $page->refresh();
+        $this->assertSame(
+            'Approfondimento scritto da un redattore.',
+            $page->content['timeline'][0]['details']
+        );
+    }
+
     public function test_seeder_creates_an_active_page_with_the_expected_top_level_fields(): void
     {
         $this->seed(TuringSeeder::class);
