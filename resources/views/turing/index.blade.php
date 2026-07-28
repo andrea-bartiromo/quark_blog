@@ -64,3 +64,9 @@
 @include('turing.partials.final-card')
 </div>
 @endsection
+
+@push('scripts')
+  {{-- Controller condiviso di <x-special.modal> (Decision #009), usato dalle
+       modali di approfondimento della Timeline. --}}
+  <script src="{{ asset('js/special-modal.js') }}"></script>
+@endpush
