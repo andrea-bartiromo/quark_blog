@@ -61,10 +61,12 @@
   scroll-margin-top: 6rem;
 }
 
-/* ---- Cover di capitolo: la foto apre il capitolo (10.5), bordata e ad
-   altezza controllata (Decision #001). La composizione bordata la distingue
-   dalle sezioni editoriali a tutta pagina che la precedono -> "cambio di
-   capitolo" percepibile (10.2). --------------------------------------------- */
+/* ---- Cover di capitolo: la foto apre il capitolo (10.5), ad altezza
+   controllata (Decision #001). Sfondo nero pieno invece del riquadro
+   bordato/ombreggiato originale, cosi' la cover resta visivamente continua
+   con lo sfondo nero di .sp-timeline invece di leggersi come un pannello
+   separato -> "cambio di capitolo" percepibile (10.2) tramite la sola foto,
+   non piu' tramite una cornice. --------------------------------------------- */
 .sp-timeline__cover {
   position: relative;
   isolation: isolate;
@@ -72,13 +74,11 @@
   min-height: var(--sp-cover-height);
   display: flex;
   align-items: flex-end;
-  border-radius: var(--sp-radius-lg);
-  background-color: var(--sp-surface-tint);
+  background-color: #050505;
   background-size: cover;
   background-position: center 38%;
   background-repeat: no-repeat;
-  box-shadow: 0 20px 54px rgba(15, 23, 42, .18);
-  margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+  margin-bottom: 12px;
 }
 
 .sp-timeline__cover::before {
@@ -341,6 +341,12 @@
 
   .sp-timeline__item {
     padding-left: 2.75rem;
+  }
+
+  /* Stesso valore gia' usato per lo stacco fra sezioni scure adiacenti in
+     turing.css (.turing-section.has-bg + .turing-section.has-bg). */
+  .sp-timeline__cover {
+    margin-bottom: 10px;
   }
 }
 
