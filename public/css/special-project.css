@@ -52,7 +52,7 @@
    ========================================================================== */
 
 .sp-timeline {
-  background: var(--sp-surface);
+  background: #050505;
   color: var(--sp-ink);
   padding-block: var(--sp-section-space);
 }
