@@ -335,6 +335,52 @@
    Cards ("01 / 02 / 03", Decision #006): componente <x-special.feature-cards>,
    stile in public/css/special-project.css (namespace .sp-feature-card*). */
 
+/* Ogni capitolo temporale (Decision #003) e' <x-special.chapter-opener> +
+   <x-special.timeline> avvolti da .turing-timeline-chapter in
+   turing/partials/timeline.blade.php. Il wrapper e' la vera superficie nera
+   del capitolo; <x-special.chapter-opener> resta trasparente al suo interno
+   cosi' i due componenti si leggono come un'unica superficie continua invece
+   che come una fascia chiara (.sp-chapter, sfondo chiaro di default) seguita
+   da una scura (.sp-timeline, nera dalla PR precedente). Scelta di questa
+   pagina, non del componente: .sp-chapter resta invariato e con il suo
+   sfondo chiaro di default ovunque non sia avvolto da questo wrapper, quindi
+   pienamente riusabile da un futuro Special Project con un'identità diversa. */
+.turing-timeline-chapter {
+  background: #050505;
+}
+
+.turing-timeline-chapter .sp-chapter {
+  background: transparent;
+}
+
+/* .sp-chapter__title/__intro/__period usano di default gli inchiostri scuri
+   del componente (pensati per il suo sfondo chiaro): sul nero risulterebbero
+   troppo poco leggibili (titolo e testo quasi invisibili, periodo sotto
+   soglia AA). Stessa correzione di contrasto gia' applicata a
+   .sp-timeline__title/__kicker, scoperta verificando visivamente il
+   risultato prima di considerare la modifica conclusa. */
+.turing-timeline-chapter .sp-chapter__period,
+.turing-timeline-chapter .sp-chapter__title {
+  color: #fff;
+}
+
+.turing-timeline-chapter .sp-chapter__intro {
+  color: rgba(255, 255, 255, .75);
+}
+
+/* Piccolo spazio discreto fra un capitolo e il successivo, stesso valore
+   gia' usato per lo stacco fra sezioni scure adiacenti altrove nello
+   Speciale (vedi .turing-section.has-bg + .turing-section.has-bg sotto). */
+.turing-timeline-chapter + .turing-timeline-chapter {
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  .turing-timeline-chapter + .turing-timeline-chapter {
+    margin-top: 10px;
+  }
+}
+
 .turing-section__head {
   max-width: 900px;
   margin: 0 auto 3rem;
