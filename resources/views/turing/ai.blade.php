@@ -255,7 +255,13 @@
         }
 
         .ai-section--light .ai-card p,
-        .ai-light-text {
+        .ai-light-text,
+        /* .ai-copy p (riga sotto) ha specificita' piu' alta di .ai-light-text
+           da sola (1 classe + 1 elemento contro 1 classe): senza questo
+           selettore piu' specifico, i due <p class="ai-light-text"> annidati
+           in .ai-copy ereditavano #cbd5e1 invece di #475569 (contrasto
+           1.42:1, sotto la soglia AA 4.5:1). */
+        .ai-copy .ai-light-text {
             color: #475569;
         }
 
