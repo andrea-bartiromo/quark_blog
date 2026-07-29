@@ -34,7 +34,7 @@
             text="Con la macchina universale del 1936, Turing diede alla nozione di algoritmo una forma precisa e generale, mostrando che programma e dati potevano essere trattati nello stesso linguaggio formale. Quella grammatica concettuale è tuttora alla base dell’informatica teorica e del modo in cui pensiamo le macchine programmabili."
         />
         <p>
-            <a href="{{ route('turing') }}#macchina-universale">Approfondisci la macchina universale nello speciale</a>
+            <a href="{{ route('turing.computation') }}">Approfondisci la macchina universale nello speciale</a>
         </p>
     </x-turing.article.body>
 
@@ -60,7 +60,7 @@
             text="Nel saggio del 1950 Computing Machinery and Intelligence, Turing propose di osservare il comportamento di una macchina in una conversazione invece di definire rigidamente cosa significhi pensare. Il cosiddetto Test di Turing resta un esperimento concettuale, tornato attuale nell’epoca dei modelli linguistici generativi."
         />
         <p>
-            <a href="{{ route('turing.ai') }}">Approfondisci il dibattito sull’intelligenza artificiale</a>
+            <a href="{{ route('turing.intelligence') }}">Approfondisci il dibattito sull’intelligenza artificiale</a>
         </p>
     </x-turing.article.body>
 
