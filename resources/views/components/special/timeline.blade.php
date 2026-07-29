@@ -143,36 +143,44 @@
                 @endif
               </div>
             </{{ $cardTag }}>
+
+            {{-- La modale resta dentro <li>, non come suo fratello: <ol> deve
+                 contenere soltanto elementi <li> (unico contenuto valido per
+                 una lista), e una modale piazzata fuori da <li> spezzava
+                 l'adiacenza richiesta da .sp-timeline__item + .sp-timeline__item
+                 in special-project.css, azzerando lo spazio fra le card
+                 successive alla prima. La modale resta position:fixed, quindi
+                 la sua posizione nel DOM non ha alcun effetto sul suo
+                 posizionamento visivo. --}}
+            @if($hasDetails)
+              @php
+                $detailsParagraphs = collect(preg_split('/\n{2,}/', trim((string) $event['details'])))
+                    ->map(fn ($paragraph) => trim($paragraph))
+                    ->filter();
+              @endphp
+              <x-special.modal :id="$modalId" :title="$event['title'] ?? null" size="md" class="sp-timeline__modal">
+                @if(filled($event['year'] ?? null))
+                  <p class="sp-timeline__modal-year">{{ $event['year'] }}</p>
+                @endif
+
+                @if($media)
+                  <img
+                    class="sp-timeline__modal-image"
+                    src="{{ $media }}"
+                    alt="{{ $event['alt'] ?? $event['title'] ?? '' }}"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                @endif
+
+                <div class="sp-timeline__modal-details">
+                  @foreach($detailsParagraphs as $paragraph)
+                    <p>{{ $paragraph }}</p>
+                  @endforeach
+                </div>
+              </x-special.modal>
+            @endif
           </li>
-
-          @if($hasDetails)
-            @php
-              $detailsParagraphs = collect(preg_split('/\n{2,}/', trim((string) $event['details'])))
-                  ->map(fn ($paragraph) => trim($paragraph))
-                  ->filter();
-            @endphp
-            <x-special.modal :id="$modalId" :title="$event['title'] ?? null" size="md" class="sp-timeline__modal">
-              @if(filled($event['year'] ?? null))
-                <p class="sp-timeline__modal-year">{{ $event['year'] }}</p>
-              @endif
-
-              @if($media)
-                <img
-                  class="sp-timeline__modal-image"
-                  src="{{ $media }}"
-                  alt="{{ $event['alt'] ?? $event['title'] ?? '' }}"
-                  loading="lazy"
-                  decoding="async"
-                >
-              @endif
-
-              <div class="sp-timeline__modal-details">
-                @foreach($detailsParagraphs as $paragraph)
-                  <p>{{ $paragraph }}</p>
-                @endforeach
-              </div>
-            </x-special.modal>
-          @endif
         @endforeach
       </ol>
       @endif
