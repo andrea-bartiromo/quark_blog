@@ -9,7 +9,8 @@
             onerror="this.onerror=null;this.src='{{ $visualFor($featured) }}';"
             alt="{{ $featured->title }}"
             class="home-lead-story__hero-image"
-            loading="eager">
+            loading="eager"
+            decoding="async">
 
           <span>In evidenza</span>
         </a>

@@ -38,7 +38,8 @@
           <a href="{{ route('articolo', $article->slug) }}" class="public-card">
             <div class="public-card__media">
               <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
-                   alt="{{ $article->title }}" loading="lazy">
+                   alt="{{ $article->title }}" loading="lazy" decoding="async"
+                   onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
               <span class="public-card__badge">
                 {{ \App\Models\Category::options(false)[$article->category] ?? $article->category }}
               </span>

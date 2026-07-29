@@ -68,7 +68,7 @@
           @forelse($articles as $article)
             <a href="{{ route('articolo', $article->slug) }}" class="public-result-card">
               <figure class="public-result-card__media">
-                <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}" alt="{{ $article->title }}" loading="lazy">
+                <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}" alt="{{ $article->title }}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
               </figure>
 
               <div class="public-result-card__body">
