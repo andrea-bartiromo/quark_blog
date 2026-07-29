@@ -13,7 +13,8 @@
           src="{{ $imageForCategory($art, $loop->index) }}"
           onerror="this.onerror=null;this.src='{{ $visualFor($art) }}';"
           alt="{{ $categoryLabel($art) }}"
-          loading="lazy">
+          loading="lazy"
+          decoding="async">
         <div>
           <strong>{{ $categoryLabel($art) }} →</strong>
           <small>

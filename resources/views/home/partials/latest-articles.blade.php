@@ -15,7 +15,8 @@
           src="{{ $imageForArticle($article, $loop->index + 1) }}"
           onerror="this.onerror=null;this.src='{{ $visualFor($article) }}';"
           alt="{{ $article->title }}"
-          loading="lazy">
+          loading="lazy"
+          decoding="async">
       </div>
       <div class="home-editorial-card__body">
         <span>{{ $categoryLabel($article) }}</span>

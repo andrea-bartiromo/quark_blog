@@ -17,7 +17,14 @@
 
 <figure {{ $attributes->merge(['class' => 'turing-article-figure']) }}>
   @if($src)
-    <img class="turing-timeline__media" src="{{ $src }}" alt="{{ $alt }}">
+    <img
+      class="turing-timeline__media"
+      src="{{ $src }}"
+      alt="{{ $alt }}"
+      loading="lazy"
+      decoding="async"
+      onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';"
+    >
   @endif
 
   @if(filled($caption))

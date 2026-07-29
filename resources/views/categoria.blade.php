@@ -10,7 +10,9 @@
     <section class="category-premium-hero">
       <img src="{{ asset('assets/img/categories/'.$categoryImage) }}"
            alt="{{ $categoryLabel }}"
-           loading="eager">
+           loading="eager"
+           decoding="async"
+           onerror="this.onerror=null;this.src='{{ asset('assets/img/hero-placeholder.svg') }}';">
 
       <div class="category-premium-hero__content">
         <span class="public-hero__kicker">Quark Category</span>
@@ -70,7 +72,9 @@
             <div class="public-card__media">
               <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
                    alt="{{ $article->title }}"
-                   loading="lazy">
+                   loading="lazy"
+                   decoding="async"
+                   onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
 
               <span class="public-card__badge">
                 {{ $categoryLabel }}

@@ -15,7 +15,7 @@
           <div class="turing-mini-grid">
             @foreach($whyItems as $item)
               <div>
-                @if(!empty($item['image']))<img src="{{ $img($item['image']) }}" alt="{{ $item['alt'] ?? $item['title'] ?? '' }}">@endif
+                @if(!empty($item['image']))<img src="{{ $img($item['image']) }}" alt="{{ $item['alt'] ?? $item['title'] ?? '' }}" loading="lazy" decoding="async">@endif
                 <strong>{{ $item['title'] ?? 'Idea chiave' }}</strong><span>{{ $item['text'] ?? '' }}</span>
               </div>
             @endforeach

@@ -16,7 +16,7 @@
           <img class="turing-portrait-card__photo"
                src="{{ asset('assets/img/turing/portraits/alan-turing-portrait.png') }}"
                alt="Alan Mathison Turing"
-               loading="lazy"
+               loading="eager"
                decoding="async">
           <span class="turing-portrait-years">{{ $hero['portrait_years'] ?? '1912 / 1954' }}</span>
         </div>
