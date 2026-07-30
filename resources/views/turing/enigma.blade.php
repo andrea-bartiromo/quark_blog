@@ -144,7 +144,7 @@
                 text="Enigma non nascondeva un singolo meccanismo segreto: la sua sicurezza nasceva dalla combinazione di componenti relativamente semplici, ciascuno modificabile in modo indipendente."
             />
 
-            <div class="turing-copy-panel enigma-anatomia-intro">
+            <div class="turing-copy-panel">
                 <p>
                     Una tastiera per digitare il testo in chiaro. Un pannello di lampadine (il lampboard) che
                     segnalava, lettera per lettera, il risultato cifrato. Un set di rotori intercambiabili, ciascuno

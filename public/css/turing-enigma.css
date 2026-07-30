@@ -541,34 +541,6 @@
   transform: rotate(-45deg);
 }
 
-/* -- Confronto Enigma / Bombe -------------------------------------------- */
-.enigma-comparison {
-  position: relative;
-}
-
-.enigma-comparison .sp-feature-cards {
-  grid-template-columns: 1fr 1fr;
-}
-
-.enigma-vs-badge {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #0f172a;
-  color: #67e8f9;
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: .85rem;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, .28);
-}
 
 /* -- Pannello operativo Bletchley Park (pipeline) ------------------------ */
 .enigma-ops-panel {
@@ -722,14 +694,8 @@
     min-height: 74vh;
   }
 
-  .enigma-duo-grid,
-  .enigma-comparison .sp-feature-cards {
+  .enigma-duo-grid {
     grid-template-columns: 1fr;
-  }
-
-  .enigma-vs-badge {
-    top: auto;
-    bottom: -26px;
   }
 
   .enigma-step-list__item {
