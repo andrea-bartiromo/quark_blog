@@ -2,6 +2,8 @@
   'image' => null,
   'alt' => '',
   'caption' => null,
+  'width' => null,
+  'height' => null,
 ])
 
 @php
@@ -23,6 +25,8 @@
       alt="{{ $alt }}"
       loading="lazy"
       decoding="async"
+      @if($width) width="{{ $width }}" @endif
+      @if($height) height="{{ $height }}" @endif
       onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';"
     >
   @endif
