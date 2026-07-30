@@ -268,7 +268,7 @@ class TuringEnigmaPageTest extends TestCase
         $html = $this->get(route('turing.enigma'))->getContent();
 
         $heroStart = strpos($html, 'enigma-hero"');
-        $nextSectionStart = strpos($html, '<section class="turing-section">', $heroStart);
+        $nextSectionStart = strpos($html, 'id="enigma-apertura"', $heroStart);
 
         $this->assertNotFalse($heroStart);
         $this->assertNotFalse($nextSectionStart);
@@ -283,8 +283,9 @@ class TuringEnigmaPageTest extends TestCase
     {
         $html = $this->get(route('turing.enigma'))->getContent();
 
-        // 9 figure inline (<x-turing.article.figure>): tutte lazy + async, mai eager.
-        $this->assertSame(9, substr_count($html, 'class="turing-article-figure"'));
+        // 9 figure inline (<x-turing.article.figure>, incluso il wrapper della
+        // hotspot diagram che ne aggiunge una propria): tutte lazy + async, mai eager.
+        $this->assertSame(9, substr_count($html, 'class="turing-article-figure'));
         $this->assertGreaterThanOrEqual(9, substr_count($html, 'loading="lazy"'));
         $this->assertGreaterThanOrEqual(9, substr_count($html, 'decoding="async"'));
     }
@@ -329,13 +330,222 @@ class TuringEnigmaPageTest extends TestCase
             ->assertSeeText('1945 e oltre');
     }
 
-    public function test_enigma_page_includes_the_enigma_vs_bombe_comparison(): void
+    public function test_enigma_page_includes_the_enigma_vs_bombe_comparison_matrix(): void
     {
         $this->get(route('turing.enigma'))
             ->assertOk()
-            ->assertSee('enigma-comparison', false)
-            ->assertSee('enigma-vs-badge', false)
-            ->assertSeeText('La macchina che cifra')
-            ->assertSeeText('La macchina che restringe');
+            ->assertSee('enigma-matrix', false)
+            ->assertSeeText('Funzione')
+            ->assertSeeText('Utente')
+            ->assertSeeText('Input')
+            ->assertSeeText('Output')
+            ->assertSeeText('Scopo')
+            ->assertSeeText('Effetto sullo spazio delle possibilità')
+            ->assertSeeText('Ruolo operativo')
+            ->assertSeeText('Restringe le chiavi possibili');
+    }
+
+    public function test_enigma_hero_image_is_preloaded(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '#<link rel="preload" as="image" href="[^"]*hero-enigma\.png">#',
+            $html
+        );
+    }
+
+    public function test_enigma_page_includes_a_chapter_navigation(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        // Nav desktop (fissa) e mobile (orizzontale sticky): stessi anchor,
+        // markup semplice <a href="#..."> funzionante anche senza JS.
+        $this->assertSame(2, substr_count($html, 'data-enigma-chapter-nav>'));
+        // Marcatore per il fade-out della nav oltre l'ultimo capitolo (vedi
+        // public/js/turing-enigma.js): non deve coprire i contenuti di
+        // chiusura.
+        $this->assertStringContainsString('data-enigma-chapter-nav-end', $html);
+        $this->assertStringContainsString('href="#enigma-anatomia"', $html);
+        $this->assertStringContainsString('href="#enigma-segnale"', $html);
+        $this->assertStringContainsString('href="#enigma-bletchley"', $html);
+        $this->assertStringContainsString('aria-label="Capitoli della pagina"', $html);
+    }
+
+    public function test_enigma_page_anchors_have_scroll_margin_class(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        foreach (['enigma-apertura', 'enigma-anatomia', 'enigma-segnale', 'enigma-chiave', 'enigma-crib', 'enigma-bletchley', 'enigma-bombe', 'enigma-timeline'] as $id) {
+            $this->assertMatchesRegularExpression(
+                '#id="'.$id.'"[^>]*class="[^"]*enigma-anchor#',
+                $html,
+                "L'ancora #{$id} deve avere la classe enigma-anchor (scroll-margin-top)."
+            );
+        }
+    }
+
+    public function test_enigma_page_has_at_least_three_distinct_visual_surfaces(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $surfaces = ['enigma-surface--paper', 'enigma-surface--blueprint', 'enigma-surface--signal', 'enigma-surface--operations', 'enigma-surface--dark'];
+        $present = array_filter($surfaces, fn ($class) => str_contains($html, $class));
+
+        $this->assertGreaterThanOrEqual(3, count($present));
+        // Le tre sezioni esplicitamente richieste come ambientazione piu' immersiva.
+        $this->assertStringContainsString('enigma-surface--signal', $html);
+        $this->assertStringContainsString('enigma-surface--operations', $html);
+    }
+
+    public function test_enigma_signal_path_has_a_technical_diagram_trail(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('enigma-signal-trail', false)
+            ->assertSee('enigma-step-list--signal', false)
+            ->assertSee('enigma-step-list__item--pivot', false)
+            ->assertSeeText('Riflessione');
+    }
+
+    public function test_enigma_final_mini_grid_has_real_informative_content(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('sp-feature-cards', false)
+            ->assertSeeText('Crittografia')
+            ->assertSeeText('Trasforma il messaggio rendendolo illeggibile senza la chiave corretta.')
+            ->assertSeeText('Crittoanalisi')
+            ->assertSeeText('Intelligence');
+    }
+
+    public function test_enigma_timeline_events_have_accessible_detail_modals(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        // 5 dei 7 eventi hanno 'details' (vedi Fase 14: "non rendere ogni
+        // evento espandibile"), ciascuno con un trigger accessibile da
+        // tastiera; l'implementazione di focus trap/ESC/aria-labelledby/
+        // scroll lock è ereditata da <x-special.modal> (Decision #009),
+        // già usata dalla Timeline della hub — non duplicata qui.
+        $this->assertSame(5, substr_count($html, 'sp-timeline__details-trigger'));
+        $this->assertSame(5, substr_count($html, 'aria-haspopup="dialog"'));
+        $this->assertStringContainsString('Arthur Scherbius', $html);
+        $this->assertStringContainsString('Marian Rejewski', $html);
+        $this->assertStringContainsString('The Ultra Secret', $html);
+    }
+
+    public function test_enigma_timeline_final_event_covers_declassification(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSeeText('Il segreto, e poi la memoria pubblica');
+    }
+
+    public function test_enigma_page_respects_prefers_reduced_motion(): void
+    {
+        $this->assertStringContainsString(
+            'prefers-reduced-motion',
+            file_get_contents(public_path('css/turing-enigma.css'))
+        );
+    }
+
+    public function test_enigma_enigma_js_is_present_and_progressive_enhancement_only(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $this->assertStringContainsString('js/turing-enigma.js', $html);
+        $this->assertFileExists(public_path('js/turing-enigma.js'));
+
+        // La navigazione e' fatta di <a href="#..."> reali: deve restare
+        // utilizzabile anche senza JavaScript (il file aggiunge solo
+        // l'evidenziazione della sezione attiva).
+        $js = file_get_contents(public_path('js/turing-enigma.js'));
+        $this->assertStringContainsString('IntersectionObserver', $js);
+    }
+
+    public function test_enigma_anatomy_hotspot_diagram_has_eight_selectable_parts(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        // Hotspot CSS-only (radio + label): 8 input radio, 8 marcatori, 8
+        // pannelli descrittivi — nessun JavaScript coinvolto.
+        $this->assertSame(8, substr_count($html, 'enigma-hotspot__radio'));
+        // 'enigma-hotspot__marker"' (con l'apice) esclude il wrapper
+        // .enigma-hotspot__markers, di cui "marker" è altrimenti una sottostringa.
+        $this->assertSame(8, substr_count($html, 'enigma-hotspot__marker"'));
+        $this->assertSame(8, substr_count($html, 'enigma-hotspot__panel"'));
+        $this->assertStringContainsString('checked', $html);
+        $this->assertStringContainsString('Contatto a molla', $html);
+        $this->assertStringContainsString('Cavo stecker', $html);
+    }
+
+    public function test_enigma_anatomy_hotspot_is_skipped_for_cms_override(): void
+    {
+        SpecialPage::create([
+            'slug' => 'turing',
+            'title' => 'Alan Turing',
+            'description' => 'Speciale editoriale dedicato ad Alan Turing.',
+            'content' => [
+                'editorial_blocks' => [
+                    [
+                        'enabled' => true,
+                        'key' => 'enigma',
+                        'title' => 'Titolo CMS per Enigma',
+                        'image' => 'turing/enigma/turing-enigma-panel.webp',
+                    ],
+                ],
+            ],
+            'is_active' => true,
+        ]);
+
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        // Con un'immagine CMS non ha senso posizionare hotspot su
+        // coordinate pensate per l'illustrazione di default: si torna alla
+        // figure semplice.
+        $this->assertStringNotContainsString('enigma-hotspot__radio', $html);
+        $this->assertStringContainsString('turing-enigma-panel.webp', $html);
+    }
+
+    public function test_enigma_daily_key_has_an_operational_panel(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('enigma-key-panel', false)
+            ->assertSeeText('DAILY KEY — 14 MAGGIO 1943')
+            ->assertSeeText('Esempio illustrativo, non una configurazione storica documentata')
+            ->assertSeeText('Ordine rotori')
+            ->assertSeeText('II – IV – V')
+            ->assertSeeText('Connessioni plugboard');
+    }
+
+    public function test_enigma_crib_has_an_investigative_table(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('enigma-crib-table', false)
+            ->assertSeeText('Frammento cifrato')
+            ->assertSeeText('Ipotesi (crib)')
+            ->assertSeeText('non può mai cifrare una lettera in se stessa');
+    }
+
+    public function test_enigma_bombe_section_has_asymmetric_layout(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $this->assertStringContainsString('enigma-bombe-grid', $html);
+        $this->assertStringContainsString('enigma-bombe-grid__primary', $html);
+        $this->assertStringContainsString('enigma-bombe-grid__secondary', $html);
+        $this->assertStringContainsString('Ritratto editoriale', $html);
+    }
+
+    public function test_enigma_closing_section_has_archive_elements_and_final_signal_trail(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $this->assertStringContainsString('enigma-closing__stamp', $html);
+        $this->assertStringContainsString('enigma-signal-trail--final', $html);
+        $this->assertStringContainsString('Cybersecurity di oggi', $html);
     }
 }
