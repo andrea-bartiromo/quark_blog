@@ -1,0 +1,229 @@
+/* ==========================================================================
+   /turing/enigma — stile specifico di pagina (longform editoriale premium).
+   Caricato solo da resources/views/turing/enigma.blade.php, dopo turing.css
+   e special-project.css: riusa i token e i pattern condivisi (colori,
+   .turing-section/.has-bg, .turing-split/.turing-image-panel/.turing-copy-panel,
+   .sp-feature-cards, .turing-terminal-card) e aggiunge solo cio' che non ha
+   equivalente altrove — non duplica regole gia' esistenti.
+   ========================================================================== */
+
+/* -- Hero cinematografica con dati chiave ------------------------------- */
+.enigma-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 86vh;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff;
+  background: #07111f;
+  background-size: cover;
+  background-position: center;
+}
+
+.enigma-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 7, 18, .35) 0%,
+    rgba(3, 7, 18, .55) 55%,
+    rgba(3, 7, 18, .92) 100%
+  );
+}
+
+.enigma-hero .container {
+  position: relative;
+  z-index: 1;
+  padding-block: 4rem 3.5rem;
+}
+
+.enigma-hero__grid {
+  max-width: 920px;
+}
+
+.enigma-hero h1 {
+  font-family: var(--font-display);
+  letter-spacing: -.055em;
+  max-width: 900px;
+  margin: .8rem 0 0;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  line-height: .92;
+}
+
+.enigma-hero__lead {
+  max-width: 780px;
+  margin: 1.5rem 0 0;
+  color: rgba(255, 255, 255, .88);
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  line-height: 1.9;
+}
+
+.enigma-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .9rem;
+  margin-top: 2.2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.enigma-stat-chip {
+  padding: .8rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .08);
+  backdrop-filter: blur(12px);
+}
+
+.enigma-stat-chip strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #67e8f9;
+}
+
+.enigma-stat-chip span {
+  display: block;
+  margin-top: .3rem;
+  color: rgba(255, 255, 255, .78);
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+/* -- Lede narrativa centrata (apertura ed eredità) ----------------------- */
+.enigma-lede {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.enigma-lede p {
+  margin: 1.1rem 0 0;
+  color: #475569;
+  font-size: 1.06rem;
+  line-height: 1.9;
+}
+
+.enigma-lede p:first-of-type {
+  margin-top: 1.6rem;
+}
+
+/* -- Coppia di figure affiancate (chiave giornaliera, Bombe) ------------- */
+.enigma-duo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.enigma-duo-grid .turing-article-figure {
+  margin: 0;
+}
+
+/* -- Sequenza numerata (percorso del segnale, pipeline Bletchley) -------- */
+.enigma-step-list {
+  display: grid;
+  gap: 1rem;
+  max-width: 720px;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.enigma-step-list__item {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.enigma-step-list__index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(103, 232, 249, .16);
+  color: #0f766e;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.turing-section.has-bg .enigma-step-list__index {
+  background: rgba(103, 232, 249, .22);
+  color: #67e8f9;
+}
+
+.enigma-step-list__body strong {
+  display: block;
+  margin-bottom: .25rem;
+  font-size: 1.02rem;
+}
+
+.enigma-step-list__body p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+/* -- Confronto Enigma / Bombe -------------------------------------------- */
+.enigma-comparison {
+  position: relative;
+}
+
+.enigma-comparison .sp-feature-cards {
+  grid-template-columns: 1fr 1fr;
+}
+
+.enigma-vs-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #0f172a;
+  color: #67e8f9;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .85rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .28);
+}
+
+@media (max-width: 900px) {
+  .enigma-hero {
+    min-height: 74vh;
+  }
+
+  .enigma-duo-grid,
+  .enigma-comparison .sp-feature-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .enigma-vs-badge {
+    top: auto;
+    bottom: -26px;
+  }
+
+  .enigma-step-list__item {
+    grid-template-columns: 36px 1fr;
+  }
+
+  .enigma-step-list__index {
+    width: 36px;
+    height: 36px;
+    font-size: .95rem;
+  }
+}
