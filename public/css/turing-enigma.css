@@ -427,7 +427,8 @@
   letter-spacing: .04em;
 }
 
-/* -- Lede narrativa centrata (apertura ed eredità) ----------------------- */
+/* -- Lede narrativa, colonna centrata ma testo allineato a sinistra
+   (apertura ed eredità) ---------------------------------------------------- */
 .enigma-lede {
   max-width: 760px;
   margin: 0 auto;
@@ -739,5 +740,486 @@
     width: 36px;
     height: 36px;
     font-size: .95rem;
+  }
+}
+
+/* -- Utility: nascosto visivamente ma presente per screen reader --------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 6: hotspot "Anatomia della macchina".
+   Interamente CSS (radio + label): nessun JavaScript. I radio sono
+   nascosti-ma-focalizzabili e precedono, come fratelli diretti, sia lo
+   stage (con i marcatori) sia i pannelli — cosi' il combinatore ~ puo'
+   mostrare il pannello corrispondente al radio selezionato senza :has().
+   -------------------------------------------------------------------------- */
+.enigma-hotspot {
+  margin-top: 1.75rem;
+}
+
+.enigma-hotspot__stage {
+  position: relative;
+  isolation: isolate;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, .08);
+}
+
+.enigma-hotspot__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.enigma-hotspot__markers {
+  position: absolute;
+  inset: 0;
+}
+
+.enigma-hotspot__marker {
+  position: absolute;
+  top: var(--hy);
+  left: var(--hx);
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(7, 17, 31, .82);
+  color: #fff;
+  font-family: monospace;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .55), 0 2px 8px rgba(15, 23, 42, .35);
+  transition: background .15s ease, transform .15s ease;
+}
+
+.enigma-hotspot__marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+
+.enigma-hotspot__panels {
+  position: relative;
+  margin-top: 1.25rem;
+  padding: 1.4rem 1.6rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, .08);
+  min-height: 128px;
+}
+
+.enigma-hotspot__panel {
+  display: none;
+}
+
+.enigma-hotspot__panel-index {
+  display: inline-block;
+  margin-bottom: .4rem;
+  font-family: monospace;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  color: var(--enigma-teal);
+}
+
+.enigma-hotspot__panel h3 {
+  margin: 0 0 .4rem;
+  font-size: 1.2rem;
+}
+
+.enigma-hotspot__panel p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.enigma-hotspot-figure figcaption {
+  margin-top: .9rem;
+}
+
+/* Ogni radio (fratello diretto di .enigma-hotspot__stage e di
+   .enigma-hotspot__panels) mostra il proprio marcatore attivo e il proprio
+   pannello quando selezionato. Otto regole esplicite: piu' semplice e piu'
+   compatibile di :has() per un numero fisso e noto di hotspot. */
+.enigma-hotspot__radio:nth-of-type(1):checked ~ .enigma-hotspot__panels [data-panel="0"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(2):checked ~ .enigma-hotspot__panels [data-panel="1"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(3):checked ~ .enigma-hotspot__panels [data-panel="2"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(4):checked ~ .enigma-hotspot__panels [data-panel="3"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(5):checked ~ .enigma-hotspot__panels [data-panel="4"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(6):checked ~ .enigma-hotspot__panels [data-panel="5"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(7):checked ~ .enigma-hotspot__panels [data-panel="6"] { display: block; }
+.enigma-hotspot__radio:nth-of-type(8):checked ~ .enigma-hotspot__panels [data-panel="7"] { display: block; }
+
+.enigma-hotspot__radio:nth-of-type(1):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(1),
+.enigma-hotspot__radio:nth-of-type(1):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(1) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(2):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(2),
+.enigma-hotspot__radio:nth-of-type(2):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(2) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(3):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(3),
+.enigma-hotspot__radio:nth-of-type(3):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(3) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(4):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(4),
+.enigma-hotspot__radio:nth-of-type(4):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(4) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(5):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(5),
+.enigma-hotspot__radio:nth-of-type(5):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(5) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(6):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(6),
+.enigma-hotspot__radio:nth-of-type(6):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(6) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(7):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(7),
+.enigma-hotspot__radio:nth-of-type(7):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(7) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+.enigma-hotspot__radio:nth-of-type(8):checked ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(8),
+.enigma-hotspot__radio:nth-of-type(8):focus-visible ~ .enigma-hotspot__stage .enigma-hotspot__marker:nth-of-type(8) { background: var(--enigma-teal); outline: 2px solid #fff; outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .enigma-hotspot__stage {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .enigma-hotspot__image {
+    order: 2;
+  }
+
+  /* Il wrapper dei marcatori esce dal posizionamento assoluto sopra
+     l'immagine e diventa una riga di pillole prima di essa: stessi
+     input/label, solo un layout diverso. */
+  .enigma-hotspot__markers {
+    position: static;
+    order: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    padding: .75rem;
+  }
+
+  .enigma-hotspot__marker {
+    position: static;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 8: pannello operativo "chiave giornaliera".
+   -------------------------------------------------------------------------- */
+.enigma-key-panel {
+  margin-top: 1.75rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: 18px;
+  background: var(--enigma-navy-deep);
+  color: #fff;
+  box-shadow: 0 18px 40px -22px rgba(7, 17, 31, .55);
+}
+
+.enigma-key-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem 1.5rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, .14);
+}
+
+.enigma-key-panel__label {
+  font-family: monospace;
+  font-size: .82rem;
+  letter-spacing: .1em;
+  color: var(--enigma-cyan);
+}
+
+.enigma-key-panel__note {
+  font-size: .8rem;
+  color: rgba(255, 255, 255, .55);
+  font-style: italic;
+}
+
+.enigma-key-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem 1.5rem;
+  margin: 0;
+}
+
+.enigma-key-panel__item dt {
+  margin: 0 0 .3rem;
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: rgba(255, 255, 255, .55);
+}
+
+.enigma-key-panel__item dd {
+  margin: 0;
+  font-family: monospace;
+  font-size: 1.05rem;
+  letter-spacing: .03em;
+  color: #fff;
+}
+
+.enigma-duo-grid--key {
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .enigma-key-panel__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 9: tabella investigativa "crib".
+   -------------------------------------------------------------------------- */
+.enigma-crib-table {
+  margin-top: 1.5rem;
+  border: 1px solid rgba(15, 23, 42, .1);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.enigma-crib-table__row {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1.6fr;
+  gap: 1rem;
+  padding: .85rem 1.1rem;
+  border-top: 1px solid rgba(15, 23, 42, .08);
+}
+
+.enigma-crib-table__row:first-child {
+  border-top: 0;
+}
+
+.enigma-crib-table__row--head {
+  background: rgba(15, 23, 42, .035);
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--enigma-slate);
+}
+
+.enigma-crib-table__cipher {
+  font-family: monospace;
+  font-size: .92rem;
+  color: var(--enigma-navy);
+}
+
+.enigma-crib-table__row:not(.enigma-crib-table__row--head) span {
+  font-size: .92rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.enigma-crib-table__note {
+  padding: .9rem 1.1rem;
+  border-top: 1px solid rgba(15, 23, 42, .08);
+  background: rgba(15, 118, 110, .06);
+  font-size: .88rem;
+  color: #0f172a;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .enigma-crib-table__row {
+    grid-template-columns: 1fr;
+    gap: .3rem;
+  }
+
+  .enigma-crib-table__row--head {
+    display: none;
+  }
+
+  .enigma-crib-table__cipher::before {
+    content: "Cifrato: ";
+    font-family: inherit;
+    color: var(--enigma-slate);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 11: gerarchia asimmetrica "Bombe".
+   -------------------------------------------------------------------------- */
+.enigma-bombe-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.enigma-bombe-grid .turing-article-figure {
+  margin: 0;
+}
+
+.enigma-bombe-grid__secondary {
+  margin-top: 2.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 14px;
+  background: rgba(3, 7, 18, .28);
+}
+
+.enigma-bombe-grid__secondary-label {
+  display: block;
+  margin-bottom: .75rem;
+  font-family: monospace;
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--enigma-cyan);
+}
+
+.enigma-bombe-grid__secondary .turing-article-figure img {
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .enigma-bombe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .enigma-bombe-grid__secondary {
+    margin-top: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 12: matrice di confronto Enigma / Bombe.
+   -------------------------------------------------------------------------- */
+.enigma-matrix {
+  margin-top: 1.75rem;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, .1);
+  background: #fff;
+}
+
+.enigma-matrix__row {
+  display: grid;
+  grid-template-columns: 1fr .8fr 1fr;
+  border-top: 1px solid rgba(15, 23, 42, .08);
+}
+
+.enigma-matrix__row:first-child {
+  border-top: 0;
+}
+
+.enigma-matrix__row--head {
+  background: rgba(15, 23, 42, .035);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--enigma-slate);
+}
+
+.enigma-matrix__row--head .enigma-matrix__col--a,
+.enigma-matrix__row--head .enigma-matrix__col--b {
+  font-weight: 700;
+  color: var(--enigma-navy);
+}
+
+.enigma-matrix__col {
+  padding: 1rem 1.15rem;
+  font-size: .92rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.enigma-matrix__col--axis {
+  position: relative;
+  text-align: center;
+  font-size: .76rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  color: var(--enigma-teal);
+  background: rgba(15, 118, 110, .05);
+  border-left: 1px solid rgba(15, 118, 110, .18);
+  border-right: 1px solid rgba(15, 118, 110, .18);
+}
+
+@media (max-width: 760px) {
+  .enigma-matrix__row {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+    padding-bottom: .3rem;
+  }
+
+  .enigma-matrix__row--head {
+    display: none;
+  }
+
+  .enigma-matrix__col--axis {
+    order: -1;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(15, 118, 110, .18);
+    text-align: left;
+  }
+
+  .enigma-matrix__col--a::before {
+    content: "Enigma — ";
+    font-weight: 700;
+    color: var(--enigma-navy);
+  }
+
+  .enigma-matrix__col--b::before {
+    content: "Bombe — ";
+    font-weight: 700;
+    color: var(--enigma-navy);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Blocco 2 — Fase 15: chiusura memorabile.
+   -------------------------------------------------------------------------- */
+.enigma-closing {
+  position: relative;
+  border-bottom: 2px solid rgba(103, 232, 249, .28);
+}
+
+.enigma-closing__stamp {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.75rem;
+  z-index: 1;
+  font-family: monospace;
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: rgba(255, 255, 255, .08);
+  pointer-events: none;
+}
+
+.enigma-signal-trail--final {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed rgba(255, 255, 255, .14);
+}
+
+.enigma-signal-trail--final .enigma-signal-trail__label--final {
+  background: var(--enigma-teal);
+  border-color: var(--enigma-teal);
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .enigma-closing__stamp {
+    font-size: 2.2rem;
   }
 }

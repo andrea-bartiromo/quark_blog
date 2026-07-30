@@ -144,43 +144,47 @@
                 text="Enigma non nascondeva un singolo meccanismo segreto: la sua sicurezza nasceva dalla combinazione di componenti relativamente semplici, ciascuno modificabile in modo indipendente."
             />
 
-            <div class="turing-split">
-                <x-turing.article.figure
-                    :image="$anatomyImage"
-                    :alt="$anatomyIsCms ? ($enigmaBlock['title'] ?? 'Immagine editoriale della pagina Enigma') : 'Diagramma illustrato di una macchina Enigma aperta, con etichette che indicano tastiera, lampboard, rotori, plugboard, riflettore e connessioni di alimentazione'"
-                    :caption="$anatomyIsCms ? null : 'Tastiera, lampboard, rotori, plugboard e riflettore: i componenti che, combinati, generavano lo spazio di chiavi che Bletchley Park doveva restringere ogni giorno.'"
-                    :width="$anatomyIsCms ? null : 287"
-                    :height="$anatomyIsCms ? null : 289"
-                />
-
-                <div class="turing-copy-panel">
-                    <p>
-                        Una tastiera per digitare il testo in chiaro. Un pannello di lampadine (il lampboard) che
-                        segnalava, lettera per lettera, il risultato cifrato. Un set di rotori intercambiabili, ciascuno
-                        con un proprio cablaggio interno. Un riflettore, che rimandava il segnale indietro attraverso i
-                        rotori percorrendo un cammino diverso da quello di andata. Un plugboard, che scambiava coppie di
-                        lettere prima e dopo il passaggio nei rotori. Nessuno di questi elementi, da solo, era
-                        particolarmente sofisticato: era la loro combinazione, cambiata ogni giorno secondo un
-                        calendario riservato, a generare uno spazio di configurazioni troppo vasto per essere
-                        esplorato a mano.
-                    </p>
-                </div>
+            <div class="turing-copy-panel enigma-anatomia-intro">
+                <p>
+                    Una tastiera per digitare il testo in chiaro. Un pannello di lampadine (il lampboard) che
+                    segnalava, lettera per lettera, il risultato cifrato. Un set di rotori intercambiabili, ciascuno
+                    con un proprio cablaggio interno. Un riflettore, che rimandava il segnale indietro attraverso i
+                    rotori percorrendo un cammino diverso da quello di andata. Un plugboard, che scambiava coppie di
+                    lettere prima e dopo il passaggio nei rotori. Nessuno di questi elementi, da solo, era
+                    particolarmente sofisticato: era la loro combinazione, cambiata ogni giorno secondo un
+                    calendario riservato, a generare uno spazio di configurazioni troppo vasto per essere
+                    esplorato a mano.
+                </p>
             </div>
 
-            <x-special.feature-cards
-                label="Componenti della macchina Enigma"
-                :cards="[
-                    ['label' => '01', 'title' => 'Rotore', 'text' => 'Disco cablato internamente: a ogni lettera in ingresso ne fa corrispondere una diversa in uscita, e ruota a ogni pressione di tasto.'],
-                    ['label' => '02', 'title' => 'Riflettore', 'text' => 'Rimanda il segnale indietro attraverso i rotori lungo un percorso diverso da quello di andata, garantendo che cifrare due volte la stessa lettera non la restituisca invariata.'],
-                    ['label' => '03', 'title' => 'Lampada', 'text' => 'Si accende sul lampboard per indicare, una lettera alla volta, il risultato cifrato del tasto premuto.'],
-                    ['label' => '04', 'title' => 'Tasto', 'text' => 'Il punto di ingresso del segnale: ogni pressione avvia il percorso elettrico attraverso plugboard, rotori e riflettore.'],
-                    ['label' => '05', 'title' => 'Spina', 'text' => 'Il singolo connettore usato per collegare due lettere sul plugboard tramite un cavo dedicato.'],
-                    ['label' => '06', 'title' => 'Plugboard', 'text' => 'Pannello di prese che permette di scambiare fino a diverse coppie di lettere prima che il segnale raggiunga i rotori.'],
-                    ['label' => '07', 'title' => 'Contatto a molla', 'text' => 'Il punto di contatto elettrico interno a ogni rotore: garantisce che il segnale passi in modo affidabile da un disco al successivo.'],
-                    ['label' => '08', 'title' => 'Cavo stecker', 'text' => 'Il cavo che collega fisicamente due prese del plugboard, materializzando lo scambio di una coppia di lettere.'],
-                ]"
-            />
+            @if ($anatomyIsCms)
+                <x-turing.article.figure
+                    :image="$anatomyImage"
+                    :alt="$enigmaBlock['title'] ?? 'Immagine editoriale della pagina Enigma'"
+                />
+            @else
+                {{-- Otto hotspot numerati sulla stessa illustrazione della macchina: selezionabili
+                     con mouse, tocco o tastiera (radio+label, nessun JavaScript). Sotto ~760px i
+                     marcatori diventano una riga di pillole numerate sopra l'immagine. --}}
+                <x-turing.enigma.hotspot-diagram
+                    name="enigma-anatomia-hotspot"
+                    :image="$anatomyImage"
+                    alt="Diagramma illustrato di una macchina Enigma aperta, con otto punti numerati sui componenti principali"
+                    caption="Tastiera, lampboard, rotori, plugboard e riflettore: i componenti che, combinati, generavano lo spazio di chiavi che Bletchley Park doveva restringere ogni giorno. Posizione dei punti indicativa, a scopo editoriale."
+                    :hotspots="[
+                        ['x' => 24, 'y' => 17, 'title' => 'Tasto', 'text' => 'Il punto di ingresso del segnale: ogni pressione avvia il percorso elettrico attraverso plugboard, rotori e riflettore.'],
+                        ['x' => 24, 'y' => 31, 'title' => 'Lampada', 'text' => 'Si accende sul lampboard per indicare, una lettera alla volta, il risultato cifrato del tasto premuto.'],
+                        ['x' => 47, 'y' => 48, 'title' => 'Rotore', 'text' => 'Disco cablato internamente: a ogni lettera in ingresso ne fa corrispondere una diversa in uscita, e ruota a ogni pressione di tasto.'],
+                        ['x' => 60, 'y' => 43, 'title' => 'Contatto a molla', 'text' => 'Il punto di contatto elettrico interno a ogni rotore: garantisce che il segnale passi in modo affidabile da un disco al successivo.'],
+                        ['x' => 64, 'y' => 36, 'title' => 'Riflettore', 'text' => 'Rimanda il segnale indietro attraverso i rotori lungo un percorso diverso da quello di andata, garantendo che cifrare due volte la stessa lettera non la restituisca invariata.'],
+                        ['x' => 30, 'y' => 73, 'title' => 'Plugboard', 'text' => 'Pannello di prese che permette di scambiare fino a diverse coppie di lettere prima che il segnale raggiunga i rotori.'],
+                        ['x' => 44, 'y' => 80, 'title' => 'Spina', 'text' => 'Il singolo connettore usato per collegare due lettere sul plugboard tramite un cavo dedicato.'],
+                        ['x' => 17, 'y' => 84, 'title' => 'Cavo stecker', 'text' => 'Il cavo che collega fisicamente due prese del plugboard, materializzando lo scambio di una coppia di lettere.'],
+                    ]"
+                />
+            @endif
 
+            <p class="enigma-detail-label">Approfondimento tecnico — il rotore da vicino</p>
             <x-turing.article.figure
                 image="{{ asset('images/turing/enigma/rotor-exploded.png') }}"
                 alt="Diagramma esploso di tre rotori Enigma affiancati, con etichette che indicano rotore sinistro, centrale e destro, nucleo, cablaggio, tacca di notch e anello di regolazione"
@@ -250,11 +254,40 @@
                 text="Enigma combinava rotori intercambiabili, un cablaggio interno e un pannello di connessioni con impostazioni cambiate ogni giorno secondo un calendario riservato. La sicurezza della macchina non dipendeva da un singolo meccanismo segreto, ma dal numero straordinariamente alto di configurazioni che rotori e plugboard potevano assumere insieme."
             />
 
-            <div class="enigma-duo-grid">
+            <div class="enigma-key-panel">
+                <div class="enigma-key-panel__head">
+                    <span class="enigma-key-panel__label">DAILY KEY — 14 MAGGIO 1943</span>
+                    <span class="enigma-key-panel__note">Esempio illustrativo, non una configurazione storica documentata</span>
+                </div>
+                <dl class="enigma-key-panel__grid">
+                    <div class="enigma-key-panel__item">
+                        <dt>Ordine rotori</dt>
+                        <dd>II – IV – V</dd>
+                    </div>
+                    <div class="enigma-key-panel__item">
+                        <dt>Regolazione anelli</dt>
+                        <dd>16 – 07 – 22</dd>
+                    </div>
+                    <div class="enigma-key-panel__item">
+                        <dt>Posizione di partenza</dt>
+                        <dd>K – D – F</dd>
+                    </div>
+                    <div class="enigma-key-panel__item">
+                        <dt>Connessioni plugboard</dt>
+                        <dd>AF · BJ · CL · DM · EM</dd>
+                    </div>
+                    <div class="enigma-key-panel__item">
+                        <dt>Riflettore</dt>
+                        <dd>B</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="enigma-duo-grid enigma-duo-grid--key">
                 <x-turing.article.figure
                     image="{{ asset('images/turing/enigma/daily-key-settings.png') }}"
                     alt="Tabella illustrata di un esempio di configurazione giornaliera di Enigma, con ordine dei rotori, regolazione degli anelli, posizione di partenza, connessioni del plugboard e riflettore"
-                    caption="Un esempio illustrativo — non una configurazione storica reale — del tipo di foglio di impostazioni giornaliere che ogni reparto doveva ricevere e applicare correttamente: ordine dei rotori, regolazione degli anelli, posizione di partenza, coppie del plugboard, riflettore."
+                    caption="Il foglio di impostazioni giornaliere che ogni reparto doveva ricevere e applicare correttamente — la stessa configurazione riassunta nel pannello qui sopra."
                     width="287"
                     height="290"
                 />
@@ -291,10 +324,36 @@
                 <p>
                     La vulnerabilità più sfruttabile, in altre parole, non era quasi mai nella matematica della
                     macchina: era nel comportamento umano prevedibile di chi la usava ogni giorno sotto pressione,
-                    con procedure ripetitive e poco tempo per variarle. Un vincolo strutturale aiutava chi cercava
-                    un crib: Enigma, per come era costruita, non poteva mai cifrare una lettera in se stessa —
-                    un dettaglio che, di per sé, escludeva molte posizioni di allineamento possibili.
+                    con procedure ripetitive e poco tempo per variarle.
                 </p>
+
+                <div class="enigma-crib-table" role="table" aria-label="Esempio illustrativo di analisi di un crib">
+                    <div class="enigma-crib-table__row enigma-crib-table__row--head" role="row">
+                        <span role="columnheader">Frammento cifrato</span>
+                        <span role="columnheader">Ipotesi (crib)</span>
+                        <span role="columnheader">Analisi</span>
+                    </div>
+                    <div class="enigma-crib-table__row" role="row">
+                        <span role="cell" class="enigma-crib-table__cipher">WETTER…</span>
+                        <span role="cell">Bollettino meteo del mattino</span>
+                        <span role="cell">Formula quasi fissa, trasmessa ogni giorno alla stessa ora: buon punto di partenza per l’allineamento.</span>
+                    </div>
+                    <div class="enigma-crib-table__row" role="row">
+                        <span role="cell" class="enigma-crib-table__cipher">…HEILHITLER</span>
+                        <span role="cell">Chiusura di rito a fine messaggio</span>
+                        <span role="cell">Pattern ricorrente in coda al testo: posizione plausibile da verificare per prima.</span>
+                    </div>
+                    <div class="enigma-crib-table__row" role="row">
+                        <span role="cell" class="enigma-crib-table__cipher">KEINEBESONDER…</span>
+                        <span role="cell">«Nulla da segnalare» (rapporto di routine)</span>
+                        <span role="cell">Formula burocratica frequente nei rapporti senza eventi rilevanti.</span>
+                    </div>
+                    <div class="enigma-crib-table__note">
+                        <strong>Vincolo chiave:</strong> Enigma non può mai cifrare una lettera in se stessa — ogni
+                        posizione in cui cifrato e ipotesi coincidono lettera per lettera esclude quell’allineamento,
+                        restringendo rapidamente le posizioni plausibili da verificare.
+                    </div>
+                </div>
             </div>
 
             <x-turing.article.figure
@@ -365,22 +424,27 @@
                 <span class="enigma-signal-trail__label">Bombe elimina contraddizioni</span>
             </div>
 
-            <div class="enigma-duo-grid">
-                <x-turing.article.figure
-                    image="{{ asset('images/turing/enigma/bombe-machine.png') }}"
-                    alt="Diagramma illustrato della Bombe, con etichette che indicano i tamburi rotanti, l’unità di integrazione e il pannello di output"
-                    caption="I tamburi rotanti simulavano le posizioni dei rotori di Enigma; l’unità di integrazione individuava le combinazioni compatibili con i crib; il pannello di output mostrava le impostazioni candidate."
-                    width="287"
-                    height="290"
-                />
+            <div class="enigma-bombe-grid">
+                <div class="enigma-bombe-grid__primary">
+                    <x-turing.article.figure
+                        image="{{ asset('images/turing/enigma/bombe-machine.png') }}"
+                        alt="Diagramma illustrato della Bombe, con etichette che indicano i tamburi rotanti, l’unità di integrazione e il pannello di output"
+                        caption="I tamburi rotanti simulavano le posizioni dei rotori di Enigma; l’unità di integrazione individuava le combinazioni compatibili con i crib; il pannello di output mostrava le impostazioni candidate."
+                        width="287"
+                        height="290"
+                    />
+                </div>
 
-                <x-turing.article.figure
-                    image="{{ asset('images/turing/enigma/turing-bombe.png') }}"
-                    alt="Illustrazione editoriale di Alan Turing al lavoro accanto alla Bombe"
-                    caption="La Bombe nacque dal lavoro di Turing e dei suoi colleghi a Bletchley Park, a partire dai metodi crittanalitici sviluppati nei primi anni di guerra."
-                    width="287"
-                    height="289"
-                />
+                <div class="enigma-bombe-grid__secondary">
+                    <span class="enigma-bombe-grid__secondary-label">Ritratto editoriale</span>
+                    <x-turing.article.figure
+                        image="{{ asset('images/turing/enigma/turing-bombe.png') }}"
+                        alt="Illustrazione editoriale di Alan Turing al lavoro accanto alla Bombe"
+                        caption="La Bombe nacque dal lavoro di Turing e dei suoi colleghi a Bletchley Park, a partire dai metodi crittanalitici sviluppati nei primi anni di guerra."
+                        width="287"
+                        height="289"
+                    />
+                </div>
             </div>
         </div>
     </section>
@@ -396,23 +460,30 @@
                 text="Le due macchine non svolgevano lo stesso compito, e non erano nemmeno paragonabili per scala: la loro giustapposizione è quello che rende visibile, in un solo sguardo, il cambio di paradigma fra cifrare e decifrare in modo sistematico."
             />
 
-            <div class="enigma-comparison">
-                <span class="enigma-vs-badge" aria-hidden="true">VS</span>
-                <x-special.feature-cards
-                    label="Confronto fra Enigma e la Bombe"
-                    :cards="[
-                        [
-                            'label' => 'Enigma',
-                            'title' => 'La macchina che cifra',
-                            'text' => 'Cifra i messaggi · Meccanica · Portatile · Usata sul campo · Protetta da chiavi cambiate ogni giorno',
-                        ],
-                        [
-                            'label' => 'Bombe',
-                            'title' => 'La macchina che restringe',
-                            'text' => 'Restringe le chiavi possibili · Elettromeccanica · Grande e complessa · Usata a Bletchley Park · Non decifra da sola',
-                        ],
-                    ]"
-                />
+            @php
+                $enigmaMatrixRows = [
+                    ['label' => 'Funzione', 'a' => 'Cifra i messaggi', 'b' => 'Restringe le chiavi possibili'],
+                    ['label' => 'Utente', 'a' => 'Operatori militari sul campo', 'b' => 'Analisti e tecnici a Bletchley Park'],
+                    ['label' => 'Input', 'a' => 'Testo in chiaro e chiave del giorno', 'b' => 'Un crib plausibile e le impostazioni da verificare'],
+                    ['label' => 'Output', 'a' => 'Testo cifrato', 'b' => 'Un insieme ristretto di configurazioni plausibili'],
+                    ['label' => 'Scopo', 'a' => 'Rendere il messaggio illeggibile senza la chiave', 'b' => 'Rendere trattabile in tempo utile la ricerca della chiave'],
+                    ['label' => 'Effetto sullo spazio delle possibilità', 'a' => 'Genera uno spazio di configurazioni enorme', 'b' => 'Elimina sistematicamente le configurazioni incompatibili'],
+                    ['label' => 'Ruolo operativo', 'a' => 'Usata sul campo, in autonomia', 'b' => 'Parte di una catena: richiede crib, verifica manuale, distribuzione'],
+                ];
+            @endphp
+            <div class="enigma-matrix" role="table" aria-label="Confronto fra Enigma e la Bombe su funzione, utente, input, output, scopo, effetto sullo spazio delle possibilità e ruolo operativo">
+                <div class="enigma-matrix__row enigma-matrix__row--head" role="row">
+                    <span role="columnheader" class="enigma-matrix__col enigma-matrix__col--a">Enigma</span>
+                    <span role="columnheader" class="enigma-matrix__col enigma-matrix__col--axis">Dimensione</span>
+                    <span role="columnheader" class="enigma-matrix__col enigma-matrix__col--b">Bombe</span>
+                </div>
+                @foreach ($enigmaMatrixRows as $row)
+                    <div class="enigma-matrix__row" role="row">
+                        <span role="cell" class="enigma-matrix__col enigma-matrix__col--a">{{ $row['a'] }}</span>
+                        <span role="cell" class="enigma-matrix__col enigma-matrix__col--axis">{{ $row['label'] }}</span>
+                        <span role="cell" class="enigma-matrix__col enigma-matrix__col--b">{{ $row['b'] }}</span>
+                    </div>
+                @endforeach
             </div>
         </div>
     </section>
@@ -496,7 +567,8 @@
     <div data-enigma-chapter-nav-end aria-hidden="true"></div>
 
     {{-- 11. Eredità nella cybersecurity --}}
-    <section class="turing-section enigma-surface enigma-surface--dark">
+    <section class="turing-section enigma-surface enigma-surface--dark enigma-closing">
+        <span class="enigma-closing__stamp" aria-hidden="true">EOF</span>
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -528,6 +600,18 @@
                     ['label' => '03', 'title' => 'Intelligence', 'text' => 'Distribuisce il risultato di un’analisi senza comprometterne la fonte che lo ha reso possibile.'],
                 ]"
             />
+
+            <div class="enigma-signal-trail enigma-signal-trail--final" aria-hidden="true">
+                <span class="enigma-signal-trail__label">Enigma</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Bletchley Park</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Bombe</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Ultra</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label enigma-signal-trail__label--final">Cybersecurity di oggi</span>
+            </div>
         </div>
     </section>
 
