@@ -30,6 +30,17 @@
     $anatomyImage = $resolveAsset($enigmaBlock['image'] ?? $enigmaBlock['background_image'] ?? null);
     $anatomyIsCms = filled($anatomyImage);
     $anatomyImage = $anatomyImage ?? asset('images/turing/enigma/cutaway-enigma.png');
+
+    $chapters = [
+        ['id' => 'enigma-apertura', 'label' => 'Apertura'],
+        ['id' => 'enigma-anatomia', 'label' => 'Macchina'],
+        ['id' => 'enigma-segnale', 'label' => 'Segnale'],
+        ['id' => 'enigma-chiave', 'label' => 'Chiave'],
+        ['id' => 'enigma-crib', 'label' => 'Crib'],
+        ['id' => 'enigma-bletchley', 'label' => 'Bletchley'],
+        ['id' => 'enigma-bombe', 'label' => 'Bombe'],
+        ['id' => 'enigma-timeline', 'label' => 'Timeline'],
+    ];
 @endphp
 
 @section('title', 'Enigma e Bletchley Park — Quark')
@@ -39,6 +50,7 @@
 )
 
 @section('head')
+    <link rel="preload" as="image" href="{{ $heroImage }}">
     <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
     <link rel="stylesheet" href="{{ asset('css/special-project.css') }}">
     <link rel="stylesheet" href="{{ asset('css/turing-enigma.css') }}">
@@ -51,8 +63,14 @@
         <x-turing.article.breadcrumb :items="[['label' => 'Enigma']]" />
     </div>
 
+    <x-turing.enigma.chapter-nav :chapters="$chapters" />
+
     {{-- 1. Hero cinematografica con dati chiave --}}
     <section class="enigma-hero" style="background-image:url('{{ $heroImage }}')">
+        <div class="enigma-hero__cipher-bg" aria-hidden="true">QWERTZU ILFDXBH</div>
+        <p class="enigma-hero__doc-number">DOC. N. HW 1/1940 — DECLASSIFICATO</p>
+        <p class="enigma-hero__vertical-label">Bletchley Park / Hut 8</p>
+
         <div class="container container--wide">
             <div class="enigma-hero__grid">
                 <p class="turing-kicker">Enigma</p>
@@ -80,10 +98,12 @@
                 </ul>
             </div>
         </div>
+
+        <p class="enigma-hero__scroll-indicator">Scorri</p>
     </section>
 
     {{-- 2. Apertura narrativa --}}
-    <section class="turing-section">
+    <section id="enigma-apertura" class="turing-section enigma-surface enigma-surface--paper enigma-anchor">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -114,7 +134,7 @@
     </section>
 
     {{-- 3. Anatomia della macchina --}}
-    <section class="turing-section">
+    <section id="enigma-anatomia" class="turing-section enigma-surface enigma-surface--blueprint enigma-anchor">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -172,7 +192,7 @@
     </section>
 
     {{-- 4. Percorso elettrico del segnale --}}
-    <section class="turing-section turing-section--split">
+    <section id="enigma-segnale" class="turing-section enigma-surface enigma-surface--signal enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/signal-path.png') }}')">
         <div class="container container--wide turing-split">
             <div class="turing-copy-panel">
                 <x-special.section-header
@@ -182,6 +202,18 @@
                     title="Da un tasto premuto a una lampada accesa"
                     text="Ogni lettera digitata avviava un segnale elettrico che attraversava la macchina due volte — andata e ritorno — passando per plugboard, rotori e riflettore, prima di accendere la lampada corrispondente alla lettera cifrata."
                 />
+
+                <div class="enigma-signal-trail" aria-hidden="true">
+                    <span class="enigma-signal-trail__label">Input</span>
+                    <span class="enigma-signal-trail__arrow">→</span>
+                    <span class="enigma-signal-trail__label">Plugboard</span>
+                    <span class="enigma-signal-trail__arrow">→</span>
+                    <span class="enigma-signal-trail__label">Rotors</span>
+                    <span class="enigma-signal-trail__arrow">→</span>
+                    <span class="enigma-signal-trail__label">Reflector</span>
+                    <span class="enigma-signal-trail__arrow">→</span>
+                    <span class="enigma-signal-trail__label">Output</span>
+                </div>
             </div>
 
             <x-turing.article.figure
@@ -194,12 +226,12 @@
         </div>
 
         <div class="container container--wide">
-            <x-turing.enigma.step-list :steps="[
+            <x-turing.enigma.step-list variant="signal" :steps="[
                 ['title' => 'Il tasto viene premuto', 'text' => 'L’operatore preme una lettera sulla tastiera, avviando il circuito elettrico della macchina.'],
                 ['title' => 'Il segnale entra nel circuito', 'text' => 'La corrente comincia il proprio percorso attraverso i componenti interni della macchina.'],
                 ['title' => 'Passaggio nel plugboard', 'text' => 'Se quella lettera è collegata a un’altra tramite un cavo stecker, il segnale viene scambiato prima ancora di raggiungere i rotori.'],
                 ['title' => 'Passaggio nei rotori', 'text' => 'Il segnale attraversa in sequenza i rotori installati, ciascuno dei quali lo trasforma secondo il proprio cablaggio interno.'],
-                ['title' => 'Riflessione', 'text' => 'Il riflettore rimanda il segnale indietro attraverso i rotori, ma lungo un percorso elettrico diverso da quello di andata.'],
+                ['title' => 'Riflessione', 'text' => 'Il riflettore rimanda il segnale indietro attraverso i rotori, ma lungo un percorso elettrico diverso da quello di andata: da qui in poi il segnale torna sui propri passi.', 'pivot' => true],
                 ['title' => 'Ritorno attraverso i rotori', 'text' => 'Il segnale riflesso riattraversa i rotori in ordine inverso, trasformandosi di nuovo.'],
                 ['title' => 'Nuovo passaggio nel plugboard', 'text' => 'Se necessario, il plugboard scambia ancora una volta la lettera prima dell’uscita finale.'],
                 ['title' => 'Una lampada si accende', 'text' => 'La lampada corrispondente alla lettera cifrata risultante si illumina sul lampboard: quella è la lettera da trascrivere.'],
@@ -208,7 +240,7 @@
     </section>
 
     {{-- 5. Configurazione della chiave giornaliera --}}
-    <section class="turing-section">
+    <section id="enigma-chiave" class="turing-section enigma-surface enigma-surface--paper enigma-anchor">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -239,7 +271,7 @@
     </section>
 
     {{-- 6. Vulnerabilità e crib --}}
-    <section class="turing-section">
+    <section id="enigma-crib" class="turing-section enigma-surface enigma-surface--paper enigma-anchor">
         <div class="container container--wide turing-split">
             <div class="turing-copy-panel">
                 <x-special.section-header
@@ -259,7 +291,9 @@
                 <p>
                     La vulnerabilità più sfruttabile, in altre parole, non era quasi mai nella matematica della
                     macchina: era nel comportamento umano prevedibile di chi la usava ogni giorno sotto pressione,
-                    con procedure ripetitive e poco tempo per variarle.
+                    con procedure ripetitive e poco tempo per variarle. Un vincolo strutturale aiutava chi cercava
+                    un crib: Enigma, per come era costruita, non poteva mai cifrare una lettera in se stessa —
+                    un dettaglio che, di per sé, escludeva molte posizioni di allineamento possibili.
                 </p>
             </div>
 
@@ -274,25 +308,35 @@
     </section>
 
     {{-- 7. Pipeline operativa di Bletchley Park --}}
-    <section class="turing-section has-bg" style="background-image:url('{{ asset('images/turing/enigma/bletchley-park.png') }}')">
+    <section id="enigma-bletchley" class="turing-section enigma-surface enigma-surface--operations enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/bletchley-park.png') }}')">
         <div class="container container--wide">
-            <div class="turing-section__head">
-                <p class="turing-kicker">Dentro Bletchley</p>
-                <h2>Una catena di lavoro, non un atto solitario</h2>
-                <p>
-                    La decrittazione a Bletchley Park era un ecosistema, non il gesto isolato di un genio: un
-                    messaggio intercettato attraversava fasi distinte, ciascuna affidata a persone e strumenti
-                    diversi, prima di diventare informazione utilizzabile.
-                </p>
+            <x-special.section-header
+                variant="section"
+                align="center"
+                kicker="Dentro Bletchley"
+                title="Una catena di lavoro, non un atto solitario"
+                text="La decrittazione a Bletchley Park era un ecosistema, non il gesto isolato di un genio: un messaggio intercettato attraversava fasi distinte, ciascuna affidata a persone e strumenti diversi, prima di diventare informazione utilizzabile."
+            />
+
+            <div class="enigma-signal-trail" aria-hidden="true">
+                <span class="enigma-signal-trail__label">Intercept</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Crib</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Bombe</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Ultra</span>
             </div>
 
-            <x-turing.enigma.step-list :steps="[
-                ['title' => 'Intercettazione', 'text' => 'Le stazioni di ascolto radio captavano il traffico cifrato tedesco e lo trascrivevano carattere per carattere.'],
-                ['title' => 'Ricerca del crib', 'text' => 'Gli analisti cercavano nel messaggio frammenti plausibili di testo in chiaro, a partire da abitudini ricorrenti.'],
-                ['title' => 'Verifica alla Bombe', 'text' => 'Le ipotesi venivano tradotte in un test meccanico, eseguito dalla Bombe per restringere rapidamente le configurazioni compatibili.'],
-                ['title' => 'Conferma manuale', 'text' => 'Le impostazioni candidate individuate dalla Bombe venivano verificate a mano prima di essere considerate affidabili.'],
-                ['title' => 'Traduzione e distribuzione', 'text' => 'Il messaggio decifrato veniva tradotto, valutato e distribuito con la massima riservatezza — il materiale noto con il nome in codice Ultra.'],
-            ]" />
+            <div class="enigma-ops-panel">
+                <x-turing.enigma.step-list :steps="[
+                    ['title' => 'Intercettazione', 'text' => 'Le stazioni di ascolto radio captavano il traffico cifrato tedesco e lo trascrivevano carattere per carattere.'],
+                    ['title' => 'Ricerca del crib', 'text' => 'Gli analisti cercavano nel messaggio frammenti plausibili di testo in chiaro, a partire da abitudini ricorrenti.'],
+                    ['title' => 'Verifica alla Bombe', 'text' => 'Le ipotesi venivano tradotte in un test meccanico, eseguito dalla Bombe per restringere rapidamente le configurazioni compatibili.'],
+                    ['title' => 'Conferma manuale', 'text' => 'Le impostazioni candidate individuate dalla Bombe venivano verificate a mano prima di essere considerate affidabili.'],
+                    ['title' => 'Traduzione e distribuzione', 'text' => 'Il messaggio decifrato veniva tradotto, valutato e distribuito con la massima riservatezza — il materiale noto con il nome in codice Ultra.'],
+                ]" />
+            </div>
 
             <x-turing.article.figure
                 image="{{ asset('images/turing/enigma/operations-room.png') }}"
@@ -305,7 +349,7 @@
     </section>
 
     {{-- 8. Sezione tecnica sulla Bombe --}}
-    <section class="turing-section">
+    <section id="enigma-bombe" class="turing-section enigma-surface enigma-surface--operations enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/bombe-machine.png') }}')">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -314,6 +358,12 @@
                 title="L’automazione entra in gioco"
                 text="La Bombe, la macchina elettromeccanica sviluppata a Bletchley Park a partire dal lavoro di Turing e dei suoi colleghi, automatizzava la verifica dei crib su un numero di configurazioni troppo alto per essere controllato a mano in tempo utile. Non decifrava i messaggi da sola: restringeva rapidamente le impostazioni plausibili di Enigma, lasciando agli analisti umani il compito di completare e verificare la decrittazione."
             />
+
+            <div class="enigma-signal-trail" aria-hidden="true">
+                <span class="enigma-signal-trail__label">Enigma genera possibilità</span>
+                <span class="enigma-signal-trail__arrow">→</span>
+                <span class="enigma-signal-trail__label">Bombe elimina contraddizioni</span>
+            </div>
 
             <div class="enigma-duo-grid">
                 <x-turing.article.figure
@@ -336,7 +386,7 @@
     </section>
 
     {{-- 9. Confronto Enigma / Bombe --}}
-    <section class="turing-section">
+    <section class="turing-section enigma-surface enigma-surface--paper">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -368,23 +418,85 @@
     </section>
 
     {{-- 10. Timeline storica --}}
-    <x-special.timeline
-        id="enigma-timeline"
-        kicker="Una vicenda lunga quasi trent’anni"
-        title="Dall’invenzione alla cybersecurity di oggi"
-        :events="[
-            ['year' => '1918', 'title' => 'L’invenzione', 'text' => 'L’ingegnere tedesco Arthur Scherbius brevetta la macchina Enigma per un uso commerciale, non ancora militare.'],
+    @php
+        // Estratto in variabile PHP invece di un attributo Blade inline
+        // :events="[...]": i valori di 'details' usano stringhe fra doppi
+        // apici (per l'escape \n), e un attributo Blade delimitato anch'esso
+        // da doppi apici non può contenerne senza rompersi a metà — motivo
+        // reale del mancato rendering del componente in una prima versione.
+        $paragraphs = fn (string ...$p): string => implode("\n\n", $p);
+
+        $enigmaTimelineEvents = [
+            [
+                'year' => '1918',
+                'title' => 'L’invenzione',
+                'text' => 'L’ingegnere tedesco Arthur Scherbius brevetta la macchina Enigma per un uso commerciale, non ancora militare.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Nel dopoguerra cresce, in ambito bancario e commerciale, la domanda di un sistema di cifratura meccanico affidabile per le comunicazioni riservate.',
+                    'Protagonisti' . "\n" . 'Arthur Scherbius, ingegnere tedesco, brevetta la macchina e la commercializza attraverso la propria azienda.',
+                    'Conseguenze' . "\n" . 'Le forze armate tedesche, negli anni successivi, adottano e modificano progressivamente il progetto originale per uso militare — l’inizio della storia che il resto di questa pagina racconta.'
+                ),
+            ],
             ['year' => 'Anni ’20', 'title' => 'L’adozione militare', 'text' => 'Le forze armate tedesche adottano e modificano progressivamente Enigma per le proprie comunicazioni riservate.'],
-            ['year' => '1932', 'title' => 'Le prime violazioni', 'text' => 'Matematici polacchi, fra cui Marian Rejewski, violano per primi versioni della macchina, gettando le basi del lavoro successivo di Bletchley Park.'],
+            [
+                'year' => '1932',
+                'title' => 'Le prime violazioni',
+                'text' => 'Matematici polacchi, fra cui Marian Rejewski, violano per primi versioni della macchina, gettando le basi del lavoro successivo di Bletchley Park.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Il Biuro Szyfrów, l’ufficio cifra polacco, affronta per primo in Europa il problema di Enigma con un approccio matematico sistematico.',
+                    'Protagonisti' . "\n" . 'Marian Rejewski, con Jerzy Różycki e Henryk Zygalski, sviluppa metodi teorici e macchine dedicate (le cosiddette «bombe» polacche, precedenti a quella britannica) per ricostruire il cablaggio dei rotori.',
+                    'Conseguenze' . "\n" . 'Nel luglio 1939, poche settimane prima dell’invasione della Polonia, quei metodi e quelle macchine furono condivisi con Francia e Regno Unito — una delle basi dirette su cui si costruì il lavoro successivo di Bletchley Park.'
+                ),
+            ],
             ['year' => '1939–1945', 'title' => 'L’uso bellico esteso', 'text' => 'Enigma diventa lo strumento di cifratura standard di gran parte delle comunicazioni militari tedesche durante la Seconda guerra mondiale.'],
-            ['year' => '1940', 'title' => 'Bletchley Park entra in azione', 'text' => 'Il centro di crittanalisi britannico avvia su scala industriale il lavoro di decrittazione del traffico Enigma.'],
-            ['year' => '1943–1944', 'title' => 'I progressi decisivi', 'text' => 'Il perfezionamento della Bombe e l’organizzazione del lavoro a Bletchley Park rendono la decrittazione sistematica e ripetibile.'],
-            ['year' => '1945 e oltre', 'title' => 'Un’eredità che continua', 'text' => 'I metodi e le macchine sviluppati per violare Enigma confluiscono nelle basi tecniche e concettuali dell’informatica del dopoguerra.'],
-        ]"
-    />
+            [
+                'year' => '1940',
+                'title' => 'Bletchley Park entra in azione',
+                'text' => 'Il centro di crittanalisi britannico avvia su scala industriale il lavoro di decrittazione del traffico Enigma.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Bletchley Park, una tenuta nel Buckinghamshire, diventa la sede della Government Code and Cypher School britannica.',
+                    'Protagonisti' . "\n" . 'Matematici, linguisti, ingegneri e migliaia di operatori — non un singolo gruppo ristretto — lavorano in turni continui su più edifici (gli Hut) dedicati a compiti diversi.',
+                    'Conseguenze' . "\n" . 'Il lavoro passa da tentativi isolati a un processo organizzato su scala industriale, con un flusso costante fra intercettazione, analisi, verifica meccanica e distribuzione dei risultati.'
+                ),
+            ],
+            [
+                'year' => '1943–1944',
+                'title' => 'I progressi decisivi',
+                'text' => 'Il perfezionamento della Bombe e l’organizzazione del lavoro a Bletchley Park rendono la decrittazione sistematica e ripetibile.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Il volume di traffico cifrato intercettato cresce enormemente con l’estendersi del conflitto.',
+                    'Protagonisti' . "\n" . 'Il lavoro di Turing e dei suoi colleghi sulla Bombe, insieme a un’organizzazione operativa ormai matura, rende la decrittazione un processo ripetibile piuttosto che un’impresa eccezionale caso per caso.',
+                    'Conseguenze' . "\n" . 'Il materiale Ultra diventa una fonte di intelligence sistematica per gli Alleati, gestita con estrema cautela per non rivelare che il codice tedesco era compromesso.'
+                ),
+            ],
+            [
+                'year' => '1945 e oltre',
+                'title' => 'Il segreto, e poi la memoria pubblica',
+                'text' => 'Il lavoro di Bletchley Park restò segreto per decenni: solo a partire dagli anni ’70 iniziò a essere reso pubblico, e con esso il pieno riconoscimento del contributo di Turing all’informatica moderna.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Al termine della guerra, i partecipanti al lavoro di Bletchley Park furono vincolati al silenzio dalla legge britannica sul segreto di stato: per decenni, quel lavoro non poté essere raccontato pubblicamente.',
+                    'Protagonisti' . "\n" . 'Solo a partire dalla metà degli anni ’70 — a partire dal libro «The Ultra Secret» di F. W. Winterbotham, 1974 — l’esistenza del materiale Ultra e il ruolo di Bletchley Park cominciarono a essere resi pubblici.',
+                    'Conseguenze' . "\n" . 'Quel riconoscimento tardivo è anche ciò che collega questa pagina al resto dello Speciale: i metodi e le macchine sviluppati per violare Enigma confluiscono nelle basi tecniche e concettuali dell’informatica del dopoguerra — un’eredità diventata visibile solo molto tempo dopo essere stata costruita.'
+                ),
+            ],
+        ];
+    @endphp
+    <div id="enigma-timeline" class="enigma-anchor">
+        <x-special.timeline
+            id="enigma-timeline-list"
+            kicker="Una vicenda lunga quasi trent’anni"
+            title="Dall’invenzione alla cybersecurity di oggi"
+            :events="$enigmaTimelineEvents"
+        />
+    </div>
+
+    {{-- Marcatore: oltre questo punto la navigazione a capitoli si nasconde
+         (Fase 5: "non deve coprire il contenuto") — non c'e' piu' un
+         capitolo attivo da segnalare oltre la timeline. --}}
+    <div data-enigma-chapter-nav-end aria-hidden="true"></div>
 
     {{-- 11. Eredità nella cybersecurity --}}
-    <section class="turing-section">
+    <section class="turing-section enigma-surface enigma-surface--dark">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -393,13 +505,13 @@
                 title="Dalla crittografia alla cybersecurity"
             />
             <div class="enigma-lede">
-                <p>
+                <p style="color:rgba(255,255,255,.82)">
                     Il lavoro su Enigma è una delle radici culturali della sicurezza informatica contemporanea. Non
                     tanto per la macchina in sé, ormai un artefatto storico, quanto per lo spostamento di
                     prospettiva che quel lavoro rese necessario: dal cercare di indovinare un segreto al costruire
                     un metodo sistematico, ripetibile e organizzato per restringerlo.
                 </p>
-                <p>
+                <p style="color:rgba(255,255,255,.82)">
                     Oggi parliamo di cifratura, gestione delle chiavi, superficie di attacco e automazione con un
                     linguaggio che deve molto a quella stagione. Il principio per cui la sicurezza di un sistema non
                     dovrebbe dipendere dalla segretezza del suo funzionamento, ma dalla robustezza delle chiavi
@@ -407,6 +519,15 @@
                     casuale.
                 </p>
             </div>
+
+            <x-special.feature-cards
+                label="Quattro concetti ereditati da Enigma"
+                :cards="[
+                    ['label' => '01', 'title' => 'Crittografia', 'text' => 'Trasforma il messaggio rendendolo illeggibile senza la chiave corretta.'],
+                    ['label' => '02', 'title' => 'Crittoanalisi', 'text' => 'Ricostruisce configurazioni e vulnerabilità a partire da ciò che è osservabile dall’esterno.'],
+                    ['label' => '03', 'title' => 'Intelligence', 'text' => 'Distribuisce il risultato di un’analisi senza comprometterne la fonte che lo ha reso possibile.'],
+                ]"
+            />
         </div>
     </section>
 
@@ -445,3 +566,8 @@
 
 </div>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/special-modal.js') }}"></script>
+    <script src="{{ asset('js/turing-enigma.js') }}" defer></script>
+@endpush
