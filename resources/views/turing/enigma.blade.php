@@ -144,6 +144,15 @@
                 text="Enigma non nascondeva un singolo meccanismo segreto: la sua sicurezza nasceva dalla combinazione di componenti relativamente semplici, ciascuno modificabile in modo indipendente."
             />
 
+            <x-turing.article.figure
+                class="turing-article-figure--photo"
+                image="{{ asset('images/turing/enigma/editorial/02_enigma-machine-anatomy.png') }}"
+                alt="Fotografia ravvicinata dei rotori e della tastiera di una macchina Enigma aperta, con i cablaggi interni visibili sullo sfondo"
+                caption="I rotori e i contatti elettrici interni: la parte della macchina che, ruotando a ogni pressione di tasto, rendeva ogni cifratura diversa dalla precedente."
+                width="2400"
+                height="1600"
+            />
+
             <div class="turing-copy-panel">
                 <p>
                     Una tastiera per digitare il testo in chiaro. Un pannello di lampadine (il lampboard) che
@@ -186,17 +195,18 @@
 
             <p class="enigma-detail-label">Approfondimento tecnico — il rotore da vicino</p>
             <x-turing.article.figure
-                image="{{ asset('images/turing/enigma/rotor-exploded.png') }}"
-                alt="Diagramma esploso di tre rotori Enigma affiancati, con etichette che indicano rotore sinistro, centrale e destro, nucleo, cablaggio, tacca di notch e anello di regolazione"
+                class="turing-article-figure--photo"
+                image="{{ asset('images/turing/enigma/editorial/03_rotor-exploded-view.png') }}"
+                alt="Vista ravvicinata di quattro rotori Enigma allineati sul proprio asse, con i contatti a molla e il cablaggio interno visibili fra un disco e l’altro"
                 caption="Ogni rotore è in realtà un piccolo sistema a sé: nucleo, cablaggio interno, tacca che determina l’avanzamento del rotore successivo, anello di regolazione (ring setting) che sposta il cablaggio rispetto alle lettere esterne."
-                width="288"
-                height="290"
+                width="2400"
+                height="1600"
             />
         </div>
     </section>
 
     {{-- 4. Percorso elettrico del segnale --}}
-    <section id="enigma-segnale" class="turing-section enigma-surface enigma-surface--signal enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/signal-path.png') }}')">
+    <section id="enigma-segnale" class="turing-section enigma-surface enigma-surface--signal enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/editorial/04_electrical-signal-path.png') }}')">
         <div class="container container--wide turing-split">
             <div class="turing-copy-panel">
                 <x-special.section-header
@@ -221,11 +231,12 @@
             </div>
 
             <x-turing.article.figure
-                image="{{ asset('images/turing/enigma/signal-path.png') }}"
-                alt="Diagramma del percorso del segnale in una macchina Enigma: dalla tastiera al plugboard, attraverso i rotori, fino al riflettore e ritorno lungo lo stesso schema"
+                class="turing-article-figure--photo"
+                image="{{ asset('images/turing/enigma/editorial/04_electrical-signal-path.png') }}"
+                alt="Visualizzazione scientifica del percorso del segnale elettrico attraverso i rotori di una macchina Enigma, evidenziato da una linea luminosa"
                 caption="Tastiera → plugboard → rotori → riflettore → ritorno attraverso i rotori e il plugboard: lo stesso tasto non produce mai la stessa lettera cifrata due volte di seguito, perché i rotori ruotano a ogni pressione."
-                width="287"
-                height="289"
+                width="2400"
+                height="1600"
             />
         </div>
 
@@ -367,7 +378,7 @@
     </section>
 
     {{-- 7. Pipeline operativa di Bletchley Park --}}
-    <section id="enigma-bletchley" class="turing-section enigma-surface enigma-surface--operations enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/bletchley-park.png') }}')">
+    <section id="enigma-bletchley" class="turing-section enigma-surface enigma-surface--operations enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/editorial/11_hut-8-exterior.png') }}')">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -398,17 +409,18 @@
             </div>
 
             <x-turing.article.figure
-                image="{{ asset('images/turing/enigma/operations-room.png') }}"
-                alt="Illustrazione editoriale di una sala operativa di Bletchley Park affollata di analisti al lavoro su documenti e schede"
+                class="turing-article-figure--photo"
+                image="{{ asset('images/turing/enigma/editorial/05_bletchley-park-operations-room.png') }}"
+                alt="Fotografia di una sala operativa di Bletchley Park affollata di analisti al lavoro su documenti e schede, illuminata dalle grandi finestre"
                 caption="Una sala operativa di Bletchley Park: ogni fase della catena coinvolgeva persone diverse, spesso in turni continui, non un singolo analista isolato con la propria macchina."
-                width="288"
-                height="289"
+                width="2400"
+                height="1600"
             />
         </div>
     </section>
 
     {{-- 8. Sezione tecnica sulla Bombe --}}
-    <section id="enigma-bombe" class="turing-section enigma-surface enigma-surface--operations enigma-anchor" style="--enigma-surface-image:url('{{ asset('images/turing/enigma/bombe-machine.png') }}')">
+    <section id="enigma-bombe" class="turing-section enigma-surface enigma-surface--operations enigma-anchor">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
@@ -427,22 +439,24 @@
             <div class="enigma-bombe-grid">
                 <div class="enigma-bombe-grid__primary">
                     <x-turing.article.figure
-                        image="{{ asset('images/turing/enigma/bombe-machine.png') }}"
-                        alt="Diagramma illustrato della Bombe, con etichette che indicano i tamburi rotanti, l’unità di integrazione e il pannello di output"
-                        caption="I tamburi rotanti simulavano le posizioni dei rotori di Enigma; l’unità di integrazione individuava le combinazioni compatibili con i crib; il pannello di output mostrava le impostazioni candidate."
-                        width="287"
-                        height="290"
+                        class="turing-article-figure--photo"
+                        image="{{ asset('images/turing/enigma/editorial/09_bombe-machine.png') }}"
+                        alt="Fotografia di un tecnico al lavoro davanti alla parete di tamburi rotanti della Bombe, che mostra la scala imponente della macchina"
+                        caption="Un tecnico regola le impostazioni della Bombe: la macchina occupava un intero armadio, ben più grande e complessa della portatile Enigma che era chiamata a violare."
+                        width="2400"
+                        height="1600"
                     />
                 </div>
 
                 <div class="enigma-bombe-grid__secondary">
-                    <span class="enigma-bombe-grid__secondary-label">Ritratto editoriale</span>
+                    <span class="enigma-bombe-grid__secondary-label">Dettaglio meccanico</span>
                     <x-turing.article.figure
-                        image="{{ asset('images/turing/enigma/turing-bombe.png') }}"
-                        alt="Illustrazione editoriale di Alan Turing al lavoro accanto alla Bombe"
-                        caption="La Bombe nacque dal lavoro di Turing e dei suoi colleghi a Bletchley Park, a partire dai metodi crittanalitici sviluppati nei primi anni di guerra."
-                        width="287"
-                        height="289"
+                        class="turing-article-figure--photo"
+                        image="{{ asset('images/turing/enigma/editorial/10_bombe-detail.png') }}"
+                        alt="Primo piano dei tamburi rotanti della Bombe, con i cablaggi e i contatti metallici visibili tra un tamburo e l’altro"
+                        caption="Ogni tamburo della Bombe replicava meccanicamente il cablaggio di un rotore Enigma: la macchina ne montava decine, azionati in parallelo."
+                        width="2400"
+                        height="1600"
                     />
                 </div>
             </div>

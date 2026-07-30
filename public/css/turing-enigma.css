@@ -86,23 +86,28 @@
   color: #fff;
 }
 
-/* Gli asset sorgente sono illustrazioni chiare su sfondo quasi bianco:
-   sfocarle e basta le riduce a una foschia grigia poco percepibile su
-   navy. grayscale+brightness le scurisce fino a un midtone, poi
-   sepia+hue-rotate le "duotona" verso il teal della palette, cosi' restano
-   riconoscibili come texture d'ambiente invece di sparire nello sfondo. */
+/* L'asset editoriale ora in uso (04_electrical-signal-path.png) e' gia'
+   scuro e a tinta navy/ciano: basta sfocarlo, non serve piu' "duotonarlo"
+   da un'illustrazione chiara come nella versione precedente. Altezza
+   vincolata a un viewport per lo stesso motivo delle superfici
+   --operations: "cover" su una sezione alta piu' schermate stirerebbe
+   l'immagine oltre ogni scala riconoscibile. */
 .enigma-surface--signal::before {
   z-index: 0;
+  inset: 0 0 auto 0;
+  height: 100vh;
   background-image: var(--enigma-surface-image, none);
   background-size: cover;
-  background-position: center;
-  filter: blur(56px) grayscale(1) brightness(.55) contrast(1.2) sepia(.6) hue-rotate(175deg) saturate(2.2);
-  opacity: .55;
-  transform: scale(1.35);
+  background-position: center 30%;
+  filter: blur(40px) brightness(.7) saturate(1.1);
+  opacity: .7;
+  transform: scale(1.25);
 }
 
 .enigma-surface--signal::after {
   z-index: 1;
+  inset: 0 0 auto 0;
+  height: 100vh;
   background:
     repeating-linear-gradient(0deg, rgba(103, 232, 249, .06) 0 1px, transparent 1px 56px),
     repeating-linear-gradient(90deg, rgba(103, 232, 249, .06) 0 1px, transparent 1px 56px),
@@ -115,21 +120,38 @@
   color: #fff;
 }
 
+/* A differenza degli asset piatti/chiari sostituiti nella review precedente
+   (che avevano bisogno di essere "duotonati" per non sparire su navy),
+   l'asset editoriale ora in uso qui (11_hut-8-exterior.png) e' gia' una
+   fotografia scura e intonata: basta sfocarla e scurirla leggermente,
+   preservandone il colore naturale invece di forzare una tinta sintetica. */
+/* .enigma-surface::before eredita "inset:0" dalla regola base: su una
+   sezione alta piu' di un viewport (come questa, con pannello operativo e
+   figura), "cover" su tutta quell'altezza stira l'immagine ben oltre ogni
+   scala riconoscibile, appiattendola a una tinta pressoche' uniforme
+   qualunque filtro si applichi. Vincolare l'ambientazione a un'altezza da
+   viewport, ancorata in alto, la mantiene a una scala leggibile; il resto
+   della sezione, piu' in basso, resta sul navy pieno — dove comunque la
+   figura nitida in fondo fa gia' il lavoro visivo. */
 .enigma-surface--operations::before {
   z-index: 0;
+  inset: 0 0 auto 0;
+  height: 100vh;
   background-image: var(--enigma-surface-image, none);
   background-size: cover;
-  background-position: center 30%;
-  filter: blur(30px) grayscale(1) brightness(.5) contrast(1.25) sepia(.6) hue-rotate(175deg) saturate(2.4);
-  opacity: .65;
-  transform: scale(1.2);
+  background-position: center 35%;
+  filter: blur(26px) brightness(.65) saturate(.9);
+  opacity: .8;
+  transform: scale(1.15);
 }
 
 .enigma-surface--operations::after {
   z-index: 1;
+  inset: 0 0 auto 0;
+  height: 100vh;
   background:
-    radial-gradient(ellipse at center, transparent 0%, rgba(3, 7, 18, .4) 78%),
-    linear-gradient(180deg, rgba(3, 7, 18, .18) 0%, rgba(3, 7, 18, .75) 100%);
+    radial-gradient(ellipse at center, transparent 0%, rgba(3, 7, 18, .35) 78%),
+    linear-gradient(180deg, rgba(3, 7, 18, .3) 0%, rgba(3, 7, 18, .8) 100%);
 }
 
 /* Archivio: timeline storica, texture da faldone. */
@@ -207,6 +229,45 @@
 .enigma-surface--signal .turing-article-figure figcaption,
 .enigma-surface--operations .turing-article-figure figcaption {
   color: rgba(255, 255, 255, .68);
+}
+
+/* --------------------------------------------------------------------------
+   Figure fotografiche editoriali (libreria "editorial/"): a differenza
+   degli asset piccoli sostituiti in precedenza, questi sono ad alta
+   risoluzione e senza testo incorporato — non hanno bisogno del
+   riquadro bianco con object-fit:contain pensato per salvare titoli
+   stampati nell'immagine. Override scoped alla sola classe modificatore,
+   non tocca .turing-article-figure di base ne' le figure piccole ancora
+   in uso altrove nella pagina (chiave, crib, timeline).
+   -------------------------------------------------------------------------- */
+.turing-article-figure--photo .turing-timeline__media {
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 18px;
+}
+
+.enigma-surface--blueprint .turing-article-figure--photo .turing-timeline__media,
+.enigma-surface--paper .turing-article-figure--photo .turing-timeline__media {
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, .35);
+}
+
+.enigma-surface--operations .turing-article-figure--photo .turing-timeline__media,
+.enigma-surface--signal .turing-article-figure--photo .turing-timeline__media {
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+
+/* Griglia asimmetrica della Bombe: l'immagine dominante resta piu'
+   verticale (da protagonista), quella secondaria piu' compatta. */
+.enigma-bombe-grid__primary .turing-article-figure--photo .turing-timeline__media {
+  aspect-ratio: 4 / 5;
+}
+
+.enigma-bombe-grid__secondary .turing-article-figure--photo .turing-timeline__media {
+  aspect-ratio: 1 / 1;
 }
 
 /* -- Etichette "linea del segnale" — motivo ricorrente ------------------- */
