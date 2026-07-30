@@ -495,6 +495,23 @@
   margin-top: 1rem;
 }
 
+/* <x-turing.article.figure>: la figure stessa e la figcaption non avevano
+   mai avuto una regola (componente introdotto in #30, mai ancora usato da
+   nessuna pagina prima di questa). */
+.turing-article-figure {
+  margin: 1.5rem 0;
+}
+
+.turing-article-figure figcaption {
+  margin-top: .6rem;
+  /* Stesso colore di .turing-copy-panel p (7.24:1 su #f8fafc), non il piu'
+     chiaro #64748b usato altrove per testo secondario su sfondo bianco
+     pieno: qui il margine AA sarebbe stato solo 4.55:1. */
+  color: #475569;
+  font-size: .88rem;
+  line-height: 1.6;
+}
+
 .turing-final-card {
   max-width: 900px;
   margin: 0 auto;
