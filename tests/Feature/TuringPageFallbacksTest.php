@@ -10,6 +10,18 @@ class TuringPageFallbacksTest extends TestCase
 {
     use RefreshDatabase;
 
+    // Questi test esercitano /turing e i capitoli /turing/* assumendo
+    // che siano pubblici (contenuto renderizzato, non un redirect):
+    // stato futuro dietro config('turing.chapters_public'), attivato qui
+    // esplicitamente. Il default di produzione (false, landing "In
+    // arrivo" + redirect) e' coperto da TuringReleaseGateTest.
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['turing.chapters_public' => true]);
+    }
+
     public function test_turing_page_uses_fallbacks_when_special_page_record_is_missing(): void
     {
         $response = $this->get(route('turing'));

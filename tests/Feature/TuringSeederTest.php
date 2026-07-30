@@ -12,6 +12,18 @@ class TuringSeederTest extends TestCase
 {
     use RefreshDatabase;
 
+    // Questi test esercitano /turing e i capitoli /turing/* assumendo
+    // che siano pubblici (contenuto renderizzato, non un redirect):
+    // stato futuro dietro config('turing.chapters_public'), attivato qui
+    // esplicitamente. Il default di produzione (false, landing "In
+    // arrivo" + redirect) e' coperto da TuringReleaseGateTest.
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['turing.chapters_public' => true]);
+    }
+
     private function editor(): User
     {
         return User::factory()->create(['role' => 'editor']);
