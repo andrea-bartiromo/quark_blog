@@ -1,5 +1,29 @@
 @extends('layouts.app')
 
+@php
+    // Il CMS conserva, per il blocco 'enigma' della pagina hub, due campi
+    // immagine storici (background_image/image, editabili da admin/turing-lite).
+    // Se presenti, restano l'override editoriale per l'hero e per il pannello
+    // principale di questa pagina; altrimenti si usa come default il nuovo
+    // asset editoriale dedicato. Nessun altro campo CMS esiste per le
+    // immagini aggiuntive introdotte in questa pagina (Bombe, Bletchley,
+    // ecc.), che quindi non hanno — e non possono avere — un override CMS.
+    $page = \App\Models\SpecialPage::where('slug', 'turing')->first();
+    $content = ($page && $page->is_active) ? ($page->content ?? []) : [];
+    $blocks = collect($content['editorial_blocks'] ?? []);
+    $enigmaBlock = $blocks->firstWhere('key', 'enigma') ?? [];
+
+    $heroImage = $enigmaBlock['background_image']
+        ?? $enigmaBlock['image']
+        ?? asset('images/turing/enigma/hero-enigma.png');
+
+    $panelImage = $enigmaBlock['image']
+        ?? $enigmaBlock['background_image']
+        ?? null;
+    $panelIsCms = filled($panelImage);
+    $panelImage = $panelImage ?? asset('images/turing/enigma/cutaway-enigma.png');
+@endphp
+
 @section('title', 'Enigma e Bletchley Park — Quark')
 @section(
     'description',
@@ -22,7 +46,7 @@
         kicker="Enigma"
         title="Enigma, Ultra e la guerra invisibile"
         lead="Durante la Seconda guerra mondiale, Alan Turing contribuì al lavoro di Bletchley Park per decifrare i messaggi tedeschi prodotti dalla macchina Enigma. Quel lavoro accelerò la nascita del calcolo automatico moderno e cambiò per sempre il rapporto tra matematica, sicurezza e tecnologia."
-        image="turing/enigma/turing-enigma-background.webp"
+        :image="$heroImage"
     />
 
     <x-turing.article.body>
@@ -32,6 +56,14 @@
             kicker="Il problema"
             title="Una guerra combattuta anche con pattern e probabilità"
             text="Ogni messaggio cifrato con Enigma sembrava, a un primo sguardo, una parete opaca. Il lavoro degli analisti a Bletchley Park consisteva nel trasformare quell’opacità in ipotesi verificabili, restringendo ogni giorno da capo lo spazio enorme di combinazioni possibili con cui i tedeschi cifravano le proprie comunicazioni militari."
+        />
+
+        <x-turing.article.figure
+            image="{{ asset('images/turing/enigma/german-operator.png') }}"
+            alt="Illustrazione editoriale di un operatore militare tedesco che digita su una macchina Enigma"
+            caption="Le comunicazioni cifrate che gli analisti dovevano interpretare partivano da operatori come questo, in postazioni sparse su tutti i fronti."
+            width="287"
+            height="289"
         />
     </x-turing.article.body>
 
@@ -45,9 +77,11 @@
         />
 
         <x-turing.article.figure
-            image="turing/enigma/turing-enigma-panel.webp"
-            alt="Ricostruzione editoriale di una macchina Enigma con rotori, plugboard e tastiera in vista"
-            caption="Rotori, plugboard e tastiera: i tre elementi che, combinati, generavano lo spazio di chiavi che Bletchley Park doveva restringere ogni giorno."
+            :image="$panelImage"
+            :alt="$panelIsCms ? ($enigmaBlock['title'] ?? 'Immagine editoriale della pagina Enigma') : 'Diagramma illustrato di una macchina Enigma aperta, con etichette che indicano tastiera, lampboard, rotori, plugboard, riflettore e connessioni di alimentazione'"
+            :caption="$panelIsCms ? null : 'Tastiera, lampboard, rotori, plugboard e riflettore: i componenti che, combinati, generavano lo spazio di chiavi che Bletchley Park doveva restringere ogni giorno.'"
+            :width="$panelIsCms ? null : 287"
+            :height="$panelIsCms ? null : 289"
         />
     </x-turing.article.body>
 
@@ -69,6 +103,14 @@
             title="L’automazione entra in gioco"
             text="La Bombe, la macchina elettromeccanica sviluppata a Bletchley Park a partire dal lavoro di Turing e dei suoi colleghi, automatizzava la verifica dei crib su un numero di configurazioni troppo alto per essere controllato a mano in tempo utile. Non decifrava i messaggi da sola: restringeva rapidamente le impostazioni plausibili di Enigma, lasciando agli analisti umani il compito di completare e verificare la decrittazione."
         />
+
+        <x-turing.article.figure
+            image="{{ asset('images/turing/enigma/bombe-machine.png') }}"
+            alt="Diagramma illustrato della Bombe, con etichette che indicano i tamburi rotanti, l’unità di integrazione e il pannello di output"
+            caption="I tamburi rotanti simulavano le posizioni dei rotori di Enigma; l’unità di integrazione individuava le combinazioni compatibili con i crib; il pannello di output mostrava le impostazioni candidate."
+            width="287"
+            height="290"
+        />
     </x-turing.article.body>
 
     <x-turing.article.body>
@@ -78,6 +120,14 @@
             kicker="Il metodo"
             title="Non forza bruta, ma intelligenza organizzata"
             text="Il punto non era provare tutto: era capire cosa non poteva essere vero. La genialità del lavoro di Bletchley Park stava nel trasformare una montagna di possibilità in una sequenza di esclusioni, accelerata da macchine, turni di lavoro organizzati e disciplina matematica. Questa logica anticipa idee oggi centrali nell’informatica: filtrare segnali, ridurre uno spazio di ricerca enorme, riconoscere pattern ricorrenti e costruire sistemi capaci di amplificare — non sostituire — il ragionamento umano."
+        />
+
+        <x-turing.article.figure
+            image="{{ asset('images/turing/enigma/comparison-enigma-bombe.png') }}"
+            alt="Confronto illustrato tra la macchina Enigma e la Bombe, con elenchi puntati delle rispettive caratteristiche: Enigma cifra i messaggi, meccanica, portatile, usata sul campo, protetta da chiavi; Bombe decifra i messaggi, elettromeccanica, grande e complessa, usata a Bletchley Park, viola Enigma"
+            caption="Enigma cifrava sul campo con una macchina portatile; la Bombe, grande e complessa, restringeva a Bletchley Park lo spazio delle chiavi possibili: due macchine, due logiche opposte."
+            width="287"
+            height="289"
         />
     </x-turing.article.body>
 
@@ -89,6 +139,14 @@
             title="Una catena di lavoro, non un atto solitario"
             text="La decrittazione a Bletchley Park era un ecosistema, non il gesto isolato di un genio: le comunicazioni radio intercettate arrivavano agli analisti con urgenza crescente, che vi cercavano pattern e ipotesi verificabili a partire da abitudini operative e contesto militare; la Bombe restringeva meccanicamente le configurazioni compatibili con quegli indizi; e il risultato finale — noto con il nome in codice Ultra — doveva ancora arrivare in tempo utile alle strutture militari senza mai rivelare che quel canale era stato violato."
         />
+
+        <x-turing.article.figure
+            image="{{ asset('images/turing/enigma/operations-room.png') }}"
+            alt="Illustrazione editoriale di una sala operativa di Bletchley Park affollata di analisti al lavoro su documenti e schede"
+            caption="Una sala operativa di Bletchley Park: la decrittazione era il lavoro di molte persone in parallelo, non di un singolo analista isolato."
+            width="288"
+            height="289"
+        />
     </x-turing.article.body>
 
     <x-turing.article.body>
@@ -98,6 +156,14 @@
             kicker="Eredità"
             title="Dalla crittografia alla cybersecurity"
             text="Il lavoro su Enigma è una delle radici culturali della sicurezza informatica contemporanea. Oggi parliamo di cifratura, attacchi, modelli, chiavi e automazione con un linguaggio che deve molto a quella stagione — e allo stesso spostamento di prospettiva che l’ha resa possibile: dal cercare di indovinare un segreto al costruire un metodo sistematico per restringerlo."
+        />
+
+        <x-turing.article.figure
+            image="{{ asset('images/turing/enigma/timeline-enigma.png') }}"
+            alt="Cronologia illustrata della storia di Enigma, dall’invenzione nel 1918 all’eredità sull’informatica moderna dopo il 1945"
+            caption="Dall’invenzione di Enigma nel 1918 all’eredità che quel lavoro ha lasciato all’informatica dopo il 1945: una vicenda lunga quasi trent’anni, non un episodio isolato."
+            width="287"
+            height="289"
         />
     </x-turing.article.body>
 

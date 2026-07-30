@@ -502,6 +502,22 @@
   margin: 1.5rem 0;
 }
 
+/* Override scoped alla sola figure articolo, non a .turing-timeline__media
+   in generale: gli asset editoriali di Enigma sono pressoche' quadrati
+   (~287x289), non 16:9 come le foto della Timeline che riusano la stessa
+   classe base. Con "cover" a 180px di altezza il titolo stampato in alto
+   in molte di queste immagini (es. "BLETCHLEY PARK", "THE BOMBE MACHINE")
+   veniva ritagliato via. "contain" su un riquadro piu' alto e con sfondo
+   proprio mostra l'immagine per intero, senza mai perdere contenuto. */
+.turing-article-figure .turing-timeline__media {
+  height: 320px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, .08);
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
 .turing-article-figure figcaption {
   margin-top: .6rem;
   /* Stesso colore di .turing-copy-panel p (7.24:1 su #f8fafc), non il piu'
