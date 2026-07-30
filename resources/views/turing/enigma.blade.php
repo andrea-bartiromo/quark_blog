@@ -240,7 +240,7 @@
     </section>
 
     {{-- 5. Configurazione della chiave giornaliera --}}
-    <section id="enigma-chiave" class="turing-section enigma-surface enigma-surface--paper enigma-anchor">
+    <section id="enigma-chiave" class="turing-section enigma-surface enigma-surface--blueprint enigma-anchor">
         <div class="container container--wide">
             <x-special.section-header
                 variant="section"
