@@ -150,20 +150,30 @@ class TuringEnigmaPageTest extends TestCase
     {
         return [
             'hero (default)' => ['hero-enigma.png'],
-            'anatomia (default)' => ['cutaway-enigma.png'],
-            'anatomia — rotori esplosi' => ['rotor-exploded.png'],
+            'anatomia (default, base hotspot)' => ['cutaway-enigma.png'],
             'anatomia — componenti' => ['components.png'], // riferito solo nei dati delle feature-cards, non come <img> diretto
-            'percorso del segnale' => ['signal-path.png'],
             'chiave giornaliera — impostazioni' => ['daily-key-settings.png'],
             'chiave giornaliera — plugboard' => ['plugboard.png'],
             'crib — operatore tedesco' => ['german-operator.png'],
-            'pipeline Bletchley — edificio' => ['bletchley-park.png'],
-            'pipeline Bletchley — sala operativa' => ['operations-room.png'],
-            'Bombe — diagramma tecnico' => ['bombe-machine.png'],
-            'Bombe — Turing' => ['turing-bombe.png'],
             'confronto Enigma/Bombe' => ['comparison-enigma-bombe.png'],
             'timeline storica' => ['timeline-enigma.png'],
             'processo di cifratura (contenuto trascritto)' => ['encryption-process.png'], // non renderizzato come <img>, contenuto trascritto nello step-list del modulo 4
+            // Asset non piu' referenziati direttamente dopo l'art-direction pass
+            // con la libreria "editorial/" (restano su disco, non rimossi).
+            'anatomia — rotori esplosi (superato da editorial/03)' => ['rotor-exploded.png'],
+            'percorso del segnale (superato da editorial/04)' => ['signal-path.png'],
+            'pipeline Bletchley — edificio (superato da editorial/11)' => ['bletchley-park.png'],
+            'pipeline Bletchley — sala operativa (superato da editorial/05)' => ['operations-room.png'],
+            'Bombe — diagramma tecnico (superato da editorial/09)' => ['bombe-machine.png'],
+            'Bombe — Turing (superato da editorial/10)' => ['turing-bombe.png'],
+            // Libreria editoriale in uso dopo l'art-direction pass.
+            'editorial — apertura anatomia' => ['editorial/02_enigma-machine-anatomy.png'],
+            'editorial — rotori esplosi' => ['editorial/03_rotor-exploded-view.png'],
+            'editorial — percorso del segnale' => ['editorial/04_electrical-signal-path.png'],
+            'editorial — sala operativa Bletchley' => ['editorial/05_bletchley-park-operations-room.png'],
+            'editorial — esterno Hut 8' => ['editorial/11_hut-8-exterior.png'],
+            'editorial — Bombe, tecnico al lavoro' => ['editorial/09_bombe-machine.png'],
+            'editorial — Bombe, dettaglio tamburi' => ['editorial/10_bombe-detail.png'],
         ];
     }
 
@@ -249,12 +259,13 @@ class TuringEnigmaPageTest extends TestCase
     {
         $this->get(route('turing.enigma'))
             ->assertOk()
-            ->assertSee('alt="Diagramma esploso di tre rotori Enigma affiancati', false)
-            ->assertSee('alt="Diagramma del percorso del segnale in una macchina Enigma', false)
+            ->assertSee('alt="Fotografia ravvicinata dei rotori e della tastiera di una macchina Enigma aperta', false)
+            ->assertSee('alt="Vista ravvicinata di quattro rotori Enigma allineati sul proprio asse', false)
+            ->assertSee('alt="Visualizzazione scientifica del percorso del segnale elettrico attraverso i rotori', false)
             ->assertSee('alt="Illustrazione editoriale di un operatore militare tedesco che digita su una macchina Enigma"', false)
-            ->assertSee('alt="Diagramma illustrato della Bombe, con etichette che indicano i tamburi rotanti, l’unità di integrazione e il pannello di output"', false)
-            ->assertSee('alt="Illustrazione editoriale di Alan Turing al lavoro accanto alla Bombe"', false)
-            ->assertSee('alt="Illustrazione editoriale di una sala operativa di Bletchley Park affollata di analisti al lavoro su documenti e schede"', false);
+            ->assertSee('alt="Fotografia di un tecnico al lavoro davanti alla parete di tamburi rotanti della Bombe', false)
+            ->assertSee('alt="Primo piano dei tamburi rotanti della Bombe', false)
+            ->assertSee('alt="Fotografia di una sala operativa di Bletchley Park affollata di analisti al lavoro su documenti e schede', false);
     }
 
     public function test_enigma_hero_is_not_lazy_loaded(): void
@@ -283,11 +294,12 @@ class TuringEnigmaPageTest extends TestCase
     {
         $html = $this->get(route('turing.enigma'))->getContent();
 
-        // 9 figure inline (<x-turing.article.figure>, incluso il wrapper della
-        // hotspot diagram che ne aggiunge una propria): tutte lazy + async, mai eager.
-        $this->assertSame(9, substr_count($html, 'class="turing-article-figure'));
-        $this->assertGreaterThanOrEqual(9, substr_count($html, 'loading="lazy"'));
-        $this->assertGreaterThanOrEqual(9, substr_count($html, 'decoding="async"'));
+        // 10 figure inline (<x-turing.article.figure>, incluso il wrapper della
+        // hotspot diagram che ne aggiunge una propria, e la nuova figura
+        // fotografica di apertura in Anatomia): tutte lazy + async, mai eager.
+        $this->assertSame(10, substr_count($html, 'class="turing-article-figure'));
+        $this->assertGreaterThanOrEqual(10, substr_count($html, 'loading="lazy"'));
+        $this->assertGreaterThanOrEqual(10, substr_count($html, 'decoding="async"'));
     }
 
     public function test_enigma_page_includes_the_technical_component_breakdown(): void
@@ -537,7 +549,7 @@ class TuringEnigmaPageTest extends TestCase
         $this->assertStringContainsString('enigma-bombe-grid', $html);
         $this->assertStringContainsString('enigma-bombe-grid__primary', $html);
         $this->assertStringContainsString('enigma-bombe-grid__secondary', $html);
-        $this->assertStringContainsString('Ritratto editoriale', $html);
+        $this->assertStringContainsString('Dettaglio meccanico', $html);
     }
 
     public function test_enigma_closing_section_has_archive_elements_and_final_signal_trail(): void
