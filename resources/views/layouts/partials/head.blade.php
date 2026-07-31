@@ -16,8 +16,17 @@
      accadeva prima di introdurre le sezioni og_title/og_description --}}
 <meta property="og:site_name" content="{{ config('laboratorio.name') }}">
 <meta property="og:type" content="@yield('og_type','website')">
-<meta property="og:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title')@endif">
-<meta property="og:description" content="@hasSection('og_description')@yield('og_description')@else@yield('description')@endif">
+{{--
+    Non "@hasSection('og_title')@yield('og_title')@else@yield('title')@endif":
+    con @yield incollato subito dopo @else, senza spazio, il compilatore
+    Blade non lo riconosce come direttiva e lo lascia come testo letterale
+    nell'output (verificato con BladeCompiler::compileString — il ramo
+    @else produceva "@yield('title')" invece del valore). L'espressione
+    PHP equivalente sotto e' la stessa identica logica di fallback, solo
+    senza l'adiacenza che il compilatore non gestisce.
+--}}
+<meta property="og:title" content="{!! $__env->hasSection('og_title') ? $__env->yieldContent('og_title') : $__env->yieldContent('title') !!}">
+<meta property="og:description" content="{!! $__env->hasSection('og_description') ? $__env->yieldContent('og_description') : $__env->yieldContent('description') !!}">
 <meta property="og:url" content="{{ url()->current() }}">
 @hasSection('og_image')
 <meta property="og:image" content="@yield('og_image')">
@@ -27,8 +36,8 @@
 
 {{-- Twitter Card: stessa logica di fallback di Open Graph --}}
 <meta name="twitter:card" content="@yield('twitter_card', 'summary_large_image')">
-<meta name="twitter:title" content="@hasSection('twitter_title')@yield('twitter_title')@else@yield('title')@endif">
-<meta name="twitter:description" content="@hasSection('twitter_description')@yield('twitter_description')@else@yield('description')@endif">
+<meta name="twitter:title" content="{!! $__env->hasSection('twitter_title') ? $__env->yieldContent('twitter_title') : $__env->yieldContent('title') !!}">
+<meta name="twitter:description" content="{!! $__env->hasSection('twitter_description') ? $__env->yieldContent('twitter_description') : $__env->yieldContent('description') !!}">
 @hasSection('twitter_image')
 <meta name="twitter:image" content="@yield('twitter_image')">
 @endif

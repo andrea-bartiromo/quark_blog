@@ -9,6 +9,16 @@ class TuringPageController extends Controller
 {
     public function index(): View
     {
+        /* Rilascio pubblico dello Speciale (vedi config/turing.php): finche'
+           i capitoli non sono completi, /turing mostra una landing "In
+           arrivo" invece dell'hub, cosi' da non esporre o far apparire
+           gia' pubblicato un progetto ancora in lavorazione. L'hub
+           completo sotto resta invariato e pronto per quando i capitoli
+           torneranno pubblici. */
+        if (! config('turing.chapters_public')) {
+            return view('turing.coming-soon');
+        }
+
         $page = SpecialPage::where('slug', 'turing')->first();
         $content = ($page && $page->is_active && is_array($page->content)) ? ($page->content ?? []) : [];
         $hero = $content['hero'] ?? [];

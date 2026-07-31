@@ -1,0 +1,48 @@
+/* ==========================================================================
+   /turing — landing "In arrivo" mostrata prima del rilascio pubblico dello
+   Speciale (vedi config('turing.chapters_public')). Riusa i token e i
+   pattern condivisi di turing.css/special-project.css (.turing-page,
+   .turing-section, .turing-kicker, .turing-actions, .turing-final-card,
+   <x-special.section-header>, <x-special.feature-cards>); aggiunge solo il
+   minimo per una prima sezione centrata, al posto del layout hero a due
+   colonne con ritratto pensato per l'hub completo.
+   ========================================================================== */
+
+.turing-coming-soon__intro {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+  padding-block: clamp(4rem, 10vw, 7rem) clamp(2rem, 6vw, 3.5rem);
+}
+
+.turing-coming-soon__intro .turing-kicker {
+  justify-content: center;
+}
+
+.turing-coming-soon__badge {
+  display: inline-block;
+  margin-top: 1.5rem;
+}
+
+.turing-coming-soon__badge span {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .5rem 1rem;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, .1);
+  border: 1px solid rgba(15, 118, 110, .25);
+  color: #0f766e;
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.turing-coming-soon__badge span::before {
+  content: "";
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: #0f766e;
+}

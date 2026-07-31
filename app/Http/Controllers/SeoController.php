@@ -112,7 +112,13 @@ class SeoController extends Controller
 
     private function staticSitemapPages(): array
     {
-        return [
+        /* I capitoli /turing/* non compaiono qui finche' non sono
+           pubblici (vedi config('turing.chapters_public') e
+           TuringPublicController): non hanno contenuti da indicizzare,
+           dato che reindirizzano a /turing. La landing /turing resta
+           invece indicizzabile. Quando i capitoli torneranno pubblici,
+           andranno reintrodotti qui insieme al flag. */
+        $pages = [
             ['/', '1.0', 'daily'],
             ['/notizie', '0.9', 'daily'],
             ['/la-redazione', '0.6', 'monthly'],
@@ -120,11 +126,19 @@ class SeoController extends Controller
             ['/pubblicita', '0.4', 'monthly'],
             ['/contatti', '0.4', 'monthly'],
             ['/turing', '0.8', 'monthly'],
-            ['/turing/enigma', '0.6', 'monthly'],
-            ['/turing/ai', '0.6', 'monthly'],
-            ['/turing/legacy', '0.6', 'monthly'],
-            ['/turing/computation', '0.6', 'monthly'],
-            ['/turing/intelligence', '0.6', 'monthly'],
         ];
+
+        if (config('turing.chapters_public')) {
+            $pages = [
+                ...$pages,
+                ['/turing/enigma', '0.6', 'monthly'],
+                ['/turing/ai', '0.6', 'monthly'],
+                ['/turing/legacy', '0.6', 'monthly'],
+                ['/turing/computation', '0.6', 'monthly'],
+                ['/turing/intelligence', '0.6', 'monthly'],
+            ];
+        }
+
+        return $pages;
     }
 }
