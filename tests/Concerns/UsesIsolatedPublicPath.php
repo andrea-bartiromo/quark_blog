@@ -18,7 +18,7 @@ trait UsesIsolatedPublicPath
 {
     protected string $isolatedPublicPath;
 
-    private const MARKER = 'quark-test-public-';
+    private const MARKER = 'kairus-test-public-';
 
     protected function setUpIsolatedPublicPath(): void
     {

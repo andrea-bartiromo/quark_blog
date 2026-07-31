@@ -1,4 +1,4 @@
-# Document Register — Quark Blog / Speciale Turing
+# Document Register — Kairus / Speciale Turing
 
 | Campo | Valore |
 |---|---|
@@ -47,7 +47,7 @@ Regola di versionamento: mai `_definitivo`/`_finale`. Sempre `_v1.0`, `_v1.1`, `
 
 | Nome documento | Versione | Stato | Data | Percorso | Dipendenze | Note |
 |---|---|---|---|---|---|---|
-| Manuale di Identità Visiva — Volume I | v0.3 (3/10 capitoli) | Attivo | 2026-07-29 | `docs/04_Turing_Visual/Quark_Manuale_Identita_Visiva_Volume_I_v0.3.docx` | Glossario_v1.0.md | Capitoli 1-2 approvati, Capitolo 3 ("Il rischio della decorazione") completato in questa sessione |
+| Manuale di Identità Visiva — Volume I | v0.3 (3/10 capitoli) | Attivo | 2026-07-29 | `docs/04_Turing_Visual/Kairus_Manuale_Identita_Visiva_Volume_I_v0.3.docx` | Glossario_v1.0.md | Capitoli 1-2 approvati, Capitolo 3 ("Il rischio della decorazione") completato in questa sessione |
 | Piano Iconografico | v0.1 | DA REDIGERE | 2026-07-29 | `docs/04_Turing_Visual/Piano_Iconografico_v0.1.md` | Registro Asset, Manuale Cap. 2 | Placeholder |
 | Registro Asset Turing | v1.0 | Attivo | 2026-07-29 | `docs/04_Turing_Visual/Registro_Asset_Turing_v1.0.md` | `docs/TURING_EDITORIAL_ASSETS.md` | Integra la fonte canonica con gli asset non utilizzati emersi dagli audit |
 | Prompt Master (immagini) | v0.1 | DA REDIGERE | 2026-07-29 | `docs/04_Turing_Visual/Prompt_Master_v0.1.md` | Registro Asset | Concettualmente parte del futuro Volume IV del Manuale |

@@ -208,7 +208,7 @@ class ArticleController extends Controller
 
             $subject = $isUpdate
                 ? '✏️ Articolo modificato — in attesa di revisione'
-                : '📝 Nuovo articolo da revisionare — Quark';
+                : '📝 Nuovo articolo da revisionare — Kairus';
 
             $reviewUrl = route('admin.articles.edit', $article);
             $author = auth()->user()->name;

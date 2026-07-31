@@ -124,7 +124,7 @@
           <div class="public-empty-state public-empty-state--soft">
             <span>⌕</span>
             <h3>Inizia una ricerca</h3>
-            <p>Usa la barra in alto per esplorare l’archivio Quark.</p>
+            <p>Usa la barra in alto per esplorare l’archivio Kairus.</p>
           </div>
         @endif
       </section>

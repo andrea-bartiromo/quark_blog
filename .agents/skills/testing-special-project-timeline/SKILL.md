@@ -1,11 +1,11 @@
 ---
 name: testing-special-project-timeline
-description: End-to-end test a Quark Blog "Special Project" page and its reusable <x-special.timeline> component. Use before merging any Special Project PR that touches the Timeline to verify UI/UX vs the Project Book, responsive layout, accessibility, reusability, and regressions.
+description: End-to-end test a Kairus "Special Project" page and its reusable <x-special.timeline> component. Use before merging any Special Project PR that touches the Timeline to verify UI/UX vs the Project Book, responsive layout, accessibility, reusability, and regressions.
 ---
 
-# Testing the Special Project Timeline (Quark Blog)
+# Testing the Special Project Timeline (Kairus)
 
-Quark Blog is a Laravel + Blade editorial platform. A **Special Project** (first prototype: `/turing`) is a
+Kairus is a Laravel + Blade editorial platform. A **Special Project** (first prototype: `/turing`) is a
 narrative page built from partials (Hero, Intro, editorial blocks, Legacy, Timeline, final CTA). The Timeline
 is the reusable component `resources/views/components/special/timeline.blade.php`
 (`<x-special.timeline :events kicker title :background id>`), styled by `public/css/special-project.css`

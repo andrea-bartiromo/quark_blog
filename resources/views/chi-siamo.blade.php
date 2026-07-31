@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Chi siamo — Quark')
-@section('description', 'Quark è il blog italiano di divulgazione scientifica fondato da Andrea Bartiromo. Scopri la nostra storia, la filosofia editoriale e il protocollo di verifica.')
+@section('title', 'Chi siamo — Kairus')
+@section('description', 'Kairus è il blog italiano di divulgazione scientifica fondato da Andrea Bartiromo. Scopri la nostra storia, la filosofia editoriale e il protocollo di verifica.')
 
 @section('content')
 <div class="public-page public-page--about">
@@ -10,7 +10,7 @@
       <span class="public-hero__kicker">Il progetto</span>
       <h1>La scienza spiegata <em>come si deve</em></h1>
       <p>
-        Quark è un magazine italiano di divulgazione scientifica che racconta fisica, biologia,
+        Kairus è un magazine italiano di divulgazione scientifica che racconta fisica, biologia,
         tecnologia, spazio e ambiente in modo semplice, curioso e verificabile.
       </p>
       <div class="public-hero__meta">
@@ -21,14 +21,15 @@
     </section>
 
     <section class="premium-static-section premium-copy-card">
-      <h2>Perché Quark?</h2>
+      <h2>Perché Kairus?</h2>
       <p>
-        Il quark è tra i mattoni fondamentali della materia. Abbiamo scelto questo nome perché
-        crediamo che la scienza parta sempre dalle domande più piccole: perché il cielo è blu?
-        Come funziona un vaccino? Cosa c’è dentro un buco nero?
+        In greco antico <em>kairós</em> (καιρός) è il momento opportuno: non il tempo che scorre,
+        ma l’istante in cui una cosa può finalmente essere capita. Abbiamo scelto questo nome perché
+        una scoperta diventa davvero utile solo quando viene raccontata nel momento giusto e con le
+        parole giuste: perché il cielo è blu? Come funziona un vaccino? Cosa c’è dentro un buco nero?
       </p>
       <p>
-        Quark nasce dalla convinzione che la divulgazione scientifica di qualità non debba essere
+        Kairus nasce dalla convinzione che la divulgazione scientifica di qualità non debba essere
         per pochi. Ogni persona merita di capire la scienza che cambia il mondo, senza dover
         decifrare paper accademici o perdersi in spiegazioni infinite.
       </p>
@@ -97,7 +98,7 @@
           <h3>Andrea Bartiromo</h3>
           <small>Fondatore e Direttore</small>
           <p>
-            Appassionato di scienza e comunicazione, Andrea ha fondato Quark con l’obiettivo
+            Appassionato di scienza e comunicazione, Andrea ha fondato Kairus con l’obiettivo
             di rendere la divulgazione scientifica più accessibile, più leggibile e più utile.
             L’idea alla base è semplice: capire il mondo attraverso la scienza rende le persone
             più libere.
@@ -110,7 +111,7 @@
     <section class="premium-static-section premium-cta-band">
       <h2>Hai una domanda o una segnalazione?</h2>
       <p>
-        Scrivici per segnalare errori, proporre argomenti o raccontarci cosa vorresti leggere su Quark.
+        Scrivici per segnalare errori, proporre argomenti o raccontarci cosa vorresti leggere su Kairus.
       </p>
       <a class="premium-button" href="{{ route('contatti') }}">Contattaci</a>
     </section>

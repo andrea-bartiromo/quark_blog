@@ -32,7 +32,7 @@ class ImageServiceTest extends TestCase
         parent::setUp();
 
         $this->service = new ImageService;
-        $this->tempDir = sys_get_temp_dir().'/quark-imgsvc-'.uniqid('', true);
+        $this->tempDir = sys_get_temp_dir().'/kairus-imgsvc-'.uniqid('', true);
         mkdir($this->tempDir, 0775, true);
     }
 

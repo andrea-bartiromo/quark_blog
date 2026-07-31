@@ -1,5 +1,5 @@
 <section class="public-feature-band">
-  <span class="public-hero__kicker">Newsletter Quark</span>
+  <span class="public-hero__kicker">Newsletter Kairus</span>
   <h2>Ricevi il meglio della scienza ogni settimana.</h2>
   <p>Una selezione ragionata di articoli, scoperte e analisi dalla redazione. Niente rumore, solo contenuti utili.</p>
   <form method="POST" action="{{ route('newsletter.subscribe') }}" style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1rem;">

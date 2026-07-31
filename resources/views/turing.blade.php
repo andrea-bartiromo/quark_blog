@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', ($pageTitle ?? 'Alan Turing').' — Quark')
-@section('description', $pageDescription ?? 'Speciale editoriale di Quark dedicato ad Alan Turing, Enigma e intelligenza artificiale.')
+@section('title', ($pageTitle ?? 'Alan Turing').' — Kairus')
+@section('description', $pageDescription ?? 'Speciale editoriale di Kairus dedicato ad Alan Turing, Enigma e intelligenza artificiale.')
 
 @section('head')
   <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
@@ -83,7 +83,7 @@
   <section class="turing-hero" style="{{ $bg($heroBackgroundImage) }}">
     <div class="container turing-hero__grid">
       <div>
-        <span class="turing-kicker">{{ $hero['kicker'] ?? 'Quark Special Project' }}</span>
+        <span class="turing-kicker">{{ $hero['kicker'] ?? 'Kairus Special Project' }}</span>
         <h1>{{ $hero['title'] ?? 'Alan Turing' }}</h1>
         <p class="turing-lead">{{ $hero['lead'] ?? 'Una mente che attraversa guerra, matematica, computer e intelligenza artificiale. Turing non è solo una biografia: è una chiave per capire il nostro presente digitale.' }}</p>
         <div class="turing-actions">

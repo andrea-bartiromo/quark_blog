@@ -1,6 +1,6 @@
-# Quark Blog — Workflow editoriale e verifica delle fonti
+# Kairus — Workflow editoriale e verifica delle fonti
 
-Questo documento definisce le regole funzionali da implementare prima di modificare controller, database e interfaccia. L'obiettivo è trasformare Quark Blog in un CMS editoriale collaborativo con un processo di verifica delle fonti esplicito, tracciabile e testabile.
+Questo documento definisce le regole funzionali da implementare prima di modificare controller, database e interfaccia. L'obiettivo è trasformare Kairus in un CMS editoriale collaborativo con un processo di verifica delle fonti esplicito, tracciabile e testabile.
 
 ## 1. Principi
 

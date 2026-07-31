@@ -46,7 +46,7 @@ class CommentController extends Controller
 
                 Mail::send([], [], function ($m) use ($comment, $adminEmail, $articleTitle, $moderaUrl) {
                     $m->to($adminEmail)
-                        ->subject('💬 Nuovo commento da moderare — Quark')
+                        ->subject('💬 Nuovo commento da moderare — Kairus')
                         ->html("
                         <div style='font-family:Arial,sans-serif;max-width:500px;padding:1.5rem;'>
                           <h2 style='color:#0d9488;margin-bottom:.75rem;'>Nuovo commento da moderare</h2>

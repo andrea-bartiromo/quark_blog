@@ -1,4 +1,4 @@
-{{-- Cookie banner GDPR — Quark --}}
+{{-- Cookie banner GDPR — Kairus --}}
 <div id="cookie-bar"
      style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
             background:#111827;color:rgba(255,255,255,.85);padding:1rem 1.5rem;
@@ -64,7 +64,7 @@
 
 <script>
 (function() {
-  var COOKIE_KEY = 'quark_cookie_consent';
+  var COOKIE_KEY = 'kairus_cookie_consent';
   var COOKIE_DURATION = 365; // giorni
 
   function getCookie(name) {

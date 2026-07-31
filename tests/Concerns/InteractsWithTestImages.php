@@ -34,7 +34,7 @@ trait InteractsWithTestImages
      */
     private function newTempImagePath(string $ext): string
     {
-        $base = tempnam(sys_get_temp_dir(), 'quark-img-');
+        $base = tempnam(sys_get_temp_dir(), 'kairus-img-');
         @unlink($base);
 
         $path = $base.'.'.$ext;
@@ -100,7 +100,7 @@ trait InteractsWithTestImages
      */
     private function makeTruncatedJpegUpload(string $originalName, int $width, int $height): UploadedFile
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'quark-img-src-');
+        $tmp = tempnam(sys_get_temp_dir(), 'kairus-img-src-');
         $image = imagecreatetruecolor($width, $height);
         imagejpeg($image, $tmp, 90);
         imagedestroy($image);

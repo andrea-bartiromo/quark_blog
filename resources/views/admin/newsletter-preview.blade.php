@@ -67,7 +67,7 @@
     Oggetto email
   </div>
   <div style="font-size:1rem;font-weight:700;color:#111827;">
-    🧪 I migliori articoli di Quark — settimana {{ now()->weekOfYear }}/{{ now()->year }}
+    🧪 I migliori articoli di Kairus — settimana {{ now()->weekOfYear }}/{{ now()->year }}
   </div>
 </div>
 
@@ -88,7 +88,7 @@
 
   {{-- Header --}}
   <div style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:2rem;text-align:center;">
-    <div style="font-size:1.8rem;font-weight:900;color:#fff;margin-bottom:.25rem;">Quark.</div>
+    <div style="font-size:1.8rem;font-weight:900;color:#fff;margin-bottom:.25rem;">Kairus.</div>
     <div style="color:rgba(255,255,255,.8);font-size:.82rem;">La scienza spiegata come si deve</div>
   </div>
 
@@ -151,14 +151,14 @@
         Vuoi leggere altri articoli?
       </p>
       <span style="background:#0d9488;color:#fff;padding:.6rem 1.5rem;border-radius:8px;font-weight:700;">
-        Vai su Quark →
+        Vai su Kairus →
       </span>
     </div>
 
     {{-- Footer --}}
     <div style="border-top:1px solid #e5e7eb;padding-top:1rem;text-align:center;">
       <p style="color:#9ca3af;font-size:.72rem;">
-        Hai ricevuto questa email perché sei iscritto a Quark.<br>
+        Hai ricevuto questa email perché sei iscritto a Kairus.<br>
         Disiscriviti quando vuoi.
       </p>
     </div>

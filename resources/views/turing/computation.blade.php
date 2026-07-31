@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'La macchina universale e la teoria della computazione — Quark')
+@section('title', 'La macchina universale e la teoria della computazione — Kairus')
 @section(
     'description',
     'Un approfondimento sulla macchina di Turing, sulla nozione formale di algoritmo, sui limiti della computazione e sull’idea moderna di programma.'

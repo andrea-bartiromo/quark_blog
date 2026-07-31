@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Rettifiche — Quark')
-@section('description', 'La politica di rettifica di Quark. Come correggere gli errori in modo trasparente.')
+@section('title', 'Rettifiche — Kairus')
+@section('description', 'La politica di rettifica di Kairus. Come correggere gli errori in modo trasparente.')
 
 @section('content')
 <div class="public-page public-page--corrections">
@@ -10,7 +10,7 @@
       <span class="public-hero__kicker">Trasparenza</span>
       <h1>Rettifiche</h1>
       <p>
-        Quark si impegna a correggere gli errori in modo rapido, visibile e tracciabile.
+        Kairus si impegna a correggere gli errori in modo rapido, visibile e tracciabile.
         La precisione scientifica è il fondamento del nostro lavoro editoriale.
       </p>
       <div class="public-hero__meta">

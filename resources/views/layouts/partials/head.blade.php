@@ -11,6 +11,17 @@
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
+{{-- Icone di marca e Web App Manifest --}}
+<link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+<link rel="icon" type="image/svg+xml" href="{{ asset('assets/icons/favicon.svg') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/icons/favicon-32.png') }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('assets/icons/favicon-16.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ asset('site.webmanifest') }}">
+<meta name="apple-mobile-web-app-title" content="{{ config('laboratorio.name') }}">
+<meta name="application-name" content="{{ config('laboratorio.name') }}">
+<meta name="theme-color" content="#111827">
+
 {{-- Open Graph: og:title/og:description riusano 'title'/'description' quando
      la pagina non definisce un valore Open Graph dedicato, esattamente come
      accadeva prima di introdurre le sezioni og_title/og_description --}}

@@ -1,7 +1,7 @@
-# Quark — Blog di divulgazione scientifica
+# Kairus — Blog di divulgazione scientifica
 # Fondatore: Andrea Bartiromo
 #
-# IMPORTANTE: Prima del lancio sostituire DOMINIO con il dominio reale
+# Dominio ufficiale: https://kairus.it
 
 # ── Motori di ricerca tradizionali (permessi) ─────────────────
 User-agent: Googlebot
@@ -65,5 +65,5 @@ Disallow: /api/
 Disallow: /ricerca?*
 
 # Sitemap
-Sitemap: https://DOMINIO/sitemap.xml
-Sitemap: https://DOMINIO/news-sitemap.xml
+Sitemap: https://kairus.it/sitemap.xml
+Sitemap: https://kairus.it/news-sitemap.xml

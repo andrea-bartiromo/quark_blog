@@ -143,7 +143,7 @@ class AdminMediaUploadTest extends TestCase
         // client in base all'estensione.
         $editor = $this->editor();
         $image = imagecreatetruecolor(400, 300);
-        $tmp = tempnam(sys_get_temp_dir(), 'quark-mismatch-');
+        $tmp = tempnam(sys_get_temp_dir(), 'kairus-mismatch-');
         imagepng($image, $tmp);
         imagedestroy($image);
         $mismatched = new UploadedFile($tmp, 'falso.jpg', 'image/jpeg', null, true);

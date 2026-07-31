@@ -1,4 +1,4 @@
-{{-- Sidebar Quark --}}
+{{-- Sidebar Kairus --}}
 @php
   $popular = \App\Models\Article::published()
     ->orderByDesc('views')
@@ -23,7 +23,7 @@
   <section class="premium-widget premium-widget--newsletter">
     <span class="premium-widget__kicker">Newsletter</span>
     <h3>Non perderti niente 🧪</h3>
-    <p>Ogni settimana i migliori articoli di Quark direttamente nella tua inbox.</p>
+    <p>Ogni settimana i migliori articoli di Kairus direttamente nella tua inbox.</p>
 
     <form class="premium-newsletter-form" action="{{ route('newsletter.subscribe') }}" method="POST">
       @csrf

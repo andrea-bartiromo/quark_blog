@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
-@section('title', 'Speciale Turing — In arrivo — Quark')
+@section('title', 'Speciale Turing — In arrivo — Kairus')
 @section(
     'description',
-    'Il nuovo Speciale di Quark dedicato ad Alan Turing è in lavorazione: Enigma e Bletchley Park, la macchina universale, il test di Turing, l’intelligenza artificiale moderna e la sua eredità. Torna presto per scoprirlo.'
+    'Il nuovo Speciale di Kairus dedicato ad Alan Turing è in lavorazione: Enigma e Bletchley Park, la macchina universale, il test di Turing, l’intelligenza artificiale moderna e la sua eredità. Torna presto per scoprirlo.'
 )
 @section('canonical', url('/turing'))
 @section('robots', 'index,follow')
@@ -26,7 +26,7 @@
                     level="h1"
                     variant="section"
                     align="center"
-                    kicker="Speciale Quark"
+                    kicker="Speciale Kairus"
                     title="Alan Turing"
                     text="Un nuovo Speciale editoriale dedicato a Enigma, alla nascita del calcolo automatico e alla domanda — ancora aperta — se le macchine possano pensare. È in lavorazione: i capitoli arriveranno uno alla volta nelle prossime settimane."
                 />

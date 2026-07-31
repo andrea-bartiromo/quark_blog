@@ -47,14 +47,14 @@ class SendNewsletterJob implements ShouldQueue
 
                     <div style='border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;text-align:center;'>
                         <p style='color:#9ca3af;font-size:.72rem;margin:0;line-height:1.6;'>
-                            Hai ricevuto questa email perché sei iscritto a Quark.<br>
+                            Hai ricevuto questa email perché sei iscritto a Kairus.<br>
                             <a href='{$unsubUrl}' style='color:#9ca3af;'>Disiscriviti</a>
                         </p>
                     </div>
                 </div>";
 
                 $message->to($this->subscriber->email)
-                    ->subject('🧪 Quark — I migliori articoli della settimana')
+                    ->subject('🧪 Kairus — I migliori articoli della settimana')
                     ->html($fullHtml);
             });
         } catch (\Throwable $e) {
@@ -121,7 +121,7 @@ class SendNewsletterJob implements ShouldQueue
 
         return "
         <div style='font-family:Arial;max-width:600px;margin:auto;'>
-            <h1>Quark</h1>
+            <h1>Kairus</h1>
             <p>{$intro}</p>
             {$articlesHtml}
         ";

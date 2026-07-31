@@ -13,7 +13,7 @@
 
 ## Asset in uso
 
-Vedi `docs/TURING_EDITORIAL_ASSETS.md`: 13 file WebP (hero, intro, pannelli, sfondi di sezione, immagini editoriali), tutti generati digitalmente, standard tecnico comune 1200×675 16:9, uso editoriale Quark.
+Vedi `docs/TURING_EDITORIAL_ASSETS.md`: 13 file WebP (hero, intro, pannelli, sfondi di sezione, immagini editoriali), tutti generati digitalmente, standard tecnico comune 1200×675 16:9, uso editoriale Kairus.
 
 ## Asset non utilizzati (evidenza dagli audit)
 

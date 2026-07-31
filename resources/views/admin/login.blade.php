@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accesso redazione — Il Laboratorio</title>
+  <title>Accesso redazione — Kairus</title>
+  <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="{{ asset('assets/icons/favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/style.css') }}">
@@ -34,7 +37,7 @@
       <div class="form-group">
         <label class="form-label" for="email">Email</label>
         <input class="form-input" type="email" id="email" name="email"
-               placeholder="redazione@illaboratorio.it" required autocomplete="email"
+               placeholder="redazione@kairus.it" required autocomplete="email"
                value="{{ old('email') }}">
       </div>
       <div class="form-group">

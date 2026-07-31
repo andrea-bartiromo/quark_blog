@@ -26,10 +26,10 @@ class ProjectBackup extends Command
 
         $backupRoot = $userProfile
             .DIRECTORY_SEPARATOR.'Documents'
-            .DIRECTORY_SEPARATOR.'QuarkBlog-Backups';
+            .DIRECTORY_SEPARATOR.'Kairus-Backups';
 
         $backupDirectory = $backupRoot
-            .DIRECTORY_SEPARATOR.'quark-blog-'.$timestamp;
+            .DIRECTORY_SEPARATOR.'kairus-'.$timestamp;
 
         $databaseSource = database_path('database.sqlite');
         $databaseDestination = $backupDirectory
@@ -40,7 +40,7 @@ class ProjectBackup extends Command
             .DIRECTORY_SEPARATOR.'public';
 
         try {
-            $this->info('Avvio backup completo di Quark Blog...');
+            $this->info('Avvio backup completo di Kairus...');
 
             // Crea anche il backup locale gestito dal comando esistente.
             $exitCode = Artisan::call('backup:database');

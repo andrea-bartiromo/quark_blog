@@ -208,7 +208,7 @@ class TuringController extends Controller
         return [
             'kicker' => $data['home_teaser_kicker'] ?? 'Special Project',
             'title' => $data['home_teaser_title'] ?? 'Alan Turing: l’uomo che ha decifrato il futuro.',
-            'text' => $data['home_teaser_text'] ?? 'Una nuova area speciale di Quark dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
+            'text' => $data['home_teaser_text'] ?? 'Una nuova area speciale di Kairus dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
             'cta_label' => $data['home_teaser_cta_label'] ?? 'Entra nella Turing Experience',
             'terminal_title' => $data['home_teaser_terminal_title'] ?? 'TURING ARCHIVE',
             'terminal_lines' => $this->filledLines($request, 'home_teaser_terminal_lines'),

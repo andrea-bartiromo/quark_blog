@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Il Laboratorio — Backup automatico database
+ * Kairus — Backup automatico database
  *
- * @author    Andrea Bartiromo <redazione@illaboratorio.it>
+ * @author    Andrea Bartiromo <redazione@kairus.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  */
 

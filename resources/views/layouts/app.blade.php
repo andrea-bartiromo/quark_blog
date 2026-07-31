@@ -1,4 +1,4 @@
-{{-- Quark — Blog di divulgazione scientifica --}}
+{{-- Kairus — Blog di divulgazione scientifica --}}
 <!DOCTYPE html>
 <html lang="it">
 <head>

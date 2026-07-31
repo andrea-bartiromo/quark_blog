@@ -17,7 +17,7 @@
       </div>
 
       <div class="author-premium-hero__content">
-        <span class="public-hero__kicker">Redattore Quark</span>
+        <span class="public-hero__kicker">Redattore Kairus</span>
         <h1>{{ $author->name }}</h1>
 
         @if($author->bio)

@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@yield('title','Redazione') — Quark</title>
+  <title>@yield('title','Redazione') — Kairus</title>
+  <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="{{ asset('assets/icons/favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
@@ -23,7 +26,7 @@
   <aside class="admin-sidebar">
     <div class="admin-sidebar__brand">
       <div class="admin-sidebar__logo">
-        Quark<span style="color:#0d9488;">.</span>
+        Kairus<span style="color:#0d9488;">.</span>
       </div>
       <span class="admin-sidebar__sub">Area collaboratori</span>
     </div>

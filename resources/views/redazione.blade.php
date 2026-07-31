@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'La redazione — Quark')
-@section('description', 'Conosci la redazione di Quark. Giornalisti e divulgatori scientifici appassionati che raccontano la scienza ogni giorno.')
+@section('title', 'La redazione — Kairus')
+@section('description', 'Conosci la redazione di Kairus. Giornalisti e divulgatori scientifici appassionati che raccontano la scienza ogni giorno.')
 
 @section('content')
 <div class="container" style="padding-block:3rem;max-width:800px;">
@@ -12,7 +12,7 @@
       La redazione
     </h1>
     <p style="font-size:1rem;color:var(--ink-soft);line-height:1.7;max-width:580px;">
-      Quark è un progetto indipendente. Ogni articolo è scritto, verificato e pubblicato
+      Kairus è un progetto indipendente. Ogni articolo è scritto, verificato e pubblicato
       con la stessa cura e passione per la scienza.
     </p>
   </div>
@@ -42,7 +42,7 @@
       </div>
       <div style="padding:1.25rem 1.5rem;">
         <p style="font-size:.875rem;color:var(--ink-soft);line-height:1.65;margin-bottom:1rem;">
-          Fondatore e direttore editoriale di Quark. Si occupa della selezione degli argomenti,
+          Fondatore e direttore editoriale di Kairus. Si occupa della selezione degli argomenti,
           della verifica delle fonti e della supervisione editoriale di ogni contenuto pubblicato.
           Appassionato di fisica, astronomia e tecnologia.
         </p>
@@ -69,7 +69,7 @@
     @foreach([
       ['✅', 'Verifica delle fonti', 'Ogni articolo è basato su fonti primarie verificabili.'],
       ['🔄', 'Correzioni trasparenti', 'Gli errori vengono corretti pubblicamente con nota visibile nell\'articolo.'],
-      ['🚫', 'Nessun conflitto di interessi', 'Quark non riceve compensi per promuovere prodotti o posizioni scientifiche.'],
+      ['🚫', 'Nessun conflitto di interessi', 'Kairus non riceve compensi per promuovere prodotti o posizioni scientifiche.'],
       ['📬', 'Accessibilità', 'Tutti i contenuti sono gratuiti e aperti a chiunque.'],
     ] as [$icon, $title, $desc])
     <div style="display:flex;gap:.75rem;margin-bottom:.85rem;align-items:flex-start;">
@@ -86,7 +86,7 @@
   <section style="border:1px solid var(--border);border-radius:16px;padding:1.5rem;text-align:center;">
     <div style="font-size:1.5rem;margin-bottom:.5rem;">✍️</div>
     <h2 style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;
-               color:var(--ink);margin-bottom:.5rem;">Vuoi scrivere per Quark?</h2>
+               color:var(--ink);margin-bottom:.5rem;">Vuoi scrivere per Kairus?</h2>
     <p style="font-size:.85rem;color:var(--ink-muted);line-height:1.6;margin-bottom:1rem;">
       Siamo sempre alla ricerca di divulgatori appassionati. Se hai una formazione scientifica
       e la voglia di spiegare la scienza al grande pubblico, scrivici.
