@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Cookie Policy — Quark')
-@section('description', 'Cookie policy di Quark. Quali cookie utilizziamo e come gestirli.')
+@section('title', 'Cookie Policy — Kairus')
+@section('description', 'Cookie policy di Kairus. Quali cookie utilizziamo e come gestirli.')
 
 @section('content')
 <div class="public-page public-page--legal">
@@ -9,7 +9,7 @@
     <section class="public-hero public-hero--light public-hero--compact">
       <span class="public-hero__kicker">Legale</span>
       <h1>Cookie Policy</h1>
-      <p>Informazioni sui cookie utilizzati da Quark e sulle modalità di gestione del consenso.</p>
+      <p>Informazioni sui cookie utilizzati da Kairus e sulle modalità di gestione del consenso.</p>
       <div class="public-hero__meta">
         <span>Ultimo aggiornamento: {{ date('d/m/Y') }}</span>
         <span>Cookie tecnici e analitici</span>
@@ -35,7 +35,7 @@
 
       <div class="premium-principles-grid">
         @foreach([
-          ['quark_session', 'Tecnico', 'Sessione utente necessaria al funzionamento del sito', '2 ore'],
+          ['kairus-session', 'Tecnico', 'Sessione utente necessaria al funzionamento del sito', '2 ore'],
           ['XSRF-TOKEN', 'Tecnico', 'Protezione sicurezza dei form (CSRF)', '2 ore'],
           ['newsletter_dismissed', 'Funzionale', 'Ricorda la chiusura del popup newsletter', '7 giorni'],
           ['newsletter_subscribed', 'Funzionale', 'Ricorda lo stato di iscrizione newsletter', 'Persistente'],
@@ -81,7 +81,7 @@
 
     <section class="premium-static-section premium-cta-band">
       <h2>Domande sui cookie?</h2>
-      <p>Per chiarimenti sulle tecnologie utilizzate da Quark puoi contattarci direttamente.</p>
+      <p>Per chiarimenti sulle tecnologie utilizzate da Kairus puoi contattarci direttamente.</p>
       <a class="premium-button" href="{{ route('contatti') }}">Contattaci</a>
     </section>
 

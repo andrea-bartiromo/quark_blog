@@ -1,15 +1,15 @@
 @extends('layouts.app')
 @section('title', 'Tutti gli articoli — '.config('laboratorio.name'))
-@section('description', 'Tutti gli articoli di Quark: scienza, tecnologia e innovazione spiegate in modo chiaro, visuale e moderno.')
+@section('description', 'Tutti gli articoli di Kairus: scienza, tecnologia e innovazione spiegate in modo chiaro, visuale e moderno.')
 
 @section('content')
 <div class="public-shell">
   <div class="container container--wide">
 
     <section class="public-hero public-hero--light">
-      <span class="public-hero__kicker">Quark Archive</span>
+      <span class="public-hero__kicker">Kairus Archive</span>
       <h1>Tutti gli articoli</h1>
-      <p>Il meglio della divulgazione scientifica di Quark: IA, spazio, energia, ambiente, salute, tecnologia e società in un unico flusso editoriale.</p>
+      <p>Il meglio della divulgazione scientifica di Kairus: IA, spazio, energia, ambiente, salute, tecnologia e società in un unico flusso editoriale.</p>
       <div class="public-hero__meta">
         <span>{{ $articles->total() }} articoli pubblicati</span>
         <span>·</span>

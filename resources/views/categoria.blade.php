@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', $categoryLabel.' — '.config('laboratorio.name'))
-@section('description', 'Tutti gli articoli di Quark su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.')
+@section('description', 'Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.')
 
 @section('content')
 <div class="public-shell">
@@ -15,7 +15,7 @@
            onerror="this.onerror=null;this.src='{{ asset('assets/img/hero-placeholder.svg') }}';">
 
       <div class="category-premium-hero__content">
-        <span class="public-hero__kicker">Quark Category</span>
+        <span class="public-hero__kicker">Kairus Category</span>
 
         <h1>{{ $categoryLabel }}</h1>
 
@@ -32,7 +32,7 @@
     </section>
     @else
     <section class="public-hero public-hero--light">
-      <span class="public-hero__kicker">Quark Category</span>
+      <span class="public-hero__kicker">Kairus Category</span>
       <h1>{{ $categoryLabel }}</h1>
       <p>Approfondimenti, analisi e storie dedicate al mondo {{ strtolower($categoryLabel) }}.</p>
       <div class="public-hero__meta">
@@ -45,7 +45,7 @@
       <span class="public-hero__kicker">Editorial Focus</span>
       <h2>Dentro {{ $categoryLabel }}</h2>
       <p>
-        Quark seleziona notizie, ricerca, scenari e innovazioni per raccontare
+        Kairus seleziona notizie, ricerca, scenari e innovazioni per raccontare
         il presente e il futuro di {{ strtolower($categoryLabel) }} con un linguaggio chiaro,
         visivo e accessibile.
       </p>

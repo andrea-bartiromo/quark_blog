@@ -462,7 +462,7 @@
                     ) !!}
                 </div>
 
-                <input type="hidden" name="hero_kicker" value="{{ $hero['kicker'] ?? 'Quark Special Project' }}">
+                <input type="hidden" name="hero_kicker" value="{{ $hero['kicker'] ?? 'Kairus Special Project' }}">
                 <input type="hidden" name="hero_primary_label" value="{{ $hero['primary_label'] ?? 'Esplora Enigma' }}">
                 <input type="hidden" name="hero_secondary_label" value="{{ $hero['secondary_label'] ?? 'Vai all’IA moderna' }}">
                 <input type="hidden" name="hero_portrait_initials" value="{{ $hero['portrait_initials'] ?? 'AT' }}">

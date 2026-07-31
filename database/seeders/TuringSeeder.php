@@ -20,7 +20,7 @@ class TuringSeeder extends Seeder
                 'is_active' => true,
                 'content' => [
                     'hero' => [
-                        'kicker' => 'Quark Special Project',
+                        'kicker' => 'Kairus Special Project',
                         'title' => 'Alan Turing',
                         'lead' => 'Una mente che attraversa guerra, matematica, computer e intelligenza artificiale. Turing non è solo una biografia: è una chiave per capire il nostro presente digitale.',
                         'primary_label' => 'Esplora Enigma',
@@ -51,7 +51,7 @@ class TuringSeeder extends Seeder
                     'home_teaser' => [
                         'kicker' => 'Special Project',
                         'title' => 'Alan Turing: l’uomo che ha decifrato il futuro.',
-                        'text' => 'Una nuova area speciale di Quark dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
+                        'text' => 'Una nuova area speciale di Kairus dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
                         'cta_label' => 'Entra nella Turing Experience',
                         'terminal_title' => 'TURING ARCHIVE',
                         'terminal_lines' => [

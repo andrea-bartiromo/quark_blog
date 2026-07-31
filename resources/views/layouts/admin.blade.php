@@ -1,11 +1,14 @@
-{{-- Quark — CMS Admin
+{{-- Kairus — CMS Admin
      Fondatore: Andrea Bartiromo --}}
 <!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@yield('title','Admin') — Quark</title>
+  <title>@yield('title','Admin') — Kairus</title>
+  <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="{{ asset('assets/icons/favicon.svg') }}">
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
@@ -30,7 +33,7 @@
 
     <div class="admin-sidebar__brand">
       <div class="admin-sidebar__logo">
-        Quark<span class="dot">.</span>
+        Kairus<span class="dot">.</span>
       </div>
       <span class="admin-sidebar__sub">Pannello redazionale</span>
     </div>

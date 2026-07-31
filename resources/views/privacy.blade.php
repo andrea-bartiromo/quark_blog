@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Privacy Policy — Quark')
-@section('description', 'Informativa sulla privacy di Quark. Come raccogliamo e utilizziamo i tuoi dati.')
+@section('title', 'Privacy Policy — Kairus')
+@section('description', 'Informativa sulla privacy di Kairus. Come raccogliamo e utilizziamo i tuoi dati.')
 
 @section('content')
 <div class="public-page public-page--legal">
@@ -9,7 +9,7 @@
     <section class="public-hero public-hero--light public-hero--compact">
       <span class="public-hero__kicker">Legale</span>
       <h1>Privacy Policy</h1>
-      <p>Come raccogliamo, utilizziamo e proteggiamo i dati personali su Quark.</p>
+      <p>Come raccogliamo, utilizziamo e proteggiamo i dati personali su Kairus.</p>
       <div class="public-hero__meta">
         <span>Ultimo aggiornamento: {{ date('d/m/Y') }}</span>
         <span>Titolare: Andrea Bartiromo</span>

@@ -57,13 +57,13 @@ class ReviewController extends Controller
             $authorName = $article->author->name;
 
             if ($status === 'approved') {
-                $subject = '🎉 Il tuo articolo è stato pubblicato su Quark!';
+                $subject = '🎉 Il tuo articolo è stato pubblicato su Kairus!';
                 $body = "
                     <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
                         <h2 style='color:#0d9488;'>Il tuo articolo è online! 🎉</h2>
                         <p style='color:#374151;'>Ciao {$authorName},</p>
                         <p style='color:#374151;'>Il tuo articolo <strong>".htmlspecialchars($article->title)."</strong>
-                        è stato revisionato e pubblicato su Quark.</p>
+                        è stato revisionato e pubblicato su Kairus.</p>
                         <a href='".route('articolo', $article->slug)."'
                            style='display:inline-block;background:#0d9488;color:#fff;
                                   padding:.65rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>

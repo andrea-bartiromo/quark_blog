@@ -1,8 +1,8 @@
-# Sistema Immagini Editoriali — Quark Blog
+# Sistema Immagini Editoriali — Kairus
 
 > **Stato:** documento di design e standard editoriale.
 > **Non modifica alcuna immagine, vista, stile o codice del progetto.**
-> Definisce le regole che guideranno la produzione, l'upload e la sostituzione delle immagini future di Quark, a partire dall'infrastruttura tecnica già esistente (`ImageService`, placeholder SVG, metadati `cover_*`) descritta in [DOCUMENTAZIONE.md](../DOCUMENTAZIONE.md#10-sistema-immagini-e-metadati-cover) e [README.md](../README.md#gestione-immagini).
+> Definisce le regole che guideranno la produzione, l'upload e la sostituzione delle immagini future di Kairus, a partire dall'infrastruttura tecnica già esistente (`ImageService`, placeholder SVG, metadati `cover_*`) descritta in [DOCUMENTAZIONE.md](../DOCUMENTAZIONE.md#10-sistema-immagini-e-metadati-cover) e [README.md](../README.md#gestione-immagini).
 
 ---
 
@@ -28,9 +28,9 @@
 
 ## 1. Filosofia
 
-Quark è un blog di **divulgazione scientifica** (fisica, biologia, tecnologia, spazio — vedi `config/laboratorio.php`, tagline: *"La scienza spiegata come si deve"*). Le immagini non sono decorazione: sono parte del racconto editoriale e devono trasmettere le stesse qualità del testo.
+Kairus è un blog di **divulgazione scientifica** (fisica, biologia, tecnologia, spazio — vedi `config/laboratorio.php`, tagline: *"La scienza spiegata come si deve"*). Le immagini non sono decorazione: sono parte del racconto editoriale e devono trasmettere le stesse qualità del testo.
 
-Cinque principi guidano ogni immagine prodotta per Quark:
+Cinque principi guidano ogni immagine prodotta per Kairus:
 
 1. **Autorevolezza** — l'immagine deve comunicare rigore, non sensazionalismo. Niente iconografia da clickbait (punti esclamativi, frecce urlate, volti scioccati), niente stock photo generiche da ufficio.
 2. **Divulgazione, non decorazione** — ogni immagine deve avere un legame concettuale chiaro con l'argomento trattato (il fenomeno fisico, l'oggetto tecnologico, il contesto scientifico), non essere un semplice riempitivo cromatico.
@@ -89,7 +89,7 @@ La palette ufficiale è quella **già in uso** nel brand (favicon, placeholder S
 
 | Ruolo | Colore | Hex | Uso |
 |---|---|---|---|
-| **Primario — Teal** | Teal Quark | `#0d9488` | Colore del marchio (punto del wordmark, icone, link, elementi grafici nei placeholder) |
+| **Primario — Teal** | Teal Kairus | `#0d9488` | Colore del marchio (punto del wordmark, icone, link, elementi grafici nei placeholder) |
 | **Primario scuro** | Teal scuro | `#0f766e` | Varianti hover/scure del primario, sfondi scuri con accento teal |
 | **Secondario — Accento** | Orange | `#f97316` | Accento puntuale (mai dominante): dettaglio nel favicon, punto luce nei placeholder |
 | **Neutro scuro** | Slate 950/900 | `#020617` / `#0f172a` | Sfondi scuri, testo su chiaro, immagini "spazio/notte/tecnologia" |
@@ -102,7 +102,7 @@ La palette ufficiale è quella **già in uso** nel brand (favicon, placeholder S
 - Ogni immagine deve poter "dialogare" con almeno uno tra teal `#0d9488` e i neutri scuri `#020617`/`#0f172a` — come colore dominante di sfondo/atmosfera (temi spazio, tecnologia, notte) o come accento riconoscibile (bagliori, elementi luminosi, dettagli).
 - L'arancio `#f97316` è un **accento**, non un colore dominante: va usato per un singolo punto di interesse (una luce, un dettaglio), mai per grandi superfici.
 - Le immagini fotorealistiche non devono necessariamente contenere questi hex esatti (sarebbe innaturale per una nebulosa o un tessuto biologico), ma la **temperatura cromatica complessiva** deve restare compatibile: toni freddi/blu-teal per spazio, tecnologia, IA; toni caldi/seppia solo per Turing; verde naturale per ambiente; non usare palette sature primarie (rosso-giallo-blu puri) che confliggono con l'identità sobria del brand.
-- Evitare gradienti arcobaleno o palette "hype tech" (viola-magenta-ciano al neon) associate ad altri brand AI: non fanno parte dell'identità Quark.
+- Evitare gradienti arcobaleno o palette "hype tech" (viola-magenta-ciano al neon) associate ad altri brand AI: non fanno parte dell'identità Kairus.
 
 ---
 
@@ -224,9 +224,9 @@ Linee guida coerenti con i meccanismi **già implementati** nelle PR precedenti 
 | **Nome file** (`cover_image`, tramite naming sorgente §8) | Descrittivo, in slug, in italiano, coerente con l'argomento — contribuisce alla ricerca per immagini di Google |
 | **`cover_alt`** | Sempre compilato esplicitamente (non lasciato al fallback sul titolo) — descrive il contenuto visivo, 8–15 parole, nessuna keyword stuffing |
 | **`cover_caption`** | Facoltativa, usata solo quando aggiunge contesto reale non già nel corpo (es. dettaglio tecnico della fonte); non ripetere il titolo |
-| **`cover_credit`** | Sempre compilato quando l'immagine non è originale Quark (fotografo, agenzia, ente — es. "ESA/Hubble", "NASA/JPL-Caltech") |
+| **`cover_credit`** | Sempre compilato quando l'immagine non è originale Kairus (fotografo, agenzia, ente — es. "ESA/Hubble", "NASA/JPL-Caltech") |
 | **`cover_source`** + **`cover_source_url`** | Sempre compilati per immagini di provenienza esterna (archivi scientifici, enti spaziali, banche immagini con licenza); `cover_source_url` deve essere un URL valido (già validato server-side con la regola `url`) |
-| **`cover_license`** | Sempre indicata per immagini non originali (es. "CC BY 4.0", "Public Domain", "Licenza editoriale Quark") — coerente con l'obbligo di attribuzione della licenza stessa |
+| **`cover_license`** | Sempre indicata per immagini non originali (es. "CC BY 4.0", "Public Domain", "Licenza editoriale Kairus") — coerente con l'obbligo di attribuzione della licenza stessa |
 
 Questi campi sono già mostrati pubblicamente sotto la cover quando valorizzati (`articles/partials/body.blade.php`: didascalia, credito, fonte con link `rel="noopener noreferrer"`, licenza) — il compito di questo documento è normare **quando e come compilarli in modo coerente**, non introdurre nuovi campi.
 
@@ -386,7 +386,7 @@ Ordine consigliato per applicare gradualmente lo standard, dal più strutturale 
 Audit di sola lettura, eseguito su `public/assets/img/`, `public/assets/icons/`, `public/favicon.ico`, README.md e DOCUMENTAZIONE.md. Nessun file è stato modificato.
 
 ### Logo
-`public/assets/icons/logo.svg` (160×40, wordmark "Quark" + punto teal `#0d9488`) esiste ma **non è referenziato in nessuna vista**: il logo effettivamente mostrato nell'header è un wordmark testuale/CSS (`Quark<span class="dot">.</span>` in `components/header.blade.php`), non l'SVG. L'asset è orfano.
+`public/assets/icons/logo.svg` (160×40, wordmark "Kairus" + punto teal `#0d9488`) esiste ma **non è referenziato in nessuna vista**: il logo effettivamente mostrato nell'header è un wordmark testuale/CSS (`Kairus<span class="dot">.</span>` in `components/header.blade.php`), non l'SVG. L'asset è orfano.
 
 ### Favicon
 `public/assets/icons/favicon.svg` (64×64, sfondo `#111827`, "Q" teal, punto arancione) esiste ma **non è referenziato da alcun tag `<link rel="icon">`** in `layouts/partials/head.blade.php` o altrove. `public/favicon.ico`, servito per convenzione di default dal browser, è **vuoto (0 byte)** — la favicon effettivamente servita oggi è quindi rotta/assente. Nessuna modifica applicata in questa PR (fuori scope: richiederebbe toccare Blade).

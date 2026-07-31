@@ -11,8 +11,8 @@
 
   $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
 
-  $fallbackSvg = function ($label = 'Quark', $tone = '#0f766e') {
-      $safeLabel = e(Str::upper(Str::limit($label ?: 'Quark', 34, '')));
+  $fallbackSvg = function ($label = 'Kairus', $tone = '#0f766e') {
+      $safeLabel = e(Str::upper(Str::limit($label ?: 'Kairus', 34, '')));
       $svg = <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="{$safeLabel}">
   <defs>
@@ -38,7 +38,7 @@
     <circle cx="875" cy="218" r="6"/>
     <circle cx="1040" cy="95" r="8"/>
   </g>
-  <text x="72" y="98" fill="#ffffff" opacity="0.76" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="8">QUARK</text>
+  <text x="72" y="98" fill="#ffffff" opacity="0.76" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="8">KAIRUS</text>
   <text x="72" y="650" fill="#ffffff" font-family="Georgia, serif" font-size="64" font-weight="700">{$safeLabel}</text>
   <text x="76" y="698" fill="#ccfbf1" font-family="Arial, sans-serif" font-size="23" font-weight="600">Science magazine visual</text>
 </svg>

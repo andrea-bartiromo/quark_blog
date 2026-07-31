@@ -1,26 +1,26 @@
-# Quark Blog
+# Kairus
 
 > **Una piattaforma editoriale moderna sviluppata con Laravel per la divulgazione scientifica e tecnologica.**
 
 ## Il progetto
 
-Quark Blog è una piattaforma editoriale sviluppata con Laravel nata dall'idea che un CMS moderno debba fare molto più che pubblicare articoli.
+Kairus è una piattaforma editoriale sviluppata con Laravel nata dall'idea che un CMS moderno debba fare molto più che pubblicare articoli.
 
 L'obiettivo del progetto è costruire un ambiente di lavoro completo per una redazione digitale, capace di accompagnare ogni fase del ciclo editoriale: dalla nascita di un'idea fino alla pubblicazione e alla distribuzione dei contenuti.
 
-Più che un semplice blog, Quark vuole essere uno spazio in cui autori, editor e amministratori possano collaborare in modo naturale, condividendo un unico flusso di lavoro costruito attorno alla qualità dell'informazione.
+Più che un semplice blog, Kairus vuole essere uno spazio in cui autori, editor e amministratori possano collaborare in modo naturale, condividendo un unico flusso di lavoro costruito attorno alla qualità dell'informazione.
 
 Ogni funzionalità è stata progettata pensando prima alle esigenze della redazione e solo successivamente all'implementazione tecnica. La scrittura, la revisione, la gestione delle immagini, l'ottimizzazione SEO e la pubblicazione non sono moduli indipendenti, ma parti di un ecosistema integrato che rende il processo editoriale semplice, ordinato e facilmente estendibile.
 
 Parallelamente alla crescita delle funzionalità, grande attenzione è stata dedicata anche alla qualità del codice. Fin dall'inizio il progetto è stato sviluppato seguendo principi architetturali ben definiti, privilegiando servizi riutilizzabili, logica centralizzata e componenti condivisi, con l'obiettivo di costruire una piattaforma solida e facilmente manutenibile nel tempo.
 
-Quark Blog rappresenta oggi un progetto personale in continua evoluzione, sviluppato come portfolio tecnico e come laboratorio nel quale sperimentare buone pratiche di sviluppo software, progettazione di architetture Laravel e realizzazione di piattaforme editoriali moderne.
+Kairus rappresenta oggi un progetto personale in continua evoluzione, sviluppato come portfolio tecnico e come laboratorio nel quale sperimentare buone pratiche di sviluppo software, progettazione di architetture Laravel e realizzazione di piattaforme editoriali moderne.
 
 ---
 
 # La filosofia del progetto
 
-La maggior parte dei CMS nasce per consentire la pubblicazione di contenuti. Quark nasce invece per supportare il lavoro di una redazione.
+La maggior parte dei CMS nasce per consentire la pubblicazione di contenuti. Kairus nasce invece per supportare il lavoro di una redazione.
 
 Questa differenza influenza ogni scelta progettuale.
 
@@ -32,9 +32,9 @@ L'obiettivo non è semplicemente sviluppare un'applicazione funzionante, ma cost
 
 ---
 
-# Cosa offre Quark Blog
+# Cosa offre Kairus
 
-Nel corso dello sviluppo Quark si è trasformato in una piattaforma editoriale completa che integra strumenti dedicati sia agli autori sia agli editor.
+Nel corso dello sviluppo Kairus si è trasformato in una piattaforma editoriale completa che integra strumenti dedicati sia agli autori sia agli editor.
 
 Tra le principali funzionalità troviamo:
 
@@ -55,7 +55,7 @@ L'obiettivo non è accumulare funzionalità, ma costruire strumenti che lavorino
 
 # Architettura
 
-Quark Blog è organizzato come un insieme di moduli indipendenti ma strettamente integrati.
+Kairus è organizzato come un insieme di moduli indipendenti ma strettamente integrati.
 
 Il frontend pubblico rappresenta il punto di accesso ai contenuti editoriali e comprende homepage, pagine articolo, categorie, ricerca, pagine autore e pagine istituzionali.
 
@@ -77,7 +77,7 @@ L'intera architettura privilegia servizi condivisi, componenti riutilizzabili e 
 
 # Stack tecnologico
 
-Quark Blog è sviluppato utilizzando tecnologie moderne e consolidate all'interno dell'ecosistema Laravel.
+Kairus è sviluppato utilizzando tecnologie moderne e consolidate all'interno dell'ecosistema Laravel.
 
 Il backend è realizzato con **Laravel 13** e **PHP 8.3**, mentre l'interfaccia utilizza **Blade** come motore di template.
 
@@ -174,9 +174,9 @@ Sono disponibili un account Editor e due account Autore, utilizzabili esclusivam
 
 | Ruolo | Area | Email | Password |
 |--------|------|--------|----------|
-| Editor | Amministrazione | m.esposito@illaboratorio.it | password123 |
-| Autore | Redazione | s.ricci@illaboratorio.it | password123 |
-| Autore | Redazione | e.romano@illaboratorio.it | password123 |
+| Editor | Amministrazione | m.esposito@kairus.it | password123 |
+| Autore | Redazione | s.ricci@kairus.it | password123 |
+| Autore | Redazione | e.romano@kairus.it | password123 |
 
 Gli URL di accesso alle aree di Amministrazione e Redazione sono volutamente non prevedibili e possono essere visualizzati eseguendo:
 
@@ -188,7 +188,7 @@ Questi account non devono essere utilizzati in ambienti pubblici o di produzione
 
 # Gestione delle immagini
 
-Le immagini rappresentano un elemento fondamentale di qualsiasi progetto editoriale e, per questo motivo, Quark Blog dedica particolare attenzione alla loro gestione.
+Le immagini rappresentano un elemento fondamentale di qualsiasi progetto editoriale e, per questo motivo, Kairus dedica particolare attenzione alla loro gestione.
 
 L'intero processo di caricamento e ottimizzazione è centralizzato all'interno di `ImageService`, un servizio applicativo che si occupa del naming dei file, del salvataggio sul disco, del ridimensionamento e della compressione delle immagini quando l'estensione GD è disponibile.
 
@@ -204,7 +204,7 @@ Quando un articolo, una categoria o un autore non dispongono di un'immagine dedi
 
 La gestione di una redazione richiede la possibilità di ricostruire le principali operazioni eseguite dagli amministratori.
 
-Per questo motivo Quark Blog include un sistema di registrazione delle attività che memorizza automaticamente gli eventi più significativi, come la creazione, la modifica o l'eliminazione di articoli, la gestione dei collaboratori e altre operazioni amministrative.
+Per questo motivo Kairus include un sistema di registrazione delle attività che memorizza automaticamente gli eventi più significativi, come la creazione, la modifica o l'eliminazione di articoli, la gestione dei collaboratori e altre operazioni amministrative.
 
 L'Activity Log rappresenta uno strumento utile sia per il monitoraggio dell'attività della redazione sia per facilitare eventuali operazioni di verifica o manutenzione.
 
@@ -226,7 +226,7 @@ Le linee guida complete relative alla gestione delle credenziali, delle chiavi a
 
 # Testing e qualità del codice
 
-La qualità del software rappresenta uno degli obiettivi principali dello sviluppo di Quark Blog.
+La qualità del software rappresenta uno degli obiettivi principali dello sviluppo di Kairus.
 
 Ogni nuova funzionalità viene accompagnata da test automatici che permettono di verificare il corretto funzionamento dell'applicazione e ridurre il rischio di regressioni.
 
@@ -246,7 +246,7 @@ I test utilizzano un database SQLite dedicato e completamente separato dall'ambi
 
 # Workflow di sviluppo
 
-Lo sviluppo di Quark Blog segue un processo incrementale che privilegia modifiche piccole, facilmente revisionabili e accompagnate da test.
+Lo sviluppo di Kairus segue un processo incrementale che privilegia modifiche piccole, facilmente revisionabili e accompagnate da test.
 
 Ogni nuova funzionalità viene sviluppata all'interno di un branch dedicato, implementata seguendo gli standard architetturali del progetto e successivamente verificata attraverso Laravel Pint, PHPUnit e Playwright.
 
@@ -270,7 +270,7 @@ Ogni nuova funzionalità viene introdotta attraverso Pull Request di dimensioni 
 
 # Roadmap
 
-Quark Blog è un progetto in continua evoluzione.
+Kairus è un progetto in continua evoluzione.
 
 Negli ultimi mesi sono stati completati alcuni dei moduli più importanti della piattaforma, tra cui il workflow editoriale, la Media Library centralizzata, il sistema SEO avanzato, la newsletter, l'Activity Log, l'integrazione con Anthropic Claude e la sezione editoriale dedicata ai progetti speciali.
 
@@ -296,7 +296,7 @@ Gli aspetti legati alla sicurezza sono invece documentati all'interno di `SECURI
 
 **Copyright © 2026 Andrea Bartiromo. Tutti i diritti riservati.**
 
-Quark Blog è un progetto proprietario sviluppato come portfolio tecnico e come laboratorio personale per la progettazione di piattaforme editoriali moderne basate su Laravel.
+Kairus è un progetto proprietario sviluppato come portfolio tecnico e come laboratorio personale per la progettazione di piattaforme editoriali moderne basate su Laravel.
 
 Il repository è reso pubblicamente consultabile esclusivamente a scopo dimostrativo, di studio e di valutazione professionale. La pubblicazione del codice non costituisce in alcun modo una rinuncia ai diritti dell'autore né implica la concessione di una licenza open source.
 
@@ -304,4 +304,4 @@ Salvo ove diversamente indicato, il codice sorgente, la documentazione, il desig
 
 Non è consentita la copia, la modifica, la redistribuzione, la pubblicazione o qualsiasi altro utilizzo del progetto, in tutto o in parte, senza il preventivo consenso scritto dell'autore.
 
-Se desideri utilizzare Quark Blog come riferimento tecnico, approfondire alcune soluzioni architetturali o discutere il progetto, puoi contattare direttamente l'autore attraverso i canali indicati nel profilo GitHub.
+Se desideri utilizzare Kairus come riferimento tecnico, approfondire alcune soluzioni architetturali o discutere il progetto, puoi contattare direttamente l'autore attraverso i canali indicati nel profilo GitHub.

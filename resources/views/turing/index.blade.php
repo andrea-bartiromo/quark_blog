@@ -45,8 +45,8 @@
   };
 @endphp
 
-@section('title', ($page->title ?? 'Alan Turing').' — Quark')
-@section('description', $page->description ?? 'Una sezione speciale di Quark dedicata ad Alan Turing, alla crittografia, alla Seconda guerra mondiale e all’intelligenza artificiale moderna.')
+@section('title', ($page->title ?? 'Alan Turing').' — Kairus')
+@section('description', $page->description ?? 'Una sezione speciale di Kairus dedicata ad Alan Turing, alla crittografia, alla Seconda guerra mondiale e all’intelligenza artificiale moderna.')
 
 @section('head')
 <link rel="stylesheet" href="{{ asset('css/turing.css') }}">

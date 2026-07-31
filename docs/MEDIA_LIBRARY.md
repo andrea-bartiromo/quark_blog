@@ -1,6 +1,6 @@
-# Quark Blog – Media Library
+# Kairus – Media Library
 
-Documento di riferimento per l'organizzazione degli asset multimediali di Quark Blog, in particolare per gli
+Documento di riferimento per l'organizzazione degli asset multimediali di Kairus, in particolare per gli
 Special Projects futuri (Ada Lovelace, Tesla, Curie, ecc. — si veda `docs/PROJECT_BOOK.md`, sezione 5).
 
 Questo documento descrive **una struttura di destinazione** (target) e le sue convenzioni. Non comporta,
@@ -221,10 +221,10 @@ per Turing:
 |---|---|
 | File | Percorso relativo a `public/assets/img/` |
 | Categoria / Tipo | Categoria (sezione 3) e tipo di utilizzo (sezione 4) |
-| Origin | Provenienza (es. "Original Quark editorial asset") |
+| Origin | Provenienza (es. "Original Kairus editorial asset") |
 | Production method | Come è stato prodotto (es. "Artificially generated digital image") |
-| License | Es. "Quark editorial use" per asset originali; licenza esplicita per materiale di terze parti |
-| Credit | A chi va attribuito (es. "Quark" per asset originali; nome dell'autore/fonte per materiale esterno) |
+| License | Es. "Kairus editorial use" per asset originali; licenza esplicita per materiale di terze parti |
+| Credit | A chi va attribuito (es. "Kairus" per asset originali; nome dell'autore/fonte per materiale esterno) |
 
 Nessun asset di terze parti (foto stock, materiale non originale) deve essere aggiunto alla libreria senza una
 licenza compatibile con l'uso editoriale del sito, esplicitamente registrata in questa tabella prima dell'uso.

@@ -1,5 +1,5 @@
 {{--
-  Componente AdSense — Quark
+  Componente AdSense — Kairus
   Uso: @include('components.adsense', ['slot' => 'XXXXXXXXXX'])
 
   Posizioni disponibili:

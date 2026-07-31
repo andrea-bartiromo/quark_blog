@@ -1,5 +1,5 @@
 /* ============================================================
-   IL LABORATORIO — main.js
+   KAIRUS — main.js
    Moduli: Nav, Newsletter popup, Cookie bar, Ticker, Commenti
    ============================================================ */
 

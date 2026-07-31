@@ -1,16 +1,16 @@
 @extends('layouts.app')
-@section('title', 'Pubblicità e collaborazioni — Quark')
-@section('description', 'Collabora con Quark. Opportunità pubblicitarie e partnership per raggiungere un pubblico scientifico qualificato.')
+@section('title', 'Pubblicità e collaborazioni — Kairus')
+@section('description', 'Collabora con Kairus. Opportunità pubblicitarie e partnership per raggiungere un pubblico scientifico qualificato.')
 
 @section('content')
 <div class="public-page public-page--advertising">
   <div class="container premium-static">
 
     <section class="public-hero public-hero--light public-hero--compact">
-      <span class="public-hero__kicker">Collabora con Quark</span>
+      <span class="public-hero__kicker">Collabora con Kairus</span>
       <h1>Pubblicità e collaborazioni</h1>
       <p>
-        Quark raggiunge un pubblico curioso, giovane e interessato a scienza, tecnologia,
+        Kairus raggiunge un pubblico curioso, giovane e interessato a scienza, tecnologia,
         spazio e innovazione. Collaboriamo solo con progetti coerenti con la nostra linea editoriale.
       </p>
       <div class="public-hero__meta">
@@ -23,7 +23,7 @@
     <section class="premium-static-section">
       <div class="public-section-head">
         <div>
-          <span>Quark in numeri</span>
+          <span>Kairus in numeri</span>
           <h2>Un pubblico verticale e qualificato</h2>
         </div>
       </div>
@@ -50,7 +50,7 @@
         @foreach([
           ['Banner display', 'Posizionamenti premium in homepage, sidebar e pagine articolo.'],
           ['Contenuti sponsorizzati', 'Approfondimenti editoriali sempre etichettati come sponsorizzati.'],
-          ['Newsletter sponsorship', 'Presenza dedicata all’interno della newsletter di Quark.'],
+          ['Newsletter sponsorship', 'Presenza dedicata all’interno della newsletter di Kairus.'],
           ['Partnership editoriali', 'Collaborazioni con università, startup, enti di ricerca e aziende tech.'],
         ] as [$title, $desc])
           <article class="premium-legal-item">
@@ -80,7 +80,7 @@
     </section>
 
     <section class="premium-static-section premium-cta-band">
-      <h2>Vuoi collaborare con Quark?</h2>
+      <h2>Vuoi collaborare con Kairus?</h2>
       <p>
         Scrivici raccontandoci il tuo progetto, il tipo di partnership che hai in mente
         e gli obiettivi della collaborazione.

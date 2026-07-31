@@ -7,7 +7,7 @@
   <div>
     <h1 class="admin-page-title">Benvenuto, {{ auth()->user()->name }} 👋</h1>
     <p style="font-size:.82rem;color:#6b7280;margin:0;">
-      Area collaboratori di Quark — scrivi articoli e monitorane le performance.
+      Area collaboratori di Kairus — scrivi articoli e monitorane le performance.
     </p>
   </div>
   <a href="{{ route('redazione.articles.create') }}" class="btn btn--primary">
@@ -100,7 +100,7 @@
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;">
     @foreach([
       ['1️⃣', 'Scrivi', 'Crea il tuo articolo con l\'editor. Puoi salvarlo come bozza o inviarlo subito.'],
-      ['2️⃣', 'Revisione', 'L\'editor di Quark controlla il contenuto, le fonti e la qualità.'],
+      ['2️⃣', 'Revisione', 'L\'editor di Kairus controlla il contenuto, le fonti e la qualità.'],
       ['3️⃣', 'Pubblicazione', 'Se approvato, ricevi una email e l\'articolo va online. Se richiede modifiche, ti viene rimandato in bozza con note.'],
     ] as [$num, $title, $desc])
     <div style="background:#fff;border-radius:8px;padding:.85rem;border:1px solid #99f6e4;">

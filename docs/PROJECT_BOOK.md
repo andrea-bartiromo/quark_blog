@@ -1,19 +1,19 @@
-# Quark Blog – Project Book
+# Kairus – Project Book
 
 ## Introduzione
-Il presente documento rappresenta il punto di riferimento per lo sviluppo di Quark Blog. Non nasce come una semplice raccolta di appunti tecnici, ma come un vero e proprio Project Book, destinato a documentare la visione, le decisioni progettuali e l'evoluzione della piattaforma nel tempo.
+Il presente documento rappresenta il punto di riferimento per lo sviluppo di Kairus. Non nasce come una semplice raccolta di appunti tecnici, ma come un vero e proprio Project Book, destinato a documentare la visione, le decisioni progettuali e l'evoluzione della piattaforma nel tempo.
 
 Ogni scelta architetturale, grafica o funzionale di una certa importanza verrà registrata all'interno di questo documento, con l'obiettivo di costruire una memoria storica del progetto e mantenere una direzione chiara durante tutte le fasi di sviluppo.
 
 ## 1. Visione del progetto
-Quark Blog nasce con l'ambizione di diventare una piattaforma editoriale moderna dedicata ai temi della tecnologia, dell'informatica, della scienza e dell'innovazione.
+Kairus nasce con l'ambizione di diventare una piattaforma editoriale moderna dedicata ai temi della tecnologia, dell'informatica, della scienza e dell'innovazione.
 
 L'obiettivo non è semplicemente pubblicare articoli, ma creare un'esperienza di lettura capace di coinvolgere il visitatore attraverso contenuti approfonditi, una struttura narrativa curata e un'interfaccia elegante e accessibile.
 
 Ogni pagina dovrà contribuire a costruire un'identità riconoscibile, mantenendo un equilibrio tra qualità editoriale, semplicità di navigazione e cura del dettaglio.
 
 ## 2. Obiettivi del progetto
-Lo sviluppo di Quark Blog segue alcuni obiettivi fondamentali che guidano ogni decisione tecnica e progettuale.
+Lo sviluppo di Kairus segue alcuni obiettivi fondamentali che guidano ogni decisione tecnica e progettuale.
 
 Il primo è la realizzazione di una piattaforma moderna, veloce e accessibile, costruita secondo le buone pratiche dello sviluppo web contemporaneo.
 
@@ -84,7 +84,7 @@ Il materiale comprenderà un manuale dedicato agli Special Projects, la descrizi
 L'obiettivo è fare in modo che ogni scelta importante rimanga documentata e facilmente consultabile nel tempo.
 
 ## 9. Visione a lungo termine
-Quark Blog non vuole essere soltanto un blog.
+Kairus non vuole essere soltanto un blog.
 
 L'ambizione è costruire una piattaforma editoriale capace di raccontare la tecnologia attraverso contenuti di qualità, esperienze narrative coinvolgenti e una forte attenzione all'esperienza utente.
 
@@ -97,7 +97,7 @@ Ogni nuova decisione contribuirà a consolidare un ecosistema coerente, facilmen
 ### Premessa
 Durante lo sviluppo del primo Special Project dedicato ad Alan Turing è emersa una riflessione importante che va oltre la semplice implementazione tecnica della pagina.
 
-L'obiettivo di Quark Blog non è soltanto pubblicare contenuti, ma costruire esperienze editoriali capaci di accompagnare il lettore attraverso un percorso narrativo chiaro, coinvolgente e facilmente leggibile.
+L'obiettivo di Kairus non è soltanto pubblicare contenuti, ma costruire esperienze editoriali capaci di accompagnare il lettore attraverso un percorso narrativo chiaro, coinvolgente e facilmente leggibile.
 
 Per questo motivo ogni decisione relativa al layout, ai colori, alle immagini e alla disposizione delle sezioni dovrà essere valutata non solo dal punto di vista estetico, ma anche in funzione del ritmo della lettura e della comprensione della struttura narrativa.
 
@@ -142,7 +142,7 @@ Nel caso della Timeline questo principio si traduce nell'introduzione di una str
 Il ritmo della pagina dovrà quindi essere generato dalla struttura stessa e non dalla semplice ripetizione di immagini o sfondi decorativi.
 
 ### 10.5 La fotografia ha un ruolo preciso
-Le immagini fotografiche rappresentano uno degli elementi più forti del linguaggio visivo di Quark Blog.
+Le immagini fotografiche rappresentano uno degli elementi più forti del linguaggio visivo di Kairus.
 
 Per preservarne l'efficacia, il loro utilizzo dovrà essere intenzionale.
 
@@ -155,7 +155,7 @@ Ogni nuova soluzione progettuale dovrà essere valutata privilegiando la qualit�
 
 Animazioni, immagini, effetti grafici e componenti interattivi dovranno essere introdotti soltanto quando contribuiscono realmente alla comprensione del contenuto o al miglioramento dell'esperienza utente.
 
-L'obiettivo di Quark Blog è costruire un linguaggio editoriale riconoscibile, elegante e duraturo, capace di evolversi nel tempo senza dipendere da soluzioni spettacolari ma difficili da mantenere.
+L'obiettivo di Kairus è costruire un linguaggio editoriale riconoscibile, elegante e duraturo, capace di evolversi nel tempo senza dipendere da soluzioni spettacolari ma difficili da mantenere.
 
 ## 11. Aggiornamento successivo alla Pull Request #35
 

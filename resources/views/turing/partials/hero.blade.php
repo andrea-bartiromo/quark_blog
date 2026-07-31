@@ -2,7 +2,7 @@
   <div class="container container--wide">
     <div class="turing-hero__grid">
       <div>
-        <p class="turing-kicker">{{ $hero['kicker'] ?? 'Quark Special Project' }}</p>
+        <p class="turing-kicker">{{ $hero['kicker'] ?? 'Kairus Special Project' }}</p>
         <h1>{{ $hero['title'] ?? 'Alan Turing' }}</h1>
         <p class="turing-lead">{{ $hero['lead'] ?? 'Una mente che attraversa guerra, matematica, computer e intelligenza artificiale. Turing non è solo una biografia: è una chiave per capire il nostro presente digitale.' }}</p>
         <div class="turing-actions">

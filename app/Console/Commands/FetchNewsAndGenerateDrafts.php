@@ -1,13 +1,13 @@
 <?php
 
 /**
- * Il Laboratorio — Rivista italiana di divulgazione scientifica
+ * Kairus — Rivista italiana di divulgazione scientifica
  *
- * @author    Andrea Bartiromo <redazione@illaboratorio.it>
+ * @author    Andrea Bartiromo <redazione@kairus.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  * @license   Proprietario — tutti i diritti riservati
  *
- * @link      https://www.illaboratorio.it
+ * @link      https://kairus.it
  */
 
 namespace App\Console\Commands;
@@ -17,7 +17,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 /**
- * IL LABORATORIO — FetchNewsAndGenerateDrafts
+ * KAIRUS — FetchNewsAndGenerateDrafts
  *
  * Raccoglie notizie da feed RSS verificati, genera bozze con Claude AI
  * rispettando i criteri editoriali della testata: solo fatti verificabili,
@@ -85,7 +85,7 @@ class FetchNewsAndGenerateDrafts extends Command
     public function handle(): int
     {
         $this->info('');
-        $this->info('🔬 IL LABORATORIO — Raccolta notizie con verifica editoriale');
+        $this->info('🔬 KAIRUS — Raccolta notizie con verifica editoriale');
         $this->info('═══════════════════════════════════════════════════════════');
 
         $categoryFilter = $this->option('category');
@@ -182,7 +182,7 @@ class FetchNewsAndGenerateDrafts extends Command
             $context = stream_context_create([
                 'http' => [
                     'timeout' => 10,
-                    'user_agent' => 'Il Laboratorio RSS Reader/1.0',
+                    'user_agent' => 'Kairus RSS Reader/1.0',
                 ],
             ]);
 
@@ -241,7 +241,7 @@ class FetchNewsAndGenerateDrafts extends Command
 
     /**
      * Genera una bozza di articolo usando Claude API nel rispetto
-     * dei criteri editoriali de Il Laboratorio:
+     * dei criteri editoriali de Kairus:
      *
      * - Solo fatti verificabili con fonte identificabile
      * - Nessun nome di persona inventato
@@ -263,7 +263,7 @@ class FetchNewsAndGenerateDrafts extends Command
         $catLabel = $catLabels[$category] ?? $category;
 
         $prompt = <<<PROMPT
-Sei il caporedattore de "Il Laboratorio", una rivista italiana di divulgazione scientifica e tecnologica con rigorosi standard editoriali. Stai scrivendo la prima bozza di un articolo da una notizia ricevuta da una fonte esterna.
+Sei il caporedattore de "Kairus", una rivista italiana di divulgazione scientifica e tecnologica con rigorosi standard editoriali. Stai scrivendo la prima bozza di un articolo da una notizia ricevuta da una fonte esterna.
 
 REGOLE EDITORIALI FONDAMENTALI (non derogabili):
 1. Cita SOLO fatti verificabili con fonte identificabile. Se la notizia originale non fornisce un dato preciso, non inventarlo.

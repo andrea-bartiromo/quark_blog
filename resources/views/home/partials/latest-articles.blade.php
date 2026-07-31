@@ -1,7 +1,7 @@
 <section class="home-editorial-section">
   <div class="home-section-head">
     <div>
-      <span>Latest from Quark</span>
+      <span>Latest from Kairus</span>
       <h2>Ultimi articoli</h2>
     </div>
     <a href="{{ route('notizie') }}">Vedi tutti →</a>

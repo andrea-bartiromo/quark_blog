@@ -28,7 +28,7 @@ class NewsletterController extends Controller
                 $unsubscribeUrl = route('newsletter.unsubscribe', ['token' => $subscriber->unsubscribe_token]);
 
                 $message->to($subscriber->email)
-                    ->subject('🧪 Un ultimo passo — conferma la tua iscrizione a Quark')
+                    ->subject('🧪 Un ultimo passo — conferma la tua iscrizione a Kairus')
                     ->html("
                             <div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:2rem;background:#ffffff;'>
 
@@ -36,7 +36,7 @@ class NewsletterController extends Controller
                                     <div style='width:64px;height:64px;background:#0d9488;border-radius:50%;
                                                 display:inline-flex;align-items:center;justify-content:center;
                                                 font-size:1.8rem;margin-bottom:1rem;'>🧪</div>
-                                    <h1 style='font-size:1.6rem;color:#111827;margin:0 0 .25rem;font-weight:900;'>Quark.</h1>
+                                    <h1 style='font-size:1.6rem;color:#111827;margin:0 0 .25rem;font-weight:900;'>Kairus.</h1>
                                     <p style='color:#6b7280;font-size:.82rem;margin:0;'>La scienza spiegata come si deve</p>
                                 </div>
 
@@ -44,7 +44,7 @@ class NewsletterController extends Controller
 
                                 <p style='color:#374151;line-height:1.7;margin-bottom:1rem;'>
                                     Ciao! Hai appena fatto una delle cose più intelligenti della settimana:
-                                    iscriverti a Quark. Ogni settimana riceverai una selezione dei migliori
+                                    iscriverti a Kairus. Ogni settimana riceverai una selezione dei migliori
                                     articoli scientifici — scritti per chi vuole capire davvero come funziona il mondo.
                                 </p>
 
@@ -58,7 +58,7 @@ class NewsletterController extends Controller
                                        style='display:inline-block;background:#0d9488;color:#fff;
                                               padding:.85rem 2rem;border-radius:8px;text-decoration:none;
                                               font-weight:700;font-size:1rem;'>
-                                        ✅ Sì, voglio ricevere Quark
+                                        ✅ Sì, voglio ricevere Kairus
                                     </a>
                                 </div>
 

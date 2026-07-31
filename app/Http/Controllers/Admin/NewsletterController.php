@@ -34,7 +34,7 @@ class NewsletterController extends Controller
             );
         }
 
-        $filename = 'newsletter-illaboratorio-'.now()->format('Ymd-His').'.csv';
+        $filename = 'newsletter-kairus-'.now()->format('Ymd-His').'.csv';
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',

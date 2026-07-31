@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Quark — Blog di divulgazione scientifica
+ * Kairus — Blog di divulgazione scientifica
  *
- * @author    Andrea Bartiromo <redazione@illaboratorio.it>
+ * @author    Andrea Bartiromo <redazione@kairus.it>
  * @copyright 2025 Andrea Bartiromo. Tutti i diritti riservati.
  */
 
@@ -88,7 +88,7 @@ class HomeController extends Controller
         return [
             'kicker' => $homeTeaser['kicker'] ?? 'Special Project',
             'title' => $homeTeaser['title'] ?? 'Alan Turing: l’uomo che ha decifrato il futuro.',
-            'lead' => $homeTeaser['text'] ?? 'Una nuova area speciale di Quark dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
+            'lead' => $homeTeaser['text'] ?? 'Una nuova area speciale di Kairus dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
             'cta' => $homeTeaser['cta_label'] ?? 'Entra nella Turing Experience',
             'terminalTitle' => $homeTeaser['terminal_title'] ?? 'TURING ARCHIVE',
             'terminalLines' => $homeTeaser['terminal_lines'] ?? [

@@ -28,7 +28,7 @@
     {{-- Titolo --}}
     <h2 class="newsletter-popup__title"
         id="newsletter-popup-title">
-      Resta aggiornato su Quark
+      Resta aggiornato su Kairus
     </h2>
 
     {{-- Descrizione --}}

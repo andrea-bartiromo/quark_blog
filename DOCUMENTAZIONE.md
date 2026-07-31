@@ -1,4 +1,4 @@
-# Quark Blog — Documentazione tecnica
+# Kairus — Documentazione tecnica
 
 > Riferimento tecnico approfondito per chi sviluppa su questo repository. Per una panoramica generale, l'installazione rapida, lo stack e la roadmap vedi **[README.md](README.md)** — qui ci si concentra su dettagli implementativi, schema del database e comportamenti che il README non copre.
 
@@ -274,7 +274,7 @@ Le view sono organizzate per area sotto `resources/views/`:
 
 ## 7. Configurazione personalizzata
 
-File: `config/laboratorio.php` — nome del sito (`Quark`), tagline, elenco categorie di fallback (usato da `Category::options()` quando la tabella `categories` è vuota) e link social. Accesso nelle view con `config('laboratorio.name')`, `config('laboratorio.categories')`, ecc.
+File: `config/laboratorio.php` — nome del sito (`Kairus`), tagline, elenco categorie di fallback (usato da `Category::options()` quando la tabella `categories` è vuota) e link social. Accesso nelle view con `config('laboratorio.name')`, `config('laboratorio.categories')`, ecc.
 
 La chiave Anthropic è esposta tramite `config('services.anthropic.key')` (da `ANTHROPIC_API_KEY` in `.env`), non letta direttamente da `env()` nei controller/comandi.
 
@@ -505,7 +505,7 @@ La copertura più recente riguarda in particolare: i metadati editoriali della c
 
 ## 23. Credenziali di sviluppo
 
-Vedi la tabella completa in **[README.md](README.md#account-demo)**. Gli account creati da `DatabaseSeeder` sono destinati esclusivamente allo sviluppo locale: un `editor` (accesso Amministrazione) e due `author` (accesso Redazione). Gli indirizzi email usano ancora il dominio storico `@illaboratorio.it` (nome del progetto prima del rebranding a "Quark") — sono dati di seed, non indirizzi reali.
+Vedi la tabella completa in **[README.md](README.md#account-demo)**. Gli account creati da `DatabaseSeeder` sono destinati esclusivamente allo sviluppo locale: un `editor` (accesso Amministrazione) e due `author` (accesso Redazione). Gli indirizzi email usano il dominio `@kairus.it` — sono dati di seed, non indirizzi reali.
 
 ---
 
@@ -549,6 +549,14 @@ Il commento sopra la schedulazione di `newsletter:send` in `routes/console.php` 
 
 Vite e Tailwind CSS 4 sono installati e configurati, ma l'unica view che li referenzia (`welcome.blade.php`) non è raggiungibile da nessuna rotta. Non è un errore bloccante, ma può confondere chi si aspetta che il sito sia stilizzato con Tailwind: il CSS reale è scritto a mano in `public/css/` (sezione 18).
 
-### Branding storico "Il Laboratorio"
+### Storia del branding
 
-Il progetto si chiamava in precedenza "Il Laboratorio"; il rebranding a "Quark" è completo nell'app (`config/laboratorio.php`, `.env.example`), ma alcuni artefatti storici sopravvivono: gli indirizzi email dei dati di seed (`@illaboratorio.it`), la descrizione e l'homepage degli autori in `composer.json`, e alcuni testi in `deploy.sh`. Non hanno impatto funzionale.
+Il progetto ha cambiato nome due volte: "Il Laboratorio" → "Quark" → **Kairus** (nome attuale, dominio
+`kairus.it`). A differenza del precedente, l'ultimo rebranding è stato applicato integralmente: configurazione,
+viste, email, SEO, asset di marca, documentazione, dati di seed e script di deploy. L'unico residuo dei nomi
+precedenti è l'URL del repository GitHub (`andrea-bartiromo/quark_blog`), che resta valido finché il
+repository non viene rinominato.
+
+Nota storica: il nome del file `config/laboratorio.php` risale alla prima denominazione. È stato mantenuto
+deliberatamente perché rinominarlo comporterebbe la modifica di tutte le chiamate `config('laboratorio.*')`,
+un refactor estraneo al rebranding.

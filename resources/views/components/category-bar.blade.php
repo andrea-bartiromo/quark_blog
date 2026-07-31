@@ -1,4 +1,4 @@
-{{-- Barra categorie Quark --}}
+{{-- Barra categorie Kairus --}}
 <nav class="category-bar" aria-label="Categorie">
   <div class="container">
     <a href="{{ route('notizie') }}"

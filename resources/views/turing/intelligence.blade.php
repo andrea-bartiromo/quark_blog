@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Il gioco dell’imitazione e la domanda sulle macchine pensanti — Quark')
+@section('title', 'Il gioco dell’imitazione e la domanda sulle macchine pensanti — Kairus')
 @section(
     'description',
     'Il Test di Turing spiegato a partire dal saggio del 1950: cosa misura davvero il gioco dell’imitazione, cosa non misura, e perché la domanda originaria resta rilevante.'

@@ -1,4 +1,4 @@
-{{-- Ticker notizie Quark --}}
+{{-- Ticker notizie Kairus --}}
 @php
   $tickerArticles = \App\Models\Article::published()
     ->orderByDesc('published_at')

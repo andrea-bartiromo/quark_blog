@@ -25,7 +25,7 @@ class ContactController extends Controller
             Mail::raw($this->messageBody($data), function ($message) use ($data, $to) {
                 $message->to($to)
                     ->replyTo($data['email'], $data['nome'])
-                    ->subject('[Quark] Nuovo messaggio: '.$data['oggetto']);
+                    ->subject('[Kairus] Nuovo messaggio: '.$data['oggetto']);
             });
 
             return redirect()->route('contatti', ['sent' => '1']);
@@ -40,7 +40,7 @@ class ContactController extends Controller
 
     private function messageBody(array $data): string
     {
-        return "Nuovo messaggio dal form contatti di Quark\n\n".
+        return "Nuovo messaggio dal form contatti di Kairus\n\n".
             "Nome: {$data['nome']}\n".
             "Email: {$data['email']}\n".
             "Oggetto: {$data['oggetto']}\n\n".

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'L’eredità di Alan Turing — Quark')
+@section('title', 'L’eredità di Alan Turing — Kairus')
 @section(
     'description',
     'L’eredità scientifica, tecnologica, istituzionale e culturale di Alan Turing: dalla macchina universale alla persecuzione, dalla riabilitazione alla memoria contemporanea.'

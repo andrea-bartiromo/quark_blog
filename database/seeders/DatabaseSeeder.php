@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         // ── Utenti ────────────────────────────────────────────────
         $editor = User::create([
             'name' => 'Marco Esposito',
-            'email' => 'm.esposito@illaboratorio.it',
+            'email' => 'm.esposito@kairus.it',
             'password' => Hash::make('password123'),
             'role' => 'editor',
             'bio' => 'Giornalista scientifico con 10 anni di esperienza. Specializzato in AI e medicina.',
@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
 
         $author1 = User::create([
             'name' => 'Sara Ricci',
-            'email' => 's.ricci@illaboratorio.it',
+            'email' => 's.ricci@kairus.it',
             'password' => Hash::make('password123'),
             'role' => 'author',
             'bio' => 'Ingegnere ambientale. Esperta di energie rinnovabili e transizione energetica.',
@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
 
         $author2 = User::create([
             'name' => 'Elena Romano',
-            'email' => 'e.romano@illaboratorio.it',
+            'email' => 'e.romano@kairus.it',
             'password' => Hash::make('password123'),
             'role' => 'author',
             'bio' => 'Astrofisica di formazione. Autrice di due saggi di divulgazione scientifica.',

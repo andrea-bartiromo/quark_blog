@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Contatti — Quark')
-@section('description', 'Contatta la redazione di Quark per segnalazioni, proposte di collaborazione o domande.')
+@section('title', 'Contatti — Kairus')
+@section('description', 'Contatta la redazione di Kairus per segnalazioni, proposte di collaborazione o domande.')
 
 @section('content')
 <div class="public-page public-page--contacts">

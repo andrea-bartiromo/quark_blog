@@ -56,14 +56,14 @@ class CollaboratorController extends Controller
             $loginUrl = route('redazione.login');
             Mail::send([], [], function ($m) use ($user, $password, $loginUrl) {
                 $m->to($user->email)
-                    ->subject('🎉 Benvenuto nella redazione di Quark!')
+                    ->subject('🎉 Benvenuto nella redazione di Kairus!')
                     ->html("
                     <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
-                        <h1 style='color:#0d9488;margin-bottom:.5rem;'>Quark.</h1>
+                        <h1 style='color:#0d9488;margin-bottom:.5rem;'>Kairus.</h1>
                         <p style='color:#6b7280;font-size:.82rem;margin-bottom:1.5rem;'>La scienza spiegata come si deve</p>
                         <h2 style='color:#111827;margin-bottom:1rem;'>Benvenuto nella redazione! 🎉</h2>
                         <p style='color:#374151;line-height:1.7;margin-bottom:1rem;'>
-                            Ciao {$user->name}, sei stato aggiunto come collaboratore di Quark.
+                            Ciao {$user->name}, sei stato aggiunto come collaboratore di Kairus.
                             Puoi iniziare a scrivere articoli accedendo alla tua area personale.
                         </p>
                         <div style='background:#f0fdfa;border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;'>
@@ -137,7 +137,7 @@ class CollaboratorController extends Controller
         try {
             Mail::send([], [], function ($m) use ($user, $password) {
                 $m->to($user->email)
-                    ->subject('🔑 Password reimpostata — Quark')
+                    ->subject('🔑 Password reimpostata — Kairus')
                     ->html("
                     <div style='font-family:Arial,sans-serif;max-width:480px;padding:1.5rem;'>
                         <h2 style='color:#0d9488;'>Password reimpostata</h2>

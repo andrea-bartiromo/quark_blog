@@ -1,6 +1,6 @@
 #!/bin/bash
 # ════════════════════════════════════════════════════════════════
-# Il Laboratorio — Script di deploy per il server di produzione
+# Kairus — Script di deploy per il server di produzione
 # Fondatore: Andrea Bartiromo
 #
 # UTILIZZO: bash deploy.sh
@@ -10,7 +10,7 @@
 set -e  # Interrompe lo script se un comando fallisce
 
 echo ""
-echo "🚀 IL LABORATORIO — Deploy produzione"
+echo "🚀 KAIRUS — Deploy produzione"
 echo "════════════════════════════════════"
 echo ""
 

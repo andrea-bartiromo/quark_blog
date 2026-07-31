@@ -75,9 +75,9 @@ class TuringReleaseGateTest extends TestCase
     {
         $html = $this->get('/turing')->getContent();
 
-        $this->assertStringContainsString('<title>Speciale Turing — In arrivo — Quark</title>', $html);
+        $this->assertStringContainsString('<title>Speciale Turing — In arrivo — Kairus</title>', $html);
         $this->assertMatchesRegularExpression(
-            '#<meta name="description" content="Il nuovo Speciale di Quark[^"]*">#',
+            '#<meta name="description" content="Il nuovo Speciale di Kairus[^"]*">#',
             $html
         );
         $this->assertStringContainsString('<link rel="canonical" href="'.url('/turing').'">', $html);
@@ -89,7 +89,7 @@ class TuringReleaseGateTest extends TestCase
         $html = $this->get('/turing')->getContent();
 
         $this->assertStringContainsString('<meta property="og:type" content="website">', $html);
-        $this->assertStringContainsString('<meta property="og:title" content="Speciale Turing — In arrivo — Quark">', $html);
+        $this->assertStringContainsString('<meta property="og:title" content="Speciale Turing — In arrivo — Kairus">', $html);
         $this->assertStringContainsString('<meta property="og:url" content="'.url('/turing').'">', $html);
         $this->assertMatchesRegularExpression('#<meta property="og:image" content="[^"]+turing-hero\.webp">#', $html);
     }

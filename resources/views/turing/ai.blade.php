@@ -29,7 +29,7 @@
         ?? 'turing/backgrounds/turing-ai-panel.webp';
 @endphp
 
-@section('title', 'Turing e l’IA moderna — Quark')
+@section('title', 'Turing e l’IA moderna — Kairus')
 @section(
     'description',
     'Dal Test di Turing ai modelli linguistici contemporanei: come l’idea di intelligenza artificiale è diventata il centro del presente.'

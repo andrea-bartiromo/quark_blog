@@ -1,10 +1,10 @@
-{{-- Header Quark --}}
+{{-- Header Kairus --}}
 <header class="site-header" role="banner">
   <div class="container">
 
     {{-- Logo --}}
     <a href="{{ route('home') }}" class="header-logo">
-      Quark<span class="dot">.</span>
+      Kairus<span class="dot">.</span>
     </a>
 
     {{-- Nav principale --}}

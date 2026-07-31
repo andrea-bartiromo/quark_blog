@@ -1,4 +1,4 @@
-# ROADMAP_V1 — Quark Blog, verso la v1.0
+# ROADMAP_V1 — Kairus, verso la v1.0
 
 | Campo | Valore |
 |---|---|

@@ -1,10 +1,10 @@
-{{-- Footer Quark --}}
+{{-- Footer Kairus --}}
 <footer class="site-footer" role="contentinfo">
   <div class="container">
     <div class="footer-grid">
 
       <div>
-        <div class="footer-logo">Quark<span class="dot">.</span></div>
+        <div class="footer-logo">Kairus<span class="dot">.</span></div>
         <p class="footer-desc">
           La scienza spiegata come si deve. Fisica, biologia, tecnologia e spazio
           raccontati in modo semplice, curioso e senza filtri.
@@ -29,8 +29,8 @@
       </div>
 
       <div>
-        <div class="footer-col-title">Quark</div>
-        <nav class="footer-links" aria-label="Quark">
+        <div class="footer-col-title">Kairus</div>
+        <nav class="footer-links" aria-label="Kairus">
           <a href="{{ url('/chi-siamo') }}">Chi siamo</a>
           <a href="{{ url('/la-redazione') }}">La redazione</a>
           <a href="{{ url('/contatti') }}">Contatti</a>
@@ -53,7 +53,7 @@
 
     <div class="footer-bottom">
       <span>
-        © {{ date('Y') }} Quark — Un progetto di
+        © {{ date('Y') }} Kairus — Un progetto di
         <a href="{{ url('/chi-siamo#fondatore') }}" style="color:rgba(255,255,255,.4);text-decoration:none;">
           Andrea Bartiromo
         </a>

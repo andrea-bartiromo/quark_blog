@@ -43,7 +43,7 @@
     ];
 @endphp
 
-@section('title', 'Enigma e Bletchley Park — Quark')
+@section('title', 'Enigma e Bletchley Park — Kairus')
 @section(
     'description',
     'La guerra invisibile dei codici: anatomia della macchina Enigma, il percorso elettrico del segnale, la chiave giornaliera, la Bombe e la nascita del calcolo moderno a Bletchley Park.'

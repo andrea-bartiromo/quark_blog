@@ -1,5 +1,5 @@
 {{--
-  Componente slot pubblicitario dinamico — Quark
+  Componente slot pubblicitario dinamico — Kairus
   Uso: @include('components.ad-slot', ['position' => 'sidebar'])
 --}}
 @php

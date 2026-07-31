@@ -100,7 +100,7 @@ class SeoController extends Controller
             $genre = htmlspecialchars($cats[$article->category] ?? $article->category, ENT_XML1);
 
             $xml .= "  <url><loc>{$url}</loc><news:news>";
-            $xml .= '<news:publication><news:name>Quark</news:name><news:language>it</news:language></news:publication>';
+            $xml .= '<news:publication><news:name>Kairus</news:name><news:language>it</news:language></news:publication>';
             $xml .= "<news:publication_date>{$pub}</news:publication_date><news:title>{$title}</news:title>";
             $xml .= "<news:genres>{$genre}</news:genres></news:news></url>".PHP_EOL;
         }
