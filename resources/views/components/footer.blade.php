@@ -10,6 +10,7 @@
           raccontati in modo semplice, curioso e senza filtri.
         </p>
 
+        @if(!empty(config('laboratorio.social')))
         <div class="footer-social">
           @foreach(config('laboratorio.social') as $net => $url)
             <a href="{{ $url }}" target="_blank" rel="noopener" aria-label="{{ ucfirst($net) }}">
@@ -17,6 +18,7 @@
             </a>
           @endforeach
         </div>
+        @endif
       </div>
 
       <div>
