@@ -70,6 +70,7 @@
 .premium-form-grid{display:grid;gap:1rem}
 .premium-alert{border-radius:18px;padding:1rem 1.15rem;margin-bottom:1rem;font-weight:800;font-size:.9rem}
 .premium-alert--success{background:#d1fae5;border:1px solid #86efac;color:#065f46}
+.premium-alert--error{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b}
 .premium-error{color:#dc2626;font-size:.75rem;margin-top:.28rem}
 .premium-checkbox{display:flex;align-items:flex-start;gap:.55rem;color:#64748b;font-size:.82rem;line-height:1.5}
 .premium-checkbox input{margin-top:.2rem;accent-color:#0f766e}
