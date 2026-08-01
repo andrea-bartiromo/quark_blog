@@ -15,12 +15,7 @@ return [
         'ambiente' => 'Ambiente',
     ],
 
-    'social' => [
-        'facebook' => 'https://facebook.com/kairus',
-        'twitter' => 'https://twitter.com/kairus',
-        'instagram' => 'https://instagram.com/kairus',
-        'linkedin' => 'https://linkedin.com/company/kairus',
-        'youtube' => 'https://youtube.com/@kairus',
-        'telegram' => 'https://t.me/kairus',
-    ],
+    // Vuoto finché i profili non esistono davvero: il footer nasconde il blocco
+    // social quando questo array non contiene nulla.
+    'social' => [],
 ];
