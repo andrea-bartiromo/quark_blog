@@ -157,63 +157,92 @@ class MediaController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
-            'alt_text' => 'nullable|max:200',
-            'media_folder_id' => 'nullable|integer|exists:media_folders,id',
+{
+    $request->validate([
+        'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
+        'alt_text' => 'nullable|string|max:200',
+        'media_folder_id' => 'nullable|integer|exists:media_folders,id',
+    ]);
+
+    $folder = $request->exists('media_folder_id')
+        ? (
+            $request->filled('media_folder_id')
+                ? MediaFolder::findOrFail($request->integer('media_folder_id'))
+                : null
+        )
+        : $this->mediaFolderService->defaultUploadFolder($request->user());
+
+    $file = $request->file('image');
+
+    $original = $file->getClientOriginalName();
+
+    /*
+     * L'estensione viene ricavata dal MIME rilevato dal server,
+     * non dal nome originale inviato dal browser.
+     */
+    $ext = $this->imageService->safeExtension(
+        $file,
+        allowGif: true
+    );
+
+    $mimeType = $file->getMimeType();
+
+    $diskName = $this->imageService->buildFileName(
+        $file,
+        $ext,
+        now()->format('YmdHis').'-'.Str::random(6)
+    );
+
+    $uploadPath = $this->mediaFolderService->ensureDirectoryFor($folder);
+
+    $fullPath = $this->imageService->upload(
+        $file,
+        $uploadPath,
+        $diskName
+    );
+
+    $diskName = $this->mediaFolderService->diskName(
+        $folder,
+        $diskName
+    );
+
+    $this->imageService->resizeAndCompress(
+        $fullPath,
+        $ext,
+        1600,
+        [
+            'jpg' => 82,
+            'png' => 7,
+            'webp' => 82,
+        ],
+        preserveTransparency: true,
+        alwaysReencode: true,
+        logErrors: true
+    );
+
+    $media = Media::create([
+        'user_id' => auth()->id(),
+        'filename' => $original,
+        'disk_name' => $diskName,
+        'mime_type' => $mimeType,
+        'size' => filesize($fullPath) ?: 0,
+        'alt_text' => $request->input('alt_text'),
+    ]);
+
+    if ($request->expectsJson() || $request->ajax()) {
+        return response()->json([
+            'ok' => true,
+            'filename' => $diskName,
+            'url' => asset('assets/img/'.$diskName),
+            'id' => $media->id,
         ]);
-
-        $folder = $request->exists('media_folder_id')
-            ? ($request->filled('media_folder_id') ? MediaFolder::findOrFail($request->integer('media_folder_id')) : null)
-            : $this->mediaFolderService->defaultUploadFolder($request->user());
-
-        $file = $request->file('image');
-        $original = $file->getClientOriginalName();
-        $ext = strtolower($file->getClientOriginalExtension());
-        $mimeType = $file->getMimeType();
-
-        $diskName = $this->imageService->buildFileName(
-            $file,
-            $ext,
-            now()->format('YmdHis').'-'.Str::random(6)
-        );
-
-        $uploadPath = $this->mediaFolderService->ensureDirectoryFor($folder);
-
-        $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
-        $diskName = $this->mediaFolderService->diskName($folder, $diskName);
-
-        $this->imageService->resizeAndCompress(
-            $fullPath,
-            $ext,
-            1600,
-            ['jpg' => 82, 'png' => 7, 'webp' => 82],
-            preserveTransparency: true,
-            alwaysReencode: true,
-            logErrors: true
-        );
-
-        $media = Media::create([
-            'user_id' => auth()->id(),
-            'filename' => $original,
-            'disk_name' => $diskName,
-            'mime_type' => $mimeType,
-            'size' => filesize($fullPath) ?: 0,
-            'alt_text' => $request->input('alt_text'),
-        ]);
-
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json([
-                'ok' => true,
-                'filename' => $diskName,
-                'url' => asset('assets/img/'.$diskName),
-                'id' => $media->id,
-            ]);
-        }
-
-        return back()->with('success', "Immagine \"{$original}\" caricata con successo.");
     }
+
+    return back()->with(
+        'success',
+        "Immagine \"{$original}\" caricata con successo."
+    );
+}
 
     public function update(UpdateMediaRequest $request, Media $media)
     {

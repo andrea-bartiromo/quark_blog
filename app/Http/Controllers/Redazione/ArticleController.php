@@ -40,31 +40,58 @@ class ArticleController extends Controller
     {
         $data = $request->validated();
 
-        // Upload immagine
-        if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
+        if (
+            $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid()
+        ) {
             $file = $request->file('cover_image_upload');
+
             $originalName = $file->getClientOriginalName();
             $mimeType = $file->getMimeType();
-            $ext = strtolower($file->getClientOriginalExtension());
+
+            $ext = $this->imageService->safeExtension($file);
+
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis').'-'.Str::random(6)
+                now()->format('YmdHis').'-'.Str::random(6)
             );
-            $fullPath = $this->imageService->upload($file, public_path('assets/img'), $diskName);
+
+            $fullPath = $this->imageService->upload(
+                $file,
+                public_path('assets/img'),
+                $diskName
+            );
+
+            $this->imageService->resizeAndCompress(
+                $fullPath,
+                $ext,
+                1600,
+                [
+                    'jpg' => 82,
+                    'png' => 7,
+                    'webp' => 82,
+                ],
+                preserveTransparency: true,
+                alwaysReencode: true,
+                logErrors: true
+            );
 
             $this->mediaService->register(
                 $request->user(),
                 $originalName,
                 $diskName,
                 $mimeType,
-                filesize($fullPath)
+                filesize($fullPath) ?: 0
             );
 
             $data['cover_image'] = $diskName;
         }
 
-        $wordCount = str_word_count(strip_tags($data['body'] ?? ''));
+        $wordCount = str_word_count(
+            strip_tags($data['body'] ?? '')
+        );
+
         $article = Article::create([
             'user_id' => auth()->id(),
             'title' => $data['title'],
@@ -79,8 +106,9 @@ class ArticleController extends Controller
             'cover_source' => $data['cover_source'] ?? null,
             'cover_source_url' => $data['cover_source_url'] ?? null,
             'cover_license' => $data['cover_license'] ?? null,
-            'status' => 'review', // ← sempre in revisione
-            'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'status' => 'review',
+            'read_minutes' => $data['read_minutes']
+                ?? max(1, (int) ceil($wordCount / 180)),
             'verification_status' => 'unverified',
             'published_at' => now(),
             'seo_title' => $data['seo_title'] ?? null,
@@ -95,75 +123,120 @@ class ArticleController extends Controller
             'twitter_image' => $data['twitter_image'] ?? null,
         ]);
 
-        // Notifica email all'editor
         $this->notifyEditor($article);
 
-        ActivityLog::record('Articolo inviato in revisione', 'article', $article->id, $article->title);
+        ActivityLog::record(
+            'Articolo inviato in revisione',
+            'article',
+            $article->id,
+            $article->title
+        );
 
-        return redirect()->route('redazione.articles')
-            ->with('success', 'Articolo inviato in revisione. L\'editor ti contatterà presto.');
+        return redirect()
+            ->route('redazione.articles')
+            ->with(
+                'success',
+                'Articolo inviato in revisione. L\'editor ti contatterà presto.'
+            );
     }
 
     public function edit(Article $article)
     {
-        // Solo il proprio autore può modificare
         if ($article->user_id !== auth()->id()) {
             abort(403);
         }
 
-        // Non modificabile se pubblicato (solo l'editor può)
         if ($article->status === 'published') {
-            return redirect()->route('redazione.articles')
-                ->with('error', 'Gli articoli pubblicati non possono essere modificati. Contatta l\'editor.');
+            return redirect()
+                ->route('redazione.articles')
+                ->with(
+                    'error',
+                    'Gli articoli pubblicati non possono essere modificati. Contatta l\'editor.'
+                );
         }
 
         $categories = config('laboratorio.categories');
 
-        return view('redazione.article-form', compact('article', 'categories'));
+        return view(
+            'redazione.article-form',
+            compact('article', 'categories')
+        );
     }
 
-    public function update(UpdateArticleRequest $request, Article $article)
-    {
+    public function update(
+        UpdateArticleRequest $request,
+        Article $article
+    ) {
         $data = $request->validated();
 
-        if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
+        if (
+            $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid()
+        ) {
             $file = $request->file('cover_image_upload');
+
             $originalName = $file->getClientOriginalName();
             $mimeType = $file->getMimeType();
-            $ext = strtolower($file->getClientOriginalExtension());
+
+            $ext = $this->imageService->safeExtension($file);
+
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis').'-'.Str::random(6)
+                now()->format('YmdHis').'-'.Str::random(6)
             );
-            $fullPath = $this->imageService->upload($file, public_path('assets/img'), $diskName);
+
+            $fullPath = $this->imageService->upload(
+                $file,
+                public_path('assets/img'),
+                $diskName
+            );
+
+            $this->imageService->resizeAndCompress(
+                $fullPath,
+                $ext,
+                1600,
+                [
+                    'jpg' => 82,
+                    'png' => 7,
+                    'webp' => 82,
+                ],
+                preserveTransparency: true,
+                alwaysReencode: true,
+                logErrors: true
+            );
 
             $this->mediaService->register(
                 $request->user(),
                 $originalName,
                 $diskName,
                 $mimeType,
-                filesize($fullPath)
+                filesize($fullPath) ?: 0
             );
 
             $data['cover_image'] = $diskName;
         }
 
-        $wordCount = str_word_count(strip_tags($data['body'] ?? ''));
+        $wordCount = str_word_count(
+            strip_tags($data['body'] ?? '')
+        );
+
         $article->update([
             'title' => $data['title'],
             'excerpt' => $data['excerpt'] ?? null,
             'body' => $data['body'],
             'category' => $data['category'],
-            'cover_image' => $data['cover_image'] ?? $article->cover_image,
+            'cover_image' => $data['cover_image']
+                ?? $article->cover_image,
             'cover_alt' => $data['cover_alt'] ?? null,
             'cover_caption' => $data['cover_caption'] ?? null,
             'cover_credit' => $data['cover_credit'] ?? null,
             'cover_source' => $data['cover_source'] ?? null,
             'cover_source_url' => $data['cover_source_url'] ?? null,
             'cover_license' => $data['cover_license'] ?? null,
-            'status' => 'review', // rinvia in revisione dopo modifica
-            'read_minutes' => $data['read_minutes'] ?? max(1, (int) ceil($wordCount / 180)),
+            'status' => 'review',
+            'read_minutes' => $data['read_minutes']
+                ?? max(1, (int) ceil($wordCount / 180)),
             'seo_title' => $data['seo_title'] ?? null,
             'seo_description' => $data['seo_description'] ?? null,
             'canonical_url' => $data['canonical_url'] ?? null,
@@ -177,10 +250,20 @@ class ArticleController extends Controller
         ]);
 
         $this->notifyEditor($article, true);
-        ActivityLog::record('Articolo modificato e inviato in revisione', 'article', $article->id, $article->title);
 
-        return redirect()->route('redazione.articles')
-            ->with('success', 'Articolo aggiornato e rimandato in revisione.');
+        ActivityLog::record(
+            'Articolo modificato e inviato in revisione',
+            'article',
+            $article->id,
+            $article->title
+        );
+
+        return redirect()
+            ->route('redazione.articles')
+            ->with(
+                'success',
+                'Articolo aggiornato e rimandato in revisione.'
+            );
     }
 
     public function destroy(Article $article)
@@ -188,20 +271,28 @@ class ArticleController extends Controller
         if ($article->user_id !== auth()->id()) {
             abort(403);
         }
+
         if ($article->status === 'published') {
             abort(403);
         }
 
         $article->delete();
 
-        return redirect()->route('redazione.articles')
+        return redirect()
+            ->route('redazione.articles')
             ->with('success', 'Articolo eliminato.');
     }
 
-    private function notifyEditor(Article $article, bool $isUpdate = false): void
-    {
+    private function notifyEditor(
+        Article $article,
+        bool $isUpdate = false
+    ): void {
         try {
-            $editorEmail = User::where('role', 'editor')->value('email');
+            $editorEmail = User::whereIn(
+                'role',
+                ['editor', 'admin']
+            )->value('email');
+
             if (! $editorEmail) {
                 return;
             }
@@ -210,33 +301,92 @@ class ArticleController extends Controller
                 ? '✏️ Articolo modificato — in attesa di revisione'
                 : '📝 Nuovo articolo da revisionare — Kairus';
 
-            $reviewUrl = route('admin.articles.edit', $article);
-            $author = auth()->user()->name;
-            $cat = config('laboratorio.categories.'.$article->category);
+            $reviewUrl = route(
+                'admin.articles.edit',
+                $article
+            );
 
-            Mail::send([], [], function ($m) use ($editorEmail, $article, $subject, $reviewUrl, $author, $cat, $isUpdate) {
-                $m->to($editorEmail)->subject($subject)->html("
-                    <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
-                        <h2 style='color:#0d9488;margin-bottom:.75rem;'>
-                            ".($isUpdate ? '✏️ Articolo modificato' : '📝 Nuovo articolo')."
-                        </h2>
-                        <table style='width:100%;border-collapse:collapse;font-size:.875rem;margin-bottom:1rem;'>
-                            <tr><td style='padding:.4rem 0;color:#6b7280;width:90px;'>Autore</td>
-                                <td style='font-weight:600;'>{$author}</td></tr>
-                            <tr><td style='padding:.4rem 0;color:#6b7280;'>Titolo</td>
-                                <td style='font-weight:600;'>".htmlspecialchars($article->title)."</td></tr>
-                            <tr><td style='padding:.4rem 0;color:#6b7280;'>Categoria</td>
-                                <td>{$cat}</td></tr>
-                        </table>
-                        <a href='{$reviewUrl}' style='display:inline-block;background:#0d9488;color:#fff;
-                            padding:.65rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>
-                            Revisiona articolo →
-                        </a>
-                    </div>
-                ");
-            });
-        } catch (\Exception $e) {
-            // Silenzioso
+            $author = auth()->user()->name;
+            $category = config(
+                'laboratorio.categories.'.$article->category
+            );
+
+            Mail::send(
+                [],
+                [],
+                function ($message) use (
+                    $editorEmail,
+                    $article,
+                    $subject,
+                    $reviewUrl,
+                    $author,
+                    $category,
+                    $isUpdate
+                ) {
+                    $message
+                        ->to($editorEmail)
+                        ->subject($subject)
+                        ->html("
+                            <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
+                                <h2 style='color:#0d9488;margin-bottom:.75rem;'>
+                                    ".($isUpdate
+                                        ? '✏️ Articolo modificato'
+                                        : '📝 Nuovo articolo')."
+                                </h2>
+
+                                <table style='width:100%;border-collapse:collapse;font-size:.875rem;margin-bottom:1rem;'>
+                                    <tr>
+                                        <td style='padding:.4rem 0;color:#6b7280;width:90px;'>
+                                            Autore
+                                        </td>
+                                        <td style='font-weight:600;'>
+                                            ".htmlspecialchars(
+                                                $author,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            )."
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style='padding:.4rem 0;color:#6b7280;'>
+                                            Titolo
+                                        </td>
+                                        <td style='font-weight:600;'>
+                                            ".htmlspecialchars(
+                                                $article->title,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            )."
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style='padding:.4rem 0;color:#6b7280;'>
+                                            Categoria
+                                        </td>
+                                        <td>
+                                            ".htmlspecialchars(
+                                                (string) $category,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            )."
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <a
+                                    href='{$reviewUrl}'
+                                    style='display:inline-block;background:#0d9488;color:#fff;padding:.65rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'
+                                >
+                                    Revisiona articolo
+                                </a>
+                            </div>
+                        ");
+                }
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
         }
     }
 }

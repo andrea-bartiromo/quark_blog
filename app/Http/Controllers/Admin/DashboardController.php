@@ -75,17 +75,26 @@ class DashboardController extends Controller
         $recentArticles = Article::with('author')
             ->orderByDesc('created_at')
             ->limit(8)
-            ->get(['id', 'title', 'slug', 'status', 'category', 'user_id', 'created_at', 'verification_status']);
+            ->get([
+                'id',
+                'title',
+                'slug',
+                'status',
+                'category',
+                'user_id',
+                'created_at',
+                'verification_status',
+            ]);
 
         // Attività ultimi 6 mesi
         $monthlyActivity = Article::where('status', 'published')
             ->where('published_at', '>=', now()->subMonths(6))
             ->select(
-                DB::raw("strftime('%Y-%m', published_at) as month"),
+                DB::raw("DATE_FORMAT(published_at, '%Y-%m') as month"),
                 DB::raw('COUNT(*) as articles'),
                 DB::raw('SUM(views) as views')
             )
-            ->groupBy('month')
+            ->groupByRaw("DATE_FORMAT(published_at, '%Y-%m')")
             ->orderBy('month')
             ->get();
 

@@ -20,38 +20,74 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        // ── Header sicurezza base ───────────────────────────────
+        // Header di sicurezza di base
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+        $response->headers->set(
+            'Referrer-Policy',
+            'strict-origin-when-cross-origin'
+        );
+        $response->headers->set(
+            'Permissions-Policy',
+            'camera=(), microphone=(), geolocation=(), payment=()'
+        );
 
         // HSTS solo in produzione
         if (config('app.env') === 'production') {
-            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+            $response->headers->set(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains'
+            );
         }
 
-        // ── CSP COMPLETA (TinyMCE FIX) ──────────────────────────
+        /*
+         * Content Security Policy
+         *
+         * Include:
+         * - TinyMCE
+         * - jsDelivr
+         * - Google Fonts
+         * - Google Analytics 4
+         * - Google Tag Manager / Tag Assistant
+         */
         $csp = implode('; ', [
             "default-src 'self'",
 
-            // ✅ TinyMCE + CDN script
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tiny.cloud",
+            "script-src 'self' 'unsafe-inline' "
+                . "https://cdn.jsdelivr.net "
+                . "https://cdn.tiny.cloud "
+                . "https://www.googletagmanager.com",
 
-            // ✅ TinyMCE usa CSS esterni
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.tiny.cloud",
+            "script-src-elem 'self' 'unsafe-inline' "
+                . "https://cdn.jsdelivr.net "
+                . "https://cdn.tiny.cloud "
+                . "https://www.googletagmanager.com",
 
-            // ✅ Font Google
-            "font-src 'self' https://fonts.gstatic.com data:",
+            "style-src 'self' 'unsafe-inline' "
+                . "https://fonts.googleapis.com "
+                . "https://cdn.jsdelivr.net "
+                . "https://cdn.tiny.cloud",
 
-            // ✅ immagini anche da editor (blob = upload temporaneo)
-            "img-src 'self' data: blob: https:",
+            "font-src 'self' "
+                . "https://fonts.gstatic.com "
+                . "data:",
 
-            // ✅ richieste ajax/editor
-            "connect-src 'self' https://cdn.jsdelivr.net https://cdn.tiny.cloud",
+            "img-src 'self' data: blob: https: "
+                . "https://www.google-analytics.com "
+                . "https://region1.google-analytics.com",
 
-            // ✅ media (video/audio da editor)
+            "connect-src 'self' "
+                . "https://cdn.jsdelivr.net "
+                . "https://cdn.tiny.cloud "
+                . "https://www.googletagmanager.com "
+                . "https://www.google-analytics.com "
+                . "https://region1.google-analytics.com "
+                . "https://analytics.google.com",
+
             "media-src 'self' blob: https:",
+
+            "frame-src 'self' "
+                . "https://www.googletagmanager.com",
 
             "frame-ancestors 'self'",
             "base-uri 'self'",

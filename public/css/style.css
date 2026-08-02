@@ -1038,60 +1038,184 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   padding: 1rem;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s ease;
 }
-.newsletter-popup.visible { opacity: 1; pointer-events: all; }
+
+.newsletter-popup.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .newsletter-popup__overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
+
 .newsletter-popup__box {
   position: relative;
   z-index: 1;
-  background: var(--white);
-  border-radius: var(--radius-xl);
-  padding: 2rem;
-  max-width: 420px;
   width: 100%;
+  max-width: 420px;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--white);
   box-shadow: var(--shadow-lg);
 }
+
 .newsletter-popup__icon {
-  width: 48px; height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
   border-radius: 50%;
   background: var(--primary-light);
-  display: flex; align-items: center; justify-content: center;
   font-size: 1.2rem;
-  margin-bottom: 1rem;
 }
+
 .newsletter-popup__title {
+  margin: 0 2.5rem 0.4rem 0;
+  color: var(--ink);
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--ink);
-  margin-bottom: 0.4rem;
+  line-height: 1.2;
 }
+
 .newsletter-popup__sub {
-  font-size: 0.88rem;
+  margin: 0 0 1.25rem;
   color: var(--ink-muted);
+  font-size: 0.88rem;
   line-height: 1.55;
-  margin-bottom: 1.25rem;
 }
+
 .newsletter-popup__close {
   position: absolute;
-  top: 1rem; right: 1rem;
-  width: 28px; height: 28px;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--paper-warm);
-  border: none;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.85rem;
   color: var(--ink-muted);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
-.newsletter-popup__close:hover { background: var(--border); }
 
+.newsletter-popup__close:hover {
+  background: var(--border);
+  color: var(--ink);
+  transform: scale(1.04);
+}
+
+.newsletter-popup .newsletter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.newsletter-popup .newsletter-form input[type="email"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  box-shadow: none;
+  outline: none;
+  opacity: 1;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.newsletter-popup .newsletter-form input[type="email"]::placeholder {
+  color: var(--ink-faint);
+  opacity: 1;
+}
+
+.newsletter-popup .newsletter-form input[type="email"]:hover {
+  border-color: var(--ink-faint);
+}
+
+.newsletter-popup .newsletter-form input[type="email"]:focus {
+  border-color: var(--primary);
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.14);
+}
+
+.newsletter-popup .newsletter-form button[type="submit"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  opacity: 1;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.newsletter-popup .newsletter-form button[type="submit"]:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(13, 148, 136, 0.18);
+}
+
+.newsletter-popup .newsletter-form button[type="submit"]:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  .newsletter-popup {
+    align-items: flex-end;
+    padding: 0.75rem;
+  }
+
+  .newsletter-popup__box {
+    max-width: none;
+    padding: 1.5rem;
+    border-radius: var(--radius-xl);
+  }
+
+  .newsletter-popup__title {
+    font-size: 1.2rem;
+  }
+}
 /* ── Errori ──────────────────────────────────────────────────── */
 .error-page {
   display: flex;

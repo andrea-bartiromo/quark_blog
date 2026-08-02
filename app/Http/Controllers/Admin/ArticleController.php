@@ -37,8 +37,9 @@ class ArticleController extends Controller
         $query = Article::latest()->with('author');
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->where('title', 'like', "%{$search}%")
                     ->orWhere('excerpt', 'like', "%{$search}%")
                     ->orWhere('body', 'like', "%{$search}%");
             });
@@ -59,10 +60,20 @@ class ArticleController extends Controller
 
     public function store(StoreArticleRequest $request)
     {
-        $data = $this->applyBusinessRules($request, $request->validated());
-        Article::create($data + ['user_id' => auth()->id()]);
+        $data = $this->applyBusinessRules(
+            $request,
+            $request->validated()
+        );
 
-        return redirect()->route('admin.articles')->with('success', 'Articolo creato.');
+        Article::create(
+            $data + [
+                'user_id' => auth()->id(),
+            ]
+        );
+
+        return redirect()
+            ->route('admin.articles')
+            ->with('success', 'Articolo creato.');
     }
 
     public function edit(Article $article)
@@ -73,41 +84,90 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function update(UpdateArticleRequest $request, Article $article)
-    {
-        $article->update($this->applyBusinessRules($request, $request->validated()));
+    public function update(
+        UpdateArticleRequest $request,
+        Article $article
+    ) {
+        $article->update(
+            $this->applyBusinessRules(
+                $request,
+                $request->validated()
+            )
+        );
 
-        return redirect()->route('admin.articles')->with('success', 'Articolo aggiornato.');
+        return redirect()
+            ->route('admin.articles')
+            ->with('success', 'Articolo aggiornato.');
     }
 
     public function destroy(Article $article)
     {
-        ActivityLog::record('Articolo eliminato', 'article', $article->id, $article->title);
+        ActivityLog::record(
+            'Articolo eliminato',
+            'article',
+            $article->id,
+            $article->title
+        );
+
         $article->delete();
 
-        return redirect()->route('admin.articles')->with('success', 'Articolo eliminato.');
+        return redirect()
+            ->route('admin.articles')
+            ->with('success', 'Articolo eliminato.');
     }
 
-    private function applyBusinessRules(Request $request, array $data): array
-    {
-        if ($request->hasFile('cover_image_upload') && $request->file('cover_image_upload')->isValid()) {
+    private function applyBusinessRules(
+        Request $request,
+        array $data
+    ): array {
+        if (
+            $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid()
+        ) {
             $file = $request->file('cover_image_upload');
+
             $filename = $file->getClientOriginalName();
             $mimeType = $file->getMimeType();
-            $ext = strtolower($file->getClientOriginalExtension());
+
+            /*
+             * L'estensione viene ricavata dal MIME rilevato
+             * dal server, non dal nome inviato dal browser.
+             *
+             * Le copertine accettano solo JPG, PNG e WebP.
+             */
+            $ext = $this->imageService->safeExtension($file);
+
             $diskName = $this->imageService->buildFileName(
                 $file,
                 $ext,
-                date('YmdHis').'-'.substr(md5(rand()), 0, 6)
+                now()->format('YmdHis').'-'.Str::random(6)
             );
-            $uploadPath = public_path('assets/img');
-            $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
 
+            $uploadPath = public_path('assets/img');
+
+            $fullPath = $this->imageService->upload(
+                $file,
+                $uploadPath,
+                $diskName
+            );
+
+            /*
+             * Ricodifica e ottimizza l'immagine.
+             * Questo uniforma le copertine e rimuove
+             * eventuali contenuti estranei incorporati.
+             */
             $this->imageService->resizeAndCompress(
                 $fullPath,
                 $ext,
                 1600,
-                ['jpg' => 82, 'png' => 7, 'webp' => 82]
+                [
+                    'jpg' => 82,
+                    'png' => 7,
+                    'webp' => 82,
+                ],
+                preserveTransparency: true,
+                alwaysReencode: true,
+                logErrors: true
             );
 
             $this->mediaService->register(
@@ -115,7 +175,7 @@ class ArticleController extends Controller
                 $filename,
                 $diskName,
                 $mimeType,
-                filesize($fullPath)
+                filesize($fullPath) ?: 0
             );
 
             $data['cover_image'] = $diskName;
@@ -125,20 +185,34 @@ class ArticleController extends Controller
 
         $data['slug'] = Str::slug($data['title']);
         $data['featured'] = $request->boolean('featured');
-        $data['published_at'] = $data['status'] === 'published' ? now() : null;
+
+        $data['published_at'] = $data['status'] === 'published'
+            ? now()
+            : null;
 
         if (! empty($data['body'])) {
-            $wordCount = str_word_count(strip_tags($data['body']));
-            $data['read_minutes'] = max(1, (int) round($wordCount / 200));
+            $wordCount = str_word_count(
+                strip_tags($data['body'])
+            );
+
+            $data['read_minutes'] = max(
+                1,
+                (int) round($wordCount / 200)
+            );
         }
 
         return $data;
     }
 
-    public function updateVerification(Request $request, Article $article)
-    {
+    public function updateVerification(
+        Request $request,
+        Article $article
+    ) {
         $validated = $request->validate([
-            'verification_status' => 'required|in:unverified,in_progress,verified,needs_update',
+            'verification_status' => [
+                'required',
+                'in:unverified,in_progress,verified,needs_update',
+            ],
             'verification_notes' => 'nullable|max:1000',
             'primary_sources' => 'nullable|max:500',
         ]);
@@ -152,25 +226,39 @@ class ArticleController extends Controller
 
         $article->update($data);
 
-        return back()->with('success', 'Stato verifica aggiornato.');
+        return back()->with(
+            'success',
+            'Stato verifica aggiornato.'
+        );
     }
 
     public function duplicate(Article $article)
     {
-        $new = $article->replicate();
-        $new->title = 'Copia di — '.$article->title;
-        $new->slug = Str::slug($new->title).'-'.time();
-        $new->status = 'draft';
-        $new->featured = false;
-        $new->views = 0;
-        $new->published_at = null;
-        $new->verification_status = 'unverified';
-        $new->push();
+        $newArticle = $article->replicate();
 
-        ActivityLog::record('Articolo duplicato', 'article', $new->id, $new->title);
+        $newArticle->title = 'Copia di — '.$article->title;
+        $newArticle->slug = Str::slug($newArticle->title).'-'.time();
+        $newArticle->status = 'draft';
+        $newArticle->featured = false;
+        $newArticle->views = 0;
+        $newArticle->published_at = null;
+        $newArticle->verification_status = 'unverified';
 
-        return redirect()->route('admin.articles.edit', $new)
-            ->with('success', 'Articolo duplicato come bozza.');
+        $newArticle->push();
+
+        ActivityLog::record(
+            'Articolo duplicato',
+            'article',
+            $newArticle->id,
+            $newArticle->title
+        );
+
+        return redirect()
+            ->route('admin.articles.edit', $newArticle)
+            ->with(
+                'success',
+                'Articolo duplicato come bozza.'
+            );
     }
 
     public function quickDraft()
