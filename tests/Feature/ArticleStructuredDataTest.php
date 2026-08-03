@@ -219,7 +219,10 @@ class ArticleStructuredDataTest extends TestCase
         $homeHtml = $this->get(route('home'))->getContent();
         $this->assertStringNotContainsString('NewsArticle', $homeHtml);
 
-        $this->get(route('notizie'))->assertOk()->assertDontSee('application/ld+json', false);
+        // /notizie ha il proprio blocco CollectionPage (Fase 5), non NewsArticle.
+        $notizieHtml = $this->get(route('notizie'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('NewsArticle', $notizieHtml);
+
         $this->get('/turing')->assertOk()->assertDontSee('application/ld+json', false);
     }
 }

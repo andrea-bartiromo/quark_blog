@@ -2,6 +2,10 @@
 @section('title', $categoryLabel.' — '.config('laboratorio.name'))
 @section('description', 'Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.')
 
+@section('head')
+@include('collections.partials.structured-data', ['collectionName' => $categoryLabel])
+@endsection
+
 @section('content')
 <div class="public-shell">
   <div class="container container--wide">

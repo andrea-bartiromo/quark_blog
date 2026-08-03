@@ -2,6 +2,10 @@
 @section('title', 'Tutti gli articoli — '.config('laboratorio.name'))
 @section('description', 'Tutti gli articoli di Kairus: scienza, tecnologia e innovazione spiegate in modo chiaro, visuale e moderno.')
 
+@section('head')
+@include('collections.partials.structured-data', ['collectionName' => 'Tutti gli articoli'])
+@endsection
+
 @section('content')
 <div class="public-shell">
   <div class="container container--wide">

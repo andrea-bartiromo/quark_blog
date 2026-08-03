@@ -116,11 +116,15 @@ class HomeStructuredDataTest extends TestCase
         $this->assertArrayNotHasKey('potentialAction', $website);
     }
 
-    public function test_structured_data_only_appears_on_the_home_page(): void
+    public function test_organization_and_website_only_appear_on_the_home_page(): void
     {
         $this->get(route('home'))->assertOk()->assertSee('application/ld+json', false);
 
-        $this->get(route('notizie'))->assertOk()->assertDontSee('application/ld+json', false);
+        // /notizie ha il proprio blocco CollectionPage (Fase 5), non Organization/WebSite.
+        $notizieHtml = $this->get(route('notizie'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('Organization', $notizieHtml);
+        $this->assertStringNotContainsString('"WebSite"', $notizieHtml);
+
         $this->get('/turing')->assertOk()->assertDontSee('application/ld+json', false);
     }
 }
