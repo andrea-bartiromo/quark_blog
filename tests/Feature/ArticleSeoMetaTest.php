@@ -144,15 +144,21 @@ class ArticleSeoMetaTest extends TestCase
     }
 
     // 4. Robots
-    public function test_robots_meta_defaults_to_index_follow(): void
+    public function test_robots_meta_defaults_to_index_follow_with_discover_directives(): void
     {
         $article = $this->publishedArticle($this->author(), ['robots' => null]);
 
-        $this->assertSame('index,follow', $article->metaRobots());
+        $this->assertSame(
+            'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+            $article->metaRobots()
+        );
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta name="robots" content="index,follow">', false);
+        $response->assertSee(
+            '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
+            false
+        );
     }
 
     public function test_robots_meta_uses_the_custom_value_when_set(): void
@@ -206,7 +212,7 @@ class ArticleSeoMetaTest extends TestCase
         $response->assertSee('<meta property="og:image" content="'.asset('assets/img/og-custom.jpg').'">', false);
     }
 
-    public function test_og_image_falls_back_to_placeholder_when_no_cover_image_is_set(): void
+    public function test_og_image_falls_back_to_the_global_raster_default_and_never_to_the_svg_placeholder(): void
     {
         $article = $this->publishedArticle($this->author(), [
             'cover_image' => null,
@@ -215,7 +221,30 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
+        $response->assertSee(
+            '<meta property="og:image" content="'.asset(config('laboratorio.default_share_image')).'">',
+            false
+        );
+        // Il fallback SVG dell'immagine hero *visibile* nel corpo pagina
+        // (articolo.blade.php, fuori scope qui) resta invariato: verifichiamo
+        // solo che og:image specificamente non usi mai l'SVG.
+        $response->assertDontSee('<meta property="og:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
+    }
+
+    public function test_twitter_image_falls_back_to_the_global_raster_default_and_never_to_the_svg_placeholder(): void
+    {
+        $article = $this->publishedArticle($this->author(), [
+            'cover_image' => null,
+            'twitter_image' => null,
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+        $response->assertOk();
+        $response->assertSee(
+            '<meta name="twitter:image" content="'.asset(config('laboratorio.default_share_image')).'">',
+            false
+        );
+        $response->assertDontSee('<meta name="twitter:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
     }
 
     // 6. Twitter Card
@@ -311,5 +340,23 @@ class ArticleSeoMetaTest extends TestCase
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
         $response->assertDontSee('<meta property="og:image" content="'.$defaultImage.'">', false);
+    }
+
+    // 10. Direttive Discover sul default sitewide (head.blade.php), non sulle pagine con robots esplicito
+    public function test_home_page_robots_default_includes_the_discover_directives(): void
+    {
+        $response = $this->get(route('home'));
+        $response->assertOk();
+        $response->assertSee(
+            '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
+            false
+        );
+    }
+
+    public function test_search_page_explicit_noindex_is_not_altered_by_the_new_default(): void
+    {
+        $response = $this->get(route('ricerca'));
+        $response->assertOk();
+        $response->assertSee('<meta name="robots" content="noindex,follow">', false);
     }
 }

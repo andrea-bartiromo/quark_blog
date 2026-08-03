@@ -65,4 +65,18 @@ class RssFeedDiscoveryTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'application/rss+xml; charset=utf-8');
     }
+
+    public function test_feed_channel_image_points_to_a_file_that_actually_exists_on_disk(): void
+    {
+        $xml = $this->get(route('feed'))->getContent();
+
+        $this->assertMatchesRegularExpression('#<image><url>(.*?)</url>#', $xml);
+        preg_match('#<image><url>(.*?)</url>#', $xml, $matches);
+
+        $imageUrl = $matches[1];
+        $relativePath = ltrim(parse_url($imageUrl, PHP_URL_PATH), '/');
+
+        $this->assertStringNotContainsString('logo.png', $imageUrl);
+        $this->assertFileExists(public_path($relativePath));
+    }
 }

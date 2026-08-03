@@ -4,7 +4,7 @@
 <title>@yield('title', config('laboratorio.name').' — '.config('laboratorio.tagline'))</title>
 
 <meta name="description" content="@yield('description', config('laboratorio.description'))">
-<meta name="robots" content="@yield('robots', 'index,follow')">
+<meta name="robots" content="@yield('robots', 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1')">
 
 @hasSection('canonical')
 <link rel="canonical" href="@yield('canonical')">
