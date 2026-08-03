@@ -16,6 +16,27 @@ class ArticleSeoMetaTest extends TestCase
         return User::factory()->create(['role' => 'author']);
     }
 
+    /*
+     * head.blade.php spezza og:title/og:description/twitter:title/
+     * twitter:description su più righe (attributo e content su righe
+     * separate) per leggibilità del sorgente Blade — il markup renderizzato
+     * resta corretto e semanticamente identico, cambia solo la formattazione
+     * degli spazi bianchi. assertSee() con una stringa su una sola riga è
+     * quindi un'asserzione troppo rigida per questi tag: verifica la
+     * formattazione del sorgente, non l'attributo/valore realmente
+     * presente. Qui normalizziamo gli spazi bianchi (qualunque sequenza di
+     * spazi/a-capo diventa uno spazio singolo, senza spazio prima di '>')
+     * prima del confronto, così l'asserzione resta ancorata al tag
+     * <meta ...> con l'attributo e il content attesi, indipendentemente da
+     * come è impaginato il sorgente.
+     */
+    private function assertHtmlContainsTagIgnoringWhitespace(string $html, string $expectedTag): void
+    {
+        $normalize = fn (string $value): string => str_replace(' >', '>', preg_replace('/\s+/', ' ', trim($value)));
+
+        $this->assertStringContainsString($normalize($expectedTag), $normalize($html));
+    }
+
     private function publishedArticle(User $author, array $overrides = []): Article
     {
         return Article::create(array_merge([
@@ -156,7 +177,10 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:title" content="Titolo per Open Graph">', false);
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $response->getContent(),
+            '<meta property="og:title" content="Titolo per Open Graph">'
+        );
         $response->assertSee('<meta property="og:image" content="'.asset('assets/img/copertina-og.jpg').'">', false);
     }
 
@@ -170,8 +194,15 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:title" content="Titolo Open Graph personalizzato">', false);
-        $response->assertSee('<meta property="og:description" content="Descrizione Open Graph personalizzata">', false);
+        $html = $response->getContent();
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta property="og:title" content="Titolo Open Graph personalizzato">'
+        );
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta property="og:description" content="Descrizione Open Graph personalizzata">'
+        );
         $response->assertSee('<meta property="og:image" content="'.asset('assets/img/og-custom.jpg').'">', false);
     }
 
@@ -201,7 +232,10 @@ class ArticleSeoMetaTest extends TestCase
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
         $response->assertSee('<meta name="twitter:card" content="summary_large_image">', false);
-        $response->assertSee('<meta name="twitter:title" content="Titolo per Twitter">', false);
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $response->getContent(),
+            '<meta name="twitter:title" content="Titolo per Twitter">'
+        );
         $response->assertSee('<meta name="twitter:image" content="'.asset('assets/img/copertina-twitter.jpg').'">', false);
     }
 
@@ -215,8 +249,15 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta name="twitter:title" content="Titolo Twitter personalizzato">', false);
-        $response->assertSee('<meta name="twitter:description" content="Descrizione Twitter personalizzata">', false);
+        $html = $response->getContent();
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta name="twitter:title" content="Titolo Twitter personalizzato">'
+        );
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta name="twitter:description" content="Descrizione Twitter personalizzata">'
+        );
         $response->assertSee('<meta name="twitter:image" content="'.asset('assets/img/twitter-custom.jpg').'">', false);
     }
 

@@ -25,6 +25,21 @@ class TuringReleaseGateTest extends TestCase
         'turing.intelligence',
     ];
 
+    // head.blade.php spezza og:title su più righe (attributo e content su
+    // righe separate) per leggibilità del sorgente Blade: il markup
+    // renderizzato resta corretto, cambia solo la formattazione degli spazi
+    // bianchi. assertStringContainsString() con una stringa su una sola riga
+    // è quindi un'asserzione troppo rigida qui — normalizziamo gli spazi
+    // bianchi prima del confronto, così l'asserzione resta ancorata al tag
+    // <meta ...> con l'attributo e il content attesi, indipendentemente da
+    // come è impaginato il sorgente.
+    private function assertHtmlContainsTagIgnoringWhitespace(string $html, string $expectedTag): void
+    {
+        $normalize = fn (string $value): string => str_replace(' >', '>', preg_replace('/\s+/', ' ', trim($value)));
+
+        $this->assertStringContainsString($normalize($expectedTag), $normalize($html));
+    }
+
     public function test_chapters_public_defaults_to_false(): void
     {
         $this->assertFalse((bool) config('turing.chapters_public'));
@@ -89,7 +104,10 @@ class TuringReleaseGateTest extends TestCase
         $html = $this->get('/turing')->getContent();
 
         $this->assertStringContainsString('<meta property="og:type" content="website">', $html);
-        $this->assertStringContainsString('<meta property="og:title" content="Speciale Turing — In arrivo — Kairus">', $html);
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta property="og:title" content="Speciale Turing — In arrivo — Kairus">'
+        );
         $this->assertStringContainsString('<meta property="og:url" content="'.url('/turing').'">', $html);
         $this->assertMatchesRegularExpression('#<meta property="og:image" content="[^"]+turing-hero\.webp">#', $html);
     }
