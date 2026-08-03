@@ -8,9 +8,13 @@
   <div class="container">
 
     <section class="author-premium-hero">
-      <div class="author-premium-hero__avatar" aria-hidden="{{ $author->avatar ? 'false' : 'true' }}">
-        @if($author->avatar)
-          <img src="{{ asset('storage/'.$author->avatar) }}" alt="{{ $author->name }}">
+      {{-- $author->photo (non "avatar", inesistente sul modello): stesso
+           campo e stessa risoluzione di percorso (assets/img/, dove
+           Admin\ProfileController e Redazione\ProfileController salvano
+           davvero il file caricato) già usate in admin/profile.blade.php. --}}
+      <div class="author-premium-hero__avatar" aria-hidden="{{ $author->photo ? 'false' : 'true' }}">
+        @if($author->photo)
+          <img src="{{ asset('assets/img/'.$author->photo) }}" alt="{{ $author->name }}">
         @else
           <span>{{ mb_substr($author->name, 0, 1) }}</span>
         @endif

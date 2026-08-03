@@ -49,7 +49,9 @@ class DashboardController extends Controller
             ? round(($newsletterClicks / $newsletterOpens) * 100, 1)
             : 0;
 
-        $topClickedArticles = NewsletterClick::selectRaw('article_id, COUNT(*) as clicks')
+        $topClickedArticles = NewsletterClick::selectRaw(
+            'article_id, COUNT(*) as clicks'
+        )
             ->whereNotNull('article_id')
             ->groupBy('article_id')
             ->orderByDesc('clicks')
@@ -62,11 +64,23 @@ class DashboardController extends Controller
             ->orderByDesc('views')
             ->with('author')
             ->limit(5)
-            ->get(['id', 'title', 'slug', 'category', 'views', 'user_id', 'published_at']);
+            ->get([
+                'id',
+                'title',
+                'slug',
+                'category',
+                'views',
+                'user_id',
+                'published_at',
+            ]);
 
         // Distribuzione per categoria
         $byCategory = Article::where('status', 'published')
-            ->select('category', DB::raw('COUNT(*) as count'), DB::raw('SUM(views) as views'))
+            ->select(
+                'category',
+                DB::raw('COUNT(*) as count'),
+                DB::raw('COALESCE(SUM(views), 0) as views')
+            )
             ->groupBy('category')
             ->orderByDesc('count')
             ->get();
@@ -86,15 +100,28 @@ class DashboardController extends Controller
                 'verification_status',
             ]);
 
-        // Attività ultimi 6 mesi
+        /*
+         * Attività degli ultimi 6 mesi.
+         *
+         * In produzione viene normalmente utilizzato MySQL, che espone
+         * DATE_FORMAT(). La suite di test utilizza invece SQLite in memoria,
+         * dove la funzione equivalente è strftime().
+         */
+        $dateExpression = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', published_at)",
+            'pgsql' => "TO_CHAR(published_at, 'YYYY-MM')",
+            default => "DATE_FORMAT(published_at, '%Y-%m')",
+        };
+
         $monthlyActivity = Article::where('status', 'published')
+            ->whereNotNull('published_at')
             ->where('published_at', '>=', now()->subMonths(6))
-            ->select(
-                DB::raw("DATE_FORMAT(published_at, '%Y-%m') as month"),
-                DB::raw('COUNT(*) as articles'),
-                DB::raw('SUM(views) as views')
+            ->selectRaw(
+                "{$dateExpression} as month,
+                COUNT(*) as articles,
+                COALESCE(SUM(views), 0) as views"
             )
-            ->groupByRaw("DATE_FORMAT(published_at, '%Y-%m')")
+            ->groupByRaw($dateExpression)
             ->orderBy('month')
             ->get();
 

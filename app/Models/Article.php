@@ -181,7 +181,7 @@ class Article extends Model
 
     public function metaRobots(): string
     {
-        return filled($this->robots) ? $this->robots : 'index,follow';
+        return filled($this->robots) ? $this->robots : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
     }
 
     public function metaOgTitle(): string
@@ -196,9 +196,18 @@ class Article extends Model
 
     public function metaOgImage(): string
     {
-        $diskName = filled($this->og_image) ? $this->og_image : ($this->cover_image ?: 'hero-placeholder.svg');
+        if (filled($this->og_image)) {
+            return asset('assets/img/'.$this->og_image);
+        }
 
-        return asset('assets/img/'.$diskName);
+        if (filled($this->cover_image)) {
+            return asset('assets/img/'.$this->cover_image);
+        }
+
+        // Fallback raster globale (config('laboratorio.default_share_image')),
+        // mai hero-placeholder.svg: Facebook/Twitter/LinkedIn non renderizzano
+        // in modo affidabile un SVG come immagine di condivisione.
+        return asset(config('laboratorio.default_share_image'));
     }
 
     public function metaTwitterTitle(): string
@@ -213,8 +222,14 @@ class Article extends Model
 
     public function metaTwitterImage(): string
     {
-        $diskName = filled($this->twitter_image) ? $this->twitter_image : ($this->cover_image ?: 'hero-placeholder.svg');
+        if (filled($this->twitter_image)) {
+            return asset('assets/img/'.$this->twitter_image);
+        }
 
-        return asset('assets/img/'.$diskName);
+        if (filled($this->cover_image)) {
+            return asset('assets/img/'.$this->cover_image);
+        }
+
+        return asset(config('laboratorio.default_share_image'));
     }
 }

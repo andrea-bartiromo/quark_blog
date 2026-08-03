@@ -1,5 +1,8 @@
 @extends('layouts.app')
+
 @section('title', ($query ? 'Ricerca: '.e($query) : 'Ricerca').' — '.config('laboratorio.name'))
+@section('description', 'Cerca articoli, autori e categorie nell’archivio editoriale di Kairus.')
+@section('robots', 'noindex,follow')
 
 @section('content')
 <div class="public-page public-page--search">

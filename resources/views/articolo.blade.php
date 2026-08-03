@@ -17,6 +17,7 @@
 <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
 <meta property="article:author" content="{{ $article->author->name }}">
 <meta property="article:section" content="{{ \App\Models\Category::options(false)[$article->category] ?? $article->category }}">
+@include('articles.partials.structured-data')
 
 <style>
 .reading-progress {
@@ -121,6 +122,8 @@
 
 <div class="public-shell">
     <article class="article-premium">
+
+        @include('articles.partials.breadcrumb')
 
         @include('articles.partials.hero')
 

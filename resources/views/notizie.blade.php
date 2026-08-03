@@ -2,6 +2,21 @@
 @section('title', 'Tutti gli articoli — '.config('laboratorio.name'))
 @section('description', 'Tutti gli articoli di Kairus: scienza, tecnologia e innovazione spiegate in modo chiaro, visuale e moderno.')
 
+{{--
+    Canonical auto-referenziale per pagina: pagina 1 sempre senza query
+    string (mai ?page=1), pagina N>1 canonicalizza su se stessa, mai su
+    pagina 1 (articoli diversi, contenuto realmente diverso). Costruito da
+    route() + solo il numero di pagina, non da request()->fullUrl(): nessun
+    parametro estraneo (UTM, tracking) deve entrare nel canonical.
+--}}
+@section('canonical', $articles->currentPage() > 1
+    ? route('notizie', ['page' => $articles->currentPage()])
+    : route('notizie'))
+
+@section('head')
+@include('collections.partials.structured-data', ['collectionName' => 'Tutti gli articoli'])
+@endsection
+
 @section('content')
 <div class="public-shell">
   <div class="container container--wide">

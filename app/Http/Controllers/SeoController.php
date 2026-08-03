@@ -58,7 +58,11 @@ class SeoController extends Controller
         $xml .= '  <description>La scienza spiegata come si deve</description>'.PHP_EOL.'  <language>it-IT</language>'.PHP_EOL;
         $xml .= "  <lastBuildDate>{$now}</lastBuildDate>".PHP_EOL;
         $xml .= '  <atom:link href="'.$base.'/feed.xml" rel="self" type="application/rss+xml"/>'.PHP_EOL;
-        $xml .= "  <image><url>{$base}/assets/icons/logo.png</url><title>{$siteName}</title><link>{$base}</link></image>".PHP_EOL.PHP_EOL;
+
+        // assets/icons/logo.png non esiste sul disco (verificato): usa lo
+        // stesso fallback raster globale già usato per og:image/twitter:image.
+        $feedImage = $base.'/'.config('laboratorio.default_share_image');
+        $xml .= "  <image><url>{$feedImage}</url><title>{$siteName}</title><link>{$base}</link></image>".PHP_EOL.PHP_EOL;
 
         foreach ($articles as $article) {
             $title = htmlspecialchars($article->title, ENT_XML1);

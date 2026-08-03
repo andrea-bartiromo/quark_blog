@@ -16,6 +16,27 @@ class ArticleSeoMetaTest extends TestCase
         return User::factory()->create(['role' => 'author']);
     }
 
+    /*
+     * head.blade.php spezza og:title/og:description/twitter:title/
+     * twitter:description su più righe (attributo e content su righe
+     * separate) per leggibilità del sorgente Blade — il markup renderizzato
+     * resta corretto e semanticamente identico, cambia solo la formattazione
+     * degli spazi bianchi. assertSee() con una stringa su una sola riga è
+     * quindi un'asserzione troppo rigida per questi tag: verifica la
+     * formattazione del sorgente, non l'attributo/valore realmente
+     * presente. Qui normalizziamo gli spazi bianchi (qualunque sequenza di
+     * spazi/a-capo diventa uno spazio singolo, senza spazio prima di '>')
+     * prima del confronto, così l'asserzione resta ancorata al tag
+     * <meta ...> con l'attributo e il content attesi, indipendentemente da
+     * come è impaginato il sorgente.
+     */
+    private function assertHtmlContainsTagIgnoringWhitespace(string $html, string $expectedTag): void
+    {
+        $normalize = fn (string $value): string => str_replace(' >', '>', preg_replace('/\s+/', ' ', trim($value)));
+
+        $this->assertStringContainsString($normalize($expectedTag), $normalize($html));
+    }
+
     private function publishedArticle(User $author, array $overrides = []): Article
     {
         return Article::create(array_merge([
@@ -123,15 +144,21 @@ class ArticleSeoMetaTest extends TestCase
     }
 
     // 4. Robots
-    public function test_robots_meta_defaults_to_index_follow(): void
+    public function test_robots_meta_defaults_to_index_follow_with_discover_directives(): void
     {
         $article = $this->publishedArticle($this->author(), ['robots' => null]);
 
-        $this->assertSame('index,follow', $article->metaRobots());
+        $this->assertSame(
+            'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+            $article->metaRobots()
+        );
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta name="robots" content="index,follow">', false);
+        $response->assertSee(
+            '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
+            false
+        );
     }
 
     public function test_robots_meta_uses_the_custom_value_when_set(): void
@@ -156,7 +183,10 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:title" content="Titolo per Open Graph">', false);
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $response->getContent(),
+            '<meta property="og:title" content="Titolo per Open Graph">'
+        );
         $response->assertSee('<meta property="og:image" content="'.asset('assets/img/copertina-og.jpg').'">', false);
     }
 
@@ -170,12 +200,19 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:title" content="Titolo Open Graph personalizzato">', false);
-        $response->assertSee('<meta property="og:description" content="Descrizione Open Graph personalizzata">', false);
+        $html = $response->getContent();
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta property="og:title" content="Titolo Open Graph personalizzato">'
+        );
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta property="og:description" content="Descrizione Open Graph personalizzata">'
+        );
         $response->assertSee('<meta property="og:image" content="'.asset('assets/img/og-custom.jpg').'">', false);
     }
 
-    public function test_og_image_falls_back_to_placeholder_when_no_cover_image_is_set(): void
+    public function test_og_image_falls_back_to_the_global_raster_default_and_never_to_the_svg_placeholder(): void
     {
         $article = $this->publishedArticle($this->author(), [
             'cover_image' => null,
@@ -184,7 +221,30 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta property="og:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
+        $response->assertSee(
+            '<meta property="og:image" content="'.asset(config('laboratorio.default_share_image')).'">',
+            false
+        );
+        // Il fallback SVG dell'immagine hero *visibile* nel corpo pagina
+        // (articolo.blade.php, fuori scope qui) resta invariato: verifichiamo
+        // solo che og:image specificamente non usi mai l'SVG.
+        $response->assertDontSee('<meta property="og:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
+    }
+
+    public function test_twitter_image_falls_back_to_the_global_raster_default_and_never_to_the_svg_placeholder(): void
+    {
+        $article = $this->publishedArticle($this->author(), [
+            'cover_image' => null,
+            'twitter_image' => null,
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+        $response->assertOk();
+        $response->assertSee(
+            '<meta name="twitter:image" content="'.asset(config('laboratorio.default_share_image')).'">',
+            false
+        );
+        $response->assertDontSee('<meta name="twitter:image" content="'.asset('assets/img/hero-placeholder.svg').'">', false);
     }
 
     // 6. Twitter Card
@@ -201,7 +261,10 @@ class ArticleSeoMetaTest extends TestCase
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
         $response->assertSee('<meta name="twitter:card" content="summary_large_image">', false);
-        $response->assertSee('<meta name="twitter:title" content="Titolo per Twitter">', false);
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $response->getContent(),
+            '<meta name="twitter:title" content="Titolo per Twitter">'
+        );
         $response->assertSee('<meta name="twitter:image" content="'.asset('assets/img/copertina-twitter.jpg').'">', false);
     }
 
@@ -215,8 +278,15 @@ class ArticleSeoMetaTest extends TestCase
 
         $response = $this->get(route('articolo', $article->slug));
         $response->assertOk();
-        $response->assertSee('<meta name="twitter:title" content="Titolo Twitter personalizzato">', false);
-        $response->assertSee('<meta name="twitter:description" content="Descrizione Twitter personalizzata">', false);
+        $html = $response->getContent();
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta name="twitter:title" content="Titolo Twitter personalizzato">'
+        );
+        $this->assertHtmlContainsTagIgnoringWhitespace(
+            $html,
+            '<meta name="twitter:description" content="Descrizione Twitter personalizzata">'
+        );
         $response->assertSee('<meta name="twitter:image" content="'.asset('assets/img/twitter-custom.jpg').'">', false);
     }
 
@@ -236,13 +306,57 @@ class ArticleSeoMetaTest extends TestCase
         $this->assertStringNotContainsString('&amp;quot;', $html);
     }
 
-    // 8. Regressione: le pagine non-articolo non sono influenzate
+    // 8. Regressione: le pagine non-articolo non sono influenzate nel titolo
     public function test_home_page_og_title_still_mirrors_the_page_title(): void
     {
         $response = $this->get(route('home'));
 
         $response->assertOk();
         $response->assertSee('<meta name="twitter:card" content="summary_large_image">', false);
-        $response->assertDontSee('<meta property="og:image"', false);
+    }
+
+    // 9. Fallback globale og:image/twitter:image (pagine senza immagine propria)
+    public function test_home_page_falls_back_to_the_default_share_image(): void
+    {
+        $defaultImage = asset(config('laboratorio.default_share_image'));
+
+        $response = $this->get(route('home'));
+        $response->assertOk();
+        $response->assertSee('<meta property="og:image" content="'.$defaultImage.'">', false);
+        $response->assertSee('<meta property="og:image:width" content="1200">', false);
+        $response->assertSee('<meta property="og:image:height" content="630">', false);
+        $response->assertSee('<meta name="twitter:image" content="'.$defaultImage.'">', false);
+    }
+
+    public function test_article_page_does_not_use_the_default_share_image(): void
+    {
+        $defaultImage = asset(config('laboratorio.default_share_image'));
+
+        $article = $this->publishedArticle($this->author(), [
+            'cover_image' => 'copertina-og.jpg',
+            'og_image' => null,
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+        $response->assertOk();
+        $response->assertDontSee('<meta property="og:image" content="'.$defaultImage.'">', false);
+    }
+
+    // 10. Direttive Discover sul default sitewide (head.blade.php), non sulle pagine con robots esplicito
+    public function test_home_page_robots_default_includes_the_discover_directives(): void
+    {
+        $response = $this->get(route('home'));
+        $response->assertOk();
+        $response->assertSee(
+            '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">',
+            false
+        );
+    }
+
+    public function test_search_page_explicit_noindex_is_not_altered_by_the_new_default(): void
+    {
+        $response = $this->get(route('ricerca'));
+        $response->assertOk();
+        $response->assertSee('<meta name="robots" content="noindex,follow">', false);
     }
 }

@@ -1,6 +1,10 @@
 @extends('layouts.app')
 @section('title', config('laboratorio.name').' — '.config('laboratorio.tagline'))
 
+@section('head')
+@include('home.partials.structured-data')
+@endsection
+
 @section('content')
 
 @php
