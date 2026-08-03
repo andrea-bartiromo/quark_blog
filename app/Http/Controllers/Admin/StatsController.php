@@ -14,7 +14,15 @@ class StatsController extends Controller
         $articles = Article::published()
             ->orderByDesc('views')
             ->limit(15)
-            ->get(['id', 'title', 'slug', 'category', 'views', 'published_at', 'read_minutes']);
+            ->get([
+                'id',
+                'title',
+                'slug',
+                'category',
+                'views',
+                'published_at',
+                'read_minutes',
+            ]);
 
         // Per categoria
         $byCategory = [];
@@ -31,18 +39,36 @@ class StatsController extends Controller
             }
         }
 
+        /*
+         * Compatibilità database:
+         * SQLite usa strftime(), MySQL usa DATE_FORMAT(),
+         * PostgreSQL usa TO_CHAR().
+         */
+        $monthFromCreatedAt = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            'pgsql' => "TO_CHAR(created_at, 'YYYY-MM')",
+            default => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
+
+        $monthFromPublishedAt = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', published_at)",
+            'pgsql' => "TO_CHAR(published_at, 'YYYY-MM')",
+            default => "DATE_FORMAT(published_at, '%Y-%m')",
+        };
+
         // Crescita newsletter per mese
         $newsletterGrowth = DB::table('newsletter')
-            ->selectRaw("strftime('%Y-%m', created_at) as month, COUNT(*) as count")
-            ->groupBy('month')
+            ->selectRaw("{$monthFromCreatedAt} as month, COUNT(*) as count")
+            ->groupByRaw($monthFromCreatedAt)
             ->orderBy('month')
             ->get();
 
         // Articoli per mese
         $articlesByMonth = DB::table('articles')
             ->where('status', 'published')
-            ->selectRaw("strftime('%Y-%m', published_at) as month, COUNT(*) as count")
-            ->groupBy('month')
+            ->whereNotNull('published_at')
+            ->selectRaw("{$monthFromPublishedAt} as month, COUNT(*) as count")
+            ->groupByRaw($monthFromPublishedAt)
             ->orderBy('month')
             ->get();
 
@@ -51,8 +77,17 @@ class StatsController extends Controller
             ->join('comments', 'articles.id', '=', 'comments.article_id')
             ->where('comments.status', 'approved')
             ->where('articles.status', 'published')
-            ->selectRaw('articles.id, articles.title, articles.slug, COUNT(comments.id) as comments_count')
-            ->groupBy('articles.id', 'articles.title', 'articles.slug')
+            ->selectRaw(
+                'articles.id,
+                articles.title,
+                articles.slug,
+                COUNT(comments.id) as comments_count'
+            )
+            ->groupBy(
+                'articles.id',
+                'articles.title',
+                'articles.slug'
+            )
             ->orderByDesc('comments_count')
             ->limit(5)
             ->get();
@@ -81,6 +116,7 @@ class StatsController extends Controller
             ->groupBy('day')
             ->orderBy('day')
             ->get();
+
         $categoryDistribution = DB::table('articles')
             ->selectRaw('category, COUNT(*) as total')
             ->where('status', 'published')
@@ -89,7 +125,10 @@ class StatsController extends Controller
             ->get()
             ->map(function ($item) {
                 return [
-                    'label' => config('laboratorio.categories.'.$item->category, $item->category),
+                    'label' => config(
+                        'laboratorio.categories.'.$item->category,
+                        $item->category
+                    ),
                     'total' => (int) $item->total,
                 ];
             })
