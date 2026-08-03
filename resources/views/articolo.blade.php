@@ -123,6 +123,8 @@
 <div class="public-shell">
     <article class="article-premium">
 
+        @include('articles.partials.breadcrumb')
+
         @include('articles.partials.hero')
 
         <div class="article-premium__layout">
