@@ -1,9 +1,12 @@
-# Kairus — Blog di divulgazione scientifica
+# Kairus — Rivista italiana di divulgazione scientifica
 # Fondatore: Andrea Bartiromo
 #
 # Dominio ufficiale: https://kairus.it
 
-# ── Motori di ricerca tradizionali (permessi) ─────────────────
+# ============================================================
+# MOTORI DI RICERCA TRADIZIONALI
+# ============================================================
+
 User-agent: Googlebot
 Allow: /
 
@@ -13,57 +16,49 @@ Allow: /
 User-agent: Slurp
 Allow: /
 
-# ── Bot AI — VIETATO raccogliere contenuti ────────────────────
+# ============================================================
+# PRINCIPALI CRAWLER AI
+# ============================================================
+
 User-agent: GPTBot
-Disallow: /
+Allow: /
 
 User-agent: ChatGPT-User
-Disallow: /
+Allow: /
 
 User-agent: Google-Extended
-Disallow: /
-
-User-agent: CCBot
-Disallow: /
+Allow: /
 
 User-agent: anthropic-ai
-Disallow: /
+Allow: /
 
 User-agent: Claude-Web
-Disallow: /
-
-User-agent: cohere-ai
-Disallow: /
+Allow: /
 
 User-agent: PerplexityBot
-Disallow: /
+Allow: /
 
-User-agent: Omgilibot
-Disallow: /
+# ============================================================
+# TUTTI GLI ALTRI CRAWLER
+# ============================================================
 
-User-agent: FacebookBot
-Disallow: /
-
-User-agent: Bytespider
-Disallow: /
-
-User-agent: PetalBot
-Disallow: /
-
-User-agent: Applebot-Extended
-Disallow: /
-
-User-agent: Diffbot
-Disallow: /
-
-# ── Tutti gli altri ───────────────────────────────────────────
 User-agent: *
 Allow: /
+
+# ============================================================
+# AREE RISERVATE
+# ============================================================
+
 Disallow: /admin/
+Disallow: /redazione/
 Disallow: /storage/
 Disallow: /api/
-Disallow: /ricerca?*
 
-# Sitemap
+# Pagine di ricerca interna
+Disallow: /ricerca
+
+# ============================================================
+# SITEMAP
+# ============================================================
+
 Sitemap: https://kairus.it/sitemap.xml
-Sitemap: https://kairus.it/news-sitemap.xml
