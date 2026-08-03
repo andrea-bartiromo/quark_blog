@@ -2,6 +2,15 @@
 @section('title', $categoryLabel.' — '.config('laboratorio.name'))
 @section('description', 'Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.')
 
+{{--
+    Canonical auto-referenziale per pagina: stessa logica di notizie.blade.php
+    (pagina 1 senza query string, pagina N>1 su se stessa, mai su pagina 1;
+    costruito da route(), non da request()->fullUrl()).
+--}}
+@section('canonical', $articles->currentPage() > 1
+    ? route('categoria', ['slug' => $slug, 'page' => $articles->currentPage()])
+    : route('categoria', $slug))
+
 @section('head')
 @include('collections.partials.structured-data', ['collectionName' => $categoryLabel])
 @endsection
