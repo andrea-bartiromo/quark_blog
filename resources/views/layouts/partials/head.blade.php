@@ -10,6 +10,8 @@
 <link rel="canonical" href="@yield('canonical')">
 @endif
 
+<link rel="alternate" type="application/rss+xml" title="{{ config('laboratorio.name') }}" href="{{ route('feed') }}">
+
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
 {{-- Icone --}}
