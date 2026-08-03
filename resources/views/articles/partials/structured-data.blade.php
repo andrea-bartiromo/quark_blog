@@ -1,7 +1,7 @@
 {{--
-    Dati strutturati NewsArticle (schema.org), solo pagina articolo.
-    Secondo intervento dell'audit dati strutturati (dopo Organization +
-    WebSite sulla homepage). BreadcrumbList, Person standalone e
+    Dati strutturati NewsArticle + BreadcrumbList (schema.org), solo pagina
+    articolo. Terzo intervento dell'audit dati strutturati (dopo Organization
+    + WebSite sulla homepage, e dopo NewsArticle). Person standalone e
     CollectionPage restano commit separati successivi.
 
     NewsArticle (non Article generico, non BlogPosting): il contenuto
@@ -20,6 +20,14 @@
     campo dedicato (es. content_updated_at, toccato solo dai percorsi che
     modificano titolo/corpo/categoria/cover) prima di poter pubblicare
     dateModified in modo corretto — commit separato.
+
+    BreadcrumbList: percorso Home → Categoria → Articolo quando la categoria
+    dell'articolo risolve realmente a /categoria/{slug} (stessa logica di
+    riconoscimento usata da ArticleController::category()); altrimenti
+    Home → Articolo, per non pubblicare mai un link noto per restituire 404.
+    Questo commit copre solo il JSON-LD: non introduce alcun breadcrumb
+    visibile in UI (previsto come intervento separato della FASE 4), quindi
+    l'audit breadcrumb complessivo resta parziale dopo questo commit.
 --}}
 @php
     // Stessi valori (name/url/logo) dell'Organization già dichiarata sulla
@@ -60,6 +68,41 @@
         ? asset('assets/img/'.$article->cover_image)
         : asset(config('laboratorio.default_share_image'));
 
+    // Stessa fonte già usata per articleSection: opzioni categoria DB-first
+    // con fallback a config('laboratorio.categories'), risolta una sola
+    // volta e riusata sia per l'etichetta sia per il controllo di
+    // riconoscimento del breadcrumb.
+    $articleCategoryOptions = \App\Models\Category::options(false);
+    $articleCategoryRecognized = array_key_exists($article->category, $articleCategoryOptions);
+
+    $articleBreadcrumbItems = [
+        [
+            '@type' => 'ListItem',
+            'position' => 1,
+            'name' => 'Home',
+            'item' => $articleStructuredDataBaseUrl,
+        ],
+    ];
+
+    if ($articleCategoryRecognized) {
+        $articleBreadcrumbItems[] = [
+            '@type' => 'ListItem',
+            'position' => 2,
+            'name' => $articleCategoryOptions[$article->category],
+            'item' => route('categoria', $article->category),
+        ];
+    }
+
+    // Ultima posizione rinumerata in base a quanti livelli precedono
+    // (2 se la categoria è riconosciuta, altrimenti 1): nessun salto di
+    // position quando il livello Categoria viene omesso.
+    $articleBreadcrumbItems[] = [
+        '@type' => 'ListItem',
+        'position' => count($articleBreadcrumbItems) + 1,
+        'name' => $article->title,
+        'item' => $article->metaCanonicalUrl(),
+    ];
+
     $articleStructuredData = [
         '@context' => 'https://schema.org',
         '@graph' => [
@@ -75,13 +118,17 @@
                     'url' => $articleStructuredDataImageUrl,
                 ],
                 'datePublished' => $article->published_at->toIso8601String(),
-                'articleSection' => \App\Models\Category::options(false)[$article->category] ?? $article->category,
+                'articleSection' => $articleCategoryOptions[$article->category] ?? $article->category,
                 'author' => [
                     '@type' => 'Person',
                     'name' => $article->author->name,
                     'url' => route('autore', $article->author),
                 ],
                 'publisher' => $articleStructuredDataOrganization,
+            ],
+            [
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => $articleBreadcrumbItems,
             ],
         ],
     ];
