@@ -236,13 +236,39 @@ class ArticleSeoMetaTest extends TestCase
         $this->assertStringNotContainsString('&amp;quot;', $html);
     }
 
-    // 8. Regressione: le pagine non-articolo non sono influenzate
+    // 8. Regressione: le pagine non-articolo non sono influenzate nel titolo
     public function test_home_page_og_title_still_mirrors_the_page_title(): void
     {
         $response = $this->get(route('home'));
 
         $response->assertOk();
         $response->assertSee('<meta name="twitter:card" content="summary_large_image">', false);
-        $response->assertDontSee('<meta property="og:image"', false);
+    }
+
+    // 9. Fallback globale og:image/twitter:image (pagine senza immagine propria)
+    public function test_home_page_falls_back_to_the_default_share_image(): void
+    {
+        $defaultImage = asset(config('laboratorio.default_share_image'));
+
+        $response = $this->get(route('home'));
+        $response->assertOk();
+        $response->assertSee('<meta property="og:image" content="'.$defaultImage.'">', false);
+        $response->assertSee('<meta property="og:image:width" content="1200">', false);
+        $response->assertSee('<meta property="og:image:height" content="630">', false);
+        $response->assertSee('<meta name="twitter:image" content="'.$defaultImage.'">', false);
+    }
+
+    public function test_article_page_does_not_use_the_default_share_image(): void
+    {
+        $defaultImage = asset(config('laboratorio.default_share_image'));
+
+        $article = $this->publishedArticle($this->author(), [
+            'cover_image' => 'copertina-og.jpg',
+            'og_image' => null,
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+        $response->assertOk();
+        $response->assertDontSee('<meta property="og:image" content="'.$defaultImage.'">', false);
     }
 }

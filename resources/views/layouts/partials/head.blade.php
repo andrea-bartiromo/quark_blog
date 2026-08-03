@@ -44,11 +44,20 @@
 
 <meta property="og:url" content="{{ url()->current() }}">
 
-@hasSection('og_image')
-<meta property="og:image" content="@yield('og_image')">
+@php
+    // Fallback globale: la maggior parte delle pagine (home, categorie,
+    // ricerca, pagine statiche) non definisce og_image/twitter_image, quindi
+    // finora non emetteva affatto il tag. trim() copre anche il caso limite
+    // di una sezione definita ma vuota (es. @section('og_image', $maybeNull)).
+    $ogImage = trim((string) ($__env->hasSection('og_image') ? $__env->yieldContent('og_image') : ''));
+    $ogImage = $ogImage !== '' ? $ogImage : asset(config('laboratorio.default_share_image'));
+
+    $twitterImage = trim((string) ($__env->hasSection('twitter_image') ? $__env->yieldContent('twitter_image') : ''));
+    $twitterImage = $twitterImage !== '' ? $twitterImage : $ogImage;
+@endphp
+<meta property="og:image" content="{{ $ogImage }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-@endif
 
 {{-- Twitter --}}
 <meta name="twitter:card" content="@yield('twitter_card', 'summary_large_image')">
@@ -67,9 +76,7 @@
         : $__env->yieldContent('description') !!}"
 >
 
-@hasSection('twitter_image')
-<meta name="twitter:image" content="@yield('twitter_image')">
-@endif
+<meta name="twitter:image" content="{{ $twitterImage }}">
 
 {{-- Google Analytics --}}
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y1853N6FZP"></script>
