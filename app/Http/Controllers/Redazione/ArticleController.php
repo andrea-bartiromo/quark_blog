@@ -83,6 +83,7 @@ class ArticleController extends Controller
             try {
                 $this->publicMediaSync->create($fullPath, $diskName);
             } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
                 report($exception);
 
                 return back()
@@ -222,6 +223,7 @@ class ArticleController extends Controller
             try {
                 $this->publicMediaSync->create($fullPath, $diskName);
             } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
                 report($exception);
 
                 return back()

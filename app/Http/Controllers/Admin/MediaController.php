@@ -226,6 +226,7 @@ class MediaController extends Controller
     try {
         $this->publicMediaSync->create($fullPath, $diskName);
     } catch (RuntimeException $exception) {
+        $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
         report($exception);
 
         $message = 'Impossibile pubblicare il file caricato. Riprova o contatta l\'assistenza.';

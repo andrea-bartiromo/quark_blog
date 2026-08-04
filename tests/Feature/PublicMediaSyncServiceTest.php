@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\PublicMediaSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
@@ -132,6 +133,42 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertSame('x', file_get_contents($this->isolatedMediaPublicRoot.'/foto.jpg'));
     }
 
+    public function test_create_treats_a_same_size_but_different_content_file_as_a_collision(): void
+    {
+        // filesize() da solo non basta a rilevare una collisione: due file
+        // diversi possono coincidere per numero di byte. Il file gia'
+        // presente e quello sorgente hanno qui la stessa lunghezza ma
+        // contenuto diverso, quindi deve essere rilevata una vera
+        // collisione (confronto per digest SHA-256), non un falso "uguale".
+        $this->setUpIsolatedMediaPublicRoot();
+        $source = $this->sourceFile('foto.jpg', 'AAAAAAAAAA');
+
+        file_put_contents($this->isolatedMediaPublicRoot.'/foto.jpg', 'BBBBBBBBBB');
+
+        $this->expectException(RuntimeException::class);
+
+        $this->service()->create($source, 'foto.jpg');
+
+        $this->assertSame('BBBBBBBBBB', file_get_contents($this->isolatedMediaPublicRoot.'/foto.jpg'));
+    }
+
+    public function test_create_is_a_noop_when_the_same_content_already_exists_at_the_destination(): void
+    {
+        // Complemento del test sopra: quando il file gia' presente ha
+        // davvero lo stesso contenuto (stesso digest), create() non deve
+        // sollevare un errore di collisione — e' il caso normale di una
+        // ri-sincronizzazione (es. compensazione di rollback) su un file
+        // gia' correttamente presente.
+        $this->setUpIsolatedMediaPublicRoot();
+        $source = $this->sourceFile('foto.jpg', 'contenuto-identico');
+
+        file_put_contents($this->isolatedMediaPublicRoot.'/foto.jpg', 'contenuto-identico');
+
+        $this->service()->create($source, 'foto.jpg');
+
+        $this->assertSame('contenuto-identico', file_get_contents($this->isolatedMediaPublicRoot.'/foto.jpg'));
+    }
+
     public function test_delete_removes_the_file_from_the_public_root(): void
     {
         $this->setUpIsolatedMediaPublicRoot();
@@ -196,6 +233,48 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertFileExists($root.'/foto.jpg');
 
         $this->deleteMediaPublicRootRecursivelyForCleanup($root);
+    }
+
+    public function test_cleanup_after_failed_create_removes_the_local_file(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $this->assertFileExists($source);
+
+        $this->service()->cleanupAfterFailedCreate($source);
+
+        $this->assertFileDoesNotExist($source);
+    }
+
+    public function test_cleanup_after_failed_create_is_a_noop_when_there_is_nothing_to_remove(): void
+    {
+        // Nessuna eccezione attesa: puo' capitare se create() e' fallita
+        // prima ancora di scrivere qualcosa (es. file sorgente mancante).
+        $this->service()->cleanupAfterFailedCreate(public_path('assets/img/mai-esistito.jpg'));
+
+        $this->assertTrue(true);
+    }
+
+    public function test_cleanup_after_failed_create_logs_a_warning_when_the_local_unlink_fails(): void
+    {
+        // Un vero fallimento di unlink() (a differenza del caso "niente da
+        // rimuovere" sopra) deve essere registrato: qui lo simuliamo
+        // sostituendo il file con una directory allo stesso path, cosi'
+        // is_file() lo vede ancora come presente ma @unlink() fallisce
+        // davvero, indipendentemente dai privilegi del processo.
+        $path = public_path('assets/img/bloccata.jpg');
+        mkdir($path, 0775, true);
+
+        Log::spy();
+
+        $this->service()->cleanupAfterFailedCreate($path);
+
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['operation'] === 'cleanup_after_failed_create'
+                && $context['path'] === $path
+        );
+
+        rmdir($path);
     }
 
     private function deleteMediaPublicRootRecursivelyForCleanup(string $dir): void

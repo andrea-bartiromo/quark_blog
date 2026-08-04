@@ -97,6 +97,7 @@ class ProfileController extends Controller
         try {
             $this->publicMediaSync->create($fullPath, $diskName);
         } catch (RuntimeException $exception) {
+            $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
             report($exception);
 
             return back()->withErrors(['photo' => 'Impossibile pubblicare la nuova foto. Riprova o contatta l\'assistenza.']);

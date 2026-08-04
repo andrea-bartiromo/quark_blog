@@ -49,6 +49,42 @@ class MediaPublicSyncTest extends TestCase
         return $this->isolatedMediaPublicRoot.'/'.$diskName;
     }
 
+    /**
+     * Elenca ricorsivamente solo i file regolari sotto una directory
+     * (mai le sottodirectory stesse): usato per verificare che un upload
+     * fallito non lasci file orfani, ignorando l'eventuale creazione di
+     * cartelle vuote (es. classificazione automatica) che avviene comunque
+     * indipendentemente dall'esito della sincronizzazione pubblica.
+     *
+     * @return list<string>
+     */
+    private function filesUnder(string $directory): array
+    {
+        if (! is_dir($directory)) {
+            return [];
+        }
+
+        $files = [];
+
+        foreach (scandir($directory) as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = $directory.'/'.$item;
+
+            if (is_dir($path)) {
+                array_push($files, ...$this->filesUnder($path));
+            } else {
+                $files[] = $path;
+            }
+        }
+
+        sort($files);
+
+        return $files;
+    }
+
     // 1. Upload copertina da form articolo (admin)
     public function test_admin_article_cover_upload_is_synced_to_the_public_root(): void
     {
@@ -203,6 +239,31 @@ class MediaPublicSyncTest extends TestCase
         $this->assertDatabaseCount('media', 0);
     }
 
+    // 6bis. Lo stesso fallimento non deve lasciare orfano il file gia'
+    // scritto in public/assets/img prima che la sincronizzazione fallisse.
+    public function test_sync_failure_on_article_cover_upload_cleans_up_the_local_file(): void
+    {
+        $this->configureUnusablePublicRoot();
+
+        $editor = $this->editor();
+        $cover = UploadedFile::fake()->image('cover.jpg', 800, 600);
+
+        $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->actingAs($editor)->post(route('admin.articles.store'), [
+            'title' => 'Articolo che non deve lasciare file orfani',
+            'excerpt' => 'Sommario',
+            'body' => 'Corpo articolo.',
+            'category' => 'energia',
+            'status' => 'draft',
+            'cover_image_upload' => $cover,
+        ]);
+
+        $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
+    }
+
     public function test_sync_failure_on_media_library_upload_does_not_create_a_media_record(): void
     {
         $this->configureUnusablePublicRoot();
@@ -215,5 +276,21 @@ class MediaPublicSyncTest extends TestCase
 
         $response->assertStatus(500)->assertJson(['ok' => false]);
         $this->assertDatabaseCount('media', 0);
+    }
+
+    public function test_sync_failure_on_media_library_upload_cleans_up_the_local_file(): void
+    {
+        $this->configureUnusablePublicRoot();
+
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('fallisce.jpg', 400, 300);
+
+        $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->actingAs($editor)->postJson(route('admin.media.upload'), ['image' => $image]);
+
+        $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
 }

@@ -14,12 +14,13 @@ use RuntimeException;
  * ma solo se non è ancora referenziato altrove nel sito.
  *
  * Operazione sempre best-effort: non lancia mai eccezioni. Un fallimento
- * nella sincronizzazione verso la radice pubblica secondaria viene
- * registrato con un warning strutturato e interrompe il ritiro (nessuna
- * modifica parziale: se non si può garantire la rimozione da entrambe le
- * directory, non si tocca né l'altra directory né il record Media — il
- * file precedente resta semplicemente presente e coerente ovunque, il
- * chiamante non deve mai bloccare la propria azione principale per questo).
+ * nella rimozione da una delle due directory (radice pubblica secondaria o
+ * public/assets/img) viene registrato con un warning strutturato e
+ * interrompe il ritiro (nessuna modifica parziale: se non si può garantire
+ * la rimozione da entrambe le directory, non si tocca né l'altra directory
+ * né il record Media — il file precedente resta semplicemente presente e
+ * coerente ovunque, il chiamante non deve mai bloccare la propria azione
+ * principale per questo).
  */
 class MediaRetirementService
 {
@@ -69,8 +70,15 @@ class MediaRetirementService
         }
 
         $path = public_path('assets/img/'.$diskName);
-        if (is_file($path)) {
-            @unlink($path);
+
+        if (file_exists($path) && ! @unlink($path)) {
+            Log::warning('MediaRetirementService: pulizia file precedente non riuscita nella directory primaria.', [
+                'operation' => $operation,
+                'disk_name' => $diskName,
+                'path' => $path,
+            ]);
+
+            return false;
         }
 
         $media?->delete();

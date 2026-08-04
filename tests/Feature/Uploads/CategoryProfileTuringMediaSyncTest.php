@@ -55,6 +55,41 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
         return $this->isolatedMediaPublicRoot.'/'.$diskName;
     }
 
+    /**
+     * Elenca ricorsivamente solo i file regolari sotto una directory: usato
+     * per verificare che un upload fallito non lasci file orfani, ignorando
+     * l'eventuale creazione di cartelle vuote indipendente dall'esito della
+     * sincronizzazione pubblica.
+     *
+     * @return list<string>
+     */
+    private function filesUnder(string $directory): array
+    {
+        if (! is_dir($directory)) {
+            return [];
+        }
+
+        $files = [];
+
+        foreach (scandir($directory) as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = $directory.'/'.$item;
+
+            if (is_dir($path)) {
+                array_push($files, ...$this->filesUnder($path));
+            } else {
+                $files[] = $path;
+            }
+        }
+
+        sort($files);
+
+        return $files;
+    }
+
     private function configureUnusablePublicRoot(): void
     {
         $blockedRoot = $this->isolatedMediaPublicRoot.'/bloccato-da-un-file';
@@ -146,6 +181,26 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
 
         $response->assertSessionHasErrors('image_upload');
         $this->assertDatabaseMissing('categories', ['name' => 'Categoria che non deve esistere']);
+    }
+
+    public function test_sync_failure_on_category_image_upload_cleans_up_the_local_file(): void
+    {
+        $this->configureUnusablePublicRoot();
+
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('fallisce.jpg', 800, 600);
+
+        $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->actingAs($editor)->post(route('admin.categories.store'), [
+            'name' => 'Categoria che non deve lasciare file orfani',
+            'slug' => '',
+            'image_upload' => $image,
+        ]);
+
+        $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
 
     // --- Foto profilo (admin) -------------------------------------------
@@ -397,5 +452,31 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
 
         $page = SpecialPage::where('slug', 'turing')->firstOrFail();
         $this->assertSame($originalTitle, $page->title);
+    }
+
+    public function test_sync_failure_on_turing_image_upload_cleans_up_the_local_file(): void
+    {
+        $this->configureUnusablePublicRoot();
+
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('fallisce.jpg', 1600, 900);
+
+        SpecialPage::create([
+            'slug' => 'turing',
+            'title' => 'Titolo esistente',
+            'is_active' => true,
+            'content' => [],
+        ]);
+
+        $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->actingAs($editor)
+            ->post(route('admin.turing.update'), $this->turingPayload([
+                'hero_background_image_upload' => $image,
+            ]));
+
+        $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
 }

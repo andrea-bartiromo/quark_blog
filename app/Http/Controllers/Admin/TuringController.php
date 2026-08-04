@@ -329,7 +329,15 @@ class TuringController extends Controller
 
         $file->move($uploadPath, $diskName);
 
-        $this->publicMediaSync->create($uploadPath.DIRECTORY_SEPARATOR.$diskName, $diskName);
+        $fullPath = $uploadPath.DIRECTORY_SEPARATOR.$diskName;
+
+        try {
+            $this->publicMediaSync->create($fullPath, $diskName);
+        } catch (RuntimeException $exception) {
+            $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+
+            throw $exception;
+        }
 
         return $diskName;
     }

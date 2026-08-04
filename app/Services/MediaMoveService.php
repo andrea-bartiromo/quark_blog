@@ -103,6 +103,34 @@ class MediaMoveService
                     );
                 }
 
+                /*
+                 * Il rollback applicativo sopra riporta il file al vecchio
+                 * nome in public/assets/img, ma publicMediaSync->move() puo'
+                 * essere gia' stato eseguito con successo prima che questo
+                 * blocco catch scattasse (es. per un fallimento successivo
+                 * di applyReferenceUpdates()): senza questa compensazione
+                 * speculare, la radice pubblica secondaria resterebbe
+                 * disallineata sul nuovo nome mentre l'app e il DB sono
+                 * gia' tornati al vecchio, ricreando esattamente il bug che
+                 * questo servizio deve prevenire.
+                 */
+                try {
+                    $this->publicMediaSync->move($oldAbsolute, $newDiskName, $oldDiskName);
+                } catch (Throwable $publicSyncException) {
+                    Log::critical('MediaMoveService: compensazione della radice pubblica secondaria fallita', [
+                        'media_id' => $media->id,
+                        'old_disk_name' => $oldDiskName,
+                        'new_disk_name' => $newDiskName,
+                        'error' => $publicSyncException->getMessage(),
+                        'user_id' => $actingUserId,
+                    ]);
+
+                    throw new RuntimeException(
+                        'Spostamento fallito e compensazione della directory pubblica secondaria non riuscita. Verificare manualmente: '.$newDiskName,
+                        previous: $exception
+                    );
+                }
+
                 Log::warning('MediaMoveService: rollback eseguito dopo errore', [
                     'media_id' => $media->id,
                     'old_disk_name' => $oldDiskName,

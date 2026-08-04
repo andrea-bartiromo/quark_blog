@@ -198,7 +198,13 @@ class ArticleController extends Controller
              * che un fallimento qui non lasci un Media senza articolo
              * associato che punta a un file non davvero raggiungibile.
              */
-            $this->publicMediaSync->create($fullPath, $diskName);
+            try {
+                $this->publicMediaSync->create($fullPath, $diskName);
+            } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+
+                throw $exception;
+            }
 
             $this->mediaService->register(
                 $request->user(),

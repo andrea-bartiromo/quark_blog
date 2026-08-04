@@ -172,7 +172,13 @@ class CategoryController extends Controller
              * Media, cosi' un fallimento qui non lascia un riferimento
              * a un file non davvero raggiungibile.
              */
-            $this->publicMediaSync->create($fullPath, 'categories/'.$fileName);
+            try {
+                $this->publicMediaSync->create($fullPath, 'categories/'.$fileName);
+            } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+
+                throw $exception;
+            }
 
             $this->mediaService->register(
                 $request->user(),

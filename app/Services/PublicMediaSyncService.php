@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -42,7 +43,7 @@ class PublicMediaSyncService
 
         clearstatcache(true, $target);
 
-        if (is_file($target) && filesize($target) !== filesize($absoluteSourcePath)) {
+        if (is_file($target) && ! $this->sameContent($target, $absoluteSourcePath)) {
             throw new RuntimeException('Un file diverso esiste gia\' nella directory pubblica per: '.$diskName);
         }
 
@@ -54,10 +55,33 @@ class PublicMediaSyncService
 
         clearstatcache(true, $target);
 
-        if (! is_file($target) || filesize($target) !== filesize($absoluteSourcePath)) {
+        if (! is_file($target) || ! $this->sameContent($target, $absoluteSourcePath)) {
             @unlink($target);
 
             throw new RuntimeException('Verifica della copia pubblica fallita per: '.$diskName);
+        }
+    }
+
+    /**
+     * Ripulisce, con un tentativo best-effort, il file caricato nella
+     * document root primaria dopo che create() e' fallita: create() viene
+     * sempre chiamata prima di registrare il Media corrispondente, quindi
+     * nessun record puntera' mai a questo file. Lasciarlo sul disco lo
+     * renderebbe un orfano non tracciato da nulla. Un fallimento qui viene
+     * solo loggato: non deve mai mascherare l'errore originale gia'
+     * riportato al chiamante.
+     */
+    public function cleanupAfterFailedCreate(string $fullPath): void
+    {
+        if (! file_exists($fullPath)) {
+            return;
+        }
+
+        if (! @unlink($fullPath)) {
+            Log::warning('PublicMediaSyncService: pulizia del file locale non riuscita dopo un fallimento di sincronizzazione.', [
+                'operation' => 'cleanup_after_failed_create',
+                'path' => $fullPath,
+            ]);
         }
     }
 
@@ -164,5 +188,20 @@ class PublicMediaSyncService
         if (! @mkdir($directory, 0775, true) && ! is_dir($directory)) {
             throw new RuntimeException('Impossibile creare la directory pubblica: '.$directory);
         }
+    }
+
+    /**
+     * Confronta due file per contenuto reale (digest SHA-256), non solo per
+     * dimensione: due file diversi possono coincidere per byte totali, il
+     * che renderebbe filesize() da solo inadatto sia a rilevare una vera
+     * collisione sia a verificare che la copia sia stata effettivamente
+     * replicata byte per byte.
+     */
+    private function sameContent(string $pathA, string $pathB): bool
+    {
+        $hashA = @hash_file('sha256', $pathA);
+        $hashB = @hash_file('sha256', $pathB);
+
+        return $hashA !== false && $hashB !== false && $hashA === $hashB;
     }
 }
