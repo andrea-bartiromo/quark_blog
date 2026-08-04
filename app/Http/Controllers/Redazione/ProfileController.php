@@ -4,15 +4,20 @@ namespace App\Http\Controllers\Redazione;
 
 use App\Http\Controllers\Controller;
 use App\Services\ImageService;
+use App\Services\MediaRetirementService;
 use App\Services\MediaService;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class ProfileController extends Controller
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly MediaService $mediaService
+        private readonly MediaService $mediaService,
+        private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly MediaRetirementService $mediaRetirement
     ) {}
 
     public function edit()
@@ -112,6 +117,14 @@ class ProfileController extends Controller
             logErrors: true
         );
 
+        try {
+            $this->publicMediaSync->create($fullPath, $diskName);
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return back()->withErrors(['photo' => 'Impossibile pubblicare la nuova foto. Riprova o contatta l\'assistenza.']);
+        }
+
         $this->mediaService->register(
             $request->user(),
             $originalName,
@@ -120,9 +133,15 @@ class ProfileController extends Controller
             filesize($fullPath) ?: 0
         );
 
+        $previousPhoto = $user->photo;
+
         $user->update([
             'photo' => $diskName,
         ]);
+
+        if ($previousPhoto && $previousPhoto !== $diskName) {
+            $this->mediaRetirement->retireIfUnused($previousPhoto, 'redazione_profile_photo_replaced');
+        }
 
         return redirect()
             ->route('redazione.profile')

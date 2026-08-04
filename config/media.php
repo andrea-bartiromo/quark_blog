@@ -69,4 +69,22 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Radice pubblica secondaria (sincronizzazione media)
+    |--------------------------------------------------------------------------
+    |
+    | Su alcuni hosting (es. cPanel) la document root realmente servita dal
+    | dominio (tipicamente public_html) e' una directory fisicamente separata
+    | da public/assets/img dell'applicazione Laravel: scrivere solo li' non
+    | rende il file davvero raggiungibile pubblicamente. Quando questo valore
+    | e' impostato (env MEDIA_PUBLIC_ROOT), PublicMediaSyncService replica
+    | ogni creazione, spostamento ed eliminazione di file nella Libreria
+    | media anche in questa directory. Lasciare vuoto/nullo quando public/ e
+    | la document root coincidono, o sono collegate da un symlink a livello
+    | di sistema operativo: la sincronizzazione si disattiva da sola (vedi
+    | PublicMediaSyncService::resolveTarget()).
+    */
+    'public_root' => env('MEDIA_PUBLIC_ROOT'),
+
 ];

@@ -20,14 +20,17 @@ use App\Models\Article;
 use App\Models\Category;
 use App\Services\ImageService;
 use App\Services\MediaService;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class ArticleController extends Controller
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly MediaService $mediaService
+        private readonly MediaService $mediaService,
+        private readonly PublicMediaSyncService $publicMediaSync
     ) {}
 
     public function index(Request $request)
@@ -60,10 +63,18 @@ class ArticleController extends Controller
 
     public function store(StoreArticleRequest $request)
     {
-        $data = $this->applyBusinessRules(
-            $request,
-            $request->validated()
-        );
+        try {
+            $data = $this->applyBusinessRules(
+                $request,
+                $request->validated()
+            );
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
+        }
 
         Article::create(
             $data + [
@@ -88,12 +99,20 @@ class ArticleController extends Controller
         UpdateArticleRequest $request,
         Article $article
     ) {
-        $article->update(
-            $this->applyBusinessRules(
+        try {
+            $data = $this->applyBusinessRules(
                 $request,
                 $request->validated()
-            )
-        );
+            );
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
+        }
+
+        $article->update($data);
 
         return redirect()
             ->route('admin.articles')
@@ -169,6 +188,17 @@ class ArticleController extends Controller
                 alwaysReencode: true,
                 logErrors: true
             );
+
+            /*
+             * Replica la copertina nella document root pubblica secondaria
+             * (public_html su cPanel), quando configurata: senza questo,
+             * asset('assets/img/...') può puntare a un file assente sul
+             * dominio pubblico anche se presente in public/assets/img.
+             * Eseguito prima della registrazione in Libreria media, cosi
+             * che un fallimento qui non lasci un Media senza articolo
+             * associato che punta a un file non davvero raggiungibile.
+             */
+            $this->publicMediaSync->create($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),

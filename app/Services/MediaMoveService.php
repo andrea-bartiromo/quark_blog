@@ -19,6 +19,7 @@ class MediaMoveService
     public function __construct(
         private readonly MediaFolderService $folderService,
         private readonly MediaReferenceService $referenceService,
+        private readonly PublicMediaSyncService $publicMediaSync,
     ) {}
 
     public function move(int $mediaId, ?int $destinationFolderId, ?int $actingUserId = null): MediaMoveResult
@@ -69,6 +70,16 @@ class MediaMoveService
             }
 
             try {
+                /*
+                 * Replica lo spostamento anche nella document root
+                 * pubblica secondaria (public_html), quando configurata.
+                 * Eseguito qui, dentro lo stesso try: un fallimento fa
+                 * scattare esattamente lo stesso rollback gia' previsto
+                 * sotto per il rename applicativo, cosi che le due
+                 * directory non restino mai disallineate tra loro.
+                 */
+                $this->publicMediaSync->move($newAbsolute, $oldDiskName, $newDiskName);
+
                 $media->update(['disk_name' => $newDiskName]);
                 $this->applyReferenceUpdates($preflight['updatable_references']);
 
