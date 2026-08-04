@@ -72,11 +72,13 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame(filesize($fullPath), $media->size);
     }
 
-    public function test_the_cover_is_not_resized_by_the_redazione_flow(): void
+    public function test_the_cover_is_resized_to_the_1600px_limit(): void
     {
-        // A differenza dei flussi Admin, Redazione\ArticleController non
-        // chiama mai resizeAndCompress(): le dimensioni originali devono
-        // essere preservate anche oltre i preset usati altrove (1600/1200px).
+        // Come il flusso Admin (vedi AdminArticleImageUploadTest), anche
+        // Redazione\ArticleController chiama resizeAndCompress() con lo
+        // stesso limite di 1600px: da commit d0a0fa3 ("fix: synchronize
+        // production changes") il ridimensionamento è stato allineato tra i
+        // due flussi per evitare copertine non ottimizzate in produzione.
         $author = $this->author();
         $cover = UploadedFile::fake()->image('grande.jpg', 2400, 1200);
 
@@ -87,8 +89,8 @@ class RedazioneArticleImageUploadTest extends TestCase
         $article = Article::where('title', 'Articolo redazione')->firstOrFail();
         [$w, $h] = getimagesize(public_path('assets/img/'.$article->cover_image));
 
-        $this->assertSame(2400, $w);
-        $this->assertSame(1200, $h);
+        $this->assertSame(1600, $w);
+        $this->assertSame(800, $h);
     }
 
     public function test_cover_upload_is_optional(): void
