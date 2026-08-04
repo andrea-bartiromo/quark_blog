@@ -132,7 +132,7 @@
     </div>
 @endif
 
-@if($errors->has('email'))
+@if(isset($errors) && $errors->has('email'))
     <div id="newsletter-alert"
          class="newsletter-alert newsletter-alert--error">
         ❌ {{ $errors->first('email') }}
