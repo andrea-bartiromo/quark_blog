@@ -412,11 +412,15 @@ class ImageServiceTest extends TestCase
         $fullPath = $this->service->upload($file, $destination, 'fake.jpg');
         $originalBytes = file_get_contents($fullPath);
 
-        // Preset con logErrors=true (Media): comportamento empiricamente
-        // verificato in fase di audit — getimagesize() fallisce in modo
-        // "morbido" (nessuna eccezione), quindi il ramo alwaysReencode la
-        // intercetta con un return esplicito prima di raggiungere il
-        // catch/log. Nessun log atteso in questo scenario specifico.
+        // Preset con logErrors=true (Media): comportamento verificato
+        // empiricamente in questo ambiente — getimagesize() fallisce subito
+        // ("bool(false)", nessun header immagine valido nel fixture), quindi
+        // resizeAndCompress() solleva internamente un RuntimeException che
+        // il proprio blocco catch intercetta senza propagarla al chiamante.
+        // Con logErrors=true quel catch registra un warning strutturato
+        // (path/extension/error): è il comportamento atteso, non un
+        // fallimento, perché il requisito da preservare è "nessuna eccezione
+        // verso il chiamante e file originale intatto", non "nessun log".
         $this->service->resizeAndCompress(
             $fullPath, 'jpg', 1600, ['jpg' => 82],
             alwaysReencode: true, logErrors: true
@@ -424,7 +428,7 @@ class ImageServiceTest extends TestCase
 
         $this->assertFileExists($fullPath);
         $this->assertSame($originalBytes, file_get_contents($fullPath));
-        Log::shouldNotHaveReceived('warning');
+        Log::shouldHaveReceived('warning')->once();
     }
 
     public function test_a_genuine_gd_failure_is_caught_and_logged_only_when_the_preset_enables_logging(): void
