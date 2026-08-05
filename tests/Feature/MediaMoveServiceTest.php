@@ -11,6 +11,7 @@ use App\Services\MediaReferenceService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
+use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
 
@@ -18,6 +19,7 @@ class MediaMoveServiceTest extends TestCase
 {
     use RefreshDatabase;
     use UsesIsolatedPublicPath;
+    use UsesIsolatedMediaPublicRoot;
 
     private MediaMoveService $service;
 
@@ -30,6 +32,7 @@ class MediaMoveServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->tearDownIsolatedMediaPublicRoot();
         $this->tearDownIsolatedPublicPath();
         parent::tearDown();
     }
@@ -338,5 +341,92 @@ class MediaMoveServiceTest extends TestCase
         $this->assertSame('da-compensare.jpg', $media->fresh()->disk_name);
         $this->assertFileExists(public_path('assets/img/da-compensare.jpg'));
         $this->assertFileDoesNotExist(public_path('assets/img/archivio/da-compensare.jpg'));
+    }
+
+    public function test_a_failure_after_the_physical_move_also_rolls_back_the_public_root_sync(): void
+    {
+        // Stesso scenario di test_a_failure_after_the_physical_move_triggers_filesystem_compensation
+        // (fallimento in applyReferenceUpdates(), dopo che publicMediaSync->move()
+        // e' gia' stato eseguito con successo), ma qui con MEDIA_PUBLIC_ROOT
+        // attivo: verifica che il rollback riporti in sincronia anche la
+        // radice pubblica secondaria, non solo public/assets/img e il DB.
+        $this->setUpIsolatedMediaPublicRoot();
+
+        $this->mock(MediaReferenceService::class, function ($mock) {
+            $mock->shouldReceive('preflight')->andReturn([
+                'updatable_references' => [[
+                    'type' => 'tipo_sconosciuto_di_test',
+                    'model' => null,
+                    'record_id' => null,
+                    'field' => null,
+                    'json_path' => null,
+                    'description' => 'riferimento fittizio per test di rollback',
+                    'old_value' => 'da-compensare.jpg',
+                    'new_value' => 'archivio/da-compensare.jpg',
+                    'blocking_reason' => null,
+                ]],
+                'blocking_references' => [],
+                'informational_references' => [],
+                'can_move' => true,
+                'total_usage_count' => 1,
+            ]);
+        });
+
+        $service = app(MediaMoveService::class);
+        $folder = $this->folder('archivio');
+        $media = $this->mediaWithFile('da-compensare.jpg');
+
+        try {
+            $service->move($media->id, $folder->id);
+            $this->fail('Doveva lanciare un errore per il tipo di riferimento sconosciuto.');
+        } catch (RuntimeException) {
+            // atteso: la compensazione deve comunque riuscire, anche sulla
+            // radice pubblica secondaria.
+        }
+
+        $this->assertSame('da-compensare.jpg', $media->fresh()->disk_name);
+        $this->assertFileExists(public_path('assets/img/da-compensare.jpg'));
+        $this->assertFileDoesNotExist(public_path('assets/img/archivio/da-compensare.jpg'));
+
+        $this->assertFileExists($this->isolatedMediaPublicRoot.'/da-compensare.jpg');
+        $this->assertFileDoesNotExist($this->isolatedMediaPublicRoot.'/archivio/da-compensare.jpg');
+    }
+
+    public function test_a_preexisting_collision_in_the_public_root_only_is_never_touched_by_rollback(): void
+    {
+        // Un file estraneo con contenuto diverso occupa gia' il path di
+        // destinazione, ma SOLO nella radice pubblica secondaria: nessuna
+        // collisione ne' nell'app-root ne' nel DB, quindi il preflight e
+        // il rename applicativo procedono normalmente. E' la prima (e
+        // unica) publicMediaSync->move() a fallire, per la collisione
+        // rilevata da create(). Il rollback non deve quindi tentare alcuna
+        // compensazione sulla radice pubblica: non c'e' nulla che questo
+        // spostamento abbia davvero cambiato li'.
+        $this->setUpIsolatedMediaPublicRoot();
+
+        $folder = $this->folder('archivio');
+        $media = $this->mediaWithFile('da-spostare.jpg');
+
+        mkdir($this->isolatedMediaPublicRoot.'/archivio', 0775, true);
+        file_put_contents($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg', 'contenuto-estraneo-preesistente');
+
+        try {
+            $this->service->move($media->id, $folder->id);
+            $this->fail('Doveva lanciare RuntimeException per la collisione nella radice pubblica.');
+        } catch (RuntimeException) {
+            // atteso
+        }
+
+        $this->assertSame('da-spostare.jpg', $media->fresh()->disk_name);
+        $this->assertFileExists(public_path('assets/img/da-spostare.jpg'));
+        $this->assertFileDoesNotExist(public_path('assets/img/archivio/da-spostare.jpg'));
+
+        // Il file estraneo preesistente nella radice pubblica non viene mai
+        // eliminato ne' modificato.
+        $this->assertFileExists($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg');
+        $this->assertSame(
+            'contenuto-estraneo-preesistente',
+            file_get_contents($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg')
+        );
     }
 }

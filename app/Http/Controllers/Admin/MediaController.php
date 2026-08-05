@@ -13,9 +13,11 @@ use App\Services\MediaMoveService;
 use App\Services\MediaReferenceService;
 use App\Services\MediaStatsService;
 use App\Services\MediaUsageService;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class MediaController extends Controller
 {
@@ -26,6 +28,7 @@ class MediaController extends Controller
         private readonly MediaReferenceService $mediaReferenceService,
         private readonly MediaUsageService $mediaUsageService,
         private readonly MediaStatsService $mediaStatsService,
+        private readonly PublicMediaSyncService $publicMediaSync,
     ) {}
 
     public function index(Request $request)
@@ -220,6 +223,21 @@ class MediaController extends Controller
         logErrors: true
     );
 
+    try {
+        $this->publicMediaSync->create($fullPath, $diskName);
+    } catch (RuntimeException $exception) {
+        $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+        report($exception);
+
+        $message = 'Impossibile pubblicare il file caricato. Riprova o contatta l\'assistenza.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['ok' => false, 'error' => $message], 500);
+        }
+
+        return back()->with('error', $message);
+    }
+
     $media = Media::create([
         'user_id' => auth()->id(),
         'filename' => $original,
@@ -263,6 +281,14 @@ class MediaController extends Controller
             $noun = $count === 1 ? 'contenuto' : 'contenuti';
 
             return back()->with('error', "Questa immagine è utilizzata in {$count} {$noun} e non può essere eliminata finché è ancora collegata.");
+        }
+
+        try {
+            $this->publicMediaSync->delete($media->disk_name);
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return back()->with('error', 'Impossibile completare l\'eliminazione: la copia pubblica del file non può essere rimossa. Riprova.');
         }
 
         $path = public_path('assets/img/'.$media->disk_name);

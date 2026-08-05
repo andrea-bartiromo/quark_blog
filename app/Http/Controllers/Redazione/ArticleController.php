@@ -10,14 +10,17 @@ use App\Models\Article;
 use App\Models\User;
 use App\Services\ImageService;
 use App\Services\MediaService;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class ArticleController extends Controller
 {
     public function __construct(
         private readonly ImageService $imageService,
-        private readonly MediaService $mediaService
+        private readonly MediaService $mediaService,
+        private readonly PublicMediaSyncService $publicMediaSync
     ) {}
 
     public function index()
@@ -76,6 +79,17 @@ class ArticleController extends Controller
                 alwaysReencode: true,
                 logErrors: true
             );
+
+            try {
+                $this->publicMediaSync->create($fullPath, $diskName);
+            } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+                report($exception);
+
+                return back()
+                    ->withInput()
+                    ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
+            }
 
             $this->mediaService->register(
                 $request->user(),
@@ -205,6 +219,17 @@ class ArticleController extends Controller
                 alwaysReencode: true,
                 logErrors: true
             );
+
+            try {
+                $this->publicMediaSync->create($fullPath, $diskName);
+            } catch (RuntimeException $exception) {
+                $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+                report($exception);
+
+                return back()
+                    ->withInput()
+                    ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
+            }
 
             $this->mediaService->register(
                 $request->user(),

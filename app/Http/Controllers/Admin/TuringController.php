@@ -4,12 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SpecialPage;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class TuringController extends Controller
 {
     private const SLUG = 'turing';
+
+    public function __construct(
+        private readonly PublicMediaSyncService $publicMediaSync
+    ) {}
 
     public function edit()
     {
@@ -22,14 +28,21 @@ class TuringController extends Controller
     {
         $page = $this->firstOrCreateTuringPage();
         $data = $this->validatedData($request);
-        $data = $this->resolveTopLevelImages($request, $data, $page->content ?? []);
 
-        $page->update([
-            'title' => $data['title'],
-            'description' => $data['description'] ?? null,
-            'is_active' => $request->boolean('is_active'),
-            'content' => $this->contentPayload($request, $data),
-        ]);
+        try {
+            $data = $this->resolveTopLevelImages($request, $data, $page->content ?? []);
+
+            $page->update([
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'is_active' => $request->boolean('is_active'),
+                'content' => $this->contentPayload($request, $data),
+            ]);
+        } catch (RuntimeException $exception) {
+            report($exception);
+
+            return back()->withInput()->withErrors(['content' => 'Impossibile pubblicare una delle immagini caricate. Riprova o contatta l\'assistenza.']);
+        }
 
         return redirect()
             ->route('admin.turing')
@@ -315,6 +328,16 @@ class TuringController extends Controller
         }
 
         $file->move($uploadPath, $diskName);
+
+        $fullPath = $uploadPath.DIRECTORY_SEPARATOR.$diskName;
+
+        try {
+            $this->publicMediaSync->create($fullPath, $diskName);
+        } catch (RuntimeException $exception) {
+            $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+
+            throw $exception;
+        }
 
         return $diskName;
     }
