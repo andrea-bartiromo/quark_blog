@@ -26,3 +26,135 @@
   outline-offset: 3px;
   border-radius: 2px;
 }
+
+/* Pannello "Informazioni sull'immagine" (accordion nativo <details>).
+   Deliberatamente sotto-stilizzato rispetto a .article-premium__panel:
+   deve leggersi come una nota editoriale facoltativa, non come una card
+   con pari peso visivo rispetto al testo dell'articolo. */
+.cover-info {
+  margin: 0 0 1.75rem;
+  border: 1px solid var(--border-light, #f3f4f6);
+  border-radius: 10px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.cover-info__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-faint, #9ca3af);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  user-select: none;
+  transition: color 0.18s ease;
+}
+
+.cover-info__summary::-webkit-details-marker,
+.cover-info__summary::marker {
+  display: none;
+  content: '';
+}
+
+.cover-info__summary:hover,
+.cover-info[open] .cover-info__summary {
+  color: var(--ink-muted, #6b7280);
+}
+
+.cover-info__summary:focus-visible {
+  outline: 2px solid var(--primary, #0d9488);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.cover-info__icon,
+.cover-info__chevron {
+  flex: none;
+  color: currentColor;
+}
+
+.cover-info__icon {
+  width: 13px;
+  height: 13px;
+}
+
+.cover-info__label {
+  flex: 1 1 auto;
+}
+
+.cover-info__chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+
+.cover-info[open] .cover-info__chevron {
+  transform: rotate(180deg);
+}
+
+/* Il contenuto resta sempre presente nel DOM (mai display:none): e' la
+   riga grid-template-rows a collassarlo visivamente a 0 quando chiuso,
+   cosi' l'apertura/chiusura si anima con una transizione fluida invece
+   di uno scatto istantaneo, senza alcuna dipendenza JavaScript.
+   Selettore a doppia classe (".cover-info > .cover-info__body") per
+   superare in specificita' la regola dello user-agent stylesheet che
+   normalmente nasconde con display:none i figli di <details> chiuso. */
+.cover-info > .cover-info__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.cover-info[open] > .cover-info__body {
+  grid-template-rows: 1fr;
+}
+
+.cover-info__body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Separazione sottile fra la riga di apertura e il contenuto, senza
+   restituire al blocco l'aspetto di card (niente radius/ombra/sfondo). */
+.cover-info__body-inner .article-premium__panel {
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid var(--border-light, #f3f4f6);
+  box-shadow: none;
+  background: transparent;
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+.cover-info__body-inner .article-premium__panel figcaption {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--ink-soft, #374151);
+}
+
+.cover-info__body-inner .article-premium__panel small {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--ink-muted, #6b7280);
+}
+
+@media (max-width: 640px) {
+  .cover-info__summary {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .cover-info__body-inner .article-premium__panel {
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-info__body,
+  .cover-info__chevron {
+    transition: none;
+  }
+}

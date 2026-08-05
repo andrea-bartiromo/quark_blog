@@ -1,29 +1,46 @@
 <section class="article-premium__body">
   @if($article->cover_caption || $article->cover_credit || $article->cover_source || $article->cover_license)
-  <figure class="article-premium__panel" style="margin:0 0 2rem;">
-    @if($article->cover_caption)
-    <figcaption>{{ $article->cover_caption }}</figcaption>
-    @endif
+  <details class="cover-info">
+    <summary class="cover-info__summary">
+      <svg class="cover-info__icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="10" cy="6.2" r="1.1" fill="currentColor"/>
+        <rect x="9.1" y="8.8" width="1.8" height="6" rx=".9" fill="currentColor"/>
+      </svg>
+      <span class="cover-info__label">Informazioni sull'immagine</span>
+      <svg class="cover-info__chevron" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </summary>
+    <div class="cover-info__body">
+      <div class="cover-info__body-inner">
+        <figure class="article-premium__panel" style="margin:0;">
+          @if($article->cover_caption)
+          <figcaption>{{ $article->cover_caption }}</figcaption>
+          @endif
 
-    @if($article->cover_credit)
-    <small style="display:block;margin-top:.5rem;">Credito: {{ $article->cover_credit }}</small>
-    @endif
+          @if($article->cover_credit)
+          <small style="display:block;margin-top:.5rem;">Credito: {{ $article->cover_credit }}</small>
+          @endif
 
-    @if($article->cover_source)
-    <small style="display:block;margin-top:.25rem;">
-      Fonte:
-      @if($article->cover_source_url && filter_var($article->cover_source_url, FILTER_VALIDATE_URL))
-        <a href="{{ $article->cover_source_url }}" target="_blank" rel="noopener noreferrer">{{ $article->cover_source }}</a>
-      @else
-        {{ $article->cover_source }}
-      @endif
-    </small>
-    @endif
+          @if($article->cover_source)
+          <small style="display:block;margin-top:.25rem;">
+            Fonte:
+            @if($article->cover_source_url && filter_var($article->cover_source_url, FILTER_VALIDATE_URL))
+              <a href="{{ $article->cover_source_url }}" target="_blank" rel="noopener noreferrer">{{ $article->cover_source }}</a>
+            @else
+              {{ $article->cover_source }}
+            @endif
+          </small>
+          @endif
 
-    @if($article->cover_license)
-    <small style="display:block;margin-top:.25rem;">Licenza: {{ $article->cover_license }}</small>
-    @endif
-  </figure>
+          @if($article->cover_license)
+          <small style="display:block;margin-top:.25rem;">Licenza: {{ $article->cover_license }}</small>
+          @endif
+        </figure>
+      </div>
+    </div>
+  </details>
   @endif
 
   @if($isHtml)
