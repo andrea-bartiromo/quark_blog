@@ -53,13 +53,36 @@
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Pubblica</div>
 
+      @if($article && $article->isScheduled() && $article->published_at)
+      <div class="schedule-note" id="schedule-note">
+        <svg class="schedule-note__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.25" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M10 6v4l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="schedule-note__text">
+          Pubblicazione programmata per <strong>{{ $article->publishedAtForEditors()->translatedFormat('d F Y') }} alle {{ $article->publishedAtForEditors()->format('H:i') }}</strong>
+        </span>
+      </div>
+      @endif
+
+      @php $currentStatus = old('status', $article->status ?? ''); @endphp
       <div class="form-group">
         <label class="form-label" for="status">Stato</label>
         <select class="form-select" id="status" name="status">
-          <option value="draft"     {{ old('status', $article->status ?? '') === 'draft'     ? 'selected' : '' }}>Bozza</option>
-          <option value="review"    {{ old('status', $article->status ?? '') === 'review'    ? 'selected' : '' }}>In revisione</option>
-          <option value="published" {{ old('status', $article->status ?? '') === 'published' ? 'selected' : '' }}>Pubblicato</option>
+          @foreach(\App\Models\Article::statusOptions() as $value => $label)
+            <option value="{{ $value }}" {{ $currentStatus === $value ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
         </select>
+      </div>
+
+      <div class="form-group" id="schedule-fields" @if($currentStatus !== 'scheduled') hidden @endif>
+        <label class="form-label" for="published_date">Data pubblicazione</label>
+        <input class="form-input" type="date" id="published_date" name="published_date"
+               value="{{ old('published_date', optional($article?->publishedAtForEditors())->format('Y-m-d')) }}">
+
+        <label class="form-label" for="published_time" style="margin-top:.5rem;">Ora pubblicazione (Europe/Rome)</label>
+        <input class="form-input" type="time" id="published_time" name="published_time"
+               value="{{ old('published_time', optional($article?->publishedAtForEditors())->format('H:i')) }}">
       </div>
 
       <div class="form-group">
@@ -420,6 +443,28 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(function () {
         // Silenzioso: il prefill e' un aiuto, non un requisito per salvare l'articolo.
       });
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const statusSelect = document.getElementById('status');
+  const scheduleFields = document.getElementById('schedule-fields');
+  const scheduleNote = document.getElementById('schedule-note');
+  if (! statusSelect || ! scheduleFields) {
+    return;
+  }
+
+  statusSelect.addEventListener('change', function () {
+    const isScheduled = statusSelect.value === 'scheduled';
+    scheduleFields.hidden = ! isScheduled;
+
+    // Il banner riepiloga la programmazione salvata: se lo stato scelto non
+    // e' (più) "Programmato", nasconderlo evita che contraddica il select.
+    if (scheduleNote) {
+      scheduleNote.hidden = ! isScheduled;
+    }
   });
 });
 </script>

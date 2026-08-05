@@ -222,9 +222,16 @@ class ArticleController extends Controller
         $data['slug'] = Str::slug($data['title']);
         $data['featured'] = $request->boolean('featured');
 
-        $data['published_at'] = $data['status'] === 'published'
-            ? now()
-            : null;
+        $data['published_at'] = match ($data['status']) {
+            Article::STATUS_PUBLISHED => now(),
+            Article::STATUS_SCHEDULED => Article::scheduledAtFromEditorialInput(
+                $data['published_date'],
+                $data['published_time']
+            ),
+            default => null,
+        };
+
+        unset($data['published_date'], $data['published_time']);
 
         if (! empty($data['body'])) {
             $wordCount = str_word_count(

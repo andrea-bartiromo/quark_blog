@@ -41,3 +41,12 @@ Schedule::command('cache:prune-stale-tags')
 // ── Sitemap: rigenerazione ─────────────────────────────────────
 // La sitemap è generata dinamicamente, nessuna azione necessaria
 Schedule::call(function () {})->dailyAt('04:00')->name('sitemap-refresh');
+
+// ── Pubblicazione programmata articoli ──────────────────────────
+// Ogni minuto: pubblica gli articoli 'scheduled' la cui data/ora è arrivata.
+// withoutOverlapping() evita esecuzioni concorrenti se una run precedente
+// è ancora in corso (es. rallentamenti I/O).
+Schedule::command('articles:publish-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/articles-publish.log'));

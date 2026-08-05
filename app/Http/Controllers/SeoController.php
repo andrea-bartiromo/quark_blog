@@ -88,6 +88,7 @@ class SeoController extends Controller
     {
         $articles = Article::where('status', 'published')
             ->where('published_at', '>=', now()->subDays(2))
+            ->where('published_at', '<=', now())
             ->orderByDesc('published_at')
             ->limit(1000)
             ->get(['title', 'slug', 'category', 'published_at']);

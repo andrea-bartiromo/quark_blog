@@ -430,6 +430,83 @@ body.admin-body textarea {
   color: #6b7280;
 }
 
+.status--review {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status--scheduled {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .15rem;
+  padding: .3rem .6rem;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status--scheduled .status__row {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.status--scheduled .status__icon {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+.status--scheduled time {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: .68rem;
+  color: #78350f;
+  white-space: nowrap;
+}
+
+/* Riepilogo di programmazione nella pagina di modifica: nota editoriale
+   discreta, non una card pesante — coerente con .cover-info in public-premium.css */
+.schedule-note {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .55rem .75rem;
+  margin-bottom: 1rem;
+  border-left: 2px solid #d97706;
+  background: #fffbeb;
+  border-radius: 0 4px 4px 0;
+  font-family: var(--font-ui);
+  font-size: .8rem;
+  color: var(--admin-ink-soft);
+}
+
+.schedule-note[hidden] {
+  display: none;
+}
+
+.schedule-note__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.schedule-note__text strong {
+  color: var(--admin-ink);
+}
+
+.review-schedule-fields {
+  display: flex;
+  gap: .35rem;
+}
+
+.review-schedule-fields[hidden] {
+  display: none;
+}
+
 /* Tabelle */
 .admin-table-wrap {
   width: 100%;

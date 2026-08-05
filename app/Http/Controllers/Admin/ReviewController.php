@@ -20,10 +20,40 @@ class ReviewController extends Controller
         return view('admin.review', compact('articles'));
     }
 
-    public function approve(Article $article)
+    public function approve(Request $request, Article $article)
     {
+        $validated = $request->validate([
+            'publish_mode' => 'nullable|in:now,scheduled',
+            'published_date' => 'required_if:publish_mode,scheduled|nullable|date_format:Y-m-d',
+            'published_time' => 'required_if:publish_mode,scheduled|nullable|date_format:H:i',
+        ]);
+
+        if (($validated['publish_mode'] ?? 'now') === 'scheduled') {
+            $scheduledAt = Article::scheduledAtFromEditorialInput(
+                $validated['published_date'],
+                $validated['published_time']
+            );
+
+            if ($scheduledAt->isPast()) {
+                return back()->withErrors([
+                    'published_date' => 'La data e l\'ora di pubblicazione programmata devono essere nel futuro.',
+                ]);
+            }
+
+            $article->update([
+                'status' => Article::STATUS_SCHEDULED,
+                'published_at' => $scheduledAt,
+            ]);
+
+            $this->notifyAuthor($article, 'scheduled');
+            ActivityLog::record('Articolo approvato e programmato', 'article', $article->id, $article->title);
+
+            return redirect()->route('admin.review')
+                ->with('success', "Articolo \"{$article->title}\" approvato e programmato per il {$article->publishedAtForEditors()->translatedFormat('d F Y')} alle {$article->publishedAtForEditors()->format('H:i')}.");
+        }
+
         $article->update([
-            'status' => 'published',
+            'status' => Article::STATUS_PUBLISHED,
             'published_at' => now(),
         ]);
 
@@ -69,6 +99,17 @@ class ReviewController extends Controller
                                   padding:.65rem 1.25rem;border-radius:6px;text-decoration:none;font-weight:600;'>
                             Leggi l'articolo →
                         </a>
+                    </div>
+                ";
+            } elseif ($status === 'scheduled') {
+                $when = $article->publishedAtForEditors()->translatedFormat('d F Y').' alle '.$article->publishedAtForEditors()->format('H:i');
+                $subject = '📅 Il tuo articolo è stato approvato e programmato';
+                $body = "
+                    <div style='font-family:Arial,sans-serif;max-width:540px;padding:1.5rem;'>
+                        <h2 style='color:#0d9488;'>Articolo approvato e programmato 📅</h2>
+                        <p style='color:#374151;'>Ciao {$authorName},</p>
+                        <p style='color:#374151;'>Il tuo articolo <strong>".htmlspecialchars($article->title)."</strong>
+                        è stato revisionato e sarà pubblicato automaticamente il <strong>{$when}</strong>.</p>
                     </div>
                 ";
             } else {

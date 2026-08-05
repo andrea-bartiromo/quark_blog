@@ -55,11 +55,23 @@
            class="btn btn--secondary btn--sm">👁 Leggi e modifica</a>
 
         {{-- Form approva --}}
-        <form method="POST" action="{{ route('admin.review.approve', $article) }}">
+        <form method="POST" action="{{ route('admin.review.approve', $article) }}"
+              class="review-approve-form" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
           @csrf @method('PATCH')
+          <select name="publish_mode" class="form-select review-publish-mode"
+                  style="font-size:.78rem;padding:.35rem .5rem;width:auto;">
+            <option value="now">Pubblica subito</option>
+            <option value="scheduled">Programma</option>
+          </select>
+          <span class="review-schedule-fields" hidden>
+            <input type="date" name="published_date" class="form-input"
+                   style="font-size:.78rem;padding:.35rem .5rem;width:auto;">
+            <input type="time" name="published_time" class="form-input"
+                   style="font-size:.78rem;padding:.35rem .5rem;width:auto;">
+          </span>
           <button type="submit" class="btn btn--primary btn--sm"
-                  onclick="return confirm('Pubblicare questo articolo?')">
-            ✅ Approva e pubblica
+                  onclick="return confirm('Confermare l\'approvazione?')">
+            ✅ Approva
           </button>
         </form>
 
@@ -97,3 +109,20 @@
 @endif
 
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.review-publish-mode').forEach(function (select) {
+    const fields = select.closest('form').querySelector('.review-schedule-fields');
+    if (! fields) {
+      return;
+    }
+
+    select.addEventListener('change', function () {
+      fields.hidden = select.value !== 'scheduled';
+    });
+  });
+});
+</script>
+@endpush

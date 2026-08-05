@@ -14,10 +14,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Article extends Model
 {
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_REVIEW = 'review';
+
+    public const STATUS_SCHEDULED = 'scheduled';
+
+    public const STATUS_PUBLISHED = 'published';
+
+    // Fuso orario in cui la redazione imposta e legge le date di pubblicazione.
+    // Tutte le conversioni Europe/Rome <-> UTC passano da qui: nessun altro
+    // punto del codice deve applicare ->timezone() "a mano".
+    public const EDITORIAL_TIMEZONE = 'Europe/Rome';
+
     protected $fillable = [
         'user_id', 'title', 'slug', 'excerpt', 'body',
         'category', 'cover_image', 'status', 'featured',
@@ -36,6 +50,27 @@ class Article extends Model
         'published_at' => 'datetime',
         'verified_at' => 'datetime',
     ];
+
+    /**
+     * Garantisce ovunque (form Admin, approvazione Redazione, comando
+     * artisan, tinker, factory...) l'invariante: published_at è NULL per
+     * draft/review, valorizzato per scheduled/published. Centralizzare la
+     * regola qui evita che un singolo controller dimenticato la violi.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Article $article) {
+            if (in_array($article->status, [self::STATUS_DRAFT, self::STATUS_REVIEW], true)) {
+                $article->published_at = null;
+
+                return;
+            }
+
+            if ($article->status === self::STATUS_PUBLISHED && is_null($article->published_at)) {
+                $article->published_at = now();
+            }
+        });
+    }
 
     // Etichette leggibili per lo stato di verifica
     public static array $verificationLabels = [
@@ -97,6 +132,78 @@ class Article extends Model
     public function scopeByCategory(Builder $q, string $category): Builder
     {
         return $q->where('category', $category);
+    }
+
+    public function scopeScheduled(Builder $q): Builder
+    {
+        return $q->where('status', self::STATUS_SCHEDULED)
+            ->orderBy('published_at');
+    }
+
+    // ── Stato ─────────────────────────────────────────────────
+
+    /**
+     * @return array<string, string> Valore enum => etichetta leggibile, nell'ordine
+     *                                in cui vanno proposte nel select "Stato articolo".
+     */
+    public static function statusOptions(): array
+    {
+        return [
+            self::STATUS_DRAFT => 'Bozza',
+            self::STATUS_REVIEW => 'In revisione',
+            self::STATUS_SCHEDULED => 'Programmato',
+            self::STATUS_PUBLISHED => 'Pubblicato',
+        ];
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    public function isInReview(): bool
+    {
+        return $this->status === self::STATUS_REVIEW;
+    }
+
+    public function isScheduled(): bool
+    {
+        return $this->status === self::STATUS_SCHEDULED;
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->status === self::STATUS_PUBLISHED;
+    }
+
+    /**
+     * Un articolo 'scheduled' il cui orario è già passato: lo scheduler non
+     * è ancora transitato (in ritardo) o è momentaneamente fermo.
+     */
+    public function isScheduleOverdue(): bool
+    {
+        return $this->isScheduled() && $this->published_at !== null && $this->published_at->isPast();
+    }
+
+    // ── Fuso orario redazionale ──────────────────────────────────
+
+    /**
+     * published_at (memorizzato in UTC) convertito nel fuso orario della
+     * redazione, per la visualizzazione in badge/banner/form.
+     */
+    public function publishedAtForEditors(): ?Carbon
+    {
+        return $this->published_at?->clone()->timezone(self::EDITORIAL_TIMEZONE);
+    }
+
+    /**
+     * Converte una coppia data/ora inserita dalla redazione (Europe/Rome,
+     * ora locale con eventuale ora legale) nell'istante UTC da salvare in
+     * published_at. Unico punto del codice che esegue questa conversione.
+     */
+    public static function scheduledAtFromEditorialInput(string $date, string $time): Carbon
+    {
+        return Carbon::createFromFormat('Y-m-d H:i', "{$date} {$time}", self::EDITORIAL_TIMEZONE)->utc();
     }
 
     // ── Accessor ──────────────────────────────────────────────

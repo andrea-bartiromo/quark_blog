@@ -20,8 +20,7 @@ class AuthorController extends Controller
     public function show(User $user)
     {
         $articles = Article::where('user_id', $user->id)
-            ->where('status', 'published')
-            ->orderByDesc('published_at')
+            ->published()
             ->paginate(12);
 
         return view('autore', [

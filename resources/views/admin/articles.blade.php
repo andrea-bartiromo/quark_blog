@@ -34,7 +34,22 @@
         <td class="article-title-cell" title="{{ $article->title }}">{{ Str::limit($article->title,55) }}</td>
         <td class="col-category">{{ $article->category }}</td>
         <td class="col-author">{{ $article->author->name }}</td>
-        <td><span class="status status--{{ $article->status }}">{{ $article->status }}</span></td>
+        <td>
+          @if($article->isScheduled() && $article->published_at)
+            <span class="status status--scheduled" title="Pubblicazione programmata">
+              <span class="status__row">
+                <svg class="status__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <circle cx="10" cy="10" r="7.25" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M10 6v4l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Programmato
+              </span>
+              <time datetime="{{ $article->published_at->toIso8601String() }}">{{ $article->publishedAtForEditors()->translatedFormat('d M, H:i') }}</time>
+            </span>
+          @else
+            <span class="status status--{{ $article->status }}">{{ \App\Models\Article::statusOptions()[$article->status] ?? $article->status }}</span>
+          @endif
+        </td>
         <td class="col-views">{{ number_format($article->views) }}</td>
         <td class="col-date">{{ $article->created_at->format('d/m/Y') }}</td>
         <td>
