@@ -23,14 +23,14 @@
 @endphp
 
 @if($items->isNotEmpty())
-  <ol {{ $attributes->merge(['class' => 'enigma-step-list' . ($variant === 'signal' ? ' enigma-step-list--signal' : '')]) }}>
+  <ol {{ $attributes->merge(['class' => 'sp-step-list' . ($variant === 'signal' ? ' sp-step-list--signal' : '')]) }}>
     @foreach($items as $index => $step)
       @php $isPivot = $variant === 'signal' && ($step['pivot'] ?? false); @endphp
-      <li class="enigma-step-list__item {{ $isPivot ? 'enigma-step-list__item--pivot' : '' }}">
-        <span class="enigma-step-list__index" aria-hidden="true">
+      <li class="sp-step-list__item {{ $isPivot ? 'sp-step-list__item--pivot' : '' }}">
+        <span class="sp-step-list__index" aria-hidden="true">
           <span>{{ $index + 1 }}</span>
         </span>
-        <div class="enigma-step-list__body">
+        <div class="sp-step-list__body">
           @if(filled($step['title'] ?? null))
             <strong>{{ $step['title'] }}</strong>
           @endif

@@ -1,7 +1,23 @@
 @props([
-  /* Collezione/array di eventi. Ogni evento: year, title, text, image, alt,
-     url|link_url, e opzionalmente details (approfondimento editoriale più
-     lungo, mostrato in una modale dedicata quando valorizzato). */
+  /* Collezione/array di eventi. Ogni evento:
+       - year, title, text: dati minimi della card sul filo del tempo.
+       - image, alt: immagine (card se l'evento non apre una modale,
+         altrimenti spostata dentro la modale).
+       - url|link_url, link_label: link semplice (esterno o verso un'altra
+         pagina), reso come <a> quando l'evento non apre anche una modale.
+       - details: approfondimento editoriale più lungo (paragrafi separati
+         da riga vuota), mostrato nel corpo della modale.
+       - curiosity: breve nota "curiosità", mostrata come riquadro isolato
+         dentro la modale — non un secondo blocco di prosa, un aneddoto
+         puntuale che integra il resto senza allungarlo.
+       - documents: array di {label, url} — fonti/documenti collegati
+         all'evento, mostrati come elenco di link dentro la modale.
+       - related_links: array di {label, url} — collegamenti interni ad
+         altri capitoli dello Speciale pertinenti a questo evento
+         specifico, distinti dal link event-level (url/link_url) sopra.
+     Un evento apre una modale se possiede almeno uno fra details,
+     curiosity, documents, related_links: la sola presenza di year/title/
+     text non basta a giustificarne una (vedi $hasModal sotto). */
   'events' => [],
   /* Etichetta e titolo della cover di capitolo */
   'kicker' => 'Timeline',
@@ -88,6 +104,21 @@
             $hasUrl = filled($eventUrl);
             $hasDetails = filled($event['details'] ?? null);
             $media = $resolveMedia($event['image'] ?? null);
+            $curiosity = $event['curiosity'] ?? null;
+            $documents = collect($event['documents'] ?? [])
+                ->filter(fn ($doc) => filled($doc['url'] ?? null) && filled($doc['label'] ?? null))
+                ->values();
+            $relatedLinks = collect($event['related_links'] ?? [])
+                ->filter(fn ($link) => filled($link['url'] ?? null) && filled($link['label'] ?? null))
+                ->values();
+
+            /* Un evento apre una modale se ha un contenuto reale da mostrarci
+               dentro: solo year/title/text non bastano (resterebbe una
+               modale vuota). Questo, non $hasDetails da solo, decide se la
+               card diventa un trigger di modale — cosi' un evento puo' avere
+               una modale anche solo per una curiosita' o dei collegamenti
+               correlati, senza dover per forza scrivere un 'details' lungo. */
+            $hasModal = $hasDetails || filled($curiosity) || $documents->isNotEmpty() || $relatedLinks->isNotEmpty();
 
             /* Id deterministico e univoco: radice dalla sezione (già univoca
                per invocazione, vedi il prop 'id' sopra) più la posizione
@@ -96,18 +127,23 @@
                mai collidere, e resta stabile fra un render e l'altro. */
             $modalId = $id . '-event-' . $index;
 
-            /* Un evento con 'details' apre una modale tramite un <button>: la
-               card non può quindi restare un <a> quando entrambi url e
-               details sono presenti, per non annidare un elemento
-               interattivo dentro un altro. Senza 'details' il comportamento
-               resta esattamente quello di sempre. */
-            $cardTag = ($hasUrl && ! $hasDetails) ? 'a' : 'div';
+            /* Un evento con una modale la apre tramite un <button>: la card
+               non può quindi restare un <a> quando url e modale sono
+               entrambi presenti, per non annidare un elemento interattivo
+               dentro un altro. Senza modale il comportamento resta esattamente
+               quello di sempre (card intera come link). */
+            $cardTag = ($hasUrl && ! $hasModal) ? 'a' : 'div';
+
+            $cardClasses = collect(['sp-timeline__card'])
+                ->when($hasUrl && ! $hasModal, fn ($classes) => $classes->push('sp-timeline__card--link'))
+                ->when($hasModal, fn ($classes) => $classes->push('sp-timeline__card--has-modal'))
+                ->implode(' ');
           @endphp
           <li class="sp-timeline__item">
             <span class="sp-timeline__marker" aria-hidden="true"></span>
             <{{ $cardTag }}
-              class="sp-timeline__card {{ ($hasUrl && ! $hasDetails) ? 'sp-timeline__card--link' : '' }}"
-              @if($hasUrl && ! $hasDetails) href="{{ $eventUrl }}" @endif
+              class="{{ $cardClasses }}"
+              @if($hasUrl && ! $hasModal) href="{{ $eventUrl }}" @endif
             >
               @if(filled($event['year'] ?? null))
                 <span class="sp-timeline__year">{{ $event['year'] }}</span>
@@ -117,7 +153,7 @@
                 @if(filled($event['text'] ?? null))
                   <p class="sp-timeline__text">{{ $event['text'] }}</p>
                 @endif
-                @if($media && ! $hasDetails)
+                @if($media && ! $hasModal)
                   <img
                     class="sp-timeline__media"
                     src="{{ $media }}"
@@ -127,11 +163,23 @@
                   >
                 @endif
 
-                @if($hasDetails)
+                @if($hasModal)
                   <div class="sp-timeline__actions">
                     @if($hasUrl)
                       <a class="sp-timeline__event-link" href="{{ $eventUrl }}">{{ $event['link_label'] ?? 'Scopri di più' }}</a>
                     @endif
+                    {{--
+                      Pattern "stretched button": il pulsante resta l'unico
+                      elemento interattivo semanticamente rilevante (un solo
+                      tab-stop per evento, coerente con la tastiera), ma la
+                      sua area cliccabile/tappabile copre l'intera card via
+                      ::before position:absolute (vedi CSS .sp-timeline__card
+                      --has-modal), cosi' l'intero evento è cliccabile come
+                      richiesto, non solo la piccola etichetta "Approfondisci".
+                      Se è presente anche .sp-timeline__event-link, quel link
+                      resta sopra lo stretched button (z-index, vedi CSS) e
+                      quindi cliccabile per la propria destinazione separata.
+                    --}}
                     <button
                       type="button"
                       class="sp-timeline__details-trigger"
@@ -152,11 +200,13 @@
                  successive alla prima. La modale resta position:fixed, quindi
                  la sua posizione nel DOM non ha alcun effetto sul suo
                  posizionamento visivo. --}}
-            @if($hasDetails)
+            @if($hasModal)
               @php
-                $detailsParagraphs = collect(preg_split('/\n{2,}/', trim((string) $event['details'])))
-                    ->map(fn ($paragraph) => trim($paragraph))
-                    ->filter();
+                $detailsParagraphs = $hasDetails
+                    ? collect(preg_split('/\n{2,}/', trim((string) $event['details'])))
+                        ->map(fn ($paragraph) => trim($paragraph))
+                        ->filter()
+                    : collect();
               @endphp
               <x-special.modal :id="$modalId" :title="$event['title'] ?? null" size="md" class="sp-timeline__modal">
                 @if(filled($event['year'] ?? null))
@@ -173,11 +223,42 @@
                   >
                 @endif
 
-                <div class="sp-timeline__modal-details">
-                  @foreach($detailsParagraphs as $paragraph)
-                    <p>{{ $paragraph }}</p>
-                  @endforeach
-                </div>
+                @if($detailsParagraphs->isNotEmpty())
+                  <div class="sp-timeline__modal-details">
+                    @foreach($detailsParagraphs as $paragraph)
+                      <p>{{ $paragraph }}</p>
+                    @endforeach
+                  </div>
+                @endif
+
+                @if(filled($curiosity))
+                  <aside class="sp-timeline__modal-curiosity">
+                    <span class="sp-timeline__modal-curiosity-label">Curiosità</span>
+                    <p>{{ $curiosity }}</p>
+                  </aside>
+                @endif
+
+                @if($documents->isNotEmpty())
+                  <div class="sp-timeline__modal-documents">
+                    <span class="sp-timeline__modal-section-label">Documenti e fonti</span>
+                    <ul>
+                      @foreach($documents as $document)
+                        <li><a href="{{ $document['url'] }}" target="_blank" rel="noopener noreferrer">{{ $document['label'] }}</a></li>
+                      @endforeach
+                    </ul>
+                  </div>
+                @endif
+
+                @if($relatedLinks->isNotEmpty())
+                  <div class="sp-timeline__modal-related">
+                    <span class="sp-timeline__modal-section-label">Continua nello Speciale</span>
+                    <ul>
+                      @foreach($relatedLinks as $link)
+                        <li><a href="{{ $link['url'] }}">{{ $link['label'] }} →</a></li>
+                      @endforeach
+                    </ul>
+                  </div>
+                @endif
               </x-special.modal>
             @endif
           </li>

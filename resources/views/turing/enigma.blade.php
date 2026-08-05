@@ -63,7 +63,7 @@
         <x-turing.article.breadcrumb :items="[['label' => 'Enigma']]" />
     </div>
 
-    <x-turing.enigma.chapter-nav :chapters="$chapters" />
+    <x-special.chapter-nav :chapters="$chapters" />
 
     {{-- 1. Hero cinematografica con dati chiave --}}
     <section class="enigma-hero" style="background-image:url('{{ $heroImage }}')">
@@ -175,7 +175,7 @@
                 {{-- Otto hotspot numerati sulla stessa illustrazione della macchina: selezionabili
                      con mouse, tocco o tastiera (radio+label, nessun JavaScript). Sotto ~760px i
                      marcatori diventano una riga di pillole numerate sopra l'immagine. --}}
-                <x-turing.enigma.hotspot-diagram
+                <x-special.hotspot-diagram
                     name="enigma-anatomia-hotspot"
                     :image="$anatomyImage"
                     alt="Diagramma illustrato di una macchina Enigma aperta, con otto punti numerati sui componenti principali"
@@ -241,7 +241,7 @@
         </div>
 
         <div class="container container--wide">
-            <x-turing.enigma.step-list variant="signal" :steps="[
+            <x-special.step-list variant="signal" :steps="[
                 ['title' => 'Il tasto viene premuto', 'text' => 'L’operatore preme una lettera sulla tastiera, avviando il circuito elettrico della macchina.'],
                 ['title' => 'Il segnale entra nel circuito', 'text' => 'La corrente comincia il proprio percorso attraverso i componenti interni della macchina.'],
                 ['title' => 'Passaggio nel plugboard', 'text' => 'Se quella lettera è collegata a un’altra tramite un cavo stecker, il segnale viene scambiato prima ancora di raggiungere i rotori.'],
@@ -399,7 +399,7 @@
             </div>
 
             <div class="enigma-ops-panel">
-                <x-turing.enigma.step-list :steps="[
+                <x-special.step-list :steps="[
                     ['title' => 'Intercettazione', 'text' => 'Le stazioni di ascolto radio captavano il traffico cifrato tedesco e lo trascrivevano carattere per carattere.'],
                     ['title' => 'Ricerca del crib', 'text' => 'Gli analisti cercavano nel messaggio frammenti plausibili di testo in chiaro, a partire da abitudini ricorrenti.'],
                     ['title' => 'Verifica alla Bombe', 'text' => 'Le ipotesi venivano tradotte in un test meccanico, eseguito dalla Bombe per restringere rapidamente le configurazioni compatibili.'],
@@ -418,6 +418,11 @@
             />
         </div>
     </section>
+
+    <x-turing.article.quote cite="Attribuita a Winston Churchill, riferita al personale di Bletchley Park — un aneddoto ampiamente riportato dalle fonti storiche, non una trascrizione da un documento d'archivio verificabile parola per parola">
+        <p>«My geese that laid the golden eggs and never cackled.»</p>
+        <p><em>«Le mie oche che deponevano le uova d’oro e non schiamazzavano mai.»</em></p>
+    </x-turing.article.quote>
 
     {{-- 8. Sezione tecnica sulla Bombe --}}
     <section id="enigma-bombe" class="turing-section enigma-surface enigma-surface--operations enigma-anchor">
@@ -521,8 +526,18 @@
                     'Protagonisti' . "\n" . 'Arthur Scherbius, ingegnere tedesco, brevetta la macchina e la commercializza attraverso la propria azienda.',
                     'Conseguenze' . "\n" . 'Le forze armate tedesche, negli anni successivi, adottano e modificano progressivamente il progetto originale per uso militare — l’inizio della storia che il resto di questa pagina racconta.'
                 ),
+                'curiosity' => 'Il nome «Enigma» riprende il termine greco per «enigma, indovinello»: Scherbius lo scelse come marchio commerciale per una macchina da ufficio, anni prima che la parola diventasse sinonimo dei segreti bellici che ne avrebbero definito la fama.',
             ],
-            ['year' => 'Anni ’20', 'title' => 'L’adozione militare', 'text' => 'Le forze armate tedesche adottano e modificano progressivamente Enigma per le proprie comunicazioni riservate.'],
+            [
+                'year' => 'Anni ’20',
+                'title' => 'L’adozione militare',
+                'text' => 'Le forze armate tedesche adottano e modificano progressivamente Enigma per le proprie comunicazioni riservate.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Nella seconda metà degli anni ’20, le forze armate tedesche iniziano ad adottare Enigma per le proprie comunicazioni, allontanandosi progressivamente dal modello commerciale originario.',
+                    'Protagonisti' . "\n" . 'Marina, esercito e — più tardi — aviazione tedesca sviluppano proprie varianti della macchina, con l’aggiunta di componenti come il plugboard, assente nella versione commerciale e pensato per ampliare ulteriormente lo spazio delle chiavi possibili.',
+                    'Conseguenze' . "\n" . 'Il progetto commerciale di Scherbius diventa così una famiglia di macchine militari riservate, sempre più distanti dalla versione documentata pubblicamente — il punto di partenza reale che i crittoanalisti avrebbero dovuto affrontare.'
+                ),
+            ],
             [
                 'year' => '1932',
                 'title' => 'Le prime violazioni',
@@ -532,8 +547,18 @@
                     'Protagonisti' . "\n" . 'Marian Rejewski, con Jerzy Różycki e Henryk Zygalski, sviluppa metodi teorici e macchine dedicate (le cosiddette «bombe» polacche, precedenti a quella britannica) per ricostruire il cablaggio dei rotori.',
                     'Conseguenze' . "\n" . 'Nel luglio 1939, poche settimane prima dell’invasione della Polonia, quei metodi e quelle macchine furono condivisi con Francia e Regno Unito — una delle basi dirette su cui si costruì il lavoro successivo di Bletchley Park.'
                 ),
+                'curiosity' => 'Il nome «Bombe» — anche nella successiva versione britannica — deriva dalla parola polacca «bomba»: l’origine esatta resta dibattuta fra gli storici, fra chi la lega al ticchettio meccanico della macchina e chi a un dolce dell’epoca, ma la parola stessa arriva da Varsavia, non da Bletchley Park.',
             ],
-            ['year' => '1939–1945', 'title' => 'L’uso bellico esteso', 'text' => 'Enigma diventa lo strumento di cifratura standard di gran parte delle comunicazioni militari tedesche durante la Seconda guerra mondiale.'],
+            [
+                'year' => '1939–1945',
+                'title' => 'L’uso bellico esteso',
+                'text' => 'Enigma diventa lo strumento di cifratura standard di gran parte delle comunicazioni militari tedesche durante la Seconda guerra mondiale.',
+                'details' => $paragraphs(
+                    'Contesto' . "\n" . 'Con lo scoppio del conflitto, varianti di Enigma diventano lo standard di cifratura di gran parte delle comunicazioni militari tedesche, non un unico protocollo condiviso.',
+                    'Protagonisti' . "\n" . 'Esercito, marina e aviazione tedeschi utilizzano proprie varianti e procedure operative distinte; la marina, in particolare, introduce nel 1942 una versione a quattro rotori, ritenuta più sicura delle altre.',
+                    'Conseguenze' . "\n" . 'Questa frammentazione in varianti diverse è uno dei motivi per cui il lavoro di Bletchley Park, raccontato nelle prossime tappe, dovette restare un processo continuo per tutta la guerra: violare una variante non significava aver violato le altre.'
+                ),
+            ],
             [
                 'year' => '1940',
                 'title' => 'Bletchley Park entra in azione',
@@ -563,6 +588,9 @@
                     'Protagonisti' . "\n" . 'Solo a partire dalla metà degli anni ’70 — a partire dal libro «The Ultra Secret» di F. W. Winterbotham, 1974 — l’esistenza del materiale Ultra e il ruolo di Bletchley Park cominciarono a essere resi pubblici.',
                     'Conseguenze' . "\n" . 'Quel riconoscimento tardivo è anche ciò che collega questa pagina al resto dello Speciale: i metodi e le macchine sviluppati per violare Enigma confluiscono nelle basi tecniche e concettuali dell’informatica del dopoguerra — un’eredità diventata visibile solo molto tempo dopo essere stata costruita.'
                 ),
+                'related_links' => [
+                    ['label' => 'Scopri l’eredità di Turing', 'url' => route('turing.legacy')],
+                ],
             ],
         ];
     @endphp
@@ -578,7 +606,7 @@
     {{-- Marcatore: oltre questo punto la navigazione a capitoli si nasconde
          (Fase 5: "non deve coprire il contenuto") — non c'e' piu' un
          capitolo attivo da segnalare oltre la timeline. --}}
-    <div data-enigma-chapter-nav-end aria-hidden="true"></div>
+    <div data-sp-chapter-nav-end aria-hidden="true"></div>
 
     {{-- 11. Eredità nella cybersecurity --}}
     <section class="turing-section enigma-surface enigma-surface--dark enigma-closing">
@@ -659,6 +687,7 @@
             ['label' => 'Torna allo speciale', 'url' => route('turing')],
             ['label' => 'La macchina universale', 'url' => route('turing.computation')],
             ['label' => 'Il gioco dell’imitazione', 'url' => route('turing.intelligence')],
+            ['label' => 'Scopri l’eredità di Turing', 'url' => route('turing.legacy')],
         ]"
     />
 
@@ -667,5 +696,5 @@
 
 @push('scripts')
     <script src="{{ asset('js/special-modal.js') }}"></script>
-    <script src="{{ asset('js/turing-enigma.js') }}" defer></script>
+    <script src="{{ asset('js/special-chapter-nav.js') }}" defer></script>
 @endpush

@@ -107,6 +107,25 @@ class TuringEnigmaPageTest extends TestCase
             ->assertSee('href="'.route('turing.intelligence').'"', false);
     }
 
+    public function test_enigma_page_links_to_legacy_the_mandatory_link(): void
+    {
+        // Collegamento obbligatorio Enigma -> Legacy (Architettura
+        // editoriale §5): prima di questa fase assente dalla CTA finale.
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('href="'.route('turing.legacy').'"', false)
+            ->assertSeeText('Scopri l’eredità di Turing');
+    }
+
+    public function test_enigma_page_includes_a_direct_quotation(): void
+    {
+        $this->get(route('turing.enigma'))
+            ->assertOk()
+            ->assertSee('turing-final-card', false)
+            ->assertSeeText('My geese that laid the golden eggs and never cackled.')
+            ->assertSeeText('Winston Churchill');
+    }
+
     public function test_other_turing_pages_still_respond_successfully(): void
     {
         $this->get(route('turing'))->assertOk();
@@ -329,7 +348,7 @@ class TuringEnigmaPageTest extends TestCase
     {
         $this->get(route('turing.enigma'))
             ->assertOk()
-            ->assertSee('enigma-step-list', false)
+            ->assertSee('sp-step-list', false)
             ->assertSeeText('Il tasto viene premuto')
             ->assertSeeText('Una lampada si accende');
     }
@@ -385,11 +404,11 @@ class TuringEnigmaPageTest extends TestCase
 
         // Nav desktop (fissa) e mobile (orizzontale sticky): stessi anchor,
         // markup semplice <a href="#..."> funzionante anche senza JS.
-        $this->assertSame(2, substr_count($html, 'data-enigma-chapter-nav>'));
+        $this->assertSame(2, substr_count($html, 'data-sp-chapter-nav>'));
         // Marcatore per il fade-out della nav oltre l'ultimo capitolo (vedi
-        // public/js/turing-enigma.js): non deve coprire i contenuti di
+        // public/js/special-chapter-nav.js): non deve coprire i contenuti di
         // chiusura.
-        $this->assertStringContainsString('data-enigma-chapter-nav-end', $html);
+        $this->assertStringContainsString('data-sp-chapter-nav-end', $html);
         $this->assertStringContainsString('href="#enigma-anatomia"', $html);
         $this->assertStringContainsString('href="#enigma-segnale"', $html);
         $this->assertStringContainsString('href="#enigma-bletchley"', $html);
@@ -427,8 +446,8 @@ class TuringEnigmaPageTest extends TestCase
         $this->get(route('turing.enigma'))
             ->assertOk()
             ->assertSee('enigma-signal-trail', false)
-            ->assertSee('enigma-step-list--signal', false)
-            ->assertSee('enigma-step-list__item--pivot', false)
+            ->assertSee('sp-step-list--signal', false)
+            ->assertSee('sp-step-list__item--pivot', false)
             ->assertSeeText('Riflessione');
     }
 
@@ -447,16 +466,62 @@ class TuringEnigmaPageTest extends TestCase
     {
         $html = $this->get(route('turing.enigma'))->getContent();
 
-        // 5 dei 7 eventi hanno 'details' (vedi Fase 14: "non rendere ogni
-        // evento espandibile"), ciascuno con un trigger accessibile da
+        // Ogni evento della Timeline apre una modale (requisito esplicito
+        // della fase "Enigma pagina di riferimento": nessun evento resta
+        // senza approfondimento), ciascuno con un trigger accessibile da
         // tastiera; l'implementazione di focus trap/ESC/aria-labelledby/
         // scroll lock è ereditata da <x-special.modal> (Decision #009),
         // già usata dalla Timeline della hub — non duplicata qui.
-        $this->assertSame(5, substr_count($html, 'sp-timeline__details-trigger'));
-        $this->assertSame(5, substr_count($html, 'aria-haspopup="dialog"'));
+        $this->assertSame(7, substr_count($html, 'sp-timeline__details-trigger'));
+        $this->assertSame(7, substr_count($html, 'aria-haspopup="dialog"'));
         $this->assertStringContainsString('Arthur Scherbius', $html);
         $this->assertStringContainsString('Marian Rejewski', $html);
         $this->assertStringContainsString('The Ultra Secret', $html);
+    }
+
+    public function test_enigma_timeline_every_event_has_a_modal(): void
+    {
+        // Requisito esplicito di questa fase: "ogni evento della timeline
+        // deve essere cliccabile [...] aprire una finestra modale" — non più
+        // un sottoinsieme (vedi test precedente). L'anno funge da elenco
+        // esaustivo degli eventi previsti in questa pagina.
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        foreach (['1918', 'Anni ’20', '1932', '1939–1945', '1940', '1943–1944', '1945 e oltre'] as $year) {
+            $this->assertStringContainsString(
+                '<span class="sp-timeline__year">'.$year.'</span>',
+                $html,
+                "L'evento {$year} deve comparire nella Timeline."
+            );
+        }
+
+        $this->assertSame(7, substr_count($html, 'sp-timeline__card--has-modal'));
+    }
+
+    public function test_enigma_timeline_events_have_curiosity_and_related_link(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        $this->assertSame(2, substr_count($html, 'sp-timeline__modal-curiosity-label'));
+        $this->assertStringContainsString('Il nome «Enigma» riprende il termine greco', $html);
+        $this->assertStringContainsString('Il nome «Bombe»', $html);
+
+        $this->assertStringContainsString('sp-timeline__modal-related', $html);
+        $this->assertStringContainsString('Continua nello Speciale', $html);
+        $this->assertStringContainsString('Scopri l’eredità di Turing', $html);
+        $this->assertStringContainsString(route('turing.legacy'), $html);
+    }
+
+    public function test_enigma_timeline_cards_are_fully_clickable_via_stretched_button(): void
+    {
+        // Pattern "stretched button": un solo elemento interattivo semantico
+        // per evento (il trigger), la cui area cliccabile copre l'intera
+        // card via CSS — verificato qui leggendo il CSS condiviso, non solo
+        // il markup, perché e' li' che vive il comportamento richiesto.
+        $css = file_get_contents(public_path('css/special-project.css'));
+
+        $this->assertStringContainsString('.sp-timeline__card--has-modal', $css);
+        $this->assertStringContainsString('.sp-timeline__details-trigger::before', $css);
     }
 
     public function test_enigma_timeline_final_event_covers_declassification(): void
@@ -478,13 +543,13 @@ class TuringEnigmaPageTest extends TestCase
     {
         $html = $this->get(route('turing.enigma'))->getContent();
 
-        $this->assertStringContainsString('js/turing-enigma.js', $html);
-        $this->assertFileExists(public_path('js/turing-enigma.js'));
+        $this->assertStringContainsString('js/special-chapter-nav.js', $html);
+        $this->assertFileExists(public_path('js/special-chapter-nav.js'));
 
         // La navigazione e' fatta di <a href="#..."> reali: deve restare
         // utilizzabile anche senza JavaScript (il file aggiunge solo
         // l'evidenziazione della sezione attiva).
-        $js = file_get_contents(public_path('js/turing-enigma.js'));
+        $js = file_get_contents(public_path('js/special-chapter-nav.js'));
         $this->assertStringContainsString('IntersectionObserver', $js);
     }
 
@@ -494,11 +559,11 @@ class TuringEnigmaPageTest extends TestCase
 
         // Hotspot CSS-only (radio + label): 8 input radio, 8 marcatori, 8
         // pannelli descrittivi — nessun JavaScript coinvolto.
-        $this->assertSame(8, substr_count($html, 'enigma-hotspot__radio'));
-        // 'enigma-hotspot__marker"' (con l'apice) esclude il wrapper
-        // .enigma-hotspot__markers, di cui "marker" è altrimenti una sottostringa.
-        $this->assertSame(8, substr_count($html, 'enigma-hotspot__marker"'));
-        $this->assertSame(8, substr_count($html, 'enigma-hotspot__panel"'));
+        $this->assertSame(8, substr_count($html, 'sp-hotspot__radio'));
+        // 'sp-hotspot__marker"' (con l'apice) esclude il wrapper
+        // .sp-hotspot__markers, di cui "marker" è altrimenti una sottostringa.
+        $this->assertSame(8, substr_count($html, 'sp-hotspot__marker"'));
+        $this->assertSame(8, substr_count($html, 'sp-hotspot__panel"'));
         $this->assertStringContainsString('checked', $html);
         $this->assertStringContainsString('Contatto a molla', $html);
         $this->assertStringContainsString('Cavo stecker', $html);
@@ -528,7 +593,7 @@ class TuringEnigmaPageTest extends TestCase
         // Con un'immagine CMS non ha senso posizionare hotspot su
         // coordinate pensate per l'illustrazione di default: si torna alla
         // figure semplice.
-        $this->assertStringNotContainsString('enigma-hotspot__radio', $html);
+        $this->assertStringNotContainsString('sp-hotspot__radio', $html);
         $this->assertStringContainsString('turing-enigma-panel.webp', $html);
     }
 

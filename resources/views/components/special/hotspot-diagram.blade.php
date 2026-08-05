@@ -3,7 +3,7 @@
     'alt',
     'caption' => null,
     'hotspots' => [],
-    'name' => 'enigma-hotspot',
+    'name' => 'sp-hotspot',
 ])
 
 {{--
@@ -14,32 +14,32 @@
     diventano una riga di pillole numerate sopra l'immagine (stesso
     input/label, solo layout diverso via media query).
 --}}
-<figure class="turing-article-figure enigma-hotspot-figure">
-    <div class="enigma-hotspot">
+<figure class="turing-article-figure sp-hotspot-figure">
+    <div class="sp-hotspot">
         @foreach ($hotspots as $i => $hotspot)
             <input
                 type="radio"
                 name="{{ $name }}"
                 id="{{ $name }}-{{ $i }}"
-                class="enigma-hotspot__radio sr-only"
+                class="sp-hotspot__radio sr-only"
                 @checked($i === 0)
             >
         @endforeach
 
-        <div class="enigma-hotspot__stage">
+        <div class="sp-hotspot__stage">
             <img
                 src="{{ $image }}"
                 alt="{{ $alt }}"
                 loading="lazy"
                 decoding="async"
-                class="enigma-hotspot__image"
+                class="sp-hotspot__image"
             >
 
-            <div class="enigma-hotspot__markers">
+            <div class="sp-hotspot__markers">
                 @foreach ($hotspots as $i => $hotspot)
                     <label
                         for="{{ $name }}-{{ $i }}"
-                        class="enigma-hotspot__marker"
+                        class="sp-hotspot__marker"
                         style="--hx:{{ $hotspot['x'] }}%; --hy:{{ $hotspot['y'] }}%;"
                     >
                         <span aria-hidden="true">{{ $i + 1 }}</span>
@@ -49,10 +49,10 @@
             </div>
         </div>
 
-        <div class="enigma-hotspot__panels">
+        <div class="sp-hotspot__panels">
             @foreach ($hotspots as $i => $hotspot)
-                <div class="enigma-hotspot__panel" data-panel="{{ $i }}">
-                    <span class="enigma-hotspot__panel-index">{{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}</span>
+                <div class="sp-hotspot__panel" data-panel="{{ $i }}">
+                    <span class="sp-hotspot__panel-index">{{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}</span>
                     <h3>{{ $hotspot['title'] }}</h3>
                     <p>{{ $hotspot['text'] }}</p>
                 </div>
