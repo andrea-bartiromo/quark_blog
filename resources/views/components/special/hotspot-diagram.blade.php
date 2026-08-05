@@ -6,6 +6,30 @@
     'name' => 'sp-hotspot',
 ])
 
+@php
+    /* .sp-hotspot__image ha width:100% e height:auto (CSS): senza gli
+       attributi width/height sull'<img>, il browser non conosce il rapporto
+       d'aspetto prima del caricamento e riserva altezza 0, causando un
+       layout shift quando l'immagine (lazy) carica — che a sua volta fa
+       atterrare male qualsiasi ancora verso una sezione successiva calcolata
+       prima dello shift. $image può arrivare da CMS (dimensioni non note a
+       priori): le risolviamo qui, una sola volta, leggendo il file reale sul
+       disco locale invece di presumerle, cosi' il fix regge qualunque
+       immagine passata al componente, non solo quella di oggi. Se il file
+       non è risolvibile localmente (es. URL davvero esterno), width/height
+       restano assenti e il comportamento torna quello preesistente. */
+    $hotspotImageDimensions = null;
+    $hotspotImagePath = parse_url($image, PHP_URL_PATH);
+
+    if ($hotspotImagePath) {
+        $hotspotImageLocalPath = public_path(ltrim($hotspotImagePath, '/'));
+
+        if (is_file($hotspotImageLocalPath)) {
+            $hotspotImageDimensions = @getimagesize($hotspotImageLocalPath);
+        }
+    }
+@endphp
+
 {{--
     Hotspot interamente CSS (radio + label, nessun JavaScript): ogni marcatore
     è una <label for="..."> collegata a un <input type="radio"> nascosto ma
@@ -33,6 +57,10 @@
                 loading="lazy"
                 decoding="async"
                 class="sp-hotspot__image"
+                @if($hotspotImageDimensions)
+                    width="{{ $hotspotImageDimensions[0] }}"
+                    height="{{ $hotspotImageDimensions[1] }}"
+                @endif
             >
 
             <div class="sp-hotspot__markers">

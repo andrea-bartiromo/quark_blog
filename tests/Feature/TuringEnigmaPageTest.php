@@ -597,6 +597,23 @@ class TuringEnigmaPageTest extends TestCase
         $this->assertStringContainsString('turing-enigma-panel.webp', $html);
     }
 
+    // Guardia di regressione a livello di pagina per il fix del layout
+    // shift: senza width/height sull'<img> del diagramma hotspot, il
+    // browser non conosce l'altezza definitiva prima del caricamento
+    // dell'immagine (lazy) e ogni ancora di navigazione verso una sezione
+    // successiva calcolata prima dello shift atterra corta.
+    public function test_enigma_anatomy_hotspot_image_reserves_its_real_dimensions(): void
+    {
+        $html = $this->get(route('turing.enigma'))->getContent();
+
+        [$width, $height] = getimagesize(public_path('images/turing/enigma/cutaway-enigma.png'));
+
+        $this->assertMatchesRegularExpression(
+            '/<img\b[^>]*class="sp-hotspot__image"[^>]*width="' . $width . '"[^>]*height="' . $height . '"/s',
+            $html
+        );
+    }
+
     public function test_enigma_daily_key_has_an_operational_panel(): void
     {
         $this->get(route('turing.enigma'))
