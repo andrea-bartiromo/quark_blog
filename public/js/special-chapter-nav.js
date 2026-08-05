@@ -1,22 +1,23 @@
 /**
- * /turing/enigma — evidenzia il capitolo attivo nella navigazione (desktop
- * e mobile) durante lo scroll. Puro miglioramento progressivo: la
- * navigazione e' fatta di <a href="#..."> reali, funzionanti anche se
- * questo script non si carica o IntersectionObserver non e' disponibile.
+ * Evidenzia il capitolo attivo in <x-special.chapter-nav> (desktop e mobile)
+ * durante lo scroll. Puro miglioramento progressivo: la navigazione e'
+ * fatta di <a href="#..."> reali, funzionanti anche se questo script non si
+ * carica o IntersectionObserver non e' disponibile. Generico: nessuna
+ * dipendenza da una pagina specifica, riusabile da qualunque Special Project.
  */
 (function () {
   if (typeof IntersectionObserver === 'undefined') {
     return;
   }
 
-  var links = document.querySelectorAll('[data-enigma-chapter-link]');
+  var links = document.querySelectorAll('[data-sp-chapter-link]');
   if (!links.length) {
     return;
   }
 
   var linksById = {};
   links.forEach(function (link) {
-    var id = link.getAttribute('data-enigma-chapter-link');
+    var id = link.getAttribute('data-sp-chapter-link');
     linksById[id] = linksById[id] || [];
     linksById[id].push(link);
   });
@@ -63,8 +64,8 @@
   // IntersectionObserver a soglia 0 in quel caso non richiama mai la
   // callback — un semplice controllo di posizione a ogni scroll invece
   // funziona sempre, a prescindere da come si e' arrivati a quel punto.
-  var endMarker = document.querySelector('[data-enigma-chapter-nav-end]');
-  var navs = document.querySelectorAll('[data-enigma-chapter-nav]');
+  var endMarker = document.querySelector('[data-sp-chapter-nav-end]');
+  var navs = document.querySelectorAll('[data-sp-chapter-nav]');
 
   if (endMarker && navs.length) {
     var ticking = false;
@@ -73,7 +74,7 @@
       ticking = false;
       var pastEnd = endMarker.getBoundingClientRect().top < 0;
       navs.forEach(function (nav) {
-        nav.classList.toggle('enigma-chapter-nav--hidden', pastEnd);
+        nav.classList.toggle('sp-chapter-nav--hidden', pastEnd);
       });
     };
 

@@ -174,12 +174,26 @@
 }
 
 .sp-timeline__card {
+  position: relative;
   display: block;
   padding: 1.35rem 1.5rem;
   border-radius: var(--sp-radius);
   background: var(--sp-card-bg);
   border: 1px solid var(--sp-card-border);
   box-shadow: var(--sp-card-shadow);
+}
+
+/* Evento con modale: stessa affordance hover/focus di .sp-timeline__card--link
+   (traslazione + ombra), cosi' la card si legge come interattiva anche prima
+   di individuare il pulsante "Approfondisci" al suo interno. */
+.sp-timeline__card--has-modal {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.sp-timeline__card--has-modal:hover {
+  transform: translateY(-3px);
+  border-color: rgba(15, 118, 110, .38);
+  box-shadow: var(--sp-card-shadow-hover);
 }
 
 .sp-timeline__year {
@@ -351,12 +365,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sp-timeline__card--link {
+  .sp-timeline__card--link,
+  .sp-timeline__card--has-modal {
     transition: none;
   }
 
   .sp-timeline__card--link:hover,
-  .sp-timeline__card--link:focus-visible {
+  .sp-timeline__card--link:focus-visible,
+  .sp-timeline__card--has-modal:hover {
     transform: none;
   }
 }
@@ -666,6 +682,12 @@
 }
 
 .sp-timeline__event-link {
+  position: relative;
+  /* Sopra lo stretched button del trigger (vedi .sp-timeline__details-trigger
+     ::before): quando entrambi sono presenti nella stessa card, questo link
+     deve restare cliccabile per la propria destinazione invece di essere
+     intercettato dall'area estesa del pulsante "Approfondisci". */
+  z-index: 2;
   font-weight: 700;
   font-size: .92rem;
   color: var(--sp-accent);
@@ -696,6 +718,20 @@
 
 .sp-timeline__details-trigger::after {
   content: "\2192";
+}
+
+/* Stretched button: l'area cliccabile/tappabile del trigger copre l'intera
+   card (posizionata rispetto a .sp-timeline__card, il piu' vicino antenato
+   position:relative), cosi' l'intero evento e' cliccabile pur restando un
+   solo elemento interattivo semantico per la tastiera (nessun elemento
+   interattivo annidato). z-index sotto .sp-timeline__event-link (2), cosi'
+   quel link — quando presente nella stessa card — resta separatamente
+   cliccabile sopra quest'area estesa. */
+.sp-timeline__details-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
 
 .sp-timeline__details-trigger:hover {
@@ -730,6 +766,78 @@
 
 .sp-timeline__modal-details p:last-child {
   margin-bottom: 0;
+}
+
+/* ---- Curiosità: riquadro isolato, non un secondo blocco di prosa continua
+   con .sp-timeline__modal-details — deve leggersi come un aneddoto a parte,
+   riconoscibile a colpo d'occhio anche scorrendo la modale velocemente. */
+.sp-timeline__modal-curiosity {
+  margin-top: 1.25rem;
+  padding: .9rem 1.1rem;
+  border-left: 3px solid var(--sp-accent);
+  border-radius: 0 var(--sp-radius) var(--sp-radius) 0;
+  background: var(--sp-surface-tint);
+}
+
+.sp-timeline__modal-curiosity-label {
+  display: block;
+  margin-bottom: .3rem;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sp-accent);
+}
+
+.sp-timeline__modal-curiosity p {
+  margin: 0;
+  color: var(--sp-ink-soft);
+  line-height: 1.7;
+}
+
+/* ---- Documenti/fonti e collegamenti correlati: stessa struttura a elenco,
+   etichetta comune, differiscono solo per icona/direzione del link (esterno
+   vs interno) segnalata dalla freccia gia' presente sul solo link interno. */
+.sp-timeline__modal-documents,
+.sp-timeline__modal-related {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--sp-card-border);
+}
+
+.sp-timeline__modal-section-label {
+  display: block;
+  margin-bottom: .55rem;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sp-ink-soft);
+}
+
+.sp-timeline__modal-documents ul,
+.sp-timeline__modal-related ul {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sp-timeline__modal-documents a,
+.sp-timeline__modal-related a {
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--sp-accent);
+  text-decoration: none;
+}
+
+.sp-timeline__modal-documents a:hover,
+.sp-timeline__modal-documents a:focus-visible,
+.sp-timeline__modal-related a:hover,
+.sp-timeline__modal-related a:focus-visible {
+  text-decoration: underline;
 }
 
 @media (max-width: 600px) {

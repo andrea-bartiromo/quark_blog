@@ -246,4 +246,141 @@ class TuringTimelineDetailsModalTest extends TestCase
         $this->assertStringContainsString('Evento legacy', $html);
         $this->assertStringNotContainsString('data-sp-modal-target', $html);
     }
+
+    // ---- Campi aggiunti in questa fase: curiosity, documents, related_links ----
+
+    public function test_curiosity_alone_without_details_still_opens_a_modal(): void
+    {
+        // Un evento puo' avere una modale anche senza 'details': la sola
+        // curiosita' (o documents/related_links, vedi test successivi) basta.
+        $html = $this->renderTimeline([
+            ['year' => '1950', 'title' => 'Evento con sola curiosità', 'text' => 'Testo breve.', 'curiosity' => 'Un aneddoto isolato.'],
+        ]);
+
+        $this->assertStringContainsString('data-sp-modal-target="timeline-event-0"', $html);
+        $this->assertStringContainsString('sp-timeline__modal-curiosity-label', $html);
+        $this->assertStringContainsString('Un aneddoto isolato.', $html);
+        // Nessun blocco 'details' vuoto renderizzato insieme.
+        $this->assertStringNotContainsString('sp-timeline__modal-details', $html);
+    }
+
+    public function test_documents_field_renders_a_link_list_in_the_modal(): void
+    {
+        $html = $this->renderTimeline([
+            [
+                'year' => '1936',
+                'title' => 'Evento con documenti',
+                'text' => 'Testo breve.',
+                'documents' => [
+                    ['label' => 'Fonte primaria di esempio', 'url' => 'https://example.org/fonte-primaria'],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('data-sp-modal-target="timeline-event-0"', $html);
+        $this->assertStringContainsString('sp-timeline__modal-documents', $html);
+        $this->assertStringContainsString('Documenti e fonti', $html);
+        $this->assertStringContainsString('href="https://example.org/fonte-primaria"', $html);
+        $this->assertStringContainsString('Fonte primaria di esempio', $html);
+        // I link a documenti esterni si aprono in una nuova scheda, senza
+        // esporre la pagina di origine tramite window.opener.
+        $this->assertStringContainsString('target="_blank"', $html);
+        $this->assertStringContainsString('rel="noopener noreferrer"', $html);
+    }
+
+    public function test_documents_with_a_missing_url_or_label_are_silently_skipped(): void
+    {
+        $html = $this->renderTimeline([
+            [
+                'year' => '1936',
+                'title' => 'Evento con documento incompleto',
+                'text' => 'Testo breve.',
+                'documents' => [
+                    ['label' => 'Senza url'],
+                    ['url' => 'https://example.org/senza-label'],
+                ],
+            ],
+        ]);
+
+        // Nessun documento valido: niente modale, niente sezione documenti.
+        $this->assertStringNotContainsString('data-sp-modal-target', $html);
+        $this->assertStringNotContainsString('sp-timeline__modal-documents', $html);
+    }
+
+    public function test_related_links_field_renders_internal_navigation_in_the_modal(): void
+    {
+        $html = $this->renderTimeline([
+            [
+                'year' => '1945',
+                'title' => 'Evento con collegamenti correlati',
+                'text' => 'Testo breve.',
+                'related_links' => [
+                    ['label' => 'Scopri l’eredità di Turing', 'url' => '/turing/legacy'],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('sp-timeline__modal-related', $html);
+        $this->assertStringContainsString('Continua nello Speciale', $html);
+        $this->assertStringContainsString('href="/turing/legacy"', $html);
+        $this->assertStringContainsString('Scopri l’eredità di Turing', $html);
+    }
+
+    public function test_all_new_fields_can_coexist_with_details_in_the_same_modal(): void
+    {
+        $html = $this->renderTimeline([
+            [
+                'year' => '1950',
+                'title' => 'Evento completo',
+                'text' => 'Testo breve.',
+                'details' => 'Approfondimento esteso.',
+                'curiosity' => 'Una curiosità.',
+                'documents' => [['label' => 'Documento', 'url' => 'https://example.org/doc']],
+                'related_links' => [['label' => 'Altro capitolo', 'url' => '/turing/legacy']],
+            ],
+        ]);
+
+        $this->assertStringContainsString('sp-timeline__modal-details', $html);
+        $this->assertStringContainsString('Approfondimento esteso.', $html);
+        $this->assertStringContainsString('sp-timeline__modal-curiosity-label', $html);
+        $this->assertStringContainsString('Una curiosità.', $html);
+        $this->assertStringContainsString('sp-timeline__modal-documents', $html);
+        $this->assertStringContainsString('sp-timeline__modal-related', $html);
+        // Un solo trigger/modale per evento, non uno per campo popolato.
+        $this->assertSame(1, substr_count($html, 'data-sp-modal-target="timeline-event-0"'));
+    }
+
+    public function test_card_with_modal_is_marked_for_the_stretched_click_area(): void
+    {
+        $html = $this->renderTimeline([
+            ['year' => '1950', 'title' => 'Evento con modale', 'text' => 'Testo.', 'details' => 'Approfondimento.'],
+        ]);
+
+        $this->assertStringContainsString('sp-timeline__card--has-modal', $html);
+    }
+
+    public function test_event_link_and_modal_trigger_can_coexist_without_nested_interactive_elements(): void
+    {
+        $html = $this->renderTimeline([
+            [
+                'year' => '1950',
+                'title' => 'Evento con link e modale',
+                'text' => 'Testo.',
+                'url' => '/turing/intelligence',
+                'link_label' => 'Vai a Intelligence',
+                'curiosity' => 'Una curiosità.',
+            ],
+        ]);
+
+        $this->assertStringContainsString('href="/turing/intelligence"', $html);
+        $this->assertStringContainsString('Vai a Intelligence', $html);
+        $this->assertStringContainsString('data-sp-modal-target="timeline-event-0"', $html);
+
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8"?>'.$html);
+        $xpath = new \DOMXPath($document);
+
+        $this->assertSame(0, $xpath->query('//button[ancestor::a]')->length);
+        $this->assertSame(0, $xpath->query('//a[.//button]')->length);
+    }
 }
