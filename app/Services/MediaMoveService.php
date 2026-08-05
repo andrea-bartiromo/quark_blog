@@ -69,6 +69,8 @@ class MediaMoveService
                 throw new RuntimeException('Spostamento fisico del file fallito.');
             }
 
+            $publicSyncMoveSucceeded = false;
+
             try {
                 /*
                  * Replica lo spostamento anche nella document root
@@ -79,6 +81,7 @@ class MediaMoveService
                  * directory non restino mai disallineate tra loro.
                  */
                 $this->publicMediaSync->move($newAbsolute, $oldDiskName, $newDiskName);
+                $publicSyncMoveSucceeded = true;
 
                 $media->update(['disk_name' => $newDiskName]);
                 $this->applyReferenceUpdates($preflight['updatable_references']);
@@ -113,22 +116,34 @@ class MediaMoveService
                  * disallineata sul nuovo nome mentre l'app e il DB sono
                  * gia' tornati al vecchio, ricreando esattamente il bug che
                  * questo servizio deve prevenire.
+                 *
+                 * Eseguita pero' solo se la prima publicMediaSync->move()
+                 * e' davvero riuscita ($publicSyncMoveSucceeded): se invece
+                 * e' quella stessa chiamata ad aver fallito (es. per una
+                 * collisione preesistente con un file estraneo gia'
+                 * presente in $newDiskName nella sola radice pubblica),
+                 * non e' mai stato spostato nulla li' e non c'e' nulla da
+                 * compensare — la compensazione andrebbe altrimenti a
+                 * cancellare o alterare quel file estraneo, che questo
+                 * servizio non ha mai toccato.
                  */
-                try {
-                    $this->publicMediaSync->move($oldAbsolute, $newDiskName, $oldDiskName);
-                } catch (Throwable $publicSyncException) {
-                    Log::critical('MediaMoveService: compensazione della radice pubblica secondaria fallita', [
-                        'media_id' => $media->id,
-                        'old_disk_name' => $oldDiskName,
-                        'new_disk_name' => $newDiskName,
-                        'error' => $publicSyncException->getMessage(),
-                        'user_id' => $actingUserId,
-                    ]);
+                if ($publicSyncMoveSucceeded) {
+                    try {
+                        $this->publicMediaSync->move($oldAbsolute, $newDiskName, $oldDiskName);
+                    } catch (Throwable $publicSyncException) {
+                        Log::critical('MediaMoveService: compensazione della radice pubblica secondaria fallita', [
+                            'media_id' => $media->id,
+                            'old_disk_name' => $oldDiskName,
+                            'new_disk_name' => $newDiskName,
+                            'error' => $publicSyncException->getMessage(),
+                            'user_id' => $actingUserId,
+                        ]);
 
-                    throw new RuntimeException(
-                        'Spostamento fallito e compensazione della directory pubblica secondaria non riuscita. Verificare manualmente: '.$newDiskName,
-                        previous: $exception
-                    );
+                        throw new RuntimeException(
+                            'Spostamento fallito e compensazione della directory pubblica secondaria non riuscita. Verificare manualmente: '.$newDiskName,
+                            previous: $exception
+                        );
+                    }
                 }
 
                 Log::warning('MediaMoveService: rollback eseguito dopo errore', [

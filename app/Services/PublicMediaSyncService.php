@@ -56,7 +56,12 @@ class PublicMediaSyncService
         clearstatcache(true, $target);
 
         if (! is_file($target) || ! $this->sameContent($target, $absoluteSourcePath)) {
-            @unlink($target);
+            if (file_exists($target) && ! $this->removeFile($target)) {
+                throw new RuntimeException(
+                    'Verifica della copia pubblica fallita e la copia non valida non puo\' essere rimossa automaticamente: '
+                    .'e\' necessaria una pulizia manuale in '.$target
+                );
+            }
 
             throw new RuntimeException('Verifica della copia pubblica fallita per: '.$diskName);
         }
@@ -116,6 +121,15 @@ class PublicMediaSyncService
      * rename), quindi questa chiamata e' anche auto-risanante per un file
      * che non era mai stato sincronizzato in precedenza.
      *
+     * Se create() riesce ma la successiva delete() del vecchio nome
+     * fallisce, la nuova copia appena creata da questa stessa chiamata
+     * viene rimossa prima di rilanciare l'eccezione: senza questa
+     * compensazione resterebbe una copia duplicata e non referenziata da
+     * nulla nella radice pubblica. La compensazione scatta pero' solo se
+     * il target non esisteva gia' prima di questa chiamata (es. un file
+     * gia' presente e identico da una precedente sincronizzazione): un
+     * file preesistente ed estraneo non viene mai toccato.
+     *
      * @throws RuntimeException se la sincronizzazione e' configurata ma fallisce.
      */
     public function move(string $newAbsoluteSourcePath, string $oldDiskName, string $newDiskName): void
@@ -124,13 +138,57 @@ class PublicMediaSyncService
             return;
         }
 
+        $newTargetPreexisted = $this->targetIsFile($newDiskName);
+
         $this->create($newAbsoluteSourcePath, $newDiskName);
-        $this->delete($oldDiskName);
+
+        try {
+            $this->delete($oldDiskName);
+        } catch (RuntimeException $exception) {
+            if (! $newTargetPreexisted) {
+                $this->compensateCreatedCopy($newDiskName);
+            }
+
+            throw $exception;
+        }
     }
 
     public function isEnabled(): bool
     {
         return $this->publicRoot() !== null;
+    }
+
+    private function targetIsFile(string $diskName): bool
+    {
+        $target = $this->resolveTarget($diskName);
+
+        return $target !== null && is_file($target);
+    }
+
+    /**
+     * Rimuove, con un tentativo best-effort, la copia creata da questa
+     * stessa chiamata a move() quando la successiva delete() del vecchio
+     * nome fallisce. Chiamato solo quando il target non esisteva gia'
+     * prima dell'operazione (vedi $newTargetPreexisted in move()), cosi'
+     * da non toccare mai un file preesistente ed estraneo. Un fallimento
+     * qui viene solo loggato: non deve mai mascherare l'eccezione
+     * originale gia' in corso di propagazione.
+     */
+    private function compensateCreatedCopy(string $diskName): void
+    {
+        $target = $this->resolveTarget($diskName);
+
+        if ($target === null || ! is_file($target)) {
+            return;
+        }
+
+        if (! @unlink($target)) {
+            Log::warning('PublicMediaSyncService: impossibile rimuovere la copia creata durante una move() fallita.', [
+                'operation' => 'move_compensation',
+                'disk_name' => $diskName,
+                'path' => $target,
+            ]);
+        }
     }
 
     /**
@@ -196,12 +254,34 @@ class PublicMediaSyncService
      * che renderebbe filesize() da solo inadatto sia a rilevare una vera
      * collisione sia a verificare che la copia sia stata effettivamente
      * replicata byte per byte.
+     *
+     * Reso "protected" (da "private") esclusivamente per i test: una
+     * copy() reale e deterministica non produce mai un contenuto diverso
+     * dalla sorgente, quindi non esiste un fixture che faccia fallire
+     * davvero questo confronto dopo una copia riuscita. Una sottoclasse di
+     * test che sovrascrive questo singolo metodo e il modo meno invasivo
+     * per simulare una copia risultata invalida e verificare il ramo di
+     * pulizia corrispondente, senza introdurre dipendenze aggiuntive nel
+     * servizio di produzione.
      */
-    private function sameContent(string $pathA, string $pathB): bool
+    protected function sameContent(string $pathA, string $pathB): bool
     {
         $hashA = @hash_file('sha256', $pathA);
         $hashB = @hash_file('sha256', $pathB);
 
         return $hashA !== false && $hashB !== false && $hashA === $hashB;
+    }
+
+    /**
+     * Reso "protected" (da un `@unlink()` inline) esclusivamente per i
+     * test: un vero fallimento di unlink() su un file realmente presente
+     * non e' simulabile in modo affidabile in un processo che gira come
+     * root (i permessi vengono ignorati). Una sottoclasse di test che
+     * sovrascrive questo singolo metodo e il modo meno invasivo per
+     * verificare il comportamento quando la rimozione fallisce davvero.
+     */
+    protected function removeFile(string $path): bool
+    {
+        return @unlink($path);
     }
 }

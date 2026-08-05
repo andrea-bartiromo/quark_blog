@@ -32,6 +32,7 @@ class MediaMoveServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->tearDownIsolatedMediaPublicRoot();
         $this->tearDownIsolatedPublicPath();
         parent::tearDown();
     }
@@ -389,7 +390,43 @@ class MediaMoveServiceTest extends TestCase
 
         $this->assertFileExists($this->isolatedMediaPublicRoot.'/da-compensare.jpg');
         $this->assertFileDoesNotExist($this->isolatedMediaPublicRoot.'/archivio/da-compensare.jpg');
+    }
 
-        $this->tearDownIsolatedMediaPublicRoot();
+    public function test_a_preexisting_collision_in_the_public_root_only_is_never_touched_by_rollback(): void
+    {
+        // Un file estraneo con contenuto diverso occupa gia' il path di
+        // destinazione, ma SOLO nella radice pubblica secondaria: nessuna
+        // collisione ne' nell'app-root ne' nel DB, quindi il preflight e
+        // il rename applicativo procedono normalmente. E' la prima (e
+        // unica) publicMediaSync->move() a fallire, per la collisione
+        // rilevata da create(). Il rollback non deve quindi tentare alcuna
+        // compensazione sulla radice pubblica: non c'e' nulla che questo
+        // spostamento abbia davvero cambiato li'.
+        $this->setUpIsolatedMediaPublicRoot();
+
+        $folder = $this->folder('archivio');
+        $media = $this->mediaWithFile('da-spostare.jpg');
+
+        mkdir($this->isolatedMediaPublicRoot.'/archivio', 0775, true);
+        file_put_contents($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg', 'contenuto-estraneo-preesistente');
+
+        try {
+            $this->service->move($media->id, $folder->id);
+            $this->fail('Doveva lanciare RuntimeException per la collisione nella radice pubblica.');
+        } catch (RuntimeException) {
+            // atteso
+        }
+
+        $this->assertSame('da-spostare.jpg', $media->fresh()->disk_name);
+        $this->assertFileExists(public_path('assets/img/da-spostare.jpg'));
+        $this->assertFileDoesNotExist(public_path('assets/img/archivio/da-spostare.jpg'));
+
+        // Il file estraneo preesistente nella radice pubblica non viene mai
+        // eliminato ne' modificato.
+        $this->assertFileExists($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg');
+        $this->assertSame(
+            'contenuto-estraneo-preesistente',
+            file_get_contents($this->isolatedMediaPublicRoot.'/archivio/da-spostare.jpg')
+        );
     }
 }

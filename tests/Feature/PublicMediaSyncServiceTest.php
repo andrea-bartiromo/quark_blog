@@ -169,6 +169,43 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertSame('contenuto-identico', file_get_contents($this->isolatedMediaPublicRoot.'/foto.jpg'));
     }
 
+    public function test_create_reports_manual_cleanup_needed_when_an_invalid_copy_cannot_be_removed(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $source = $this->sourceFile('foto.jpg', 'contenuto');
+
+        // sameContent() forzato a restituire sempre false: simula una
+        // copia risultata non valida in fase di verifica (una copy() reale
+        // e deterministica non produce mai un mismatch dopo un successo).
+        // removeFile() forzato a restituire false: simula un vero
+        // fallimento di unlink() sulla copia non valida, che a questo
+        // punto e' un file realmente presente nella radice pubblica.
+        $service = new class extends PublicMediaSyncService
+        {
+            protected function sameContent(string $pathA, string $pathB): bool
+            {
+                return false;
+            }
+
+            protected function removeFile(string $path): bool
+            {
+                return false;
+            }
+        };
+
+        try {
+            $service->create($source, 'foto.jpg');
+            $this->fail('Doveva segnalare la necessita\' di una pulizia manuale.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('pulizia manuale', $exception->getMessage());
+        }
+
+        // La copia (non valida ma comunque scritta da copy()) resta sul
+        // disco: la rimozione e' fallita, quindi non deve essere data per
+        // scontata una pulizia che non e' davvero avvenuta.
+        $this->assertFileExists($this->isolatedMediaPublicRoot.'/foto.jpg');
+    }
+
     public function test_delete_removes_the_file_from_the_public_root(): void
     {
         $this->setUpIsolatedMediaPublicRoot();
@@ -218,6 +255,69 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->service()->move(public_path('assets/img/archivio/foto.jpg'), 'foto.jpg', 'archivio/foto.jpg');
 
         $this->assertFileExists($this->isolatedMediaPublicRoot.'/archivio/foto.jpg');
+    }
+
+    public function test_move_removes_the_newly_created_copy_when_deleting_the_old_one_fails(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $this->sourceFile('archivio/foto.jpg', 'contenuto');
+
+        // Un vero fallimento di delete() del vecchio nome (a differenza dei
+        // permessi, non simulabile in modo affidabile mentre il processo
+        // gira come root) viene simulato con una sottoclasse che fa
+        // fallire solo delete(), lasciando create() invariato: replica
+        // esattamente lo scenario "create(new) riuscita, delete(old)
+        // fallita" che move() deve compensare.
+        $service = new class extends PublicMediaSyncService
+        {
+            public function delete(string $diskName): void
+            {
+                throw new RuntimeException('simulazione: delete del vecchio nome fallita');
+            }
+        };
+
+        try {
+            $service->move(public_path('assets/img/archivio/foto.jpg'), 'foto.jpg', 'archivio/foto.jpg');
+            $this->fail('Doveva rilanciare l\'eccezione di delete().');
+        } catch (RuntimeException) {
+            // atteso
+        }
+
+        // La copia creata da questa stessa move() (mai esistita prima)
+        // viene rimossa: nessuna copia duplicata e non referenziata deve
+        // restare nella radice pubblica.
+        $this->assertFileDoesNotExist($this->isolatedMediaPublicRoot.'/archivio/foto.jpg');
+    }
+
+    public function test_move_does_not_touch_a_preexisting_copy_when_deleting_the_old_one_fails(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $this->sourceFile('archivio/foto.jpg', 'contenuto');
+
+        // La destinazione ha gia' lo stesso contenuto, come dopo una
+        // precedente sincronizzazione riuscita: create() la trova identica
+        // e non la "crea" nel senso che conta per la compensazione, quindi
+        // un fallimento della successiva delete() non deve toccarla.
+        mkdir($this->isolatedMediaPublicRoot.'/archivio', 0775, true);
+        file_put_contents($this->isolatedMediaPublicRoot.'/archivio/foto.jpg', 'contenuto');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            public function delete(string $diskName): void
+            {
+                throw new RuntimeException('simulazione: delete del vecchio nome fallita');
+            }
+        };
+
+        try {
+            $service->move(public_path('assets/img/archivio/foto.jpg'), 'foto.jpg', 'archivio/foto.jpg');
+            $this->fail('Doveva rilanciare l\'eccezione di delete().');
+        } catch (RuntimeException) {
+            // atteso
+        }
+
+        $this->assertFileExists($this->isolatedMediaPublicRoot.'/archivio/foto.jpg');
+        $this->assertSame('contenuto', file_get_contents($this->isolatedMediaPublicRoot.'/archivio/foto.jpg'));
     }
 
     public function test_public_root_directory_is_created_when_missing(): void
