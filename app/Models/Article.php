@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -70,6 +71,10 @@ class Article extends Model
                 $article->published_at = now();
             }
         });
+
+        static::saved(fn (Article $article) => app(ProjectTaskSyncService::class)->syncForArticle($article));
+
+        static::deleted(fn (Article $article) => app(ProjectTaskSyncService::class)->invalidateForDeletedArticle($article->id));
     }
 
     // Etichette leggibili per lo stato di verifica

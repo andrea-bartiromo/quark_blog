@@ -50,3 +50,11 @@ Schedule::command('articles:publish-scheduled')
     ->everyMinute()
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/articles-publish.log'));
+
+// ── Area Progettazione: riallineamento stati derivati ────────────
+// Ogni 5 minuti: riallinea i task di Pubblicazione allo stato corrente
+// dell'articolo collegato (idempotente: una run senza cambiamenti non fa nulla).
+Schedule::command('projects:sync-derived-statuses')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/projects-sync.log'));

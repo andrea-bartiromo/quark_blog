@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProjectTask extends Model
 {
     use HasFactory;
+
+    /**
+     * Copre il caso non coperto da Article::saved: creare (o modificare)
+     * un task di Pubblicazione collegato a un articolo GIA' esistente e
+     * invariato non fa scattare alcun evento su Article, quindi il task
+     * deve sincronizzarsi anche da questo lato.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (ProjectTask $task) {
+            if ($task->wasRecentlyCreated || $task->wasChanged(['type', 'article_id', 'manual_override'])) {
+                app(ProjectTaskSyncService::class)->syncTask($task);
+            }
+        });
+    }
 
     public const TYPE_TASK = 'task';
 
