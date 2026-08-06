@@ -184,4 +184,29 @@ class ProjectControllerTest extends TestCase
 
         $this->assertTrue($posCritica < $posAlta && $posAlta < $posMedia && $posMedia < $posBassa);
     }
+
+    public function test_history_tab_lists_activity_log_entries_newest_first(): void
+    {
+        $project = Project::factory()->create();
+        $editor = $this->editor();
+
+        ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Progetto creato', $editor->id);
+        ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Stato progetto cambiato', $editor->id);
+
+        $response = $this->actingAs($editor)
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertTrue(strpos($content, 'Stato progetto cambiato') < strpos($content, 'Progetto creato'));
+    }
+
+    public function test_history_tab_shows_an_empty_state_when_no_activity_yet(): void
+    {
+        $project = Project::factory()->create();
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']))
+            ->assertSeeText('Nessuna attività registrata ancora.');
+    }
 }
