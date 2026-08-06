@@ -20,7 +20,14 @@
     <a href="{{ route('admin.progettazione.projects.index') }}" style="font-size:.8rem;color:#6b7280;text-decoration:none;">← Progetti</a>
     <h1 class="admin-page-title" style="margin-top:.25rem;">{{ $project->title }}</h1>
   </div>
-  <a href="{{ route('admin.progettazione.projects.edit', $project) }}" class="btn btn--secondary">Modifica progetto</a>
+  <div style="display:flex;gap:.5rem;">
+    <a href="{{ route('admin.progettazione.projects.edit', $project) }}" class="btn btn--secondary">✏️ Modifica progetto</a>
+    <form id="delete-project-form" method="POST" action="{{ route('admin.progettazione.projects.destroy', $project) }}"
+          onsubmit="return confirm('Eliminare definitivamente il progetto «{{ $project->title }}»? Task, documenti, prompt e decisioni collegati verranno eliminati insieme al progetto. L\'azione non è reversibile.')">
+      @csrf @method('DELETE')
+      <button type="submit" class="btn btn--danger">🗑️ Elimina progetto</button>
+    </form>
+  </div>
 </div>
 
 <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem;">
@@ -29,12 +36,13 @@
   <span class="status" style="background:#f3f4f6;color:#4b5563;">{{ \App\Models\Project::typeOptions()[$project->type] ?? $project->type }}</span>
 
   {{-- Correzione #3 approvata in revisione: cambio rapido dello stato senza
-       passare dal form di modifica completo. --}}
-  <form method="POST" action="{{ route('admin.progettazione.projects.update-status', $project) }}" style="margin-left:auto;display:flex;align-items:center;gap:.4rem;">
+       passare dal form di modifica completo. Widget riconoscibile (bordo,
+       sfondo colorato, etichetta maiuscola) invece di una <select> isolata. --}}
+  <form method="POST" action="{{ route('admin.progettazione.projects.update-status', $project) }}" class="project-status-switcher" style="margin-left:auto;">
     @csrf
     @method('PATCH')
-    <label for="quick-status" style="font-size:.72rem;color:#6b7280;">Cambia stato:</label>
-    <select id="quick-status" name="operational_status" class="form-select" style="max-width:200px;padding:.35rem .5rem;font-size:.8rem;" onchange="this.form.submit()">
+    <label for="quick-status">Stato progetto</label>
+    <select id="quick-status" name="operational_status" onchange="this.form.submit()">
       @foreach($statusOptions as $value => $label)
         <option value="{{ $value }}" @selected($project->operational_status === $value)>{{ $label }}</option>
       @endforeach
@@ -42,13 +50,11 @@
   </form>
 </div>
 
-<nav aria-label="Schede progetto" style="display:flex;gap:.25rem;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;margin-bottom:1.5rem;">
+<nav aria-label="Schede progetto" class="project-tabs">
   @foreach($tabs as $key => $label)
     <a href="{{ route('admin.progettazione.projects.show', [$project, 'tab' => $key]) }}"
-       aria-current="{{ $activeTab === $key ? 'page' : 'false' }}"
-       style="padding:.65rem 1rem;font-size:.85rem;font-weight:600;text-decoration:none;
-              color:{{ $activeTab === $key ? '#0d9488' : '#6b7280' }};
-              border-bottom:2px solid {{ $activeTab === $key ? '#0d9488' : 'transparent' }};">
+       @class(['active' => $activeTab === $key])
+       aria-current="{{ $activeTab === $key ? 'page' : 'false' }}">
       {{ $label }}
     </a>
   @endforeach

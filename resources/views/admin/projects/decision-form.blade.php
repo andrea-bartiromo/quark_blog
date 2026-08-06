@@ -55,7 +55,7 @@
     <form id="delete-decision-form" method="POST" action="{{ route('admin.progettazione.projects.decisions.destroy', [$project, $decision]) }}"
           onsubmit="return confirm('Eliminare questa decisione?')" style="display:inline;">
       @csrf @method('DELETE')
-      <button type="button" class="btn btn--secondary" onclick="document.getElementById('delete-decision-form').submit()" style="margin-left:.5rem;">Elimina</button>
+      <button type="button" class="btn btn--danger" onclick="document.getElementById('delete-decision-form').submit()" style="margin-left:.5rem;">🗑️ Elimina</button>
     </form>
   @endif
 </div>
