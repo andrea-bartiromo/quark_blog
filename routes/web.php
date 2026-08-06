@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProjectArticleLinkController;
 use App\Http\Controllers\Admin\ProjectCalendarController;
 use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ProjectDecisionController;
@@ -234,6 +235,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::get('/progetti/{project}/decisioni/{decision}/modifica', [ProjectDecisionController::class, 'edit'])->name('projects.decisions.edit');
         Route::put('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'update'])->name('projects.decisions.update');
         Route::delete('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'destroy'])->name('projects.decisions.destroy');
+
+        // Collegamento articoli
+        Route::post('/progetti/{project}/articoli', [ProjectArticleLinkController::class, 'link'])->name('projects.articles.link');
+        Route::delete('/progetti/{project}/articoli/{article}', [ProjectArticleLinkController::class, 'unlink'])->name('projects.articles.unlink');
     });
 });
 
