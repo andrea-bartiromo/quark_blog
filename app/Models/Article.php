@@ -115,6 +115,11 @@ class Article extends Model
         return $this->hasMany(ArticleView::class);
     }
 
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class, 'project_article')->withTimestamps();
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublished(Builder $q): Builder
