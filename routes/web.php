@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProjectArticleLinkController;
 use App\Http\Controllers\Admin\ProjectCalendarController;
 use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectDashboardController;
 use App\Http\Controllers\Admin\ProjectDecisionController;
 use App\Http\Controllers\Admin\ProjectDocumentController;
 use App\Http\Controllers\Admin\ProjectPromptController;
@@ -193,6 +194,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Area Progettazione
     Route::prefix('progettazione')->name('progettazione.')->group(function () {
+        Route::get('/', [ProjectDashboardController::class, 'index'])->name('dashboard');
         Route::get('/progetti', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('/progetti/nuovo', [ProjectController::class, 'create'])->name('projects.create');
         Route::post('/progetti', [ProjectController::class, 'store'])->name('projects.store');
