@@ -12,7 +12,9 @@ use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProjectCalendarController;
 use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
@@ -195,6 +197,17 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::put('/progetti/{project}', [ProjectController::class, 'update'])->name('projects.update');
         Route::patch('/progetti/{project}/stato', [ProjectController::class, 'updateStatus'])->name('projects.update-status');
         Route::delete('/progetti/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+
+        // Attività (nidificate sotto un progetto + vista trasversale)
+        Route::get('/attivita', [ProjectTaskController::class, 'indexAll'])->name('tasks.index-all');
+        Route::get('/progetti/{project}/attivita/nuova', [ProjectTaskController::class, 'create'])->name('projects.tasks.create');
+        Route::post('/progetti/{project}/attivita', [ProjectTaskController::class, 'store'])->name('projects.tasks.store');
+        Route::get('/progetti/{project}/attivita/{task}/modifica', [ProjectTaskController::class, 'edit'])->name('projects.tasks.edit');
+        Route::put('/progetti/{project}/attivita/{task}', [ProjectTaskController::class, 'update'])->name('projects.tasks.update');
+        Route::delete('/progetti/{project}/attivita/{task}', [ProjectTaskController::class, 'destroy'])->name('projects.tasks.destroy');
+
+        // Calendario
+        Route::get('/calendario', [ProjectCalendarController::class, 'index'])->name('calendar');
     });
 });
 
