@@ -14,6 +14,9 @@ use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProjectCalendarController;
 use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectDecisionController;
+use App\Http\Controllers\Admin\ProjectDocumentController;
+use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\StatsController;
@@ -208,6 +211,29 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
         // Calendario
         Route::get('/calendario', [ProjectCalendarController::class, 'index'])->name('calendar');
+
+        // Documenti (nidificati sotto un progetto + vista trasversale)
+        Route::get('/documenti', [ProjectDocumentController::class, 'indexAll'])->name('documents.index-all');
+        Route::get('/progetti/{project}/documenti/nuovo', [ProjectDocumentController::class, 'create'])->name('projects.documents.create');
+        Route::post('/progetti/{project}/documenti', [ProjectDocumentController::class, 'store'])->name('projects.documents.store');
+        Route::get('/progetti/{project}/documenti/{document}/modifica', [ProjectDocumentController::class, 'edit'])->name('projects.documents.edit');
+        Route::put('/progetti/{project}/documenti/{document}', [ProjectDocumentController::class, 'update'])->name('projects.documents.update');
+        Route::delete('/progetti/{project}/documenti/{document}', [ProjectDocumentController::class, 'destroy'])->name('projects.documents.destroy');
+
+        // Prompt
+        Route::get('/progetti/{project}/prompt/nuovo', [ProjectPromptController::class, 'create'])->name('projects.prompts.create');
+        Route::post('/progetti/{project}/prompt', [ProjectPromptController::class, 'store'])->name('projects.prompts.store');
+        Route::get('/progetti/{project}/prompt/{prompt}/modifica', [ProjectPromptController::class, 'edit'])->name('projects.prompts.edit');
+        Route::put('/progetti/{project}/prompt/{prompt}', [ProjectPromptController::class, 'update'])->name('projects.prompts.update');
+        Route::post('/progetti/{project}/prompt/{prompt}/duplica', [ProjectPromptController::class, 'duplicate'])->name('projects.prompts.duplicate');
+        Route::delete('/progetti/{project}/prompt/{prompt}', [ProjectPromptController::class, 'destroy'])->name('projects.prompts.destroy');
+
+        // Decisioni
+        Route::get('/progetti/{project}/decisioni/nuova', [ProjectDecisionController::class, 'create'])->name('projects.decisions.create');
+        Route::post('/progetti/{project}/decisioni', [ProjectDecisionController::class, 'store'])->name('projects.decisions.store');
+        Route::get('/progetti/{project}/decisioni/{decision}/modifica', [ProjectDecisionController::class, 'edit'])->name('projects.decisions.edit');
+        Route::put('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'update'])->name('projects.decisions.update');
+        Route::delete('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'destroy'])->name('projects.decisions.destroy');
     });
 });
 

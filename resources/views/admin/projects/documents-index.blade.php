@@ -1,18 +1,21 @@
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-  <h3 style="margin:0;">Documenti</h3>
-  <a href="{{ route('admin.progettazione.projects.documents.create', $project) }}" class="btn btn--primary" style="font-size:.82rem;">+ Nuovo documento</a>
+@extends('layouts.admin')
+@section('title', 'Documenti — Progettazione')
+@section('content')
+
+<div class="admin-topbar">
+  <h1 class="admin-page-title">Documenti</h1>
 </div>
 
 @if($documents->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessun documento ancora.
+  <div class="admin-card" style="text-align:center;padding:3rem;color:#6b7280;">
+    Nessun documento trovato.
   </div>
 @else
   <div class="admin-table-wrap">
     <table class="admin-table">
       <thead>
         <tr>
-          <th>Titolo</th>
+          <th>Titolo / progetto</th>
           <th>Tipo</th>
           <th>Stato</th>
           <th>Versione</th>
@@ -23,12 +26,15 @@
       <tbody>
         @foreach($documents as $document)
         <tr>
-          <td style="font-weight:700;">{{ $document->title }}</td>
+          <td>
+            <div style="font-weight:700;">{{ $document->title }}</div>
+            <div style="font-size:.72rem;color:#6b7280;">{{ $document->project->title }}</div>
+          </td>
           <td>{{ \App\Models\ProjectDocument::typeOptions()[$document->type] ?? $document->type }}</td>
           <td><span class="status status--doc-{{ $document->status }}">{{ \App\Models\ProjectDocument::statusOptions()[$document->status] ?? $document->status }}</span></td>
           <td>v{{ $document->version }}</td>
           <td>{{ $document->updated_at->format('d/m/Y H:i') }}</td>
-          <td><a href="{{ route('admin.progettazione.projects.documents.edit', [$project, $document]) }}" class="action-btn">Apri</a></td>
+          <td><a href="{{ route('admin.progettazione.projects.documents.edit', [$document->project, $document]) }}" class="action-btn">Apri</a></td>
         </tr>
         @endforeach
       </tbody>
@@ -37,3 +43,5 @@
 
   {{ $documents->links() }}
 @endif
+
+@endsection
