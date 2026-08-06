@@ -467,6 +467,62 @@ body.admin-body textarea {
   white-space: nowrap;
 }
 
+/* Area Progettazione — badge stato progetto */
+.status--project-idea { background: #f3f4f6; color: #6b7280; }
+.status--project-planned { background: #e0e7ff; color: #3730a3; }
+.status--project-in_progress { background: #dbeafe; color: #1e40af; }
+.status--project-blocked { background: #fee2e2; color: #991b1b; }
+.status--project-suspended { background: #fef3c7; color: #92400e; }
+.status--project-completed { background: #d1fae5; color: #065f46; }
+.status--project-cancelled { background: #f3f4f6; color: #9ca3af; }
+
+/* Area Progettazione — badge priorità (condiviso da progetti e task) */
+.status--priority-low { background: #f3f4f6; color: #6b7280; }
+.status--priority-medium { background: #e0e7ff; color: #3730a3; }
+.status--priority-high { background: #fef3c7; color: #92400e; }
+.status--priority-critical { background: #fee2e2; color: #991b1b; }
+
+/* Area Progettazione — badge stato attività (manuale) */
+.status--task-todo { background: #f3f4f6; color: #6b7280; }
+.status--task-taken { background: #e0e7ff; color: #3730a3; }
+.status--task-in_progress { background: #dbeafe; color: #1e40af; }
+.status--task-in_review { background: #fef3c7; color: #92400e; }
+.status--task-completed { background: #d1fae5; color: #065f46; }
+.status--task-blocked { background: #fee2e2; color: #991b1b; }
+.status--task-suspended { background: #fef3c7; color: #92400e; }
+.status--task-cancelled { background: #f3f4f6; color: #9ca3af; }
+
+/* Area Progettazione — badge stato derivato (Pubblicazione) */
+.status--derived-draft { background: #f3f4f6; color: #6b7280; }
+.status--derived-in_review { background: #fef3c7; color: #92400e; }
+.status--derived-scheduled { background: #e0e7ff; color: #3730a3; }
+.status--derived-published { background: #d1fae5; color: #065f46; }
+.status--derived-invalid_link { background: #fee2e2; color: #991b1b; }
+
+.status-override-note {
+  font-size: .72rem;
+  color: #92400e;
+  margin-top: .35rem;
+  line-height: 1.4;
+}
+
+/* Area Progettazione — badge stato documento */
+.status--doc-draft { background: #f3f4f6; color: #6b7280; }
+.status--doc-approved { background: #d1fae5; color: #065f46; }
+.status--doc-archived { background: #f3f4f6; color: #9ca3af; }
+
+/* Area Progettazione — badge stato prompt */
+.status--prompt-draft { background: #f3f4f6; color: #6b7280; }
+.status--prompt-used { background: #e0e7ff; color: #3730a3; }
+.status--prompt-completed { background: #d1fae5; color: #065f46; }
+.status--prompt-archived { background: #f3f4f6; color: #9ca3af; }
+
+/* Area Progettazione — badge stato decisione */
+.status--decision-proposed { background: #fef3c7; color: #92400e; }
+.status--decision-approved { background: #d1fae5; color: #065f46; }
+.status--decision-rejected { background: #fee2e2; color: #991b1b; }
+.status--decision-superseded { background: #f3f4f6; color: #9ca3af; }
+
 /* Riepilogo di programmazione nella pagina di modifica: nota editoriale
    discreta, non una card pesante — coerente con .cover-info in public-premium.css */
 .schedule-note {

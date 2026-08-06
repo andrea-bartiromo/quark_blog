@@ -320,6 +320,20 @@
   </div>
 </form>
 
+@if($article && $article->projects->isNotEmpty())
+  <div class="admin-card" style="margin-top:1.5rem;">
+    <h3 style="margin-top:0;font-size:.95rem;">Progetti collegati</h3>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+      @foreach($article->projects as $project)
+        <li>
+          <a href="{{ route('admin.progettazione.projects.show', $project) }}" style="font-weight:600;">{{ $project->title }}</a>
+          <span class="status status--project-{{ $project->operational_status }}" style="margin-left:.5rem;">{{ \App\Models\Project::statusOptions()[$project->operational_status] ?? $project->operational_status }}</span>
+        </li>
+      @endforeach
+    </ul>
+  </div>
+@endif
+
 @endsection
 
 @section('scripts')

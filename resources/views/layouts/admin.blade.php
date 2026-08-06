@@ -47,6 +47,11 @@
       $isReview        = request()->routeIs('admin.review*');
       $isVerification  = request()->routeIs('admin.verification');
       $isCollaborators = request()->routeIs('admin.collaborators*');
+      $isProgettazioneDashboard = request()->routeIs('admin.progettazione.dashboard');
+      $isProgettazioneProjects  = request()->routeIs('admin.progettazione.projects.*');
+      $isProgettazioneTasks     = request()->routeIs('admin.progettazione.tasks.index-all');
+      $isProgettazioneCalendar  = request()->routeIs('admin.progettazione.calendar');
+      $isProgettazioneDocuments = request()->routeIs('admin.progettazione.documents.index-all');
       $isNewsletter    = request()->routeIs('admin.newsletter')
                           || request()->routeIs('admin.newsletter.export')
                           || request()->routeIs('admin.newsletter.send-now');
@@ -115,6 +120,38 @@
          @class(['active' => $isCollaborators])
          @if($isCollaborators) aria-current="page" @endif>
         <span class="icon">👥</span> Collaboratori
+      </a>
+
+      <span class="admin-nav__section">Progettazione</span>
+
+      <a href="{{ route('admin.progettazione.dashboard') }}"
+         @class(['active' => $isProgettazioneDashboard])
+         @if($isProgettazioneDashboard) aria-current="page" @endif>
+        <span class="icon">🗂️</span> Panoramica
+      </a>
+
+      <a href="{{ route('admin.progettazione.projects.index') }}"
+         @class(['active' => $isProgettazioneProjects])
+         @if($isProgettazioneProjects) aria-current="page" @endif>
+        <span class="icon">📁</span> Progetti
+      </a>
+
+      <a href="{{ route('admin.progettazione.tasks.index-all') }}"
+         @class(['active' => $isProgettazioneTasks])
+         @if($isProgettazioneTasks) aria-current="page" @endif>
+        <span class="icon">✔️</span> Attività progetti
+      </a>
+
+      <a href="{{ route('admin.progettazione.calendar') }}"
+         @class(['active' => $isProgettazioneCalendar])
+         @if($isProgettazioneCalendar) aria-current="page" @endif>
+        <span class="icon">🗓️</span> Calendario
+      </a>
+
+      <a href="{{ route('admin.progettazione.documents.index-all') }}"
+         @class(['active' => $isProgettazioneDocuments])
+         @if($isProgettazioneDocuments) aria-current="page" @endif>
+        <span class="icon">📄</span> Documenti
       </a>
 
       <span class="admin-nav__section">Comunicazione</span>

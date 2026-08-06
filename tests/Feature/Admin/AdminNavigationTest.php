@@ -301,4 +301,43 @@ class AdminNavigationTest extends TestCase
 
         $response->assertOk();
     }
+
+    public function test_the_progettazione_section_and_its_five_areas_are_present(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+        $nav = $this->navFragment($response);
+
+        $this->assertStringContainsString('Progettazione', $nav);
+        $this->assertStringContainsString('Panoramica', $nav);
+        $this->assertStringContainsString('Attività progetti', $nav);
+        $this->assertStringContainsString('Calendario', $nav);
+        $this->assertStringContainsString(route('admin.progettazione.dashboard'), $nav);
+        $this->assertStringContainsString(route('admin.progettazione.projects.index'), $nav);
+        $this->assertStringContainsString(route('admin.progettazione.tasks.index-all'), $nav);
+        $this->assertStringContainsString(route('admin.progettazione.calendar'), $nav);
+        $this->assertStringContainsString(route('admin.progettazione.documents.index-all'), $nav);
+    }
+
+    public function test_the_progettazione_projects_link_is_active_for_nested_project_routes(): void
+    {
+        $editor = $this->editor();
+        $project = \App\Models\Project::factory()->create();
+
+        $response = $this->actingAs($editor)->get(route('admin.progettazione.projects.tasks.create', $project));
+
+        $this->assertNavLinkActive($response, 'admin.progettazione.projects.index');
+    }
+
+    public function test_the_progettazione_dashboard_link_is_only_active_on_its_own_page(): void
+    {
+        $editor = $this->editor();
+
+        $dashboardResponse = $this->actingAs($editor)->get(route('admin.progettazione.dashboard'));
+        $this->assertNavLinkActive($dashboardResponse, 'admin.progettazione.dashboard');
+
+        $projectsResponse = $this->actingAs($editor)->get(route('admin.progettazione.projects.index'));
+        $this->assertNavLinkNotActive($projectsResponse, 'admin.progettazione.dashboard');
+    }
 }

@@ -1,0 +1,21 @@
+<h3 style="margin-top:0;">Cronologia</h3>
+
+@if($activityLog->isEmpty())
+  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
+    Nessuna attività registrata ancora.
+  </div>
+@else
+  <div class="admin-card">
+    @foreach($activityLog as $log)
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;padding:.75rem 0;{{ ! $loop->last ? 'border-bottom:1px solid #f1f5f9;' : '' }}">
+        <div>
+          <div style="font-weight:700;">{{ $log->action }}</div>
+          <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">
+            {{ $log->user?->name ?? 'Sistema' }} · {{ $log->source === \App\Models\ProjectActivityLog::SOURCE_SYSTEM ? 'Automatico' : 'Manuale' }} · {{ $log->subject_title }}
+          </div>
+        </div>
+        <div style="font-size:.72rem;color:#9ca3af;white-space:nowrap;">{{ $log->created_at->format('d/m/Y H:i') }}</div>
+      </div>
+    @endforeach
+  </div>
+@endif

@@ -12,6 +12,14 @@ use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProjectArticleLinkController;
+use App\Http\Controllers\Admin\ProjectCalendarController;
+use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectDashboardController;
+use App\Http\Controllers\Admin\ProjectDecisionController;
+use App\Http\Controllers\Admin\ProjectDocumentController;
+use App\Http\Controllers\Admin\ProjectPromptController;
+use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
@@ -183,6 +191,57 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::put('/ads/{ad}', [AdController::class, 'update'])->name('ads.update');
     Route::patch('/ads/{ad}/toggle', [AdController::class, 'toggle'])->name('ads.toggle');
     Route::delete('/ads/{ad}', [AdController::class, 'destroy'])->name('ads.destroy');
+
+    // Area Progettazione
+    Route::prefix('progettazione')->name('progettazione.')->group(function () {
+        Route::get('/', [ProjectDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/progetti', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('/progetti/nuovo', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('/progetti', [ProjectController::class, 'store'])->name('projects.store');
+        Route::get('/progetti/{project}', [ProjectController::class, 'show'])->name('projects.show');
+        Route::get('/progetti/{project}/modifica', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::put('/progetti/{project}', [ProjectController::class, 'update'])->name('projects.update');
+        Route::patch('/progetti/{project}/stato', [ProjectController::class, 'updateStatus'])->name('projects.update-status');
+        Route::delete('/progetti/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+
+        // Attività (nidificate sotto un progetto + vista trasversale)
+        Route::get('/attivita', [ProjectTaskController::class, 'indexAll'])->name('tasks.index-all');
+        Route::get('/progetti/{project}/attivita/nuova', [ProjectTaskController::class, 'create'])->name('projects.tasks.create');
+        Route::post('/progetti/{project}/attivita', [ProjectTaskController::class, 'store'])->name('projects.tasks.store');
+        Route::get('/progetti/{project}/attivita/{task}/modifica', [ProjectTaskController::class, 'edit'])->name('projects.tasks.edit');
+        Route::put('/progetti/{project}/attivita/{task}', [ProjectTaskController::class, 'update'])->name('projects.tasks.update');
+        Route::delete('/progetti/{project}/attivita/{task}', [ProjectTaskController::class, 'destroy'])->name('projects.tasks.destroy');
+
+        // Calendario
+        Route::get('/calendario', [ProjectCalendarController::class, 'index'])->name('calendar');
+
+        // Documenti (nidificati sotto un progetto + vista trasversale)
+        Route::get('/documenti', [ProjectDocumentController::class, 'indexAll'])->name('documents.index-all');
+        Route::get('/progetti/{project}/documenti/nuovo', [ProjectDocumentController::class, 'create'])->name('projects.documents.create');
+        Route::post('/progetti/{project}/documenti', [ProjectDocumentController::class, 'store'])->name('projects.documents.store');
+        Route::get('/progetti/{project}/documenti/{document}/modifica', [ProjectDocumentController::class, 'edit'])->name('projects.documents.edit');
+        Route::put('/progetti/{project}/documenti/{document}', [ProjectDocumentController::class, 'update'])->name('projects.documents.update');
+        Route::delete('/progetti/{project}/documenti/{document}', [ProjectDocumentController::class, 'destroy'])->name('projects.documents.destroy');
+
+        // Prompt
+        Route::get('/progetti/{project}/prompt/nuovo', [ProjectPromptController::class, 'create'])->name('projects.prompts.create');
+        Route::post('/progetti/{project}/prompt', [ProjectPromptController::class, 'store'])->name('projects.prompts.store');
+        Route::get('/progetti/{project}/prompt/{prompt}/modifica', [ProjectPromptController::class, 'edit'])->name('projects.prompts.edit');
+        Route::put('/progetti/{project}/prompt/{prompt}', [ProjectPromptController::class, 'update'])->name('projects.prompts.update');
+        Route::post('/progetti/{project}/prompt/{prompt}/duplica', [ProjectPromptController::class, 'duplicate'])->name('projects.prompts.duplicate');
+        Route::delete('/progetti/{project}/prompt/{prompt}', [ProjectPromptController::class, 'destroy'])->name('projects.prompts.destroy');
+
+        // Decisioni
+        Route::get('/progetti/{project}/decisioni/nuova', [ProjectDecisionController::class, 'create'])->name('projects.decisions.create');
+        Route::post('/progetti/{project}/decisioni', [ProjectDecisionController::class, 'store'])->name('projects.decisions.store');
+        Route::get('/progetti/{project}/decisioni/{decision}/modifica', [ProjectDecisionController::class, 'edit'])->name('projects.decisions.edit');
+        Route::put('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'update'])->name('projects.decisions.update');
+        Route::delete('/progetti/{project}/decisioni/{decision}', [ProjectDecisionController::class, 'destroy'])->name('projects.decisions.destroy');
+
+        // Collegamento articoli
+        Route::post('/progetti/{project}/articoli', [ProjectArticleLinkController::class, 'link'])->name('projects.articles.link');
+        Route::delete('/progetti/{project}/articoli/{article}', [ProjectArticleLinkController::class, 'unlink'])->name('projects.articles.unlink');
+    });
 });
 
 // ── Login redazione (collaboratori) ───────────────────────────
