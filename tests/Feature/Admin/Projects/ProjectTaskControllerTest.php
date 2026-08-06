@@ -124,4 +124,71 @@ class ProjectTaskControllerTest extends TestCase
             ->get(route('admin.progettazione.projects.tasks.edit', [$project, $plainTask]));
         $plainResponse->assertSee('id="article-link-group" style="display: none;"', false);
     }
+
+    /**
+     * Rifinitura UX: la vista trasversale "Attività progetti" deve avere
+     * una CTA "+ Nuova attività" evidente, non solo azioni "Modifica" per
+     * riga.
+     */
+    public function test_cross_project_tasks_index_shows_a_new_task_cta(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.tasks.index-all'));
+
+        $response->assertSeeText('Nuova attività');
+        $response->assertSee(route('admin.progettazione.tasks.create-pick-project'), false);
+    }
+
+    public function test_cross_project_tasks_index_empty_state_has_operative_text_and_cta(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.tasks.index-all'));
+
+        $response->assertSeeText('Crea la prima attività');
+    }
+
+    /**
+     * Rifinitura UX: creare un'attività dalle viste globali richiede prima
+     * di scegliere il progetto — passaggio esplicito invece di un errore o
+     * di un vicolo cieco.
+     */
+    public function test_author_collaborator_cannot_access_the_task_project_picker(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+
+        $this->actingAs($author)
+            ->get(route('admin.progettazione.tasks.create-pick-project'))
+            ->assertRedirect(route('redazione.dashboard'));
+    }
+
+    public function test_task_project_picker_lists_projects_with_a_link_to_create_the_task(): void
+    {
+        $project = Project::factory()->create(['title' => 'Speciale Enigma']);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.tasks.create-pick-project'));
+
+        $response->assertOk();
+        $response->assertSeeText('Speciale Enigma');
+        $response->assertSee(route('admin.progettazione.projects.tasks.create', $project), false);
+    }
+
+    public function test_task_project_picker_shows_empty_state_with_new_project_cta_when_no_projects_exist(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.tasks.create-pick-project'));
+
+        $response->assertOk();
+        $response->assertSeeText('Non esiste ancora nessun progetto');
+        $response->assertSee(route('admin.progettazione.projects.create'), false);
+    }
+
+    public function test_picking_a_project_leads_to_its_task_creation_form(): void
+    {
+        $project = Project::factory()->create();
+
+        $picker = $this->actingAs($this->editor())->get(route('admin.progettazione.tasks.create-pick-project'));
+        $picker->assertSee(route('admin.progettazione.projects.tasks.create', $project), false);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.tasks.create', $project))
+            ->assertOk()
+            ->assertSeeText($project->title);
+    }
 }

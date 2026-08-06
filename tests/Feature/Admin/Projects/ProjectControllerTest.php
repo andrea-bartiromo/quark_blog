@@ -209,4 +209,59 @@ class ProjectControllerTest extends TestCase
             ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']))
             ->assertSeeText('Nessuna attività registrata ancora.');
     }
+
+    /**
+     * Rifinitura UX: "Elimina progetto" deve essere chiaramente visibile
+     * nella pagina dettaglio, non solo raggiungibile via API/rotta.
+     */
+    public function test_delete_project_action_is_visible_on_the_project_detail_page(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.show', $project));
+
+        $response->assertSeeText('Elimina progetto');
+        $response->assertSee('action="'.route('admin.progettazione.projects.destroy', $project).'"', false);
+    }
+
+    public function test_delete_project_action_is_visible_on_the_edit_form(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertSeeText('Elimina progetto');
+    }
+
+    /**
+     * Rifinitura UX: il cambio rapido di stato deve essere un widget
+     * riconoscibile (classe dedicata), non una <select> isolata.
+     */
+    public function test_quick_status_switcher_widget_is_present_on_the_detail_page(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.show', $project));
+
+        $response->assertSee('project-status-switcher', false);
+        $response->assertSeeText('Stato progetto');
+    }
+
+    /**
+     * Rifinitura UX: le schede del dettaglio progetto usano una classe CSS
+     * dedicata (bar leggibile, scrollabile su mobile) invece di stili
+     * inline a basso contrasto per i tab non attivi.
+     */
+    public function test_project_tabs_use_the_dedicated_readable_tab_bar_class(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.show', $project));
+
+        $response->assertSee('class="project-tabs"', false);
+
+        foreach (['Panoramica', 'Roadmap', 'Attività', 'Articoli', 'Documenti', 'Prompt', 'Decisioni', 'Cronologia'] as $tab) {
+            $response->assertSeeText($tab);
+        }
+    }
 }

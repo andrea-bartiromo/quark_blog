@@ -29,6 +29,18 @@ class ProjectDocumentController extends Controller
         ]);
     }
 
+    /**
+     * Passaggio di selezione progetto per "Nuovo documento" dalla vista
+     * globale "Documenti": creare un documento richiede sempre un progetto,
+     * quindi prima si sceglie quale.
+     */
+    public function createPickProject()
+    {
+        return view('admin.projects.documents-pick-project', [
+            'projects' => Project::query()->orderByPrioritySeverity()->orderByDesc('updated_at')->get(),
+        ]);
+    }
+
     public function create(Project $project)
     {
         return view('admin.projects.document-form', [

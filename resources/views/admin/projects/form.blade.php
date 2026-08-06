@@ -101,6 +101,15 @@
       <a href="{{ $project->exists ? route('admin.progettazione.projects.show', $project) : route('admin.progettazione.projects.index') }}" class="btn btn--secondary">Annulla</a>
     </div>
   </form>
+
+  @if($project->exists)
+    <form id="delete-project-form" method="POST" action="{{ route('admin.progettazione.projects.destroy', $project) }}"
+          onsubmit="return confirm('Eliminare definitivamente il progetto «{{ $project->title }}»? Task, documenti, prompt e decisioni collegati verranno eliminati insieme al progetto. L\'azione non è reversibile.')"
+          style="margin-top:.75rem;">
+      @csrf @method('DELETE')
+      <button type="submit" class="btn btn--danger">🗑️ Elimina progetto</button>
+    </form>
+  @endif
 </div>
 
 @endsection

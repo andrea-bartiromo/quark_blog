@@ -1,8 +1,9 @@
 <h3 style="margin-top:0;">Cronologia</h3>
 
 @if($activityLog->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessuna attività registrata ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">🕐</div>
+    <p class="project-empty-state__text">Nessuna attività registrata ancora. Ogni modifica al progetto (stato, task, documenti, decisioni) comparirà qui.</p>
   </div>
 @else
   <div class="admin-card">

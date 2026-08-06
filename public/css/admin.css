@@ -523,6 +523,106 @@ body.admin-body textarea {
 .status--decision-rejected { background: #fee2e2; color: #991b1b; }
 .status--decision-superseded { background: #f3f4f6; color: #9ca3af; }
 
+/* Area Progettazione — schede del dettaglio progetto: bar leggibile e
+   scrollabile orizzontalmente su mobile invece di andare a capo su piu' righe. */
+.project-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--admin-border);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.project-tabs a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 1.05rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--admin-ink-soft);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.project-tabs a:hover {
+  color: var(--admin-primary-dark);
+  background: var(--admin-primary-light);
+}
+
+.project-tabs a:focus-visible {
+  outline: 2px solid var(--admin-primary-dark);
+  outline-offset: -2px;
+}
+
+.project-tabs a.active {
+  color: var(--admin-primary-dark);
+  border-bottom-color: var(--admin-primary);
+}
+
+/* Area Progettazione — cambio rapido dello stato progetto: un widget
+   riconoscibile invece di una <select> isolata e poco visibile. */
+.project-status-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.85rem;
+  background: var(--admin-white);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--admin-shadow);
+}
+
+.project-status-switcher label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-muted);
+  white-space: nowrap;
+}
+
+.project-status-switcher select {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--admin-primary);
+  border-radius: 6px;
+  color: var(--admin-primary-dark);
+  background: var(--admin-primary-light);
+  cursor: pointer;
+}
+
+.project-status-switcher select:focus-visible {
+  outline: 2px solid var(--admin-primary-dark);
+  outline-offset: 2px;
+}
+
+/* Area Progettazione — empty state operativo: icona + messaggio + azione,
+   invece di una riga di testo grigio senza via d'uscita. */
+.project-empty-state {
+  text-align: center;
+  padding: 2.75rem 1.5rem;
+}
+
+.project-empty-state__icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.project-empty-state__text {
+  color: var(--admin-muted);
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+
+.project-empty-state__text strong {
+  color: var(--admin-ink-soft);
+}
+
 /* Riepilogo di programmazione nella pagina di modifica: nota editoriale
    discreta, non una card pesante — coerente con .cover-info in public-premium.css */
 .schedule-note {

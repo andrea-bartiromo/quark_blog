@@ -74,7 +74,7 @@
     <form id="delete-document-form" method="POST" action="{{ route('admin.progettazione.projects.documents.destroy', [$project, $document]) }}"
           onsubmit="return confirm('Eliminare questo documento?')" style="display:inline;">
       @csrf @method('DELETE')
-      <button type="button" class="btn btn--secondary" onclick="document.getElementById('delete-document-form').submit()" style="margin-left:.5rem;">Elimina</button>
+      <button type="button" class="btn btn--danger" onclick="document.getElementById('delete-document-form').submit()" style="margin-left:.5rem;">🗑️ Elimina</button>
     </form>
   @endif
 </div>

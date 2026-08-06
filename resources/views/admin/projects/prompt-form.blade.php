@@ -57,7 +57,7 @@
     <form id="delete-prompt-form" method="POST" action="{{ route('admin.progettazione.projects.prompts.destroy', [$project, $prompt]) }}"
           onsubmit="return confirm('Eliminare questo prompt?')" style="display:inline;">
       @csrf @method('DELETE')
-      <button type="button" class="btn btn--secondary" onclick="document.getElementById('delete-prompt-form').submit()" style="margin-left:.5rem;">Elimina</button>
+      <button type="button" class="btn btn--danger" onclick="document.getElementById('delete-prompt-form').submit()" style="margin-left:.5rem;">🗑️ Elimina</button>
     </form>
   @endif
 </div>

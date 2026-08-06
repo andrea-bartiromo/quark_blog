@@ -4,11 +4,14 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Documenti</h1>
+  <a href="{{ route('admin.progettazione.documents.create-pick-project') }}" class="btn btn--primary">+ Nuovo documento</a>
 </div>
 
 @if($documents->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:3rem;color:#6b7280;">
-    Nessun documento trovato.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">📄</div>
+    <p class="project-empty-state__text">Nessun documento trovato. <strong>Crea il primo documento</strong> per raccogliere brief, note e linee guida di un progetto.</p>
+    <a href="{{ route('admin.progettazione.documents.create-pick-project') }}" class="btn btn--primary">+ Nuovo documento</a>
   </div>
 @else
   <div class="admin-table-wrap">

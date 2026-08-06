@@ -90,4 +90,16 @@ class ProjectCalendarControllerTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    /**
+     * Rifinitura UX: il calendario deve offrire un collegamento evidente
+     * alla creazione di un'attività, non solo la consultazione.
+     */
+    public function test_calendar_shows_a_new_task_cta(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.calendar'));
+
+        $response->assertSeeText('Nuova attività');
+        $response->assertSee(route('admin.progettazione.tasks.create-pick-project'), false);
+    }
 }
