@@ -4,8 +4,10 @@
 </div>
 
 @if($decisions->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessuna decisione ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">🗳️</div>
+    <p class="project-empty-state__text">Nessuna decisione ancora. <strong>Registra la prima</strong> per tenere traccia delle scelte fatte su questo progetto.</p>
+    <a href="{{ route('admin.progettazione.projects.decisions.create', $project) }}" class="btn btn--primary">+ Nuova decisione</a>
   </div>
 @else
   <div class="admin-table-wrap">

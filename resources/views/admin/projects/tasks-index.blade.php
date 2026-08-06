@@ -4,6 +4,7 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Attività progetti</h1>
+  <a href="{{ route('admin.progettazione.tasks.create-pick-project') }}" class="btn btn--primary">+ Nuova attività</a>
 </div>
 
 <form method="GET" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -22,8 +23,10 @@
 </form>
 
 @if($tasks->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:3rem;color:#6b7280;">
-    Nessuna attività trovata.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">✔️</div>
+    <p class="project-empty-state__text">Nessuna attività trovata. <strong>Crea la prima attività</strong> per iniziare a pianificare il lavoro di un progetto.</p>
+    <a href="{{ route('admin.progettazione.tasks.create-pick-project') }}" class="btn btn--primary">+ Nuova attività</a>
   </div>
 @else
   <div class="admin-table-wrap">

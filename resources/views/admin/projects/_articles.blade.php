@@ -17,8 +17,9 @@
 </div>
 
 @if($linkedArticles->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessun articolo collegato ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">📝</div>
+    <p class="project-empty-state__text">Nessun articolo collegato ancora. <strong>Usa il modulo qui sopra</strong> per collegare un articolo esistente a questo progetto.</p>
   </div>
 @else
   <div class="admin-table-wrap">

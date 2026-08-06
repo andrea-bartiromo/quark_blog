@@ -6,8 +6,10 @@
 @php($tasks = $project->tasks()->with(['responsible', 'article', 'project'])->orderBy('due_date')->get())
 
 @if($tasks->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessuna attività ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">✔️</div>
+    <p class="project-empty-state__text">Nessuna attività ancora. <strong>Aggiungi la prima</strong> per iniziare a pianificare questo progetto.</p>
+    <a href="{{ route('admin.progettazione.projects.tasks.create', $project) }}" class="btn btn--primary">+ Nuova attività</a>
   </div>
 @else
   <div class="admin-table-wrap">

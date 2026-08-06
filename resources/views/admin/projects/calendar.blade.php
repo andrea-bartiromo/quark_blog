@@ -4,10 +4,11 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Calendario — {{ $month->translatedFormat('F Y') }}</h1>
-  <div style="display:flex;gap:.5rem;">
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
     <a href="{{ route('admin.progettazione.calendar', ['month' => $prevMonth]) }}" class="btn btn--secondary">← Precedente</a>
     <a href="{{ route('admin.progettazione.calendar', ['month' => now()->format('Y-m')]) }}" class="btn btn--secondary">Oggi</a>
     <a href="{{ route('admin.progettazione.calendar', ['month' => $nextMonth]) }}" class="btn btn--secondary">Successivo →</a>
+    <a href="{{ route('admin.progettazione.tasks.create-pick-project') }}" class="btn btn--primary">+ Nuova attività</a>
   </div>
 </div>
 

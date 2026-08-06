@@ -9,8 +9,10 @@
 <h3 style="margin-top:0;">Roadmap</h3>
 
 @if($roadmapTasks->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessuna attività da mostrare in roadmap.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">🗺️</div>
+    <p class="project-empty-state__text">Nessuna attività da mostrare in roadmap. <strong>Aggiungi un'attività</strong> per iniziare a costruire la linea temporale del progetto.</p>
+    <a href="{{ route('admin.progettazione.projects.tasks.create', $project) }}" class="btn btn--primary">+ Nuova attività</a>
   </div>
 @else
   <div class="admin-card" style="padding:0;">

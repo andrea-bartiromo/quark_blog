@@ -206,6 +206,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
         // Attività (nidificate sotto un progetto + vista trasversale)
         Route::get('/attivita', [ProjectTaskController::class, 'indexAll'])->name('tasks.index-all');
+        Route::get('/attivita/nuova', [ProjectTaskController::class, 'createPickProject'])->name('tasks.create-pick-project');
         Route::get('/progetti/{project}/attivita/nuova', [ProjectTaskController::class, 'create'])->name('projects.tasks.create');
         Route::post('/progetti/{project}/attivita', [ProjectTaskController::class, 'store'])->name('projects.tasks.store');
         Route::get('/progetti/{project}/attivita/{task}/modifica', [ProjectTaskController::class, 'edit'])->name('projects.tasks.edit');
@@ -217,6 +218,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
         // Documenti (nidificati sotto un progetto + vista trasversale)
         Route::get('/documenti', [ProjectDocumentController::class, 'indexAll'])->name('documents.index-all');
+        Route::get('/documenti/nuovo', [ProjectDocumentController::class, 'createPickProject'])->name('documents.create-pick-project');
         Route::get('/progetti/{project}/documenti/nuovo', [ProjectDocumentController::class, 'create'])->name('projects.documents.create');
         Route::post('/progetti/{project}/documenti', [ProjectDocumentController::class, 'store'])->name('projects.documents.store');
         Route::get('/progetti/{project}/documenti/{document}/modifica', [ProjectDocumentController::class, 'edit'])->name('projects.documents.edit');

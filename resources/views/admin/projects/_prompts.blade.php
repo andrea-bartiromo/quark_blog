@@ -4,8 +4,10 @@
 </div>
 
 @if($prompts->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessun prompt ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">🤖</div>
+    <p class="project-empty-state__text">Nessun prompt ancora. <strong>Registra il primo</strong> per tenere traccia dei prompt usati su questo progetto.</p>
+    <a href="{{ route('admin.progettazione.projects.prompts.create', $project) }}" class="btn btn--primary">+ Nuovo prompt</a>
   </div>
 @else
   <div class="admin-table-wrap">

@@ -4,8 +4,10 @@
 </div>
 
 @if($documents->isEmpty())
-  <div class="admin-card" style="text-align:center;padding:2.5rem;color:#9ca3af;">
-    Nessun documento ancora.
+  <div class="admin-card project-empty-state">
+    <div class="project-empty-state__icon">📄</div>
+    <p class="project-empty-state__text">Nessun documento ancora. <strong>Crea il primo</strong> per raccogliere brief e note di questo progetto.</p>
+    <a href="{{ route('admin.progettazione.projects.documents.create', $project) }}" class="btn btn--primary">+ Nuovo documento</a>
   </div>
 @else
   <div class="admin-table-wrap">
