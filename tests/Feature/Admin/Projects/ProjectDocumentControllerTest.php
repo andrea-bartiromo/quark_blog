@@ -100,4 +100,43 @@ class ProjectDocumentControllerTest extends TestCase
 
         $response->assertOk()->assertSeeText('Documento A')->assertSeeText('Documento B');
     }
+
+    /**
+     * Rifinitura UX: la vista trasversale "Documenti" deve avere una CTA
+     * "+ Nuovo documento" evidente.
+     */
+    public function test_cross_project_documents_index_shows_a_new_document_cta(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.documents.index-all'));
+
+        $response->assertSeeText('Nuovo documento');
+        $response->assertSee(route('admin.progettazione.documents.create-pick-project'), false);
+    }
+
+    public function test_cross_project_documents_index_empty_state_has_operative_text_and_cta(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.documents.index-all'));
+
+        $response->assertSeeText('Crea il primo documento');
+    }
+
+    public function test_document_project_picker_lists_projects_with_a_link_to_create_the_document(): void
+    {
+        $project = Project::factory()->create(['title' => 'Speciale Enigma']);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.documents.create-pick-project'));
+
+        $response->assertOk();
+        $response->assertSeeText('Speciale Enigma');
+        $response->assertSee(route('admin.progettazione.projects.documents.create', $project), false);
+    }
+
+    public function test_document_project_picker_shows_empty_state_with_new_project_cta_when_no_projects_exist(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.documents.create-pick-project'));
+
+        $response->assertOk();
+        $response->assertSeeText('Non esiste ancora nessun progetto');
+        $response->assertSee(route('admin.progettazione.projects.create'), false);
+    }
 }
