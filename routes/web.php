@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
@@ -183,6 +184,18 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::put('/ads/{ad}', [AdController::class, 'update'])->name('ads.update');
     Route::patch('/ads/{ad}/toggle', [AdController::class, 'toggle'])->name('ads.toggle');
     Route::delete('/ads/{ad}', [AdController::class, 'destroy'])->name('ads.destroy');
+
+    // Area Progettazione
+    Route::prefix('progettazione')->name('progettazione.')->group(function () {
+        Route::get('/progetti', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('/progetti/nuovo', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('/progetti', [ProjectController::class, 'store'])->name('projects.store');
+        Route::get('/progetti/{project}', [ProjectController::class, 'show'])->name('projects.show');
+        Route::get('/progetti/{project}/modifica', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::put('/progetti/{project}', [ProjectController::class, 'update'])->name('projects.update');
+        Route::patch('/progetti/{project}/stato', [ProjectController::class, 'updateStatus'])->name('projects.update-status');
+        Route::delete('/progetti/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+    });
 });
 
 // ── Login redazione (collaboratori) ───────────────────────────
