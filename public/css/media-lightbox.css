@@ -1,0 +1,468 @@
+/* ============================================================
+   <x-media.image-viewer> — visualizzatore immagini riutilizzabile
+   ----------------------------------------------------------------
+   Costruito interamente sui token già definiti in style.css
+   (--primary, --ink-*, --paper*, --font-display, --font-body,
+   --radius-*, --shadow*): nessun nuovo linguaggio visivo, nessun
+   colore o raggio inventato. Pensato per leggersi come l'apertura
+   di una tavola editoriale — un'immagine a piena vista con una
+   didascalia da parete di galleria sotto, non una finestra tecnica
+   da plugin di galleria fotografica.
+   ============================================================ */
+
+/* ---------- Trigger (badge) --------------------------------- */
+
+.media-viewer__trigger--badge {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  z-index: 3;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+
+  padding: 0.5rem;
+  border-radius: 999px;
+
+  background: rgba(2, 6, 23, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+
+  opacity: 0.62;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  transition: opacity 0.2s ease, background-color 0.2s ease, padding-right 0.2s ease;
+}
+
+.media-viewer__trigger-icon {
+  display: flex;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.media-viewer__trigger-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.media-viewer__trigger-label {
+  /* Presente per l'accessibilità e leggibile in hover/focus, ma non
+     occupa spazio a riposo: l'icona da sola basta come indizio visivo
+     discreto, il testo compare solo quando l'attenzione è già lì. */
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: max-width 0.25s ease;
+}
+
+.media-viewer__trigger--badge:hover,
+.media-viewer__trigger--badge:focus-visible {
+  opacity: 1;
+  background: rgba(2, 6, 23, 0.68);
+  padding-right: 0.85rem;
+}
+
+.media-viewer__trigger--badge:hover .media-viewer__trigger-label,
+.media-viewer__trigger--badge:focus-visible .media-viewer__trigger-label {
+  max-width: 220px;
+}
+
+.media-viewer__trigger--badge:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@media (hover: none) {
+  /* Su touch non esiste hover: l'etichetta resterebbe per sempre
+     invisibile. La rendiamo leggermente più presente (icona a piena
+     opacità) così l'affordance non dipende da uno stato che il
+     dispositivo non può raggiungere. */
+  .media-viewer__trigger--badge {
+    opacity: 0.85;
+  }
+}
+
+/* ---------- Dialog shell -------------------------------------- */
+
+.media-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 3rem);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.media-viewer[hidden] {
+  display: flex;
+}
+
+.media-viewer.is-open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.media-viewer__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.media-viewer__close {
+  position: fixed;
+  top: clamp(0.85rem, 3vw, 1.6rem);
+  right: clamp(0.85rem, 3vw, 1.6rem);
+  z-index: 2;
+
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.media-viewer__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.media-viewer__close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.media-viewer__close:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* ---------- Box: la "tavola" ------------------------------------ */
+
+.media-viewer__box {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 100%;
+  max-width: 1180px;
+  max-height: 92vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  background: var(--paper-warm, #f5f5f4);
+  border-radius: var(--radius-xl, 24px);
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.12));
+
+  /* La "tavola" si assesta appena, non compare di colpo: un accenno di
+     sollevamento (10px) e di scala (0.98→1), non un ingresso vistoso.
+     Nessun calcolo della posizione del trigger — solo uno scostamento
+     fisso, identico ad ogni apertura. */
+  transform: translateY(10px) scale(0.98);
+  transition: transform 0.2s ease;
+}
+
+.media-viewer.is-open .media-viewer__box {
+  transform: translateY(0) scale(1);
+}
+
+/* ---------- Stage: la "sala di proiezione" scura ---------------- */
+
+.media-viewer__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Cresce e — soprattutto — si restringe per lasciare sempre spazio
+     naturale a .media-viewer__meta (flex-shrink:0 più sotto): quando il
+     box tocca il proprio max-height (viewport basso), è questa sezione
+     a cedere altezza, non il pannello dei metadati. min-height:0
+     scavalca il min-height:auto implicito dei flex item, che altrimenti
+     impedirebbe la riduzione sotto la dimensione "naturale" dell'immagine. */
+  flex: 1 1 auto;
+  /* Non 0: un pavimento reale (non solo la scavalcatura tecnica del
+     min-height:auto implicito) così l'immagine non collassa mai a
+     un'altezza irrisoria se la didascalia o i metadati sono molto
+     lunghi. Oltre questo punto torna lo scroll interno del box — non un
+     troncamento del contenuto. */
+  min-height: 220px;
+  overflow: hidden;
+
+  background: #0b0f16;
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+  border-radius: var(--radius-xl, 24px) var(--radius-xl, 24px) 0 0;
+}
+
+.media-viewer__frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  /* Limite superiore di sicurezza (mai oltre il 74% del viewport, anche
+     su un monitor molto alto): nella maggior parte dei casi il vincolo
+     reale è height:100% ereditato da .media-viewer__stage, già ridotto
+     quanto serve per lasciare posto ai metadati. */
+  max-height: min(74vh, 900px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-viewer__frame.is-zoomed {
+  align-items: flex-start;
+  justify-content: flex-start;
+  cursor: grab;
+}
+
+/* Reset esplicito e completo, non solo le proprietà che ci servono:
+   questo <img> può trovarsi annidato dentro il markup di qualunque
+   pagina ospite (qui, l'hero dell'articolo applica ai propri <img>
+   discendenti position:absolute/inset/opacity/object-fit — una regola
+   pensata per la cover ritagliata, che altrimenti "perde" anche dentro
+   il dialog). Un componente pensato per essere adottato ovunque non può
+   presumere che nessun antenato abbia selettori così ampi. */
+.media-viewer__frame img {
+  position: static;
+  inset: auto;
+  display: block;
+  max-width: 100%;
+  /* Percentuale, non più un valore fisso in vh: si adatta allo spazio
+     realmente lasciato libero da .media-viewer__stage (vedi sopra),
+     non a una frazione fissa del viewport che ignorava l'altezza del
+     pannello metadati sottostante. */
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 0;
+  opacity: 1;
+  object-fit: contain;
+  transform-origin: top left;
+  transition: transform 0.18s ease;
+}
+
+.media-viewer__frame.is-zoomed img {
+  max-width: none;
+  max-height: none;
+}
+
+/* ---------- Zoom toolbar ----------------------------------------- */
+
+.media-viewer__zoom {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(0.75rem, 3vw, 1.5rem);
+  transform: translateX(-50%);
+  z-index: 2;
+
+  display: inline-flex;
+  align-items: center;
+  /* Distacco reale fra i target di tocco, non solo visivo: a 44px di
+     lato, 0.15rem (2.4px) lasciava di fatto un solo bersaglio continuo.
+     0.5rem è vicino al minimo comunemente raccomandato per due bersagli
+     realmente distinti al tocco. */
+  gap: 0.5rem;
+
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.media-viewer__zoom button {
+  /* 44×44 CSS px: dimensione minima comunemente raccomandata per un
+     bersaglio comodo al tocco (non solo il minimo tecnico). */
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  transition: background-color 0.18s ease, opacity 0.18s ease;
+}
+
+.media-viewer__zoom button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.media-viewer__zoom button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.media-viewer__zoom button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.media-viewer__zoom button:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+/* ---------- Meta: la "targhetta da parete" ----------------------- */
+
+.media-viewer__meta {
+  /* flex-shrink:0 — mai compresso: quando lo spazio scarseggia è
+     .media-viewer__stage sopra a restringersi, non questo pannello. */
+  flex: 0 0 auto;
+  padding: clamp(1.1rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.25rem, 3.5vw, 2rem);
+}
+
+.media-viewer__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink, #111827);
+}
+
+.media-viewer__facts {
+  margin-top: 0.65rem;
+}
+
+.media-viewer__caption {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--ink-soft, #374151);
+  max-width: 68ch;
+}
+
+.media-viewer__dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin: 0.9rem 0 0;
+}
+
+.media-viewer__fact {
+  min-width: 140px;
+}
+
+.media-viewer__fact dt {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint, #9ca3af);
+  margin: 0 0 0.15rem;
+}
+
+.media-viewer__fact dd {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--ink-muted, #6b7280);
+}
+
+.media-viewer__fact dd a {
+  color: var(--primary, #0d9488);
+  font-weight: 600;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.media-viewer__fact dd a:hover {
+  color: var(--primary-dark, #0f766e);
+}
+
+.media-viewer__fact dd a:focus-visible {
+  outline: 2px solid var(--primary, #0d9488);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------- Mobile ------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .media-viewer {
+    padding: 0;
+  }
+
+  .media-viewer__box {
+    max-width: 100%;
+    max-height: 100dvh;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .media-viewer__stage {
+    /* Su mobile .media-viewer__box ha già height:100% (sopra): la
+       riga/colonna flessibile qui sotto resta quella pensata per il
+       desktop a viewport basso. Su mobile il dimensionamento resta
+       quello già verificato — un vincolo fisso in dvh, non distribuito
+       dal flex — cosi' il resto della composizione non cambia. */
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: visible;
+    border-radius: 0;
+    padding: 1.1rem;
+  }
+
+  .media-viewer__frame,
+  .media-viewer__frame img {
+    max-height: 52dvh;
+  }
+
+  .media-viewer__meta {
+    padding: 1.1rem 1.25rem 1.5rem;
+  }
+
+  .media-viewer__dl {
+    gap: 0.75rem 1.5rem;
+  }
+}
+
+/* ---------- Riduzione del movimento -------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .media-viewer,
+  .media-viewer__box,
+  .media-viewer__trigger--badge,
+  .media-viewer__trigger-label,
+  .media-viewer__frame img,
+  .media-viewer__zoom button {
+    transition: none;
+  }
+
+  /* Non solo "senza transizione": senza alcuno scostamento iniziale da
+     annullare istantaneamente. L'apertura resta immediata e la tavola è
+     già nella sua posizione finale fin dal primo frame. */
+  .media-viewer__box {
+    transform: none;
+  }
+}
