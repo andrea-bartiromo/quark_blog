@@ -58,9 +58,11 @@ class ArticleController extends Controller
 
         $sessionKey = 'article_viewed_'.$article->id;
 
-        if (! session()->has($sessionKey)) {
-            app(ArticleViewTrackingService::class)->recordView($article);
-
+        // Il flag di sessione viene impostato solo quando la view è stata
+        // davvero registrata: se restasse impostato anche per traffico
+        // interno mai contato, potrebbe in teoria mascherare una
+        // successiva view pubblica genuina nella stessa sessione.
+        if (! session()->has($sessionKey) && app(ArticleViewTrackingService::class)->recordView($article)) {
             session()->put($sessionKey, true);
         }
 

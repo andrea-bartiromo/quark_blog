@@ -7,6 +7,7 @@ use App\Models\ArticleDailyView;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ArticleDailyViewTest extends TestCase
@@ -62,5 +63,41 @@ class ArticleDailyViewTest extends TestCase
         $article->delete();
 
         $this->assertSame(0, ArticleDailyView::where('article_id', $article->id)->count());
+    }
+
+    // 4. Regressione (revisione CodeRabbit): la colonna `date` deve
+    //    contenere 'Y-m-d' puro anche quando la riga è creata via Eloquent
+    //    — verificato con una query grezza sul valore realmente persistito
+    //    nel DB, non tramite l'accessor del model (che potrebbe mascherare
+    //    un formato di storage diverso). Deve restare identico al formato
+    //    scritto dall'upsert SQL grezzo in ArticleViewTrackingService,
+    //    altrimenti le query per intervallo di ArticleAnalyticsService
+    //    (confronto stringa 'Y-m-d') mancherebbero silenziosamente le
+    //    righe create tramite il model invece che tramite il service.
+    public function test_the_date_column_is_stored_as_plain_y_m_d_via_eloquent(): void
+    {
+        $article = $this->article();
+
+        ArticleDailyView::create(['article_id' => $article->id, 'date' => '2026-08-19', 'views' => 1]);
+
+        $rawValue = DB::table('article_daily_views')->where('article_id', $article->id)->value('date');
+
+        $this->assertSame('2026-08-19', $rawValue);
+    }
+
+    // 5. Anche passando un'istanza Carbon/DateTime (non solo una stringa)
+    public function test_the_date_column_is_stored_as_plain_y_m_d_when_given_a_carbon_instance(): void
+    {
+        $article = $this->article();
+
+        ArticleDailyView::create([
+            'article_id' => $article->id,
+            'date' => \Illuminate\Support\Carbon::create(2026, 8, 19, 23, 45, 0),
+            'views' => 1,
+        ]);
+
+        $rawValue = DB::table('article_daily_views')->where('article_id', $article->id)->value('date');
+
+        $this->assertSame('2026-08-19', $rawValue);
     }
 }

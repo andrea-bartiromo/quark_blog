@@ -46,23 +46,44 @@ class ArticleViewTrackingService
         return now()->timezone(Article::EDITORIAL_TIMEZONE)->toDateString();
     }
 
-    public function recordView(Article $article): void
+    /**
+     * Le tre scritture (log per-pageview, contatore lifetime, bucket
+     * giornaliero) avvengono in un'unica transazione: se una fallisce a
+     * metà, nessuna delle tre resta committata da sola. Senza questo, un
+     * fallimento parziale lascerebbe i tre numeri incoerenti tra loro — e
+     * poiché il controller marca la sessione come "vista" solo quando
+     * questo metodo restituisce true, un nuovo tentativo dopo un
+     * fallimento a metà rieseguirebbe le scritture già andate a buon fine,
+     * contando la stessa view due volte.
+     *
+     * Restituisce true solo se la view è stata davvero registrata: il
+     * chiamante deve marcare la sessione come "vista" esclusivamente in
+     * quel caso — altrimenti un flag di sessione impostato per una
+     * richiesta di traffico interno (mai contata) potrebbe in teoria
+     * mascherare una successiva view pubblica genuina nella stessa
+     * sessione (es. dopo un logout che non invalidasse la sessione).
+     */
+    public function recordView(Article $article): bool
     {
         if (! $this->shouldCountRequest()) {
-            return;
+            return false;
         }
 
-        ArticleView::create([
-            'article_id' => $article->id,
-            'ip_hash' => hash('sha256', request()->ip()),
-            'user_agent' => substr((string) request()->userAgent(), 0, 1000),
-            'referer' => substr((string) request()->headers->get('referer'), 0, 1000),
-            'viewed_at' => now(),
-        ]);
+        DB::transaction(function () use ($article) {
+            ArticleView::create([
+                'article_id' => $article->id,
+                'ip_hash' => hash('sha256', request()->ip()),
+                'user_agent' => substr((string) request()->userAgent(), 0, 1000),
+                'referer' => substr((string) request()->headers->get('referer'), 0, 1000),
+                'viewed_at' => now(),
+            ]);
 
-        $article->increment('views');
+            $article->increment('views');
 
-        $this->incrementDailyBucket($article->id, $this->editorialToday());
+            $this->incrementDailyBucket($article->id, $this->editorialToday());
+        });
+
+        return true;
     }
 
     /**

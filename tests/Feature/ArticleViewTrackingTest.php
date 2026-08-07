@@ -142,4 +142,32 @@ class ArticleViewTrackingTest extends TestCase
         $response->assertOk();
         $response->assertSeeText($article->title);
     }
+
+    // 7. recordView() indica esplicitamente se la view è stata registrata:
+    //    true per traffico pubblico, false per traffico interno
+    public function test_record_view_returns_whether_the_view_was_actually_recorded(): void
+    {
+        $article = $this->publishedArticle(['views' => 0]);
+        $editor = User::factory()->create(['role' => 'editor']);
+        $service = app(ArticleViewTrackingService::class);
+
+        $this->assertTrue($service->recordView($article->fresh()));
+
+        $this->actingAs($editor);
+        $this->assertFalse($service->recordView($article->fresh()));
+    }
+
+    // 8. Regressione (revisione CodeRabbit): il flag di sessione non deve
+    //    essere impostato per una richiesta di traffico interno mai
+    //    contata — altrimenti potrebbe mascherare una successiva view
+    //    pubblica genuina nella stessa sessione
+    public function test_the_session_marker_is_not_set_for_an_internal_traffic_request(): void
+    {
+        $article = $this->publishedArticle(['views' => 0]);
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        $this->actingAs($editor)->get(route('articolo', $article->slug))->assertOk();
+
+        $this->assertFalse(session()->has('article_viewed_'.$article->id));
+    }
 }
