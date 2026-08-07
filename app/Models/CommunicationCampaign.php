@@ -41,7 +41,7 @@ class CommunicationCampaign extends Model
 
     protected $fillable = [
         'uuid', 'type', 'status', 'title', 'subject', 'preheader', 'description', 'content', 'internal_notes',
-        'template_id', 'sender_profile_id',
+        'template_id', 'template_version_id', 'sender_profile_id',
         'scheduled_at', 'sending_started_at', 'completed_at',
         'project_id', 'series_id', 'idempotency_key',
         'created_by', 'updated_by',
@@ -90,6 +90,22 @@ class CommunicationCampaign extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(CommunicationTemplate::class, 'template_id');
+    }
+
+    /**
+     * La versione esatta usata al momento dell'associazione — non la
+     * versione attiva corrente del template, che può essere cambiata da
+     * allora. Questo è ciò che garantisce che una campagna non segua
+     * automaticamente le modifiche future al template (Blueprint Sezione 7).
+     */
+    public function templateVersion(): BelongsTo
+    {
+        return $this->belongsTo(CommunicationTemplateVersion::class, 'template_version_id');
     }
 
     public function createdBy(): BelongsTo
