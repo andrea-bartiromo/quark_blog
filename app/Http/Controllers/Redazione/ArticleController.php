@@ -166,9 +166,15 @@ class ArticleController extends Controller
 
         $categories = config('laboratorio.categories');
 
+        $linkSuggestions = $article->linkSuggestions()
+            ->proposed()
+            ->with('targetArticle:id,title,slug')
+            ->orderByDesc('confidence_score')
+            ->get();
+
         return view(
             'redazione.article-form',
-            compact('article', 'categories')
+            compact('article', 'categories', 'linkSuggestions')
         );
     }
 

@@ -92,6 +92,11 @@ class ArticleController extends Controller
         return view('admin.article-form', [
             'article' => $article,
             'categories' => Category::options(),
+            'linkSuggestions' => $article->linkSuggestions()
+                ->proposed()
+                ->with('targetArticle:id,title,slug')
+                ->orderByDesc('confidence_score')
+                ->get(),
         ]);
     }
 
