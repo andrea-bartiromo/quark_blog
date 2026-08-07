@@ -82,18 +82,14 @@ class ArticleLinkInsertionServiceTest extends TestCase
         $this->assertStringContainsString('<a href="/articolo/pannelli-solari">pannelli solari di nuova generazione</a>', $result);
     }
 
-    // 7. href e testo vengono sempre escapati correttamente dalle API DOM (nessuna injection possibile)
-    public function test_it_safely_escapes_special_characters_via_dom_apis(): void
+    // 7. Il testo dell'anchor viene comunque escapato correttamente dalle API DOM
+    public function test_it_safely_escapes_the_anchor_text_via_dom_apis(): void
     {
         $body = '<p>Parliamo di energia & sviluppo sostenibile in Italia.</p>';
 
-        $result = $this->service->insert($body, 'energia & sviluppo sostenibile', '/articolo/test?a=1&b=2"onmouseover="alert(1)');
+        $result = $this->service->insert($body, 'energia & sviluppo sostenibile', '/articolo/energia-sviluppo');
 
         $this->assertNotNull($result);
-        // Il carattere " nell'URL viene neutralizzato dalla serializzazione DOM
-        // (percent-encoded), quindi non può mai chiudere l'attributo href e
-        // iniettare un nuovo attributo (es. onmouseover).
-        $this->assertStringNotContainsString('onmouseover="alert', $result);
         $this->assertMatchesRegularExpression('/<a href="[^"]*">energia &amp; sviluppo sostenibile<\/a>/', $result);
         $this->assertStringContainsString('energia &amp; sviluppo sostenibile', $result);
     }
@@ -104,5 +100,82 @@ class ArticleLinkInsertionServiceTest extends TestCase
         $this->assertNull($this->service->insert('', 'termine', '/articolo/x'));
         $this->assertNull($this->service->insert('<p>Testo.</p>', '', '/articolo/x'));
         $this->assertNull($this->service->insert('<p>Testo.</p>', '   ', '/articolo/x'));
+    }
+
+    // 9. Un href con un apice doppio (tentativo onmouseover) viene rifiutato del tutto, non "solo escapato"
+    //    — l'inserimento non deve mai dipendere dal comportamento di escaping del serializzatore DOM
+    //    sottostante, che si è verificato differire tra build di libxml2 (vedi docblock di classe).
+    public function test_it_rejects_a_href_containing_a_double_quote(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', '/articolo/test?a=1&b=2"onmouseover="alert(1)');
+
+        $this->assertNull($result);
+    }
+
+    // 10. Un href con schema javascript: viene rifiutato
+    public function test_it_rejects_a_javascript_scheme_href(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', 'javascript:alert(1)');
+
+        $this->assertNull($result);
+    }
+
+    // 11. Un href con schema data: viene rifiutato
+    public function test_it_rejects_a_data_scheme_href(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', 'data:text/html,<script>alert(1)</script>');
+
+        $this->assertNull($result);
+    }
+
+    // 12. Un URL relativo interno valido viene accettato e inserito correttamente
+    public function test_it_accepts_a_valid_relative_internal_url(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', '/articolo/energia-sviluppo-sostenibile');
+
+        $this->assertNotNull($result);
+        $this->assertStringContainsString('<a href="/articolo/energia-sviluppo-sostenibile">energia e sviluppo sostenibile</a>', $result);
+    }
+
+    // 13. Una query string lecita con "&" viene accettata (non va confusa con un tentativo di injection)
+    public function test_it_accepts_a_legitimate_query_string_with_ampersand(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', '/articolo/x?ref=home&utm_source=newsletter');
+
+        $this->assertNotNull($result);
+        $this->assertStringContainsString('href="/articolo/x?ref=home&amp;utm_source=newsletter"', $result);
+    }
+
+    // 14. Un URL assoluto sul proprio dominio (come route()) viene accettato; un dominio esterno viene rifiutato
+    public function test_it_accepts_own_host_absolute_urls_and_rejects_external_hosts(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+        $ownHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        $accepted = $this->service->insert($body, 'energia e sviluppo sostenibile', 'http://'.$ownHost.'/articolo/x');
+        $this->assertNotNull($accepted);
+
+        $rejected = $this->service->insert($body, 'energia e sviluppo sostenibile', 'http://evil-external-host.example/articolo/x');
+        $this->assertNull($rejected);
+    }
+
+    // 15. Un URL protocol-relative ("//host/...") viene rifiutato: potrebbe puntare a un altro dominio
+    public function test_it_rejects_a_protocol_relative_url(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', '//evil-external-host.example/articolo/x');
+
+        $this->assertNull($result);
     }
 }
