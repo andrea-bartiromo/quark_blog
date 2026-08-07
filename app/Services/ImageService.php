@@ -71,12 +71,43 @@ class ImageService
     }
 
     /**
+     * Normalizza un path a separatori "/" uniformi.
+     *
+     * Contratto: ImageService restituisce e accetta SEMPRE path con "/"
+     * (mai DIRECTORY_SEPARATOR nativo) — sia per i path filesystem
+     * (upload/ensureDirectoryExists) sia, per costruzione, per qualunque
+     * cosa derivata da essi altrove nel progetto (disk_name/URL pubblici
+     * usano già solo "/" tramite gli helper asset()/url() di Laravel).
+     * "/" è accettato da tutte le API filesystem di PHP anche su Windows
+     * (fopen, is_file, is_dir, mkdir, GD, ecc. passano attraverso lo
+     * strato di stream wrapper che lo risolve correttamente), quindi non
+     * serve mai costruire un path nativo con backslash.
+     *
+     * Senza questa normalizzazione, un chiamante che passa un sotto-path
+     * con "/" hardcoded (es. public_path('assets/img')) combinato con
+     * DIRECTORY_SEPARATOR su Windows produceva un path con separatori
+     * misti (es. "...\assets/img\nome-file.jpg"): stringhe così non sono
+     * mai confrontabili in modo affidabile con il path realmente usato
+     * per scrivere il file, il che rompeva sia gli assert dei test sia il
+     * cleanup basato su unlink() dopo un fallimento di sync (vedi
+     * PublicMediaSyncService).
+     */
+    private function normalizePath(string $path): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+
+        return rtrim($normalized, '/');
+    }
+
+    /**
      * Crea la directory di destinazione, se non esiste.
      */
     public function ensureDirectoryExists(
         string $path,
         int $permissions = 0755
     ): void {
+        $path = $this->normalizePath($path);
+
         if (is_dir($path)) {
             return;
         }
@@ -96,13 +127,13 @@ class ImageService
         string $destinationPath,
         string $fileName
     ): string {
+        $destinationPath = $this->normalizePath($destinationPath);
+
         $this->ensureDirectoryExists($destinationPath);
 
         $file->move($destinationPath, $fileName);
 
-        $fullPath = rtrim($destinationPath, DIRECTORY_SEPARATOR)
-            .DIRECTORY_SEPARATOR
-            .$fileName;
+        $fullPath = $destinationPath.'/'.$fileName;
 
         if (! is_file($fullPath)) {
             throw new \RuntimeException(

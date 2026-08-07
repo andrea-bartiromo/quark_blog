@@ -192,10 +192,33 @@ class ImageServiceTest extends TestCase
 
         $fullPath = $this->service->upload($file, $destination, 'final-name.jpg');
 
-        $this->assertSame($destination.'/final-name.jpg', $fullPath);
+        // Il contratto di ImageService normalizza sempre a "/": non
+        // confrontiamo con $destination così com'è stata costruita dal
+        // test (su Windows sys_get_temp_dir() usa "\", quindi
+        // $destination stessa avrebbe separatori misti concatenando "/").
+        $this->assertStringEndsWith('/final-name.jpg', $fullPath);
+        $this->assertStringNotContainsString('\\', $fullPath);
         $this->assertFileExists($fullPath);
         $this->assertFileDoesNotExist($sourcePath);
         $this->assertSame('jpg', pathinfo($fullPath, PATHINFO_EXTENSION));
+    }
+
+    // 6b. Un destination path con separatori misti (riproduce il bug Windows:
+    //     public_path('assets/img') con "/" hardcoded concatenato a un base
+    //     path nativo con "\") viene comunque normalizzato correttamente,
+    //     indipendentemente dal sistema operativo su cui gira il test.
+    public function test_upload_normalizes_a_destination_path_with_mixed_separators(): void
+    {
+        $file = $this->makeSolidImageUpload('photo.jpg', 40, 40);
+
+        $nativeBase = str_replace('/', DIRECTORY_SEPARATOR, $this->tempDir);
+        $mixedDestination = $nativeBase.DIRECTORY_SEPARATOR.'assets/img';
+
+        $fullPath = $this->service->upload($file, $mixedDestination, 'final-name.jpg');
+
+        $this->assertStringNotContainsString('\\', $fullPath);
+        $this->assertStringEndsWith('/assets/img/final-name.jpg', $fullPath);
+        $this->assertFileExists($fullPath);
     }
 
     // ── 7. Resize ──────────────────────────────────────────────────────
