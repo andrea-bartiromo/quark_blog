@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProjectTask extends Model
 {
@@ -35,6 +36,8 @@ class ProjectTask extends Model
 
     public const TYPE_PUBLICATION = 'publication';
 
+    public const TYPE_DEVELOPMENT = 'development';
+
     public const STATUS_TODO = 'todo';
 
     public const STATUS_TAKEN = 'taken';
@@ -61,6 +64,16 @@ class ProjectTask extends Model
 
     public const DERIVED_INVALID_LINK = 'invalid_link';
 
+    // ── Stati derivati — task di tipo Sviluppo (sync GitHub, Blocco B) ──
+
+    public const DERIVED_GH_BRANCH = 'github_branch';
+
+    public const DERIVED_GH_PR_OPEN = 'github_pr_open';
+
+    public const DERIVED_GH_PR_MERGED = 'github_pr_merged';
+
+    public const DERIVED_GH_PR_CLOSED_UNMERGED = 'github_pr_closed_unmerged';
+
     public const SOURCE_MANUAL = 'manual';
 
     public const SOURCE_DERIVED = 'derived';
@@ -78,6 +91,8 @@ class ProjectTask extends Model
         'manual_status', 'derived_status', 'status_source', 'manual_override',
         'priority', 'responsible_id', 'due_date', 'due_time', 'completed_at',
         'article_id', 'depends_on_task_id', 'duplicated_from_id', 'sort_order',
+        'github_branch', 'github_pr_number', 'github_pr_state',
+        'github_checks_state', 'github_review_state', 'github_synced_at',
         'created_by', 'updated_by',
     ];
 
@@ -86,6 +101,8 @@ class ProjectTask extends Model
         'due_time' => 'datetime:H:i',
         'completed_at' => 'datetime',
         'manual_override' => 'boolean',
+        'github_pr_number' => 'integer',
+        'github_synced_at' => 'datetime',
     ];
 
     // ── Relazioni ─────────────────────────────────────────────
@@ -115,11 +132,21 @@ class ProjectTask extends Model
         return $this->belongsTo(ProjectTask::class, 'duplicated_from_id');
     }
 
+    public function prompts(): HasMany
+    {
+        return $this->hasMany(ProjectPrompt::class, 'task_id');
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublicationType(Builder $q): Builder
     {
         return $q->where('type', self::TYPE_PUBLICATION);
+    }
+
+    public function scopeDevelopmentType(Builder $q): Builder
+    {
+        return $q->where('type', self::TYPE_DEVELOPMENT);
     }
 
     public function scopeDueSoon(Builder $q, int $days = 7): Builder
@@ -160,6 +187,7 @@ class ProjectTask extends Model
             self::TYPE_REVIEW => 'Revisione',
             self::TYPE_TECHNICAL_CHECK => 'Verifica tecnica',
             self::TYPE_PUBLICATION => 'Pubblicazione',
+            self::TYPE_DEVELOPMENT => 'Sviluppo',
         ];
     }
 
@@ -185,6 +213,10 @@ class ProjectTask extends Model
             self::DERIVED_SCHEDULED => 'Programmato',
             self::DERIVED_PUBLISHED => 'Pubblicato',
             self::DERIVED_INVALID_LINK => 'Collegamento non valido',
+            self::DERIVED_GH_BRANCH => 'Branch aperto',
+            self::DERIVED_GH_PR_OPEN => 'Pull request aperta',
+            self::DERIVED_GH_PR_MERGED => 'Pull request mergiata',
+            self::DERIVED_GH_PR_CLOSED_UNMERGED => 'Pull request chiusa senza merge',
         ];
     }
 

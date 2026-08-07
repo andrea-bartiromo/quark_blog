@@ -20,7 +20,7 @@ class ProjectPrompt extends Model
 
     protected $fillable = [
         'project_id', 'title', 'agent', 'content', 'status',
-        'used_at', 'outcome', 'article_id', 'created_by', 'updated_by',
+        'used_at', 'outcome', 'article_id', 'task_id', 'created_by', 'updated_by',
     ];
 
     protected $casts = [
@@ -35,6 +35,11 @@ class ProjectPrompt extends Model
     public function article(): BelongsTo
     {
         return $this->belongsTo(Article::class);
+    }
+
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(ProjectTask::class, 'task_id');
     }
 
     public function creator(): BelongsTo

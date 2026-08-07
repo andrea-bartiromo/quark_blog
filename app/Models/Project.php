@@ -46,11 +46,23 @@ class Project extends Model
 
     public const PRIORITY_CRITICAL = 'critical';
 
+    /**
+     * Tipi di progetto ammessi come "progetto editoriale predefinito"
+     * (Blocco F): il collegamento automatico degli articoli si applica
+     * solo a questi, mai a progetti tecnici o di altra natura, anche se
+     * qualcuno impostasse per errore il flag su un progetto diverso.
+     */
+    public const DEFAULT_EDITORIAL_ELIGIBLE_TYPES = [
+        self::TYPE_EDITORIAL_SPECIAL,
+        self::TYPE_ARTICLE_SERIES,
+    ];
+
     protected $fillable = [
         'title', 'slug', 'description', 'objective', 'type',
         'operational_status', 'priority', 'responsible_id',
         'start_date', 'due_date', 'next_action', 'progress',
-        'internal_notes', 'archived_at', 'created_by', 'updated_by',
+        'internal_notes', 'archived_at', 'is_default_editorial',
+        'created_by', 'updated_by',
     ];
 
     protected $casts = [
@@ -58,6 +70,7 @@ class Project extends Model
         'due_date' => 'date',
         'archived_at' => 'datetime',
         'progress' => 'integer',
+        'is_default_editorial' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -66,7 +79,33 @@ class Project extends Model
             if (blank($project->slug)) {
                 $project->slug = static::uniqueSlugFor($project->title, $project->id);
             }
+
+            // Rete di sicurezza a livello di modello: la validazione "vera"
+            // vive nel FormRequest (Blocco E), ma un uso diretto di Eloquent
+            // (seeder, tinker, codice futuro) non deve mai poter marcare come
+            // predefinito un progetto tecnico o di altra natura.
+            if ($project->is_default_editorial && ! $project->isEditorialType()) {
+                $project->is_default_editorial = false;
+            }
         });
+
+        static::saved(function (Project $project) {
+            // Al più un progetto alla volta è il predefinito: impostarne uno
+            // nuovo spegne automaticamente quello precedente. Usa una query
+            // di massa (non Eloquent::save()) per non far scattare di nuovo
+            // questi stessi eventi sugli altri progetti.
+            if ($project->is_default_editorial) {
+                static::query()
+                    ->where('id', '!=', $project->id)
+                    ->where('is_default_editorial', true)
+                    ->update(['is_default_editorial' => false]);
+            }
+        });
+    }
+
+    public function isEditorialType(): bool
+    {
+        return in_array($this->type, self::DEFAULT_EDITORIAL_ELIGIBLE_TYPES, true);
     }
 
     /**
@@ -157,6 +196,22 @@ class Project extends Model
     public function scopeHighPriority(Builder $q): Builder
     {
         return $q->whereIn('priority', [self::PRIORITY_HIGH, self::PRIORITY_CRITICAL]);
+    }
+
+    public function scopeDefaultEditorial(Builder $q): Builder
+    {
+        return $q->where('is_default_editorial', true);
+    }
+
+    /**
+     * Il progetto editoriale predefinito attivo (Blocco F): se esiste, i
+     * nuovi articoli vi si collegano automaticamente. Nessun collegamento
+     * se non ce n'è uno impostato, o se il progetto è ormai completato o
+     * annullato — il flag da solo non "riattiva" un progetto chiuso.
+     */
+    public static function defaultEditorial(): ?self
+    {
+        return static::query()->defaultEditorial()->active()->first();
     }
 
     /**
