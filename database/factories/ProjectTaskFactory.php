@@ -32,4 +32,11 @@ class ProjectTaskFactory extends Factory
             'type' => ProjectTask::TYPE_PUBLICATION,
         ]);
     }
+
+    public function development(): static
+    {
+        return $this->state(fn () => [
+            'type' => ProjectTask::TYPE_DEVELOPMENT,
+        ]);
+    }
 }

@@ -43,6 +43,20 @@
               @if($day['tasks']->count() > 3)
                 <span style="font-size:.65rem;color:#9ca3af;">+{{ $day['tasks']->count() - 3 }} altre</span>
               @endif
+              {{-- Articoli programmati/pubblicati collegati a un progetto —
+                   sola lettura, alimentata dalla data editoriale (Blocco F). --}}
+              @foreach($day['articles']->take(2) as $article)
+                <a href="{{ route('admin.articles.edit', $article) }}"
+                   title="{{ $article->title }} — {{ $article->projects->pluck('title')->join(', ') }}"
+                   style="display:block;font-size:.68rem;padding:.15rem .35rem;margin-bottom:.2rem;border-radius:5px;
+                          background:#d1fae5;color:#065f46;
+                          text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  📰 {{ $article->title }}
+                </a>
+              @endforeach
+              @if($day['articles']->count() > 2)
+                <span style="font-size:.65rem;color:#9ca3af;">+{{ $day['articles']->count() - 2 }} articoli</span>
+              @endif
             </td>
           @endforeach
         </tr>

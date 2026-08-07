@@ -16,6 +16,7 @@ class ProjectPromptController extends Controller
         return view('admin.projects.prompt-form', [
             'project' => $project,
             'prompt' => new ProjectPrompt(['project_id' => $project->id]),
+            'taskOptions' => $this->taskOptions($project),
         ]);
     }
 
@@ -45,6 +46,7 @@ class ProjectPromptController extends Controller
         return view('admin.projects.prompt-form', [
             'project' => $project,
             'prompt' => $prompt,
+            'taskOptions' => $this->taskOptions($project),
         ]);
     }
 
@@ -95,5 +97,10 @@ class ProjectPromptController extends Controller
         $prompt->delete();
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'prompts'])->with('success', 'Prompt eliminato.');
+    }
+
+    private function taskOptions(Project $project)
+    {
+        return $project->tasks()->orderBy('title')->get(['id', 'title']);
     }
 }

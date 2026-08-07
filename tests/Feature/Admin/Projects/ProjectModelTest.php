@@ -139,4 +139,95 @@ class ProjectModelTest extends TestCase
             'source' => ProjectActivityLog::SOURCE_MANUAL,
         ]);
     }
+
+    // ── Progetto editoriale predefinito (Blocco A/F) ────────────────
+
+    public function test_a_project_can_be_marked_as_the_default_editorial_project(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+
+        $this->assertTrue($project->fresh()->is_default_editorial);
+        $this->assertTrue($project->fresh()->isEditorialType());
+    }
+
+    public function test_setting_a_new_default_editorial_project_unsets_the_previous_one(): void
+    {
+        $first = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+        $second = Project::factory()->create(['type' => Project::TYPE_ARTICLE_SERIES, 'is_default_editorial' => true]);
+
+        $this->assertFalse($first->fresh()->is_default_editorial);
+        $this->assertTrue($second->fresh()->is_default_editorial);
+    }
+
+    public function test_a_technical_project_cannot_be_marked_as_default_editorial(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_TECHNICAL_IMPROVEMENT, 'is_default_editorial' => true]);
+
+        $this->assertFalse($project->fresh()->is_default_editorial);
+    }
+
+    public function test_default_editorial_returns_null_when_none_is_set(): void
+    {
+        Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => false]);
+
+        $this->assertNull(Project::defaultEditorial());
+    }
+
+    public function test_default_editorial_returns_the_flagged_active_project(): void
+    {
+        $project = Project::factory()->create([
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'is_default_editorial' => true,
+            'operational_status' => Project::STATUS_IN_PROGRESS,
+        ]);
+
+        $result = Project::defaultEditorial();
+
+        $this->assertNotNull($result);
+        $this->assertTrue($result->is($project));
+    }
+
+    public function test_default_editorial_ignores_a_flagged_project_that_is_completed(): void
+    {
+        Project::factory()->create([
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'is_default_editorial' => true,
+            'operational_status' => Project::STATUS_COMPLETED,
+        ]);
+
+        $this->assertNull(Project::defaultEditorial());
+    }
+
+    // ── Task di tipo Sviluppo e collegamento a Prompt (Blocco A) ────
+
+    public function test_a_development_task_can_store_github_sync_fields(): void
+    {
+        $task = ProjectTask::factory()->create([
+            'type' => ProjectTask::TYPE_DEVELOPMENT,
+            'github_branch' => 'feature/esempio',
+            'github_pr_number' => 42,
+            'github_pr_state' => 'open',
+            'github_checks_state' => 'success',
+            'github_review_state' => 'approved',
+            'github_synced_at' => now(),
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame('feature/esempio', $fresh->github_branch);
+        $this->assertSame(42, $fresh->github_pr_number);
+        $this->assertSame('open', $fresh->github_pr_state);
+        $this->assertSame('success', $fresh->github_checks_state);
+        $this->assertSame('approved', $fresh->github_review_state);
+        $this->assertNotNull($fresh->github_synced_at);
+    }
+
+    public function test_a_prompt_can_be_linked_to_a_task(): void
+    {
+        $project = Project::factory()->create();
+        $task = ProjectTask::factory()->for($project)->create(['type' => ProjectTask::TYPE_DEVELOPMENT]);
+        $prompt = ProjectPrompt::factory()->for($project)->create(['task_id' => $task->id]);
+
+        $this->assertTrue($prompt->fresh()->task->is($task));
+        $this->assertTrue($task->fresh()->prompts->contains($prompt));
+    }
 }

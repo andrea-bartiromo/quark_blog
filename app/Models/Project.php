@@ -46,11 +46,23 @@ class Project extends Model
 
     public const PRIORITY_CRITICAL = 'critical';
 
+    /**
+     * Tipi di progetto ammessi come "progetto editoriale predefinito"
+     * (Blocco F): il collegamento automatico degli articoli si applica
+     * solo a questi, mai a progetti tecnici o di altra natura, anche se
+     * qualcuno impostasse per errore il flag su un progetto diverso.
+     */
+    public const DEFAULT_EDITORIAL_ELIGIBLE_TYPES = [
+        self::TYPE_EDITORIAL_SPECIAL,
+        self::TYPE_ARTICLE_SERIES,
+    ];
+
     protected $fillable = [
         'title', 'slug', 'description', 'objective', 'type',
         'operational_status', 'priority', 'responsible_id',
         'start_date', 'due_date', 'next_action', 'progress',
-        'internal_notes', 'archived_at', 'created_by', 'updated_by',
+        'internal_notes', 'archived_at', 'is_default_editorial',
+        'created_by', 'updated_by',
     ];
 
     protected $casts = [
@@ -58,6 +70,7 @@ class Project extends Model
         'due_date' => 'date',
         'archived_at' => 'datetime',
         'progress' => 'integer',
+        'is_default_editorial' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -66,7 +79,38 @@ class Project extends Model
             if (blank($project->slug)) {
                 $project->slug = static::uniqueSlugFor($project->title, $project->id);
             }
+
+            // Rete di sicurezza a livello di modello: la validazione "vera"
+            // vive nel FormRequest (Blocco E), ma un uso diretto di Eloquent
+            // (seeder, tinker, codice futuro) non deve mai poter marcare come
+            // predefinito un progetto tecnico o di altra natura.
+            if ($project->is_default_editorial && ! $project->isEditorialType()) {
+                $project->is_default_editorial = false;
+            }
+
+            // Al più un progetto alla volta è il predefinito. Lo spegnimento
+            // degli altri avviene QUI, in saving() — prima che la riga
+            // corrente venga scritta — non in saved() (dopo): altrimenti
+            // esisterebbe una finestra, per quanto breve, in cui due righe
+            // risultano entrambe predefinite. Query di massa (non
+            // Eloquent::save()) per non far scattare di nuovo questi stessi
+            // eventi sugli altri progetti. $project->id è null per una riga
+            // non ancora creata: la condizione '!= null' in SQL non esclude
+            // correttamente nulla, quindi si usa un valore sentinella (0,
+            // mai un id reale) così la query spegne comunque tutti gli
+            // eventuali predefiniti esistenti.
+            if ($project->is_default_editorial && $project->isDirty('is_default_editorial')) {
+                static::query()
+                    ->where('id', '!=', $project->id ?? 0)
+                    ->where('is_default_editorial', true)
+                    ->update(['is_default_editorial' => false]);
+            }
         });
+    }
+
+    public function isEditorialType(): bool
+    {
+        return in_array($this->type, self::DEFAULT_EDITORIAL_ELIGIBLE_TYPES, true);
     }
 
     /**
@@ -157,6 +201,57 @@ class Project extends Model
     public function scopeHighPriority(Builder $q): Builder
     {
         return $q->whereIn('priority', [self::PRIORITY_HIGH, self::PRIORITY_CRITICAL]);
+    }
+
+    public function scopeDefaultEditorial(Builder $q): Builder
+    {
+        return $q->where('is_default_editorial', true);
+    }
+
+    /**
+     * Il progetto editoriale predefinito attivo (Blocco F): se esiste, i
+     * nuovi articoli vi si collegano automaticamente. Nessun collegamento
+     * se non ce n'è uno impostato, o se il progetto è ormai completato o
+     * annullato — il flag da solo non "riattiva" un progetto chiuso.
+     */
+    public static function defaultEditorial(): ?self
+    {
+        return static::query()->defaultEditorial()->active()->first();
+    }
+
+    /**
+     * Suggerimento per "prossima azione" (Blocco E) — regola esplicita e
+     * deterministica, mai scritta automaticamente in next_action: solo un
+     * click esplicito sul pulsante "Applica" la copia nel campo reale.
+     * Priorità: task in ritardo > task in scadenza nei prossimi 7 giorni >
+     * prima task ancora da avviare. Nessun suggerimento se non c'è nulla
+     * di aperto.
+     */
+    public function suggestedNextAction(): ?string
+    {
+        $overdue = $this->tasks()->overdue()->orderBy('due_date')->first();
+
+        if ($overdue) {
+            return "Sbloccare l'attività in ritardo: «{$overdue->title}» (scadeva il {$overdue->due_date->format('d/m/Y')})";
+        }
+
+        $dueSoon = $this->tasks()->dueSoon()->orderBy('due_date')->first();
+
+        if ($dueSoon) {
+            return "Prossima scadenza: «{$dueSoon->title}» il {$dueSoon->due_date->format('d/m/Y')}";
+        }
+
+        $notStarted = $this->tasks()
+            ->whereIn('manual_status', [ProjectTask::STATUS_TODO, ProjectTask::STATUS_TAKEN])
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
+            ->first();
+
+        if ($notStarted) {
+            return "Avviare l'attività: «{$notStarted->title}»";
+        }
+
+        return null;
     }
 
     /**

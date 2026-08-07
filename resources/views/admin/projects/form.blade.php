@@ -32,7 +32,8 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
       <div class="form-group">
         <label class="form-label" for="type">Tipo *</label>
-        <select class="form-select" id="type" name="type" required>
+        <select class="form-select" id="type" name="type" required
+                onchange="document.getElementById('default-editorial-group').style.display = ['editorial_special','article_series'].includes(this.value) ? '' : 'none';">
           @foreach(\App\Models\Project::typeOptions() as $value => $label)
             <option value="{{ $value }}" @selected(old('type', $project->type) === $value)>{{ $label }}</option>
           @endforeach
@@ -56,6 +57,23 @@
       </div>
     </div>
 
+    {{-- Visibile solo per i tipi ammessi come progetto editoriale
+         predefinito (Blueprint automazione B4-Progettazione): il modello
+         rifiuta comunque il flag su altri tipi come rete di sicurezza, ma
+         mostrarlo sempre sarebbe fuorviante. --}}
+    @php
+      $isEditorialTypeSelected = in_array(old('type', $project->type), \App\Models\Project::DEFAULT_EDITORIAL_ELIGIBLE_TYPES, true);
+    @endphp
+    <div class="form-group" id="default-editorial-group" style="display: {{ $isEditorialTypeSelected ? '' : 'none' }};">
+      <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.82rem;font-weight:600;color:#111827;">
+        <input type="checkbox" name="is_default_editorial" value="1" {{ old('is_default_editorial', $project->is_default_editorial) ? 'checked' : '' }} style="width:16px;height:16px;accent-color:#0d9488;">
+        Progetto editoriale predefinito
+      </label>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.35rem;">
+        I nuovi articoli si collegano automaticamente a questo progetto alla creazione. Al più un progetto alla volta può esserlo: selezionarlo qui spegne automaticamente quello precedente.
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
       <div class="form-group">
         <label class="form-label" for="responsible_id">Responsabile</label>
@@ -70,6 +88,12 @@
         <label class="form-label" for="next_action">Prossima azione</label>
         <input class="form-input" type="text" id="next_action" name="next_action"
                value="{{ old('next_action', $project->next_action) }}">
+        @if($suggestedNextAction)
+          <div style="font-size:.78rem;color:#0d9488;margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+            <span>💡 Suggerimento: {{ $suggestedNextAction }}</span>
+            <button type="button" class="action-btn" onclick="document.getElementById('next_action').value = {{ Js::from($suggestedNextAction) }};">Applica</button>
+          </div>
+        @endif
       </div>
     </div>
 
@@ -85,9 +109,9 @@
                value="{{ old('due_date', $project->due_date?->format('Y-m-d')) }}">
       </div>
       <div class="form-group">
-        <label class="form-label" for="progress">Avanzamento (%)</label>
-        <input class="form-input" type="number" id="progress" name="progress" min="0" max="100"
-               value="{{ old('progress', $project->progress ?? 0) }}">
+        <span class="form-label" style="display:block;">Avanzamento</span>
+        <div style="font-weight:700;font-size:1.1rem;padding-top:.35rem;">{{ $project->progress ?? 0 }}%</div>
+        <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Calcolato automaticamente dalle attività completate — non modificabile.</div>
       </div>
     </div>
 

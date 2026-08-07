@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin\Projects;
 
+use App\Models\Article;
 use App\Models\Project;
 use App\Models\ProjectTask;
 use App\Models\User;
@@ -101,5 +102,95 @@ class ProjectCalendarControllerTest extends TestCase
 
         $response->assertSeeText('Nuova attività');
         $response->assertSee(route('admin.progettazione.tasks.create-pick-project'), false);
+    }
+
+    // ── Blocco F: articoli programmati/pubblicati collegati a un progetto ──
+
+    public function test_calendar_shows_a_scheduled_article_linked_to_a_project_on_its_editorial_date(): void
+    {
+        $project = Project::factory()->create();
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo in calendario',
+            'slug' => 'articolo-in-calendario',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-14 09:00:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
+            ->assertOk()
+            ->assertSeeText('Articolo in calendario');
+    }
+
+    public function test_calendar_does_not_show_an_unlinked_scheduled_article(): void
+    {
+        Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo non collegato',
+            'slug' => 'articolo-non-collegato',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-14 09:00:00',
+        ]);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
+            ->assertOk()
+            ->assertDontSeeText('Articolo non collegato');
+    }
+
+    /**
+     * Regressione CodeRabbit/Codex: published_at è salvato in UTC. Un
+     * articolo delle 22:30 UTC del 31/08 è in realtà delle 00:30 del 01/09
+     * ora di Roma (CEST, +2) — deve comparire nel calendario di settembre
+     * (giorno editoriale reale), non in quello di agosto.
+     */
+    public function test_calendar_places_an_article_on_its_rome_local_date_across_a_month_boundary(): void
+    {
+        $project = Project::factory()->create();
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo a cavallo di mezzanotte',
+            'slug' => 'articolo-a-cavallo-di-mezzanotte',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-31 22:30:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-09']))
+            ->assertOk()
+            ->assertSeeText('Articolo a cavallo di mezzanotte');
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
+            ->assertOk()
+            ->assertDontSeeText('Articolo a cavallo di mezzanotte');
+    }
+
+    public function test_calendar_does_not_show_a_draft_article_even_if_linked(): void
+    {
+        $project = Project::factory()->create();
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Bozza collegata',
+            'slug' => 'bozza-collegata',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_DRAFT,
+        ]);
+        $project->articles()->attach($article->id);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
+            ->assertOk()
+            ->assertDontSeeText('Bozza collegata');
     }
 }

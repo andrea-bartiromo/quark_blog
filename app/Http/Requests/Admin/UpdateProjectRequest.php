@@ -29,7 +29,10 @@ class UpdateProjectRequest extends FormRequest
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'next_action' => 'nullable|string|max:255',
-            'progress' => 'nullable|integer|min:0|max:100',
+            // 'progress' non è più impostabile da form: si ricalcola da solo
+            // (Blocco D, ProjectProgressService) da quando esiste almeno una
+            // task collegata al progetto.
+            'is_default_editorial' => 'boolean',
             'internal_notes' => 'nullable|string',
         ];
     }

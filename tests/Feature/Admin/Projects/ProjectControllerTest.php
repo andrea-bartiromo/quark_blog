@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -263,5 +264,207 @@ class ProjectControllerTest extends TestCase
         foreach (['Panoramica', 'Roadmap', 'Attività', 'Articoli', 'Documenti', 'Prompt', 'Decisioni', 'Cronologia'] as $tab) {
             $response->assertSeeText($tab);
         }
+    }
+
+    // ── Blocco E: avanzamento automatico e suggerimento prossima azione ──
+
+    public function test_progress_field_is_read_only_in_the_form(): void
+    {
+        $project = Project::factory()->create(['progress' => 40]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertOk();
+        $response->assertDontSee('name="progress"', false);
+        $response->assertSeeText('40%');
+    }
+
+    public function test_submitting_a_progress_value_from_the_form_is_ignored(): void
+    {
+        $project = Project::factory()->create(['progress' => 0]);
+        ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_TODO]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => $project->type,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'progress' => 99,
+        ]);
+
+        // 0 task completate su 1 = 0%, non il 99 inviato dal form.
+        $this->assertSame(0, $project->fresh()->progress);
+    }
+
+    public function test_edit_form_shows_a_suggested_next_action_with_an_apply_button(): void
+    {
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create([
+            'title' => 'Attività da avviare',
+            'manual_status' => ProjectTask::STATUS_TODO,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertOk();
+        $response->assertSeeText('Avviare l\'attività: «Attività da avviare»');
+        $response->assertSee('Applica', false);
+    }
+
+    public function test_new_project_form_shows_no_suggestion(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.create'));
+
+        $response->assertOk();
+        $response->assertDontSee('💡 Suggerimento', false);
+    }
+
+    // ── Blocco F: roadmap alimentata dagli articoli collegati ────────
+
+    public function test_roadmap_tab_shows_a_linked_scheduled_article_on_its_editorial_date(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo in roadmap',
+            'slug' => 'articolo-in-roadmap',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDays(3),
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertSeeText('Articolo in roadmap');
+    }
+
+    /**
+     * Regressione CodeRabbit/Codex: published_at è salvato in UTC. Un
+     * articolo delle 22:30 UTC del 31/08 è in realtà delle 00:30 del 01/09
+     * ora di Roma (CEST, +2) — la roadmap deve mostrare la data editoriale
+     * (Article::publishedAtForEditors()), non quella UTC grezza.
+     */
+    public function test_roadmap_tab_shows_the_editorial_rome_date_not_the_raw_utc_date(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo a cavallo di mezzanotte',
+            'slug' => 'articolo-a-cavallo-di-mezzanotte',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-31 22:30:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertSeeText('01/09/2026');
+        $response->assertDontSeeText('31/08/2026');
+    }
+
+    public function test_roadmap_tab_does_not_show_a_draft_linked_article(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Bozza in roadmap',
+            'slug' => 'bozza-in-roadmap',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_DRAFT,
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertDontSeeText('Bozza in roadmap');
+    }
+
+    // ── Hardening: esposizione UI di is_default_editorial ────────────
+
+    public function test_editor_can_mark_a_project_as_the_default_editorial_project_via_the_form(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => false]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertTrue($project->fresh()->is_default_editorial);
+    }
+
+    public function test_unchecking_the_default_editorial_box_clears_it(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            // is_default_editorial assente: checkbox non spuntata.
+        ]);
+
+        $this->assertFalse($project->fresh()->is_default_editorial);
+    }
+
+    public function test_setting_a_new_default_via_the_form_unsets_the_previous_one(): void
+    {
+        $first = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+        $second = Project::factory()->create(['type' => Project::TYPE_ARTICLE_SERIES, 'is_default_editorial' => false]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $second), [
+            'title' => $second->title,
+            'type' => Project::TYPE_ARTICLE_SERIES,
+            'operational_status' => $second->operational_status,
+            'priority' => $second->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertFalse($first->fresh()->is_default_editorial);
+        $this->assertTrue($second->fresh()->is_default_editorial);
+    }
+
+    public function test_a_technical_project_cannot_become_default_editorial_via_the_form(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_TECHNICAL_IMPROVEMENT]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_TECHNICAL_IMPROVEMENT,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertFalse($project->fresh()->is_default_editorial);
+    }
+
+    public function test_default_editorial_checkbox_is_visible_only_for_eligible_types(): void
+    {
+        $editorialProject = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL]);
+        $technicalProject = Project::factory()->create(['type' => Project::TYPE_TECHNICAL_IMPROVEMENT]);
+
+        $editorialResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.edit', $editorialProject));
+        $editorialResponse->assertSee('id="default-editorial-group" style="display: ;"', false);
+
+        $technicalResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.edit', $technicalProject));
+        $technicalResponse->assertSee('id="default-editorial-group" style="display: none;"', false);
     }
 }

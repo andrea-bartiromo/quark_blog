@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
@@ -37,16 +38,26 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => new Project,
             'responsibleOptions' => $this->responsibleOptions(),
+            'suggestedNextAction' => null,
         ]);
     }
 
     public function store(StoreProjectRequest $request)
     {
         $data = $request->validated();
+        // Una checkbox non spuntata non viene inviata dal browser: senza
+        // questa coercizione esplicita is_default_editorial resterebbe
+        // assente da $data invece di essere false.
+        $data['is_default_editorial'] = $request->boolean('is_default_editorial');
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
 
-        $project = Project::create($data);
+        // Transazione: lo spegnimento dell'eventuale predefinito precedente
+        // (dentro Project::saving()) e la creazione di questa riga sono due
+        // statement SQL distinti — senza transazione un'altra richiesta
+        // potrebbe leggere lo stato a metà strada (nessun predefinito, o
+        // temporaneamente due).
+        $project = DB::transaction(fn () => Project::create($data));
 
         ProjectActivityLog::record(
             project: $project,
@@ -111,6 +122,7 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => $project,
             'responsibleOptions' => $this->responsibleOptions(),
+            'suggestedNextAction' => $project->suggestedNextAction(),
         ]);
     }
 
@@ -119,9 +131,17 @@ class ProjectController extends Controller
         $before = $project->only(['title', 'operational_status', 'priority']);
 
         $data = $request->validated();
+        // Il form è a pagina intera e mostra sempre lo stato corrente della
+        // checkbox: un invio senza il campo significa "non spuntata ora",
+        // non "nessuna modifica" — coercizione esplicita necessaria perché
+        // una checkbox non spuntata non viene inviata affatto dal browser.
+        $data['is_default_editorial'] = $request->boolean('is_default_editorial');
         $data['updated_by'] = auth()->id();
 
-        $project->update($data);
+        // Stessa ragione della transazione in store(): l'update di questa
+        // riga e lo spegnimento dell'eventuale predefinito precedente devono
+        // committare insieme, non come due statement osservabili separati.
+        DB::transaction(fn () => $project->update($data));
 
         if ($before['operational_status'] !== $project->operational_status) {
             ProjectActivityLog::record(

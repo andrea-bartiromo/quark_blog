@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProjectTaskControllerTest extends TestCase
@@ -123,6 +124,66 @@ class ProjectTaskControllerTest extends TestCase
         $plainResponse = $this->actingAs($this->editor())
             ->get(route('admin.progettazione.projects.tasks.edit', [$project, $plainTask]));
         $plainResponse->assertSee('id="article-link-group" style="display: none;"', false);
+    }
+
+    public function test_task_form_shows_the_github_branch_field_only_for_development_type_task(): void
+    {
+        $project = Project::factory()->create();
+        $devTask = ProjectTask::factory()->for($project)->development()->create();
+        $plainTask = ProjectTask::factory()->for($project)->create(['type' => ProjectTask::TYPE_TASK]);
+
+        $devResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.tasks.edit', [$project, $devTask]));
+        $devResponse->assertSee('id="github-branch-group" style="display: ;"', false);
+
+        $plainResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.tasks.edit', [$project, $plainTask]));
+        $plainResponse->assertSee('id="github-branch-group" style="display: none;"', false);
+    }
+
+    public function test_editor_can_set_a_github_branch_on_a_development_task(): void
+    {
+        // Il test passa "per caso" senza questo fake finché l'ambiente non
+        // ha un GITHUB_TOKEN configurato (il sync si ferma prima di
+        // qualunque chiamata HTTP) — Http::fake() lo rende esplicito e
+        // sicuro anche altrove.
+        Http::fake();
+        $project = Project::factory()->create();
+
+        $this->actingAs($this->editor())->post(route('admin.progettazione.projects.tasks.store', $project), [
+            'title' => 'Implementare feature X',
+            'type' => ProjectTask::TYPE_DEVELOPMENT,
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'priority' => ProjectTask::PRIORITY_MEDIUM,
+            'github_branch' => 'feature/x',
+        ]);
+
+        $this->assertDatabaseHas('project_tasks', [
+            'title' => 'Implementare feature X',
+            'github_branch' => 'feature/x',
+        ]);
+    }
+
+    public function test_task_form_shows_readable_github_sync_state(): void
+    {
+        $project = Project::factory()->create();
+        $task = ProjectTask::factory()->for($project)->development()->create([
+            'github_branch' => 'feature/x',
+            'github_pr_number' => 7,
+            'github_pr_state' => 'open',
+            'github_checks_state' => 'success',
+            'github_review_state' => 'approved',
+            'github_synced_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.tasks.edit', [$project, $task]));
+
+        $response->assertOk();
+        $response->assertSeeText('PR #7');
+        $response->assertSeeText('Open');
+        $response->assertSeeText('Check: success');
+        $response->assertSeeText('Review: approved');
     }
 
     /**
