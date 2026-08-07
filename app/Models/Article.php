@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Services\ProjectEditorialLinkService;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -75,6 +76,11 @@ class Article extends Model
         static::saved(fn (Article $article) => app(ProjectTaskSyncService::class)->syncForArticle($article));
 
         static::deleted(fn (Article $article) => app(ProjectTaskSyncService::class)->invalidateForDeletedArticle($article->id));
+
+        // Piano Editoriale automatico (Blocco F): solo alla creazione, mai
+        // sui salvataggi successivi — un collegamento rimosso a mano non
+        // deve poter essere ripristinato automaticamente da una modifica.
+        static::created(fn (Article $article) => app(ProjectEditorialLinkService::class)->linkToDefaultProject($article));
     }
 
     // Etichette leggibili per lo stato di verifica

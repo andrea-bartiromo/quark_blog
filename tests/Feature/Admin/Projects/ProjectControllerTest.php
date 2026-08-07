@@ -318,4 +318,47 @@ class ProjectControllerTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('💡 Suggerimento', false);
     }
+
+    // ── Blocco F: roadmap alimentata dagli articoli collegati ────────
+
+    public function test_roadmap_tab_shows_a_linked_scheduled_article_on_its_editorial_date(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo in roadmap',
+            'slug' => 'articolo-in-roadmap',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDays(3),
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertSeeText('Articolo in roadmap');
+    }
+
+    public function test_roadmap_tab_does_not_show_a_draft_linked_article(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Bozza in roadmap',
+            'slug' => 'bozza-in-roadmap',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_DRAFT,
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertDontSeeText('Bozza in roadmap');
+    }
 }
