@@ -138,13 +138,19 @@ class ArticleLinkInsertionService
             return null;
         }
 
-        libxml_use_internal_errors(true);
+        // libxml_use_internal_errors() muta uno stato globale al processo:
+        // va ripristinato al valore precedente, non lasciato sempre a
+        // true, altrimenti qualunque altro codice nella stessa richiesta
+        // (o nello stesso worker, sotto coda/Octane) eredita silenziosamente
+        // la soppressione degli errori libxml.
+        $previousLibxmlState = libxml_use_internal_errors(true);
         $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->loadHTML(
             '<?xml encoding="UTF-8"><div id="__link_insert_root__">'.$bodyHtml.'</div>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
         libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
 
         $xpath = new DOMXPath($dom);
         $root = $xpath->query('//div[@id="__link_insert_root__"]')->item(0);

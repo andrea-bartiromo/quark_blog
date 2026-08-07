@@ -207,7 +207,7 @@ class ArticleLinkSuggestionControllerTest extends TestCase
     {
         $owner = $this->author();
 
-        $target = $this->article(['title' => 'Pannelli solari di nuova generazione']);
+        $this->article(['title' => 'Pannelli solari di nuova generazione']);
         $source = $this->article([
             'user_id' => $owner->id,
             'status' => 'review',
@@ -218,6 +218,39 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $response = $this->actingAs($owner)->postJson(route('redazione.articles.link-suggestions.analyze', $source));
 
         $response->assertOk();
+    }
+
+    // 5b. Un suggerimento non appartenente all'articolo indicato nella rotta viene rifiutato con 404
+    //     (protegge da un utente che possiede l'articolo A ma prova ad agire su un suggerimento dell'articolo B)
+    public function test_a_suggestion_belonging_to_a_different_article_is_rejected_with_404(): void
+    {
+        $editor = $this->editor();
+
+        $articleA = $this->article(['user_id' => $editor->id]);
+        $articleB = $this->article(['user_id' => $editor->id]);
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+
+        $suggestionOfB = ArticleLinkSuggestion::create([
+            'source_article_id' => $articleB->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $insertResponse = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$articleA, $suggestionOfB]),
+            ['body' => $articleA->body]
+        );
+        $insertResponse->assertNotFound();
+
+        $ignoreResponse = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.ignore', [$articleA, $suggestionOfB])
+        );
+        $ignoreResponse->assertNotFound();
+
+        // Il suggerimento non è stato toccato dai tentativi rifiutati.
+        $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestionOfB->fresh()->status);
     }
 
     // 6. Se l'anchor non è più presente nel body inviato, l'inserimento fallisce e il suggerimento resta "proposed"

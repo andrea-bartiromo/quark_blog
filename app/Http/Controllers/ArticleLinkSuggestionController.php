@@ -129,11 +129,7 @@ class ArticleLinkSuggestionController extends Controller
 
     private function serializeSuggestions(Article $article): array
     {
-        return $article->linkSuggestions()
-            ->proposed()
-            ->with('targetArticle:id,title,slug')
-            ->orderByDesc('confidence_score')
-            ->get()
+        return $article->proposedLinkSuggestions()
             ->map(fn (ArticleLinkSuggestion $s) => [
                 'id' => $s->id,
                 'anchor_text' => $s->anchor_text,

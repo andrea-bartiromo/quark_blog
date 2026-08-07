@@ -199,4 +199,21 @@ class ArticleLinkInsertionServiceTest extends TestCase
         $relativeBackslash = $this->service->insert($body, 'energia e sviluppo sostenibile', '/\\evil-external-host.example/x');
         $this->assertNull($relativeBackslash);
     }
+
+    // 17. Non altera lo stato globale libxml_use_internal_errors oltre la propria chiamata
+    public function test_it_restores_the_previous_libxml_error_reporting_state(): void
+    {
+        libxml_use_internal_errors(false);
+
+        $this->service->insert('<p>Un termine qui.</p>', 'termine', '/articolo/x');
+        $this->service->canInsert('<p>Un termine qui.</p>', 'termine');
+
+        // libxml_use_internal_errors(true) imposta il nuovo valore e
+        // restituisce quello precedente: se il servizio avesse lasciato lo
+        // stato a true, qui tornerebbe true invece di false.
+        $previous = libxml_use_internal_errors(true);
+        libxml_use_internal_errors(false);
+
+        $this->assertFalse($previous);
+    }
 }
