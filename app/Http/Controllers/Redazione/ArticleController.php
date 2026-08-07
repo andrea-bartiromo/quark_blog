@@ -102,10 +102,6 @@ class ArticleController extends Controller
             $data['cover_image'] = $diskName;
         }
 
-        $wordCount = str_word_count(
-            strip_tags($data['body'] ?? '')
-        );
-
         $article = Article::create([
             'user_id' => auth()->id(),
             'title' => $data['title'],
@@ -121,8 +117,7 @@ class ArticleController extends Controller
             'cover_source_url' => $data['cover_source_url'] ?? null,
             'cover_license' => $data['cover_license'] ?? null,
             'status' => 'review',
-            'read_minutes' => $data['read_minutes']
-                ?? max(1, (int) ceil($wordCount / 180)),
+            'read_minutes' => Article::calculateReadMinutes($data['body']),
             'verification_status' => 'unverified',
             'published_at' => now(),
             'seo_title' => $data['seo_title'] ?? null,
@@ -242,10 +237,6 @@ class ArticleController extends Controller
             $data['cover_image'] = $diskName;
         }
 
-        $wordCount = str_word_count(
-            strip_tags($data['body'] ?? '')
-        );
-
         $article->update([
             'title' => $data['title'],
             'excerpt' => $data['excerpt'] ?? null,
@@ -260,8 +251,7 @@ class ArticleController extends Controller
             'cover_source_url' => $data['cover_source_url'] ?? null,
             'cover_license' => $data['cover_license'] ?? null,
             'status' => 'review',
-            'read_minutes' => $data['read_minutes']
-                ?? max(1, (int) ceil($wordCount / 180)),
+            'read_minutes' => Article::calculateReadMinutes($data['body']),
             'seo_title' => $data['seo_title'] ?? null,
             'seo_description' => $data['seo_description'] ?? null,
             'canonical_url' => $data['canonical_url'] ?? null,

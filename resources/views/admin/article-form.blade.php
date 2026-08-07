@@ -209,9 +209,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="read_minutes">Minuti di lettura</label>
-        <input class="form-input" type="number" id="read_minutes" name="read_minutes"
-               min="1" max="60" value="{{ old('read_minutes', $article->read_minutes ?? 5) }}">
+        <span class="form-label">Tempo di lettura</span>
+        <div id="read-minutes-preview" style="font-weight:600;font-size:.92rem;">
+          {{ $article->read_minutes ?? 1 }} min
+        </div>
+        <small class="form-hint">
+          Calcolato automaticamente dal testo dell'articolo (200 parole al minuto) al salvataggio — non modificabile.
+        </small>
       </div>
     </div>
 
@@ -363,6 +367,9 @@ document.addEventListener('DOMContentLoaded', function () {
     setup: function (editor) {
       editor.on('change keyup', function () {
         editor.save();
+        if (typeof window.kairusUpdateReadMinutesPreview === 'function') {
+          window.kairusUpdateReadMinutesPreview();
+        }
       });
     },
     content_style: `
@@ -484,4 +491,5 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 @include('partials.char-counter-script')
+@include('partials.article-read-minutes-script')
 @endsection

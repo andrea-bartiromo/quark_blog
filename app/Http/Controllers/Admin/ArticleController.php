@@ -234,14 +234,7 @@ class ArticleController extends Controller
         unset($data['published_date'], $data['published_time']);
 
         if (! empty($data['body'])) {
-            $wordCount = str_word_count(
-                strip_tags($data['body'])
-            );
-
-            $data['read_minutes'] = max(
-                1,
-                (int) round($wordCount / 200)
-            );
+            $data['read_minutes'] = Article::calculateReadMinutes($data['body']);
         }
 
         return $data;

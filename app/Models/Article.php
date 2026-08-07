@@ -229,6 +229,23 @@ class Article extends Model
         return $this->read_minutes.' min di lettura';
     }
 
+    /**
+     * Minuti di lettura stimati dal corpo dell'articolo: conteggio parole
+     * sul testo (tag HTML rimossi) diviso 200 parole/minuto — velocità di
+     * lettura media convenzionale per un lettore adulto in italiano — con
+     * arrotondamento all'intero più vicino e minimo di 1 minuto. Unico
+     * punto del codice che esegue questo calcolo: Admin\ArticleController e
+     * Redazione\ArticleController lo richiamano entrambi invece di
+     * duplicare la formula (in precedenza usavano due formule diverse e non
+     * documentate, con risultati incoerenti tra le due aree).
+     */
+    public static function calculateReadMinutes(?string $body): int
+    {
+        $wordCount = str_word_count(strip_tags((string) $body));
+
+        return max(1, (int) round($wordCount / 200));
+    }
+
     // ── Mutator ───────────────────────────────────────────────
 
     public function setTitleAttribute(string $value): void
