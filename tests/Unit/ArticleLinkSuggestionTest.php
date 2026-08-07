@@ -86,6 +86,20 @@ class ArticleLinkSuggestionTest extends TestCase
         $source->delete();
 
         $this->assertSame(0, ArticleLinkSuggestion::count());
+
+        $otherSource = $this->article();
+        $otherTarget = $this->article();
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $otherSource->id,
+            'target_article_id' => $otherTarget->id,
+            'anchor_text' => 'termine',
+            'reason' => 'motivo',
+            'confidence_score' => 50,
+        ]);
+
+        $otherTarget->delete();
+
+        $this->assertSame(0, ArticleLinkSuggestion::count());
     }
 
     // 4. Scope "proposed" isola solo i suggerimenti ancora da rivedere

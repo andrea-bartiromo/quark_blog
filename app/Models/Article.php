@@ -136,6 +136,21 @@ class Article extends Model
         return $this->hasMany(ArticleLinkSuggestion::class, 'source_article_id');
     }
 
+    /**
+     * Suggerimenti di collegamento interno ancora da rivedere per questo
+     * articolo, pronti per il pannello "Collegamenti interni suggeriti" —
+     * stessa query condivisa da Admin e Redazione, per evitare che le due
+     * aree mostrino elenchi diversi se la query dovesse cambiare.
+     */
+    public function proposedLinkSuggestions()
+    {
+        return $this->linkSuggestions()
+            ->proposed()
+            ->with('targetArticle:id,title,slug')
+            ->orderByDesc('confidence_score')
+            ->get();
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublished(Builder $q): Builder

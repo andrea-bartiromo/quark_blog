@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Genera suggerimenti di collegamento interno tra articoli con un ranking
@@ -146,15 +147,16 @@ class ArticleLinkSuggestionService
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
 
-            if ($existingSuggestion) {
-                $existingSuggestion->update($attributes);
-                $results->push($existingSuggestion);
-            } else {
-                $results->push(ArticleLinkSuggestion::create($attributes + [
-                    'source_article_id' => $source->id,
-                    'target_article_id' => $candidate->id,
-                ]));
-            }
+            // updateOrCreate (non un controllo di esistenza seguito da un
+            // create separato) resta corretto anche se due richieste
+            // "Analizza" concorrenti per lo stesso articolo colpiscono la
+            // stessa coppia sorgente/target: senza questo, un doppio click
+            // potrebbe far scattare il vincolo unique(source,target) e far
+            // fallire la richiesta con un errore 500.
+            $results->push(ArticleLinkSuggestion::updateOrCreate(
+                ['source_article_id' => $source->id, 'target_article_id' => $candidate->id],
+                $attributes
+            ));
         }
 
         return $results;
@@ -171,11 +173,20 @@ class ArticleLinkSuggestionService
      */
     public function analyzeForNewTarget(Article $target): Collection
     {
+        // Un'unica query per tutti i suggerimenti esistenti verso $target
+        // (invece di una query per candidato dentro il loop — N+1) e
+        // lazy() per non tenere in memoria contemporaneamente i body HTML
+        // di tutti i candidati (fino a MAX_RETROACTIVE_SOURCE_CANDIDATES).
+        $existingByCandidateId = ArticleLinkSuggestion::where('target_article_id', $target->id)
+            ->get()
+            ->keyBy('source_article_id');
+
         $candidates = Article::published()
             ->where('id', '!=', $target->id)
             ->orderByDesc('published_at')
             ->limit(self::MAX_RETROACTIVE_SOURCE_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body']);
+            ->select(['id', 'title', 'slug', 'excerpt', 'category', 'body'])
+            ->lazy();
 
         $targetAsCandidate = (object) [
             'id' => $target->id,
@@ -195,10 +206,7 @@ class ArticleLinkSuggestionService
             }
 
             $alreadyLinkedSlugs = $this->linkedSlugsInBody((string) $candidateSource->body);
-
-            $existingSuggestion = ArticleLinkSuggestion::where('source_article_id', $candidateSource->id)
-                ->where('target_article_id', $target->id)
-                ->first();
+            $existingSuggestion = $existingByCandidateId->get($candidateSource->id);
 
             if (in_array($target->slug, $alreadyLinkedSlugs, true)) {
                 $this->supersedeIfActionable($existingSuggestion);
@@ -227,15 +235,12 @@ class ArticleLinkSuggestionService
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
 
-            if ($existingSuggestion) {
-                $existingSuggestion->update($attributes);
-                $results->push($existingSuggestion);
-            } else {
-                $results->push(ArticleLinkSuggestion::create($attributes + [
-                    'source_article_id' => $candidateSource->id,
-                    'target_article_id' => $target->id,
-                ]));
-            }
+            // updateOrCreate: al sicuro anche in caso di richieste
+            // concorrenti sulla stessa coppia (vincolo unique).
+            $results->push(ArticleLinkSuggestion::updateOrCreate(
+                ['source_article_id' => $candidateSource->id, 'target_article_id' => $target->id],
+                $attributes
+            ));
         }
 
         return $results;
@@ -412,11 +417,17 @@ class ArticleLinkSuggestionService
         return array_keys($terms);
     }
 
+    /**
+     * Str::ascii() (non iconv con //TRANSLIT) perché la traslitterazione
+     * di iconv dipende dalla libreria di sistema e dalla locale — sotto
+     * musl (es. Alpine) //TRANSLIT non è supportato, e in locale "C" può
+     * restituire "?" al posto della lettera accentata, facendo sfuggire
+     * stopword accentate al confronto con STOPWORDS in modo diverso da
+     * ambiente ad ambiente.
+     */
     private function stripAccents(string $word): string
     {
-        $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $word);
-
-        return $transliterated !== false ? mb_strtolower($transliterated) : $word;
+        return mb_strtolower(Str::ascii($word));
     }
 
     /**
@@ -483,13 +494,14 @@ class ArticleLinkSuggestionService
             return [];
         }
 
-        libxml_use_internal_errors(true);
+        $previousLibxmlState = libxml_use_internal_errors(true);
         $dom = new \DOMDocument('1.0', 'UTF-8');
         $dom->loadHTML(
             '<?xml encoding="UTF-8"><div>'.$html.'</div>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
         libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
 
         $slugs = [];
 
