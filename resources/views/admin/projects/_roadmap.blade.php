@@ -6,11 +6,13 @@
 
   // Articoli programmati/pubblicati collegati al progetto — sola lettura,
   // alimentata dalla data editoriale (published_at), nessun nuovo
-  // collegamento introdotto qui (Blocco F).
+  // collegamento introdotto qui (Blocco F). published_at è in UTC:
+  // publishedAtForEditors() lo converte nel fuso redazionale (Europe/Rome),
+  // stessa convenzione già usata altrove per gli articoli.
   $roadmapArticles = $project->articles()
       ->whereIn('status', [\App\Models\Article::STATUS_SCHEDULED, \App\Models\Article::STATUS_PUBLISHED])
       ->get()
-      ->map(fn ($article) => ['kind' => 'article', 'date' => $article->published_at, 'item' => $article]);
+      ->map(fn ($article) => ['kind' => 'article', 'date' => $article->publishedAtForEditors(), 'item' => $article]);
 
   $roadmapItems = $roadmapTasks->concat($roadmapArticles)
       ->sortBy(fn ($entry) => $entry['date'] ?? \Illuminate\Support\Carbon::parse('9999-12-31'))

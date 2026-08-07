@@ -27,14 +27,25 @@ class ProjectCalendarController extends Controller
         // progetto alimentano il calendario con la loro data editoriale
         // (published_at), senza introdurre alcun nuovo collegamento — usa
         // project_article esattamente come già esiste (Blocco F).
+        //
+        // published_at è memorizzato in UTC: un articolo delle 00:30 ora di
+        // Roma del giorno 1 è salvato come le 22:30/23:30 UTC del giorno
+        // precedente (a seconda dell'ora legale). Confrontare/raggruppare
+        // sulla data UTC grezza lo collocherebbe nel giorno (o mese) sbagliato
+        // rispetto a come lo vede la redazione — stesso fuso già usato altrove
+        // per gli articoli (Article::publishedAtForEditors()).
+        $monthRangeStartUtc = Article::scheduledAtFromEditorialInput($rangeStart, '00:00');
+        $monthRangeEndUtc = Article::scheduledAtFromEditorialInput($month->clone()->endOfMonth()->addDay()->toDateString(), '00:00');
+
         $articles = Article::query()
             ->whereIn('status', [Article::STATUS_SCHEDULED, Article::STATUS_PUBLISHED])
             ->whereNotNull('published_at')
-            ->whereBetween('published_at', [$rangeStart, $rangeEnd.' 23:59:59'])
+            ->where('published_at', '>=', $monthRangeStartUtc)
+            ->where('published_at', '<', $monthRangeEndUtc)
             ->whereHas('projects')
             ->with('projects:id,title')
             ->get()
-            ->groupBy(fn (Article $article) => $article->published_at->toDateString());
+            ->groupBy(fn (Article $article) => $article->publishedAtForEditors()->toDateString());
 
         $weeks = $this->buildWeeks($month, $tasks, $articles);
 

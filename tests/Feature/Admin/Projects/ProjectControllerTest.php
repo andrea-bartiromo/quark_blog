@@ -342,6 +342,34 @@ class ProjectControllerTest extends TestCase
         $response->assertSeeText('Articolo in roadmap');
     }
 
+    /**
+     * Regressione CodeRabbit/Codex: published_at è salvato in UTC. Un
+     * articolo delle 22:30 UTC del 31/08 è in realtà delle 00:30 del 01/09
+     * ora di Roma (CEST, +2) — la roadmap deve mostrare la data editoriale
+     * (Article::publishedAtForEditors()), non quella UTC grezza.
+     */
+    public function test_roadmap_tab_shows_the_editorial_rome_date_not_the_raw_utc_date(): void
+    {
+        $project = Project::factory()->create();
+        $article = \App\Models\Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo a cavallo di mezzanotte',
+            'slug' => 'articolo-a-cavallo-di-mezzanotte',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-31 22:30:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'roadmap']));
+
+        $response->assertOk();
+        $response->assertSeeText('01/09/2026');
+        $response->assertDontSeeText('31/08/2026');
+    }
+
     public function test_roadmap_tab_does_not_show_a_draft_linked_article(): void
     {
         $project = Project::factory()->create();

@@ -144,6 +144,37 @@ class ProjectCalendarControllerTest extends TestCase
             ->assertDontSeeText('Articolo non collegato');
     }
 
+    /**
+     * Regressione CodeRabbit/Codex: published_at è salvato in UTC. Un
+     * articolo delle 22:30 UTC del 31/08 è in realtà delle 00:30 del 01/09
+     * ora di Roma (CEST, +2) — deve comparire nel calendario di settembre
+     * (giorno editoriale reale), non in quello di agosto.
+     */
+    public function test_calendar_places_an_article_on_its_rome_local_date_across_a_month_boundary(): void
+    {
+        $project = Project::factory()->create();
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo a cavallo di mezzanotte',
+            'slug' => 'articolo-a-cavallo-di-mezzanotte',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-31 22:30:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-09']))
+            ->assertOk()
+            ->assertSeeText('Articolo a cavallo di mezzanotte');
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
+            ->assertOk()
+            ->assertDontSeeText('Articolo a cavallo di mezzanotte');
+    }
+
     public function test_calendar_does_not_show_a_draft_article_even_if_linked(): void
     {
         $project = Project::factory()->create();
