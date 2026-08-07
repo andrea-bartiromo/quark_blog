@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProjectTaskControllerTest extends TestCase
@@ -142,6 +143,11 @@ class ProjectTaskControllerTest extends TestCase
 
     public function test_editor_can_set_a_github_branch_on_a_development_task(): void
     {
+        // Il test passa "per caso" senza questo fake finché l'ambiente non
+        // ha un GITHUB_TOKEN configurato (il sync si ferma prima di
+        // qualunque chiamata HTTP) — Http::fake() lo rende esplicito e
+        // sicuro anche altrove.
+        Http::fake();
         $project = Project::factory()->create();
 
         $this->actingAs($this->editor())->post(route('admin.progettazione.projects.tasks.store', $project), [
