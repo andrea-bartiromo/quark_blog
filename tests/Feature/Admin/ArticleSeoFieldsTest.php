@@ -382,4 +382,29 @@ class ArticleSeoFieldsTest extends TestCase
         // solo il campo canonical potrebbe mai avere un placeholder che è un URL.
         $response->assertDontSee('placeholder="http', false);
     }
+
+    // 14. FASE 5: cambiare la cover in aggiornamento deve aggiornare il
+    //     fallback OG/Twitter image, non solo alla creazione (già coperto)
+    public function test_changing_the_cover_on_update_updates_the_og_and_twitter_image_fallback(): void
+    {
+        $editor = $this->editor();
+        $article = $this->publishedArticle($editor, [
+            'cover_image' => 'copertina-vecchia.jpg',
+            'og_image' => null,
+            'twitter_image' => null,
+        ]);
+
+        $this->actingAs($editor)->put(route('admin.articles.update', $article), [
+            'title' => $article->title,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => $article->status,
+            'cover_image' => 'copertina-nuova.jpg',
+        ]);
+
+        $article->refresh();
+        $this->assertSame('copertina-nuova.jpg', $article->cover_image);
+        $this->assertStringContainsString('copertina-nuova.jpg', $article->metaOgImage());
+        $this->assertStringContainsString('copertina-nuova.jpg', $article->metaTwitterImage());
+    }
 }
