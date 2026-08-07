@@ -32,6 +32,7 @@ class UpdateProjectRequest extends FormRequest
             // 'progress' non è più impostabile da form: si ricalcola da solo
             // (Blocco D, ProjectProgressService) da quando esiste almeno una
             // task collegata al progetto.
+            'is_default_editorial' => 'boolean',
             'internal_notes' => 'nullable|string',
         ];
     }

@@ -361,4 +361,82 @@ class ProjectControllerTest extends TestCase
         $response->assertOk();
         $response->assertDontSeeText('Bozza in roadmap');
     }
+
+    // ── Hardening: esposizione UI di is_default_editorial ────────────
+
+    public function test_editor_can_mark_a_project_as_the_default_editorial_project_via_the_form(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => false]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertTrue($project->fresh()->is_default_editorial);
+    }
+
+    public function test_unchecking_the_default_editorial_box_clears_it(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_EDITORIAL_SPECIAL,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            // is_default_editorial assente: checkbox non spuntata.
+        ]);
+
+        $this->assertFalse($project->fresh()->is_default_editorial);
+    }
+
+    public function test_setting_a_new_default_via_the_form_unsets_the_previous_one(): void
+    {
+        $first = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL, 'is_default_editorial' => true]);
+        $second = Project::factory()->create(['type' => Project::TYPE_ARTICLE_SERIES, 'is_default_editorial' => false]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $second), [
+            'title' => $second->title,
+            'type' => Project::TYPE_ARTICLE_SERIES,
+            'operational_status' => $second->operational_status,
+            'priority' => $second->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertFalse($first->fresh()->is_default_editorial);
+        $this->assertTrue($second->fresh()->is_default_editorial);
+    }
+
+    public function test_a_technical_project_cannot_become_default_editorial_via_the_form(): void
+    {
+        $project = Project::factory()->create(['type' => Project::TYPE_TECHNICAL_IMPROVEMENT]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => Project::TYPE_TECHNICAL_IMPROVEMENT,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'is_default_editorial' => '1',
+        ]);
+
+        $this->assertFalse($project->fresh()->is_default_editorial);
+    }
+
+    public function test_default_editorial_checkbox_is_visible_only_for_eligible_types(): void
+    {
+        $editorialProject = Project::factory()->create(['type' => Project::TYPE_EDITORIAL_SPECIAL]);
+        $technicalProject = Project::factory()->create(['type' => Project::TYPE_TECHNICAL_IMPROVEMENT]);
+
+        $editorialResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.edit', $editorialProject));
+        $editorialResponse->assertSee('id="default-editorial-group" style="display: ;"', false);
+
+        $technicalResponse = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.edit', $technicalProject));
+        $technicalResponse->assertSee('id="default-editorial-group" style="display: none;"', false);
+    }
 }

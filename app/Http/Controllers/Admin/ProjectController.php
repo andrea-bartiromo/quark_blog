@@ -44,6 +44,10 @@ class ProjectController extends Controller
     public function store(StoreProjectRequest $request)
     {
         $data = $request->validated();
+        // Una checkbox non spuntata non viene inviata dal browser: senza
+        // questa coercizione esplicita is_default_editorial resterebbe
+        // assente da $data invece di essere false.
+        $data['is_default_editorial'] = $request->boolean('is_default_editorial');
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
 
@@ -121,6 +125,11 @@ class ProjectController extends Controller
         $before = $project->only(['title', 'operational_status', 'priority']);
 
         $data = $request->validated();
+        // Il form è a pagina intera e mostra sempre lo stato corrente della
+        // checkbox: un invio senza il campo significa "non spuntata ora",
+        // non "nessuna modifica" — coercizione esplicita necessaria perché
+        // una checkbox non spuntata non viene inviata affatto dal browser.
+        $data['is_default_editorial'] = $request->boolean('is_default_editorial');
         $data['updated_by'] = auth()->id();
 
         $project->update($data);

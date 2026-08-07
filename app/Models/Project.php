@@ -87,16 +87,21 @@ class Project extends Model
             if ($project->is_default_editorial && ! $project->isEditorialType()) {
                 $project->is_default_editorial = false;
             }
-        });
 
-        static::saved(function (Project $project) {
-            // Al più un progetto alla volta è il predefinito: impostarne uno
-            // nuovo spegne automaticamente quello precedente. Usa una query
-            // di massa (non Eloquent::save()) per non far scattare di nuovo
-            // questi stessi eventi sugli altri progetti.
-            if ($project->is_default_editorial) {
+            // Al più un progetto alla volta è il predefinito. Lo spegnimento
+            // degli altri avviene QUI, in saving() — prima che la riga
+            // corrente venga scritta — non in saved() (dopo): altrimenti
+            // esisterebbe una finestra, per quanto breve, in cui due righe
+            // risultano entrambe predefinite. Query di massa (non
+            // Eloquent::save()) per non far scattare di nuovo questi stessi
+            // eventi sugli altri progetti. $project->id è null per una riga
+            // non ancora creata: la condizione '!= null' in SQL non esclude
+            // correttamente nulla, quindi si usa un valore sentinella (0,
+            // mai un id reale) così la query spegne comunque tutti gli
+            // eventuali predefiniti esistenti.
+            if ($project->is_default_editorial && $project->isDirty('is_default_editorial')) {
                 static::query()
-                    ->where('id', '!=', $project->id)
+                    ->where('id', '!=', $project->id ?? 0)
                     ->where('is_default_editorial', true)
                     ->update(['is_default_editorial' => false]);
             }

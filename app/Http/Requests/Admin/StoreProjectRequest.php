@@ -31,6 +31,7 @@ class StoreProjectRequest extends FormRequest
             'next_action' => 'nullable|string|max:255',
             // 'progress' non è impostabile da form: parte da 0 (nessuna task
             // ancora) e si ricalcola da solo (Blocco D, ProjectProgressService).
+            'is_default_editorial' => 'boolean',
             'internal_notes' => 'nullable|string',
         ];
     }
