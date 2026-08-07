@@ -296,7 +296,7 @@ Gli aspetti legati alla sicurezza sono invece documentati all'interno di `SECURI
 
 **Copyright © 2026 Andrea Bartiromo. Tutti i diritti riservati.**
 
-Kairus è un progetto proprietario sviluppato come portfolio tecnico e come laboratorio personale per la progettazione di piattaforme editoriali moderne basate su Laravel.
+Questo è un progetto proprietario sviluppato come portfolio tecnico e come laboratorio personale per la progettazione di piattaforme editoriali moderne basate su Laravel.
 
 Il repository è reso pubblicamente consultabile esclusivamente a scopo dimostrativo, di studio e di valutazione professionale. La pubblicazione del codice non costituisce in alcun modo una rinuncia ai diritti dell'autore né implica la concessione di una licenza open source.
 
