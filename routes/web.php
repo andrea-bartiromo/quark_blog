@@ -261,6 +261,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::put('/campagne/{campaign}', [CommunicationCampaignController::class, 'update'])->name('campaigns.update');
         Route::post('/campagne/{campaign}/duplica', [CommunicationCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
         Route::delete('/campagne/{campaign}', [CommunicationCampaignController::class, 'destroy'])->name('campaigns.destroy');
+        Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
 
         // Template
         Route::get('/template', [CommunicationTemplateController::class, 'index'])->name('templates.index');

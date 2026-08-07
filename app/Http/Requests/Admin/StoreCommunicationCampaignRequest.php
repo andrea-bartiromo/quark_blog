@@ -22,6 +22,8 @@ class StoreCommunicationCampaignRequest extends FormRequest
             'title' => 'required|string|max:255',
             'type' => ['required', Rule::in(array_keys(CommunicationCampaign::typeOptions()))],
             'project_id' => 'nullable|exists:projects,id',
+            'template_id' => 'nullable|exists:comm_templates,id',
+            'template_version_id' => 'nullable|exists:comm_template_versions,id',
             'description' => 'nullable|string',
             'internal_notes' => 'nullable|string',
             'subject' => 'required|string|max:255',

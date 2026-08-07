@@ -6,11 +6,30 @@
   <h1 class="admin-page-title">{{ $campaign->exists ? 'Modifica campagna' : 'Nuova campagna' }}</h1>
 </div>
 
+<div class="admin-card" style="max-width:760px;margin-bottom:1rem;">
+  <form method="GET" action="{{ $campaign->exists ? route('admin.comunicazione.campaigns.edit', $campaign) : route('admin.comunicazione.campaigns.create') }}">
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label" for="template_id">Template</label>
+      <select class="form-select" id="template_id" name="template_id" onchange="this.form.submit()">
+        <option value="">Nessun template</option>
+        @foreach($templateOptions as $t)
+          <option value="{{ $t->id }}" @selected((string) $selectedTemplateId === (string) $t->id)>{{ $t->name }}</option>
+        @endforeach
+      </select>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.35rem;">
+        Cambiare il template ricarica la pagina — eventuali modifiche non ancora salvate ai campi sottostanti andrebbero perse. Il template non sovrascrive mai un campo che ha già un contenuto: propone il proprio testo solo dove il campo è ancora vuoto.
+      </div>
+    </div>
+  </form>
+</div>
+
 <div class="admin-card" style="max-width:760px;">
   <form method="POST"
         action="{{ $campaign->exists ? route('admin.comunicazione.campaigns.update', $campaign) : route('admin.comunicazione.campaigns.store') }}">
     @csrf
     @if($campaign->exists) @method('PUT') @endif
+    <input type="hidden" name="template_id" value="{{ $selectedTemplateId }}">
+    <input type="hidden" name="template_version_id" value="{{ $selectedTemplateVersionId }}">
 
     <h3 style="margin-top:0;">Panoramica</h3>
 
@@ -65,20 +84,23 @@
     <div class="form-group">
       <label class="form-label" for="subject">Oggetto email *</label>
       <input class="form-input" type="text" id="subject" name="subject" required
-             value="{{ old('subject', $campaign->subject) }}">
+             value="{{ old('subject', $prefill['subject'] ?? $campaign->subject) }}">
       @error('subject') <div style="color:#991b1b;font-size:.78rem;margin-top:.25rem;">{{ $message }}</div> @enderror
+      @if(! empty($prefill['subject']))
+        <div style="font-size:.76rem;color:#0d9488;margin-top:.25rem;">Proposto dal template selezionato — modificabile liberamente.</div>
+      @endif
     </div>
 
     <div class="form-group">
       <label class="form-label" for="preheader">Preheader</label>
       <input class="form-input" type="text" id="preheader" name="preheader"
-             value="{{ old('preheader', $campaign->preheader) }}">
+             value="{{ old('preheader', $prefill['preheader'] ?? $campaign->preheader) }}">
     </div>
 
     <div class="form-group">
       <label class="form-label" for="body">Corpo newsletter</label>
-      <textarea class="form-textarea" id="body" name="body" rows="10">{{ old('body', $campaign->content['body'] ?? '') }}</textarea>
-      <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Testo semplice: template ed editor a blocchi arrivano in un blocco successivo.</div>
+      <textarea class="form-textarea" id="body" name="body" rows="10">{{ old('body', $prefill['body'] ?? ($campaign->content['body'] ?? '')) }}</textarea>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Testo semplice: editor a blocchi arriva in un blocco successivo.</div>
     </div>
 
     <div style="display:flex;gap:.6rem;margin-top:1rem;">

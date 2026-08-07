@@ -13,7 +13,7 @@
     'stats' => 'Statistiche',
     'history' => 'Cronologia',
   ];
-  $placeholderTabs = ['articles', 'template', 'segments', 'sends', 'stats'];
+  $placeholderTabs = ['articles', 'segments', 'sends', 'stats'];
 @endphp
 
 <div class="admin-topbar">
@@ -22,6 +22,7 @@
     <h1 class="admin-page-title" style="margin-top:.25rem;">{{ $campaign->title }}</h1>
   </div>
   <div style="display:flex;gap:.5rem;">
+    <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary">👁️ Anteprima</a>
     <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
@@ -102,6 +103,34 @@
       <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Corpo newsletter</dt>
       <dd style="margin:.4rem 0 0;white-space:pre-line;">{{ $campaign->content['body'] ?? '—' }}</dd>
     </dl>
+  </div>
+@elseif($activeTab === 'template')
+  <div class="admin-card">
+    <h3 style="margin-top:0;">Template</h3>
+
+    @if($campaign->template)
+      <dl>
+        <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Template collegato</dt>
+        <dd style="margin:.2rem 0 1rem;font-weight:600;">
+          <a href="{{ route('admin.comunicazione.templates.show', $campaign->template) }}">{{ $campaign->template->name }}</a>
+        </dd>
+
+        <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Versione usata</dt>
+        <dd style="margin:.2rem 0 1rem;font-weight:600;">
+          v{{ $campaign->templateVersion->version_number ?? '—' }}
+        </dd>
+      </dl>
+      <p style="font-size:.8rem;color:#9ca3af;">
+        La campagna resta ancorata a questa versione: se il template avanza a una versione più recente, questa campagna continuerà a mostrare la versione con cui è stata collegata.
+      </p>
+      <a href="{{ route('admin.comunicazione.templates.preview', ['template' => $campaign->template, 'versione' => $campaign->template_version_id]) }}" class="btn btn--secondary">Anteprima del template usato</a>
+    @else
+      <div class="project-empty-state">
+        <div class="project-empty-state__icon">🧩</div>
+        <p class="project-empty-state__text">Nessun template collegato a questa campagna.</p>
+        <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">Collega un template</a>
+      </div>
+    @endif
   </div>
 @elseif($activeTab === 'history')
   @if($activityLog->isEmpty())
