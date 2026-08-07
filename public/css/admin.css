@@ -523,6 +523,14 @@ body.admin-body textarea {
 .status--decision-rejected { background: #fee2e2; color: #991b1b; }
 .status--decision-superseded { background: #f3f4f6; color: #9ca3af; }
 
+/* Sistema Comunicazione — badge stato campagna */
+.status--campaign-draft { background: #f3f4f6; color: #6b7280; }
+.status--campaign-scheduled { background: #e0e7ff; color: #3730a3; }
+.status--campaign-sending { background: #fef3c7; color: #92400e; }
+.status--campaign-completed { background: #d1fae5; color: #065f46; }
+.status--campaign-failed { background: #fee2e2; color: #991b1b; }
+.status--campaign-cancelled { background: #f3f4f6; color: #9ca3af; }
+
 /* Area Progettazione — schede del dettaglio progetto: bar leggibile e
    scrollabile orizzontalmente su mobile invece di andare a capo su piu' righe. */
 .project-tabs {

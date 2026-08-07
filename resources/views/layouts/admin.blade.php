@@ -55,6 +55,8 @@
       $isNewsletter    = request()->routeIs('admin.newsletter')
                           || request()->routeIs('admin.newsletter.export')
                           || request()->routeIs('admin.newsletter.send-now');
+      $isComunicazioneDashboard = request()->routeIs('admin.comunicazione.dashboard');
+      $isComunicazioneCampaigns = request()->routeIs('admin.comunicazione.campaigns.*');
       $isAds           = request()->routeIs('admin.ads*');
       $isTuring        = request()->routeIs('admin.turing*');
       $isSuggestions   = request()->routeIs('admin.suggestions*');
@@ -155,6 +157,18 @@
       </a>
 
       <span class="admin-nav__section">Comunicazione</span>
+
+      <a href="{{ route('admin.comunicazione.dashboard') }}"
+         @class(['active' => $isComunicazioneDashboard])
+         @if($isComunicazioneDashboard) aria-current="page" @endif>
+        <span class="icon">📡</span> Dashboard
+      </a>
+
+      <a href="{{ route('admin.comunicazione.campaigns.index') }}"
+         @class(['active' => $isComunicazioneCampaigns])
+         @if($isComunicazioneCampaigns) aria-current="page" @endif>
+        <span class="icon">📨</span> Campagne
+      </a>
 
       <a href="{{ route('admin.newsletter') }}"
          @class(['active' => $isNewsletter])

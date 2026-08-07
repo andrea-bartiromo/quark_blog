@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
+use App\Http\Controllers\Admin\Communication\CommunicationCampaignController;
+use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
@@ -243,6 +245,21 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         // Collegamento articoli
         Route::post('/progetti/{project}/articoli', [ProjectArticleLinkController::class, 'link'])->name('projects.articles.link');
         Route::delete('/progetti/{project}/articoli/{article}', [ProjectArticleLinkController::class, 'unlink'])->name('projects.articles.unlink');
+    });
+
+    // Sistema Comunicazione — B2: CRUD Campagne in stato Bozza.
+    // Il modulo Newsletter esistente resta invariato e raggiungibile da /admin/newsletter.
+    // Nessuna rotta di invio/programmazione/test: fuori perimetro di questo blocco.
+    Route::prefix('comunicazione')->name('comunicazione.')->group(function () {
+        Route::get('/', [CommunicationDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/campagne', [CommunicationCampaignController::class, 'index'])->name('campaigns.index');
+        Route::get('/campagne/nuova', [CommunicationCampaignController::class, 'create'])->name('campaigns.create');
+        Route::post('/campagne', [CommunicationCampaignController::class, 'store'])->name('campaigns.store');
+        Route::get('/campagne/{campaign}', [CommunicationCampaignController::class, 'show'])->name('campaigns.show');
+        Route::get('/campagne/{campaign}/modifica', [CommunicationCampaignController::class, 'edit'])->name('campaigns.edit');
+        Route::put('/campagne/{campaign}', [CommunicationCampaignController::class, 'update'])->name('campaigns.update');
+        Route::post('/campagne/{campaign}/duplica', [CommunicationCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
+        Route::delete('/campagne/{campaign}', [CommunicationCampaignController::class, 'destroy'])->name('campaigns.destroy');
     });
 });
 
