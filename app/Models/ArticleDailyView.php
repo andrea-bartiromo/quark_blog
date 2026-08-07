@@ -19,7 +19,13 @@ class ArticleDailyView extends Model
     ];
 
     protected $casts = [
-        'date' => 'date',
+        // Formato esplicito: senza 'Y-m-d' il cast 'date' generico persiste
+        // un timestamp completo ('2026-08-19 00:00:00'), disallineato dalle
+        // righe scritte con SQL grezzo (upsert atomico in
+        // ArticleViewTrackingService, che scrive 'Y-m-d' puro) — le query
+        // per intervallo di ArticleAnalyticsService confrontano stringhe
+        // 'Y-m-d' e mancherebbero le righe nell'altro formato.
+        'date' => 'date:Y-m-d',
         'views' => 'integer',
     ];
 
