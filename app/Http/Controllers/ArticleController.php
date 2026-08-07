@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
-use App\Models\ArticleView;
 use App\Models\Category;
+use App\Services\ArticleViewTrackingService;
 
 class ArticleController extends Controller
 {
@@ -59,28 +59,7 @@ class ArticleController extends Controller
         $sessionKey = 'article_viewed_'.$article->id;
 
         if (! session()->has($sessionKey)) {
-
-            ArticleView::create([
-                'article_id' => $article->id,
-
-                'ip_hash' => hash('sha256', request()->ip()),
-
-                'user_agent' => substr(
-                    (string) request()->userAgent(),
-                    0,
-                    1000
-                ),
-
-                'referer' => substr(
-                    (string) request()->headers->get('referer'),
-                    0,
-                    1000
-                ),
-
-                'viewed_at' => now(),
-            ]);
-
-            $article->increment('views');
+            app(ArticleViewTrackingService::class)->recordView($article);
 
             session()->put($sessionKey, true);
         }
