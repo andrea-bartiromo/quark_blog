@@ -183,6 +183,22 @@ class CommunicationTemplateCrudTest extends TestCase
         $this->assertNotSame($template->uuid, $copy->uuid);
     }
 
+    public function test_duplicating_a_template_preserves_the_active_versions_metadata(): void
+    {
+        $template = CommunicationTemplate::factory()->create();
+        $v1 = CommunicationTemplateVersion::factory()->for($template, 'template')->create([
+            'version_number' => 1,
+            'metadata' => ['sorgente' => 'importazione manuale'],
+        ]);
+        $template->update(['active_version_id' => $v1->id]);
+
+        $this->actingAs($this->editor())->post(route('admin.comunicazione.templates.duplicate', $template));
+
+        $copy = CommunicationTemplate::where('id', '!=', $template->id)->firstOrFail();
+
+        $this->assertSame(['sorgente' => 'importazione manuale'], $copy->activeVersion->metadata);
+    }
+
     // ── Duplica da una versione passata (Blocco 4) ─────────────────
 
     public function test_duplicating_from_an_old_version_creates_a_new_version_and_leaves_history_intact(): void
@@ -319,5 +335,26 @@ class CommunicationTemplateCrudTest extends TestCase
 
         $response->assertSee($active->name);
         $response->assertDontSee('Archiviato di prova');
+    }
+
+    // ── Regressione: XSS nella conferma di eliminazione (vedi review PR #116) ──
+
+    public function test_a_template_name_containing_quotes_cannot_break_out_of_the_delete_confirmation_script(): void
+    {
+        $template = CommunicationTemplate::factory()->create(['name' => 'Newsletter\'); alert(1); //']);
+        CommunicationTemplateVersion::factory()->for($template, 'template')->create(['version_number' => 1]);
+        $template->update(['active_version_id' => $template->versions()->first()->id]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.comunicazione.templates.show', $template));
+
+        $response->assertOk();
+        $response->assertSee("onsubmit=\"return confirm('Eliminare definitivamente questo template? L\\'azione non è reversibile.')\"", false);
+
+        // Il nome del template (con i suoi apici) non deve mai comparire dentro
+        // l'attributo onsubmit del form di eliminazione — solo nella pagina
+        // come testo semplice, dove Blade lo ha già correttamente escapato.
+        preg_match('/onsubmit="([^"]*)"/', $response->getContent(), $matches);
+        $this->assertNotEmpty($matches);
+        $this->assertStringNotContainsString('alert(1)', $matches[1]);
     }
 }

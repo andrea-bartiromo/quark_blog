@@ -23,7 +23,12 @@ class UpdateCommunicationCampaignRequest extends FormRequest
             'type' => ['required', Rule::in(array_keys(CommunicationCampaign::typeOptions()))],
             'project_id' => 'nullable|exists:projects,id',
             'template_id' => 'nullable|exists:comm_templates,id',
-            'template_version_id' => 'nullable|exists:comm_template_versions,id',
+            'template_version_id' => [
+                'nullable',
+                Rule::exists('comm_template_versions', 'id')->where(
+                    fn ($query) => $query->where('template_id', $this->input('template_id'))
+                ),
+            ],
             'description' => 'nullable|string',
             'internal_notes' => 'nullable|string',
             'subject' => 'required|string|max:255',

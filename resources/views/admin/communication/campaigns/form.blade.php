@@ -13,7 +13,7 @@
       <select class="form-select" id="template_id" name="template_id" onchange="this.form.submit()">
         <option value="">Nessun template</option>
         @foreach($templateOptions as $t)
-          <option value="{{ $t->id }}" @selected((string) $selectedTemplateId === (string) $t->id)>{{ $t->name }}</option>
+          <option value="{{ $t->id }}" @selected((string) old('template_id', $selectedTemplateId) === (string) $t->id)>{{ $t->name }}</option>
         @endforeach
       </select>
       <div style="font-size:.76rem;color:#9ca3af;margin-top:.35rem;">
@@ -28,8 +28,8 @@
         action="{{ $campaign->exists ? route('admin.comunicazione.campaigns.update', $campaign) : route('admin.comunicazione.campaigns.store') }}">
     @csrf
     @if($campaign->exists) @method('PUT') @endif
-    <input type="hidden" name="template_id" value="{{ $selectedTemplateId }}">
-    <input type="hidden" name="template_version_id" value="{{ $selectedTemplateVersionId }}">
+    <input type="hidden" name="template_id" value="{{ old('template_id', $selectedTemplateId) }}">
+    <input type="hidden" name="template_version_id" value="{{ old('template_version_id', $selectedTemplateVersionId) }}">
 
     <h3 style="margin-top:0;">Panoramica</h3>
 

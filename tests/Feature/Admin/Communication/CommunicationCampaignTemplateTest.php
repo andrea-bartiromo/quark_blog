@@ -182,4 +182,133 @@ class CommunicationCampaignTemplateTest extends TestCase
         $response->assertDontSee('Invia ora', false);
         $response->assertDontSee('Invio di prova', false);
     }
+
+    // ── Regressione: pinning versione (vedi review PR #116) ─────────
+
+    public function test_a_campaign_pinned_to_v1_stays_on_v1_after_the_template_advances_to_v2_and_an_unrelated_field_is_saved(): void
+    {
+        $editor = $this->editor();
+        $template = $this->makeTemplateWithVersion();
+        $v1Id = $template->active_version_id;
+
+        $campaign = CommunicationCampaign::factory()->create([
+            'template_id' => $template->id,
+            'template_version_id' => $v1Id,
+        ]);
+
+        // Il template avanza a una v2 (nuova versione attiva).
+        $this->actingAs($editor)->put(route('admin.comunicazione.templates.update', $template), [
+            'name' => $template->name,
+            'status' => CommunicationTemplate::STATUS_ACTIVE,
+            'subject' => 'Oggetto v2',
+            'preheader' => 'Preheader v2',
+            'body' => 'Corpo v2.',
+        ]);
+
+        $this->assertNotSame($v1Id, $template->fresh()->active_version_id);
+
+        // Apertura della form di modifica SENZA selezionare esplicitamente un template:
+        // i campi nascosti devono continuare a puntare alla versione già fissata (v1).
+        $editResponse = $this->actingAs($editor)->get(route('admin.comunicazione.campaigns.edit', $campaign));
+        $editResponse->assertOk();
+        $editResponse->assertSee('name="template_version_id" value="'.$v1Id.'"', false);
+
+        // Salvataggio di un campo non correlato al template.
+        $this->actingAs($editor)->put(route('admin.comunicazione.campaigns.update', $campaign), [
+            'title' => 'Titolo aggiornato',
+            'type' => $campaign->type,
+            'subject' => $campaign->subject,
+            'template_id' => $template->id,
+            'template_version_id' => $v1Id,
+        ]);
+
+        $this->assertSame($v1Id, $campaign->fresh()->template_version_id);
+    }
+
+    public function test_a_campaign_archived_templates_link_is_preserved_when_editing_without_reselecting(): void
+    {
+        $editor = $this->editor();
+        $template = $this->makeTemplateWithVersion();
+        $versionId = $template->active_version_id;
+
+        $campaign = CommunicationCampaign::factory()->create([
+            'template_id' => $template->id,
+            'template_version_id' => $versionId,
+        ]);
+
+        $template->update(['status' => CommunicationTemplate::STATUS_ARCHIVED]);
+
+        $editResponse = $this->actingAs($editor)->get(route('admin.comunicazione.campaigns.edit', $campaign));
+        $editResponse->assertOk();
+        $editResponse->assertSee('name="template_id" value="'.$template->id.'"', false);
+        $editResponse->assertSee('name="template_version_id" value="'.$versionId.'"', false);
+    }
+
+    // ── Regressione: coerenza coppia template/versione ───────────────
+
+    public function test_storing_a_campaign_with_a_version_from_a_different_template_is_rejected(): void
+    {
+        $templateA = $this->makeTemplateWithVersion();
+        $templateB = $this->makeTemplateWithVersion();
+
+        $response = $this->actingAs($this->editor())->post(route('admin.comunicazione.campaigns.store'), [
+            'title' => 'Newsletter incoerente',
+            'type' => CommunicationCampaign::TYPE_NEWSLETTER,
+            'subject' => 'Oggetto',
+            'body' => 'Corpo.',
+            'template_id' => $templateA->id,
+            'template_version_id' => $templateB->active_version_id,
+        ]);
+
+        $response->assertSessionHasErrors('template_version_id');
+        $this->assertDatabaseCount('comm_campaigns', 0);
+    }
+
+    public function test_updating_a_campaign_with_a_version_from_a_different_template_is_rejected(): void
+    {
+        $templateA = $this->makeTemplateWithVersion();
+        $templateB = $this->makeTemplateWithVersion();
+
+        $campaign = CommunicationCampaign::factory()->create([
+            'template_id' => $templateA->id,
+            'template_version_id' => $templateA->active_version_id,
+        ]);
+
+        $response = $this->actingAs($this->editor())->put(route('admin.comunicazione.campaigns.update', $campaign), [
+            'title' => $campaign->title,
+            'type' => $campaign->type,
+            'subject' => $campaign->subject,
+            'template_id' => $templateA->id,
+            'template_version_id' => $templateB->active_version_id,
+        ]);
+
+        $response->assertSessionHasErrors('template_version_id');
+        $this->assertSame($templateA->active_version_id, $campaign->fresh()->template_version_id);
+    }
+
+    // ── Regressione: template selezionato non va perso dopo un errore di validazione ───
+
+    public function test_the_selected_template_survives_a_validation_failure_on_create(): void
+    {
+        $template = $this->makeTemplateWithVersion();
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->from(route('admin.comunicazione.campaigns.create'))->post(
+            route('admin.comunicazione.campaigns.store'),
+            [
+                'title' => '',
+                'type' => CommunicationCampaign::TYPE_NEWSLETTER,
+                'subject' => 'Oggetto',
+                'template_id' => $template->id,
+                'template_version_id' => $template->active_version_id,
+            ]
+        );
+
+        $response->assertSessionHasErrors('title');
+
+        $followUp = $this->actingAs($editor)->get(route('admin.comunicazione.campaigns.create'));
+
+        $followUp->assertOk();
+        $followUp->assertSee('name="template_id" value="'.$template->id.'"', false);
+    }
 }

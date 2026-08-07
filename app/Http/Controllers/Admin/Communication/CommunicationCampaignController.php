@@ -206,7 +206,11 @@ class CommunicationCampaignController extends Controller
      */
     private function resolveTemplateSelection(Request $request, CommunicationCampaign $campaign): array
     {
-        $templateId = $request->has('template_id') ? $request->query('template_id') : $campaign->template_id;
+        if (! $request->has('template_id')) {
+            return [$campaign->template_id, $campaign->template_version_id, []];
+        }
+
+        $templateId = $request->query('template_id');
 
         if (blank($templateId)) {
             return [null, null, []];

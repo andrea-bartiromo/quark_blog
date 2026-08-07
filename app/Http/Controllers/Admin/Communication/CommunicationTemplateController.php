@@ -9,6 +9,7 @@ use App\Models\CommunicationCampaign;
 use App\Models\CommunicationTemplate;
 use App\Models\CommunicationTemplateVersion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CommunicationTemplateController extends Controller
 {
@@ -43,18 +44,22 @@ class CommunicationTemplateController extends Controller
     {
         $data = $request->validated();
 
-        $template = CommunicationTemplate::create([
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-            'type' => $data['type'] ?? null,
-            'status' => CommunicationTemplate::STATUS_ACTIVE,
-            'created_by' => auth()->id(),
-            'updated_by' => auth()->id(),
-        ]);
+        $template = DB::transaction(function () use ($data) {
+            $template = CommunicationTemplate::create([
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'type' => $data['type'] ?? null,
+                'status' => CommunicationTemplate::STATUS_ACTIVE,
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
+            ]);
 
-        $version = $this->createVersion($template, $data);
+            $version = $this->createVersion($template, $data);
 
-        $template->update(['active_version_id' => $version->id]);
+            $template->update(['active_version_id' => $version->id]);
+
+            return $template;
+        });
 
         return redirect()->route('admin.comunicazione.templates.show', $template)->with('success', 'Template creato.');
     }
@@ -90,17 +95,21 @@ class CommunicationTemplateController extends Controller
     {
         $data = $request->validated();
 
-        $template->update([
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-            'type' => $data['type'] ?? null,
-            'status' => $data['status'],
-            'updated_by' => auth()->id(),
-        ]);
+        $version = DB::transaction(function () use ($template, $data) {
+            $template->update([
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'type' => $data['type'] ?? null,
+                'status' => $data['status'],
+                'updated_by' => auth()->id(),
+            ]);
 
-        $version = $this->createVersion($template, $data);
+            $version = $this->createVersion($template, $data);
 
-        $template->update(['active_version_id' => $version->id]);
+            $template->update(['active_version_id' => $version->id]);
+
+            return $version;
+        });
 
         return redirect()->route('admin.comunicazione.templates.show', $template)->with('success', "Nuova versione creata (v{$version->version_number}).");
     }
@@ -112,28 +121,33 @@ class CommunicationTemplateController extends Controller
      */
     public function duplicate(CommunicationTemplate $template)
     {
-        $source = $template->activeVersion;
+        $copy = DB::transaction(function () use ($template) {
+            $source = $template->activeVersion;
 
-        $copy = CommunicationTemplate::create([
-            'name' => $template->name.' (copia)',
-            'description' => $template->description,
-            'type' => $template->type,
-            'status' => CommunicationTemplate::STATUS_ACTIVE,
-            'created_by' => auth()->id(),
-            'updated_by' => auth()->id(),
-        ]);
+            $copy = CommunicationTemplate::create([
+                'name' => $template->name.' (copia)',
+                'description' => $template->description,
+                'type' => $template->type,
+                'status' => CommunicationTemplate::STATUS_ACTIVE,
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
+            ]);
 
-        $version = CommunicationTemplateVersion::create([
-            'template_id' => $copy->id,
-            'version_number' => 1,
-            'subject' => $source?->subject,
-            'preheader' => $source?->preheader,
-            'content' => $source?->content ?? ['body' => null],
-            'created_by' => auth()->id(),
-            'created_at' => now(),
-        ]);
+            $version = CommunicationTemplateVersion::create([
+                'template_id' => $copy->id,
+                'version_number' => 1,
+                'subject' => $source?->subject,
+                'preheader' => $source?->preheader,
+                'content' => $source?->content ?? ['body' => null],
+                'metadata' => $source?->metadata,
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+            ]);
 
-        $copy->update(['active_version_id' => $version->id]);
+            $copy->update(['active_version_id' => $version->id]);
+
+            return $copy;
+        });
 
         return redirect()->route('admin.comunicazione.templates.show', $copy)->with('success', 'Template duplicato.');
     }
@@ -148,20 +162,24 @@ class CommunicationTemplateController extends Controller
     {
         abort_unless($version->template_id === $template->id, 404);
 
-        $nextVersionNumber = ($template->versions()->max('version_number') ?? 0) + 1;
+        $nextVersionNumber = DB::transaction(function () use ($template, $version) {
+            $nextVersionNumber = $this->nextVersionNumber($template);
 
-        $newVersion = CommunicationTemplateVersion::create([
-            'template_id' => $template->id,
-            'version_number' => $nextVersionNumber,
-            'subject' => $version->subject,
-            'preheader' => $version->preheader,
-            'content' => $version->content,
-            'metadata' => $version->metadata,
-            'created_by' => auth()->id(),
-            'created_at' => now(),
-        ]);
+            $newVersion = CommunicationTemplateVersion::create([
+                'template_id' => $template->id,
+                'version_number' => $nextVersionNumber,
+                'subject' => $version->subject,
+                'preheader' => $version->preheader,
+                'content' => $version->content,
+                'metadata' => $version->metadata,
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+            ]);
 
-        $template->update(['active_version_id' => $newVersion->id, 'updated_by' => auth()->id()]);
+            $template->update(['active_version_id' => $newVersion->id, 'updated_by' => auth()->id()]);
+
+            return $nextVersionNumber;
+        });
 
         return redirect()->route('admin.comunicazione.templates.show', $template)
             ->with('success', "Versione {$version->version_number} duplicata come nuova versione {$nextVersionNumber}.");
@@ -203,13 +221,24 @@ class CommunicationTemplateController extends Controller
         ]);
     }
 
+    /**
+     * Blocca la riga del template (row lock, no-op su SQLite) prima di
+     * leggere il numero di versione massimo, così due salvataggi
+     * concorrenti sullo stesso template non calcolano mai lo stesso
+     * prossimo numero di versione.
+     */
+    private function nextVersionNumber(CommunicationTemplate $template): int
+    {
+        CommunicationTemplate::whereKey($template->id)->lockForUpdate()->first();
+
+        return ($template->versions()->max('version_number') ?? 0) + 1;
+    }
+
     private function createVersion(CommunicationTemplate $template, array $data): CommunicationTemplateVersion
     {
-        $nextVersionNumber = ($template->versions()->max('version_number') ?? 0) + 1;
-
         return CommunicationTemplateVersion::create([
             'template_id' => $template->id,
-            'version_number' => $nextVersionNumber,
+            'version_number' => $this->nextVersionNumber($template),
             'subject' => $data['subject'],
             'preheader' => $data['preheader'] ?? null,
             'content' => ['body' => $data['body'] ?? null],

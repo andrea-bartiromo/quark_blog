@@ -17,7 +17,7 @@
       </form>
     @endif
     <form id="delete-template-form" method="POST" action="{{ route('admin.comunicazione.templates.destroy', $template) }}"
-          onsubmit="return confirm('Eliminare definitivamente il template «{{ $template->name }}»? L\'azione non è reversibile.')">
+          onsubmit="return confirm('Eliminare definitivamente questo template? L\'azione non è reversibile.')">
       @csrf @method('DELETE')
       <button type="submit" class="btn btn--danger">🗑️ Elimina</button>
     </form>
