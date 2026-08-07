@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ProjectProgressService;
 use App\Services\ProjectTaskGithubSyncService;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,6 +34,16 @@ class ProjectTask extends Model
             if ($task->wasRecentlyCreated || $task->wasChanged(['type', 'github_branch', 'manual_override'])) {
                 app(ProjectTaskGithubSyncService::class)->syncTask($task);
             }
+
+            // L'avanzamento del progetto (Blocco D) dipende dal conteggio
+            // delle task, quindi si ricalcola a ogni salvataggio — anche
+            // quelli innescati ricorsivamente dai sync qui sopra, che non
+            // cambiano il totale/completate ma il ricalcolo resta idempotente.
+            app(ProjectProgressService::class)->recalculate($task->project);
+        });
+
+        static::deleted(function (ProjectTask $task) {
+            app(ProjectProgressService::class)->recalculate($task->project);
         });
     }
 
