@@ -175,8 +175,13 @@ class ArticleLinkSuggestionService
     {
         // Un'unica query per tutti i suggerimenti esistenti verso $target
         // (invece di una query per candidato dentro il loop — N+1) e
-        // lazy() per non tenere in memoria contemporaneamente i body HTML
+        // cursor() per non tenere in memoria contemporaneamente i body HTML
         // di tutti i candidati (fino a MAX_RETROACTIVE_SOURCE_CANDIDATES).
+        // NON lazy(): pagina internamente con forPage() e IGNORA il limit()
+        // già applicato alla query, continuando a richiedere pagine finché
+        // non esaurisce l'intera tabella — vanificherebbe silenziosamente
+        // MAX_RETROACTIVE_SOURCE_CANDIDATES. cursor() usa invece un singolo
+        // statement/generatore PHP che rispetta LIMIT/OFFSET.
         $existingByCandidateId = ArticleLinkSuggestion::where('target_article_id', $target->id)
             ->get()
             ->keyBy('source_article_id');
@@ -186,7 +191,7 @@ class ArticleLinkSuggestionService
             ->orderByDesc('published_at')
             ->limit(self::MAX_RETROACTIVE_SOURCE_CANDIDATES)
             ->select(['id', 'title', 'slug', 'excerpt', 'category', 'body'])
-            ->lazy();
+            ->cursor();
 
         $targetAsCandidate = (object) [
             'id' => $target->id,
