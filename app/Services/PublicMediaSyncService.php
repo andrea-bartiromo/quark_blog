@@ -214,7 +214,14 @@ class PublicMediaSyncService
 
         $this->assertSafeDiskName($diskName);
 
-        return rtrim($root, '/\\').DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $diskName);
+        // Normalizzato a "/" (mai DIRECTORY_SEPARATOR): stesso contratto di
+        // ImageService — $root arriva da config('media.public_root'), quindi
+        // dalla stringa impostata in .env, che su Windows potrebbe usare "/"
+        // o "\" a seconda di come e' stata scritta; concatenarla con
+        // DIRECTORY_SEPARATOR produrrebbe separatori misti se il contenuto
+        // di $root non coincidesse gia' col separatore nativo. $diskName e'
+        // già garantito privo di "\" da assertSafeDiskName().
+        return rtrim(str_replace('\\', '/', $root), '/').'/'.$diskName;
     }
 
     private function publicRoot(): ?string

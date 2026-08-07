@@ -80,6 +80,28 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertSame('contenuto-reale', file_get_contents($target));
     }
 
+    // Riproduce il bug Windows: media.public_root impostato con "\" (es.
+    // in .env su un sistema dove DIRECTORY_SEPARATOR e' "\") non deve
+    // produrre un path di destinazione con separatori misti —
+    // resolveTarget() normalizza sempre a "/". Il backslash e' letterale
+    // (non DIRECTORY_SEPARATOR) cosi' il test esercita davvero la
+    // normalizzazione anche quando gira su Linux, dove sarebbe altrimenti
+    // un no-op.
+    public function test_create_normalizes_a_mixed_separator_public_root(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $mixedRoot = str_replace('/', '\\', $this->isolatedMediaPublicRoot);
+        config(['media.public_root' => $mixedRoot]);
+
+        $source = $this->sourceFile('foto.jpg', 'contenuto-reale');
+
+        $this->service()->create($source, 'foto.jpg');
+
+        $target = $this->isolatedMediaPublicRoot.'/foto.jpg';
+        $this->assertFileExists($target);
+        $this->assertSame('contenuto-reale', file_get_contents($target));
+    }
+
     public function test_create_preserves_subfolders_from_the_disk_name(): void
     {
         $this->setUpIsolatedMediaPublicRoot();

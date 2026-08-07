@@ -17,9 +17,16 @@ use DOMXPath;
  *
  * Sicurezza: costruisce il nuovo <a> esclusivamente tramite API DOM
  * (createElement/setAttribute/createTextNode), mai concatenazione di
- * stringhe — href e testo sono sempre escapati automaticamente da
- * DOMDocument in fase di serializzazione, quindi nessun input può produrre
- * markup o attributi non previsti (FASE 9).
+ * stringhe. Questo però NON basta da solo: l'escaping degli attributi in
+ * fase di serializzazione HTML è comportamento del motore libxml2
+ * sottostante, che si è verificato differire tra build (su alcune build,
+ * un apice doppio nel valore di un attributo href/src viene percent-encoded
+ * durante la normalizzazione dell'URI; su altre potrebbe non esserlo). Per
+ * questo l'href non viene mai passato a setAttribute() senza prima essere
+ * validato da isSafeInternalHref(): un valore che contenga apici, angolari
+ * o uno schema diverso da http/https sul proprio host viene rifiutato a
+ * monte — l'inserimento fallisce esplicitamente (torna null) invece di
+ * confidare nell'escaping del serializzatore per neutralizzarlo (FASE 9).
  *
  * Regole di inserimento (FASE 4):
  *   - mai dentro un link esistente (<a>);
@@ -39,10 +46,16 @@ class ArticleLinkInsertionService
 
     /**
      * @return string|null il nuovo HTML del body, o null se l'anchor non è
-     *                      stata trovata in una posizione valida (nessuna modifica).
+     *                      stata trovata in una posizione valida, o l'href
+     *                      non supera la validazione di sicurezza (nessuna
+     *                      modifica in entrambi i casi).
      */
     public function insert(string $bodyHtml, string $anchorText, string $targetUrl): ?string
     {
+        if (! $this->isSafeInternalHref($targetUrl)) {
+            return null;
+        }
+
         $located = $this->locateInsertionPoint($bodyHtml, $anchorText);
 
         if ($located === null) {
@@ -52,6 +65,52 @@ class ArticleLinkInsertionService
         $this->splitAndWrap($located['dom'], $located['textNode'], $located['position'], trim($anchorText), $targetUrl);
 
         return $this->innerHtml($located['dom'], $located['root']);
+    }
+
+    /**
+     * Contratto esplicito sull'href: anche se oggi ogni chiamante passa
+     * solo URL generati internamente da route('articolo', $slug), l'href
+     * viene comunque validato qui — mai concatenato/escapato "a fidarsi"
+     * di chi chiama né della serializzazione DOM (vedi docblock di classe).
+     *
+     * Ammesso solo:
+     *   - un percorso relativo interno che inizia con "/" (mai "//host/..."
+     *     protocol-relative, che punterebbe a un altro dominio);
+     *   - un URL assoluto con schema http/https il cui host coincide con
+     *     quello configurato in app.url (route() genera URL assoluti).
+     * Rifiutato sempre: qualunque valore contenga apici, angolari, backtick
+     * o spazi (non possono mai comparire in un URL interno legittimo, e
+     * sono esattamente i caratteri che potrebbero rompere un attributo
+     * HTML se la serializzazione non li escapasse), e qualunque schema
+     * diverso da http/https (javascript:, data:, vbscript:, ecc.).
+     */
+    private function isSafeInternalHref(string $url): bool
+    {
+        // Il backslash è rifiutato insieme ad apici/angolari/spazi, non solo
+        // per coerenza con "nessun mix \ e /": nei parser URL WHATWG usati
+        // dai browser reali (a differenza di PHP parse_url()), "\" dentro la
+        // parte authority di uno schema "speciale" (http/https) si comporta
+        // come "/" — un valore tipo "https://evil.example\@<app-host>/x"
+        // supera il controllo host qui sotto (PHP legge host=<app-host>,
+        // trattando "evil.example\" come userinfo) ma un browser può
+        // risolverlo diversamente. Rifiutarlo a monte evita di dover
+        // replicare esattamente la semantica di parsing di un browser.
+        if ($url === '' || preg_match('/["\'<>`\s\\\\]/u', $url) === 1) {
+            return false;
+        }
+
+        if (preg_match('#^([a-zA-Z][a-zA-Z0-9+.\-]*):#', $url, $schemeMatch) === 1) {
+            if (! in_array(mb_strtolower($schemeMatch[1]), ['http', 'https'], true)) {
+                return false;
+            }
+
+            $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+            $urlHost = parse_url($url, PHP_URL_HOST);
+
+            return $appHost !== null && $urlHost !== null && mb_strtolower($urlHost) === mb_strtolower($appHost);
+        }
+
+        return str_starts_with($url, '/') && ! str_starts_with($url, '//');
     }
 
     /**
