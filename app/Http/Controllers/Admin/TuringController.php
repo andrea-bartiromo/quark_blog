@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SpecialPage;
+use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,7 +15,8 @@ class TuringController extends Controller
     private const SLUG = 'turing';
 
     public function __construct(
-        private readonly PublicMediaSyncService $publicMediaSync
+        private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ImageService $imageService,
     ) {}
 
     public function edit()
@@ -323,13 +325,12 @@ class TuringController extends Controller
         $diskName = $filename.'-'.date('YmdHis').'-'.substr(md5((string) random_int(1, PHP_INT_MAX)), 0, 6).'.'.$extension;
         $uploadPath = public_path('assets/img');
 
-        if (! is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
-        }
-
-        $file->move($uploadPath, $diskName);
-
-        $fullPath = $uploadPath.DIRECTORY_SEPARATOR.$diskName;
+        // Delega a ImageService (mai $file->move() + ricostruzione manuale
+        // del path con DIRECTORY_SEPARATOR): è l'unico punto che normalizza
+        // in modo affidabile un $uploadPath potenzialmente misto (public_path()
+        // su Windows può restituire "/" e "\" nello stesso path) prima di
+        // scrivere il file e restituire il path da usare per il cleanup.
+        $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
 
         try {
             $this->publicMediaSync->create($fullPath, $diskName);
