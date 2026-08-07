@@ -47,7 +47,7 @@ class ProjectTaskGithubSyncService
 
     private readonly ?string $token;
 
-    private readonly string $repo;
+    private readonly ?string $repo;
 
     public function __construct(?string $token = null, ?string $repo = null)
     {
@@ -90,7 +90,14 @@ class ProjectTaskGithubSyncService
         try {
             $sha = $pr['head']['sha'] ?? null;
             if ($sha) {
-                $checksState = $this->fetchChecksState($sha) ?? $checksState;
+                // Assegnazione diretta (non "?? $checksState"): una risposta
+                // riuscita ma senza check-run per questo SHA è un dato reale
+                // ("nessun check ancora avviato per il commit corrente"), non
+                // un fallimento — riusare lo stato del task precedente
+                // mostrerebbe il risultato dei check di uno SHA superato. Il
+                // fallback allo stato precedente resta corretto solo
+                // sull'eccezione sotto, dove lo stato reale è sconosciuto.
+                $checksState = $this->fetchChecksState($sha);
             }
         } catch (Throwable $e) {
             report($e);
@@ -346,7 +353,11 @@ class ProjectTaskGithubSyncService
             return 'pending';
         }
 
-        if (array_intersect(['failure', 'cancelled', 'timed_out'], $conclusions)) {
+        // 'action_required' e 'stale' segnalano un check che richiede
+        // attenzione umana quanto un fallimento esplicito: classificarli
+        // come "success" (comportamento del ramo default precedente)
+        // nasconderebbe un problema reale in interfaccia.
+        if (array_intersect(['failure', 'cancelled', 'timed_out', 'action_required', 'stale'], $conclusions)) {
             return 'failing';
         }
 

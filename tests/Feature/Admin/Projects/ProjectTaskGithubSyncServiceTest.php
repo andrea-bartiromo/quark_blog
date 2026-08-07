@@ -310,4 +310,27 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
 
         $this->assertTrue($task->fresh()->github_synced_at->gt($firstSync));
     }
+
+    public function test_check_run_conclusion_action_required_is_classified_as_failing(): void
+    {
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => 'action_required']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+
+        $this->assertSame('failing', $task->fresh()->github_checks_state);
+    }
+
+    public function test_a_new_commit_with_no_check_runs_yet_does_not_inherit_the_previous_commits_checks_state(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['head' => ['sha' => 'abc123']]), checkRuns: [['conclusion' => 'failure']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame('failing', $task->fresh()->github_checks_state);
+
+        // Nuovo commit pushato sullo stesso branch: SHA diverso, nessun check
+        // ancora avviato per esso (risposta riuscita ma elenco vuoto) — non
+        // deve ereditare lo stato del commit precedente.
+        $this->fakeGithub(pr: $this->pr(['head' => ['sha' => 'def456']]), checkRuns: null);
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $this->assertNull($task->fresh()->github_checks_state);
+    }
 }
