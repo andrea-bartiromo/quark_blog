@@ -292,4 +292,94 @@ class ArticleSeoFieldsTest extends TestCase
             ->assertSee('Twitter Card')
             ->assertSee('js-char-counter', false);
     }
+
+    // 10. Invariante: aggiornare il titolo non deve mai modificare un SEO
+    //     title già personalizzato — il controller scrive solo il valore
+    //     inviato nel campo dedicato, mai un fallback calcolato
+    public function test_updating_the_title_does_not_change_an_existing_custom_seo_title(): void
+    {
+        $editor = $this->editor();
+        $article = $this->publishedArticle($editor, ['seo_title' => 'SEO title personalizzato']);
+
+        $this->actingAs($editor)->put(route('admin.articles.update', $article), [
+            'title' => 'Titolo completamente nuovo',
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => $article->status,
+            'seo_title' => $article->seo_title,
+        ]);
+
+        $article->refresh();
+        $this->assertSame('Titolo completamente nuovo', $article->title);
+        $this->assertSame('SEO title personalizzato', $article->seo_title);
+    }
+
+    // 11. Stessa invariante per il sommario e la SEO description
+    public function test_updating_the_excerpt_does_not_change_an_existing_custom_seo_description(): void
+    {
+        $editor = $this->editor();
+        $article = $this->publishedArticle($editor, [
+            'excerpt' => 'Sommario originale',
+            'seo_description' => 'SEO description personalizzata',
+        ]);
+
+        $this->actingAs($editor)->put(route('admin.articles.update', $article), [
+            'title' => $article->title,
+            'excerpt' => 'Sommario completamente nuovo',
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => $article->status,
+            'seo_description' => $article->seo_description,
+        ]);
+
+        $article->refresh();
+        $this->assertSame('Sommario completamente nuovo', $article->excerpt);
+        $this->assertSame('SEO description personalizzata', $article->seo_description);
+    }
+
+    // 12. UX (FASE 4): pulsanti "Ripristina automatico" presenti per i campi
+    //     con catena di fallback, in entrambe le aree (Admin e Redazione)
+    public function test_admin_form_shows_restore_automatic_controls_for_fallback_fields(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.articles.create'));
+
+        $response->assertOk();
+        foreach (['seo_title', 'seo_description', 'og_title', 'og_description', 'twitter_title', 'twitter_description'] as $field) {
+            $response->assertSee('data-reset-for="'.$field.'"', false);
+        }
+    }
+
+    public function test_redazione_form_shows_restore_automatic_controls_for_fallback_fields(): void
+    {
+        $response = $this->actingAs($this->author())->get(route('redazione.articles.create'));
+
+        $response->assertOk();
+        foreach (['seo_title', 'seo_description', 'og_title', 'og_description', 'twitter_title', 'twitter_description'] as $field) {
+            $response->assertSee('data-reset-for="'.$field.'"', false);
+        }
+    }
+
+    // 13. Canonical: l'anteprima (placeholder) mostra l'URL naturale
+    //     dell'articolo solo in modifica — mai scritto nel DB (FASE 2G)
+    public function test_canonical_url_placeholder_shows_the_articles_natural_url_when_editing(): void
+    {
+        $editor = $this->editor();
+        $article = $this->publishedArticle($editor, ['canonical_url' => null]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        $response->assertSee('placeholder="'.$article->metaCanonicalUrl().'"', false);
+        $this->assertNull($article->fresh()->canonical_url);
+    }
+
+    public function test_canonical_url_has_no_placeholder_on_the_create_form(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.articles.create'));
+
+        $response->assertOk();
+        // Nessun articolo ancora esistente -> nessun URL naturale calcolabile:
+        // solo il campo canonical potrebbe mai avere un placeholder che è un URL.
+        $response->assertDontSee('placeholder="http', false);
+    }
 }
