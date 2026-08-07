@@ -531,6 +531,10 @@ body.admin-body textarea {
 .status--campaign-failed { background: #fee2e2; color: #991b1b; }
 .status--campaign-cancelled { background: #f3f4f6; color: #9ca3af; }
 
+/* Sistema Comunicazione — badge stato template */
+.status--template-active { background: #d1fae5; color: #065f46; }
+.status--template-archived { background: #f3f4f6; color: #9ca3af; }
+
 /* Area Progettazione — schede del dettaglio progetto: bar leggibile e
    scrollabile orizzontalmente su mobile invece di andare a capo su piu' righe. */
 .project-tabs {

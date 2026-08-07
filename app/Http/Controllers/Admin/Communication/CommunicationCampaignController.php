@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreCommunicationCampaignRequest;
 use App\Http\Requests\Admin\UpdateCommunicationCampaignRequest;
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
+use App\Models\CommunicationTemplate;
 use App\Models\Project;
 use Illuminate\Http\Request;
 
@@ -39,11 +40,18 @@ class CommunicationCampaignController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $campaign = new CommunicationCampaign;
+        [$selectedTemplateId, $selectedTemplateVersionId, $prefill] = $this->resolveTemplateSelection($request, $campaign);
+
         return view('admin.communication.campaigns.form', [
-            'campaign' => new CommunicationCampaign,
+            'campaign' => $campaign,
             'projectOptions' => $this->projectOptions(),
+            'templateOptions' => $this->templateOptions(),
+            'selectedTemplateId' => $selectedTemplateId,
+            'selectedTemplateVersionId' => $selectedTemplateVersionId,
+            'prefill' => $prefill,
         ]);
     }
 
@@ -74,7 +82,7 @@ class CommunicationCampaignController extends Controller
 
     public function show(Request $request, CommunicationCampaign $campaign)
     {
-        $campaign->load(['project', 'createdBy', 'updatedBy']);
+        $campaign->load(['project', 'createdBy', 'updatedBy', 'template', 'templateVersion']);
 
         $activeTab = $request->string('tab')->value() ?: 'overview';
 
@@ -91,11 +99,17 @@ class CommunicationCampaignController extends Controller
         ]);
     }
 
-    public function edit(CommunicationCampaign $campaign)
+    public function edit(Request $request, CommunicationCampaign $campaign)
     {
+        [$selectedTemplateId, $selectedTemplateVersionId, $prefill] = $this->resolveTemplateSelection($request, $campaign);
+
         return view('admin.communication.campaigns.form', [
             'campaign' => $campaign,
             'projectOptions' => $this->projectOptions(),
+            'templateOptions' => $this->templateOptions(),
+            'selectedTemplateId' => $selectedTemplateId,
+            'selectedTemplateVersionId' => $selectedTemplateVersionId,
+            'prefill' => $prefill,
         ]);
     }
 
@@ -175,6 +189,54 @@ class CommunicationCampaignController extends Controller
         $campaign->delete();
 
         return redirect()->route('admin.comunicazione.campaigns.index')->with('success', 'Campagna eliminata.');
+    }
+
+    public function preview(CommunicationCampaign $campaign)
+    {
+        return view('admin.communication.campaigns.preview', ['campaign' => $campaign]);
+    }
+
+    /**
+     * Risolve quale template/versione mostrare nel form e quali campi di
+     * contenuto proporre come suggerimento. Non sovrascrive mai un campo
+     * che la campagna ha già valorizzato: il template compare solo dove
+     * non c'è ancora nulla di scritto (Blocco B3.5).
+     *
+     * @return array{0: int|null, 1: int|null, 2: array<string, string|null>}
+     */
+    private function resolveTemplateSelection(Request $request, CommunicationCampaign $campaign): array
+    {
+        if (! $request->has('template_id')) {
+            return [$campaign->template_id, $campaign->template_version_id, []];
+        }
+
+        $templateId = $request->query('template_id');
+
+        if (blank($templateId)) {
+            return [null, null, []];
+        }
+
+        $template = CommunicationTemplate::active()->find($templateId);
+        $version = $template?->activeVersion;
+
+        if (! $template || ! $version) {
+            return [null, null, []];
+        }
+
+        $currentBody = $campaign->content['body'] ?? null;
+
+        $prefill = [
+            'subject' => blank($campaign->subject) ? $version->subject : null,
+            'preheader' => blank($campaign->preheader) ? $version->preheader : null,
+            'body' => blank($currentBody) ? ($version->content['body'] ?? null) : null,
+        ];
+
+        return [$template->id, $version->id, $prefill];
+    }
+
+    private function templateOptions()
+    {
+        return CommunicationTemplate::active()->orderBy('name')->get(['id', 'name']);
     }
 
     private function projectOptions()

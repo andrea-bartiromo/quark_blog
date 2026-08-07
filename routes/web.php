@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\Communication\CommunicationCampaignController;
 use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
+use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
@@ -247,7 +248,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::delete('/progetti/{project}/articoli/{article}', [ProjectArticleLinkController::class, 'unlink'])->name('projects.articles.unlink');
     });
 
-    // Sistema Comunicazione — B2: CRUD Campagne in stato Bozza.
+    // Sistema Comunicazione — B3: CRUD Campagne (B2) + Template versionati.
     // Il modulo Newsletter esistente resta invariato e raggiungibile da /admin/newsletter.
     // Nessuna rotta di invio/programmazione/test: fuori perimetro di questo blocco.
     Route::prefix('comunicazione')->name('comunicazione.')->group(function () {
@@ -260,6 +261,20 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::put('/campagne/{campaign}', [CommunicationCampaignController::class, 'update'])->name('campaigns.update');
         Route::post('/campagne/{campaign}/duplica', [CommunicationCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
         Route::delete('/campagne/{campaign}', [CommunicationCampaignController::class, 'destroy'])->name('campaigns.destroy');
+        Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
+
+        // Template
+        Route::get('/template', [CommunicationTemplateController::class, 'index'])->name('templates.index');
+        Route::get('/template/nuovo', [CommunicationTemplateController::class, 'create'])->name('templates.create');
+        Route::post('/template', [CommunicationTemplateController::class, 'store'])->name('templates.store');
+        Route::get('/template/{template}', [CommunicationTemplateController::class, 'show'])->name('templates.show');
+        Route::get('/template/{template}/modifica', [CommunicationTemplateController::class, 'edit'])->name('templates.edit');
+        Route::put('/template/{template}', [CommunicationTemplateController::class, 'update'])->name('templates.update');
+        Route::post('/template/{template}/duplica', [CommunicationTemplateController::class, 'duplicate'])->name('templates.duplicate');
+        Route::post('/template/{template}/versioni/{version}/duplica', [CommunicationTemplateController::class, 'duplicateVersion'])->name('templates.versions.duplicate');
+        Route::post('/template/{template}/archivia', [CommunicationTemplateController::class, 'archive'])->name('templates.archive');
+        Route::delete('/template/{template}', [CommunicationTemplateController::class, 'destroy'])->name('templates.destroy');
+        Route::get('/template/{template}/anteprima', [CommunicationTemplateController::class, 'preview'])->name('templates.preview');
     });
 });
 
