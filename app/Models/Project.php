@@ -215,6 +215,41 @@ class Project extends Model
     }
 
     /**
+     * Suggerimento per "prossima azione" (Blocco E) — regola esplicita e
+     * deterministica, mai scritta automaticamente in next_action: solo un
+     * click esplicito sul pulsante "Applica" la copia nel campo reale.
+     * Priorità: task in ritardo > task in scadenza nei prossimi 7 giorni >
+     * prima task ancora da avviare. Nessun suggerimento se non c'è nulla
+     * di aperto.
+     */
+    public function suggestedNextAction(): ?string
+    {
+        $overdue = $this->tasks()->overdue()->orderBy('due_date')->first();
+
+        if ($overdue) {
+            return "Sbloccare l'attività in ritardo: «{$overdue->title}» (scadeva il {$overdue->due_date->format('d/m/Y')})";
+        }
+
+        $dueSoon = $this->tasks()->dueSoon()->orderBy('due_date')->first();
+
+        if ($dueSoon) {
+            return "Prossima scadenza: «{$dueSoon->title}» il {$dueSoon->due_date->format('d/m/Y')}";
+        }
+
+        $notStarted = $this->tasks()
+            ->whereIn('manual_status', [ProjectTask::STATUS_TODO, ProjectTask::STATUS_TAKEN])
+            ->orderBy('sort_order')
+            ->orderBy('created_at')
+            ->first();
+
+        if ($notStarted) {
+            return "Avviare l'attività: «{$notStarted->title}»";
+        }
+
+        return null;
+    }
+
+    /**
      * Ordina per severità reale (critical > high > medium > low), non
      * alfabeticamente: 'priority' è una stringa, quindi orderBy('priority')
      * metterebbe "medium" prima di "high" e "critical" per ultimo.

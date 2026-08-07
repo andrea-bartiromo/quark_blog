@@ -29,7 +29,8 @@ class StoreProjectRequest extends FormRequest
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'next_action' => 'nullable|string|max:255',
-            'progress' => 'nullable|integer|min:0|max:100',
+            // 'progress' non è impostabile da form: parte da 0 (nessuna task
+            // ancora) e si ricalcola da solo (Blocco D, ProjectProgressService).
             'internal_notes' => 'nullable|string',
         ];
     }

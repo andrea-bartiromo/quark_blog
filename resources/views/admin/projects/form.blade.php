@@ -70,6 +70,12 @@
         <label class="form-label" for="next_action">Prossima azione</label>
         <input class="form-input" type="text" id="next_action" name="next_action"
                value="{{ old('next_action', $project->next_action) }}">
+        @if($suggestedNextAction)
+          <div style="font-size:.78rem;color:#0d9488;margin-top:.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+            <span>💡 Suggerimento: {{ $suggestedNextAction }}</span>
+            <button type="button" class="action-btn" onclick="document.getElementById('next_action').value = {{ Js::from($suggestedNextAction) }};">Applica</button>
+          </div>
+        @endif
       </div>
     </div>
 
@@ -85,9 +91,9 @@
                value="{{ old('due_date', $project->due_date?->format('Y-m-d')) }}">
       </div>
       <div class="form-group">
-        <label class="form-label" for="progress">Avanzamento (%)</label>
-        <input class="form-input" type="number" id="progress" name="progress" min="0" max="100"
-               value="{{ old('progress', $project->progress ?? 0) }}">
+        <span class="form-label" style="display:block;">Avanzamento</span>
+        <div style="font-weight:700;font-size:1.1rem;padding-top:.35rem;">{{ $project->progress ?? 0 }}%</div>
+        <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Calcolato automaticamente dalle attività completate — non modificabile.</div>
       </div>
     </div>
 

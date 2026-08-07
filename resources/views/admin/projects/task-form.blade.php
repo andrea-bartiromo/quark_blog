@@ -29,7 +29,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
       <div class="form-group">
         <label class="form-label" for="type">Tipo *</label>
-        <select class="form-select" id="type" name="type" required onchange="document.getElementById('article-link-group').style.display = this.value === 'publication' ? '' : 'none';">
+        <select class="form-select" id="type" name="type" required onchange="document.getElementById('article-link-group').style.display = this.value === 'publication' ? '' : 'none'; document.getElementById('github-branch-group').style.display = this.value === 'development' ? '' : 'none';">
           @foreach(\App\Models\ProjectTask::typeOptions() as $value => $label)
             <option value="{{ $value }}" @selected(old('type', $task->type ?: 'task') === $value)>{{ $label }}</option>
           @endforeach
@@ -81,7 +81,54 @@
           @endforeach
         </select>
       </div>
+
+      {{-- Visibile solo per le attività di tipo Sviluppo, stesso principio
+           del campo "Articolo collegato" sopra — nascosto altrove perché non
+           avrebbe alcun effetto sulla sincronizzazione per gli altri tipi. --}}
+      <div class="form-group" id="github-branch-group" style="display: {{ old('type', $task->type) === 'development' ? '' : 'none' }};">
+        <label class="form-label" for="github_branch">Branch GitHub</label>
+        <input class="form-input" type="text" id="github_branch" name="github_branch" placeholder="feature/nome-branch"
+               value="{{ old('github_branch', $task->github_branch) }}">
+        <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">
+          Lo stato dell'attività si aggiorna automaticamente da branch/PR collegati su GitHub (sola lettura, mai invio di codice o comandi).
+        </div>
+      </div>
     </div>
+
+    @if($task->exists && $task->type === \App\Models\ProjectTask::TYPE_DEVELOPMENT && $task->github_branch)
+      <div class="form-group">
+        <span class="form-label" style="display:block;">Stato sincronizzazione GitHub</span>
+        <div style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;">
+          @if($task->github_pr_number)
+            <span class="status" style="background:#f3f4f6;color:#4b5563;">PR #{{ $task->github_pr_number }}</span>
+          @endif
+          @if($task->github_pr_state)
+            <span class="status" style="background:#f3f4f6;color:#4b5563;">{{ ucfirst($task->github_pr_state) }}</span>
+          @endif
+          @if($task->github_checks_state)
+            <span class="status" style="background:{{ $task->github_checks_state === 'success' ? '#d1fae5' : ($task->github_checks_state === 'failing' ? '#fee2e2' : '#fef3c7') }};color:{{ $task->github_checks_state === 'success' ? '#065f46' : ($task->github_checks_state === 'failing' ? '#991b1b' : '#92400e') }};">
+              Check: {{ $task->github_checks_state }}
+            </span>
+          @endif
+          @if($task->github_review_state)
+            <span class="status" style="background:#f3f4f6;color:#4b5563;">Review: {{ str_replace('_', ' ', $task->github_review_state) }}</span>
+          @endif
+          @if($task->derived_status === \App\Models\ProjectTask::DERIVED_GH_PR_CLOSED_UNMERGED)
+            <span class="status" style="background:#fee2e2;color:#991b1b;">PR chiusa senza merge — richiede una decisione</span>
+          @endif
+          @if($task->derived_status === \App\Models\ProjectTask::DERIVED_INVALID_LINK)
+            <span class="status" style="background:#fee2e2;color:#991b1b;">Branch non trovato su GitHub</span>
+          @endif
+        </div>
+        <div style="font-size:.76rem;color:#9ca3af;margin-top:.35rem;">
+          @if($task->github_synced_at)
+            Ultimo controllo: {{ $task->github_synced_at->diffForHumans() }}
+          @else
+            Non ancora sincronizzato.
+          @endif
+        </div>
+      </div>
+    @endif
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
       <div class="form-group">

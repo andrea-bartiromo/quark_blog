@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
 use App\Models\ProjectPrompt;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,6 +65,50 @@ class ProjectPromptControllerTest extends TestCase
             ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'prompts']));
 
         $this->assertDatabaseMissing('project_prompts', ['id' => $prompt->id]);
+    }
+
+    public function test_editor_can_link_a_prompt_to_a_task_of_the_same_project(): void
+    {
+        $project = Project::factory()->create();
+        $task = ProjectTask::factory()->for($project)->development()->create();
+
+        $this->actingAs($this->editor())->post(route('admin.progettazione.projects.prompts.store', $project), [
+            'title' => 'Prompt collegato',
+            'content' => 'Contenuto.',
+            'status' => ProjectPrompt::STATUS_DRAFT,
+            'task_id' => $task->id,
+        ]);
+
+        $prompt = ProjectPrompt::firstWhere('title', 'Prompt collegato');
+        $this->assertSame($task->id, $prompt->task_id);
+    }
+
+    public function test_a_task_from_a_different_project_is_rejected_as_prompt_link(): void
+    {
+        $project = Project::factory()->create();
+        $otherProject = Project::factory()->create();
+        $foreignTask = ProjectTask::factory()->for($otherProject)->development()->create();
+
+        $response = $this->actingAs($this->editor())->post(route('admin.progettazione.projects.prompts.store', $project), [
+            'title' => 'Prompt incoerente',
+            'content' => 'Contenuto.',
+            'status' => ProjectPrompt::STATUS_DRAFT,
+            'task_id' => $foreignTask->id,
+        ]);
+
+        $response->assertSessionHasErrors('task_id');
+        $this->assertDatabaseMissing('project_prompts', ['title' => 'Prompt incoerente']);
+    }
+
+    public function test_prompt_form_shows_the_task_options(): void
+    {
+        $project = Project::factory()->create();
+        $task = ProjectTask::factory()->for($project)->development()->create(['title' => 'Task selezionabile']);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.prompts.create', $project));
+
+        $response->assertOk();
+        $response->assertSee('Task selezionabile');
     }
 
     /**

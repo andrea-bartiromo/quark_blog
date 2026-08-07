@@ -25,6 +25,12 @@ class UpdateProjectPromptRequest extends FormRequest
             'status' => ['required', Rule::in(array_keys(ProjectPrompt::statusOptions()))],
             'outcome' => 'nullable|string',
             'article_id' => 'nullable|exists:articles,id',
+            'task_id' => [
+                'nullable',
+                Rule::exists('project_tasks', 'id')->where(
+                    fn ($query) => $query->where('project_id', $this->route('project')->id)
+                ),
+            ],
         ];
     }
 }

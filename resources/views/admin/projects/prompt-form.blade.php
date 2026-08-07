@@ -38,6 +38,19 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label" for="task_id">Attività collegata</label>
+      <select class="form-select" id="task_id" name="task_id">
+        <option value="">Nessuna</option>
+        @foreach($taskOptions as $t)
+          <option value="{{ $t->id }}" @selected((string) old('task_id', $prompt->task_id) === (string) $t->id)>{{ $t->title }}</option>
+        @endforeach
+      </select>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">
+        Se l'attività è di tipo Sviluppo e la sua PR viene mergiata, questo prompt si completa automaticamente (esito e stato), senza sovrascrivere un esito già scritto a mano.
+      </div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label" for="content">Contenuto *</label>
       <textarea class="form-textarea" id="content" name="content" rows="8" required>{{ old('content', $prompt->content) }}</textarea>
     </div>

@@ -499,6 +499,12 @@ body.admin-body textarea {
 .status--derived-published { background: #d1fae5; color: #065f46; }
 .status--derived-invalid_link { background: #fee2e2; color: #991b1b; }
 
+/* Area Progettazione — badge stato derivato (Sviluppo, sync GitHub) */
+.status--derived-github_branch { background: #e0e7ff; color: #3730a3; }
+.status--derived-github_pr_open { background: #fef3c7; color: #92400e; }
+.status--derived-github_pr_merged { background: #d1fae5; color: #065f46; }
+.status--derived-github_pr_closed_unmerged { background: #fee2e2; color: #991b1b; }
+
 .status-override-note {
   font-size: .72rem;
   color: #92400e;

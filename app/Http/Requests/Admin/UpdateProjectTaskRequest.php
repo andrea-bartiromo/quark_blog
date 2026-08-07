@@ -28,6 +28,7 @@ class UpdateProjectTaskRequest extends FormRequest
             'due_date' => 'nullable|date',
             'due_time' => 'nullable|date_format:H:i',
             'article_id' => 'nullable|exists:articles,id',
+            'github_branch' => 'nullable|string|max:255',
             'manual_override' => 'boolean',
         ];
     }

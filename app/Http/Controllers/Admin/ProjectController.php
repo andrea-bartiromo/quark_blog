@@ -37,6 +37,7 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => new Project,
             'responsibleOptions' => $this->responsibleOptions(),
+            'suggestedNextAction' => null,
         ]);
     }
 
@@ -111,6 +112,7 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => $project,
             'responsibleOptions' => $this->responsibleOptions(),
+            'suggestedNextAction' => $project->suggestedNextAction(),
         ]);
     }
 

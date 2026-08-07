@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -263,5 +264,58 @@ class ProjectControllerTest extends TestCase
         foreach (['Panoramica', 'Roadmap', 'Attività', 'Articoli', 'Documenti', 'Prompt', 'Decisioni', 'Cronologia'] as $tab) {
             $response->assertSeeText($tab);
         }
+    }
+
+    // ── Blocco E: avanzamento automatico e suggerimento prossima azione ──
+
+    public function test_progress_field_is_read_only_in_the_form(): void
+    {
+        $project = Project::factory()->create(['progress' => 40]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertOk();
+        $response->assertDontSee('name="progress"', false);
+        $response->assertSeeText('40%');
+    }
+
+    public function test_submitting_a_progress_value_from_the_form_is_ignored(): void
+    {
+        $project = Project::factory()->create(['progress' => 0]);
+        ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_TODO]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => $project->type,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+            'progress' => 99,
+        ]);
+
+        // 0 task completate su 1 = 0%, non il 99 inviato dal form.
+        $this->assertSame(0, $project->fresh()->progress);
+    }
+
+    public function test_edit_form_shows_a_suggested_next_action_with_an_apply_button(): void
+    {
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create([
+            'title' => 'Attività da avviare',
+            'manual_status' => ProjectTask::STATUS_TODO,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertOk();
+        $response->assertSeeText('Avviare l\'attività: «Attività da avviare»');
+        $response->assertSee('Applica', false);
+    }
+
+    public function test_new_project_form_shows_no_suggestion(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.create'));
+
+        $response->assertOk();
+        $response->assertDontSee('💡 Suggerimento', false);
     }
 }
