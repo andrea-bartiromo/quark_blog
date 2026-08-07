@@ -86,7 +86,16 @@ class ArticleLinkInsertionService
      */
     private function isSafeInternalHref(string $url): bool
     {
-        if ($url === '' || preg_match('/["\'<>`\s]/u', $url) === 1) {
+        // Il backslash è rifiutato insieme ad apici/angolari/spazi, non solo
+        // per coerenza con "nessun mix \ e /": nei parser URL WHATWG usati
+        // dai browser reali (a differenza di PHP parse_url()), "\" dentro la
+        // parte authority di uno schema "speciale" (http/https) si comporta
+        // come "/" — un valore tipo "https://evil.example\@<app-host>/x"
+        // supera il controllo host qui sotto (PHP legge host=<app-host>,
+        // trattando "evil.example\" come userinfo) ma un browser può
+        // risolverlo diversamente. Rifiutarlo a monte evita di dover
+        // replicare esattamente la semantica di parsing di un browser.
+        if ($url === '' || preg_match('/["\'<>`\s\\\\]/u', $url) === 1) {
             return false;
         }
 

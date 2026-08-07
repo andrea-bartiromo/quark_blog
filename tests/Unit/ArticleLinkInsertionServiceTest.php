@@ -178,4 +178,25 @@ class ArticleLinkInsertionServiceTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    // 16. Un backslash nell'href viene sempre rifiutato, anche quando PHP parse_url() riporterebbe
+    //     il proprio host: un browser reale (parsing WHATWG) puo' interpretare "\" diversamente da
+    //     "/" nella parte authority di uno schema http/https, un parser diverso da PHP potrebbe
+    //     risolvere l'host in modo diverso da quanto verificato qui lato server.
+    public function test_it_rejects_a_href_containing_a_backslash_even_when_parse_url_reports_the_own_host(): void
+    {
+        $body = '<p>Parliamo di energia e sviluppo sostenibile in Italia.</p>';
+        $ownHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        // PHP parse_url() interpreta "evil.example\" come userinfo e riporta host=$ownHost.
+        $trickUrl = 'https://evil.example\@'.$ownHost.'/x';
+        $this->assertSame($ownHost, parse_url($trickUrl, PHP_URL_HOST));
+
+        $result = $this->service->insert($body, 'energia e sviluppo sostenibile', $trickUrl);
+
+        $this->assertNull($result);
+
+        $relativeBackslash = $this->service->insert($body, 'energia e sviluppo sostenibile', '/\\evil-external-host.example/x');
+        $this->assertNull($relativeBackslash);
+    }
 }

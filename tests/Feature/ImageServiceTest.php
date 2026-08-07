@@ -211,8 +211,11 @@ class ImageServiceTest extends TestCase
     {
         $file = $this->makeSolidImageUpload('photo.jpg', 40, 40);
 
-        $nativeBase = str_replace('/', DIRECTORY_SEPARATOR, $this->tempDir);
-        $mixedDestination = $nativeBase.DIRECTORY_SEPARATOR.'assets/img';
+        // Backslash letterale (non DIRECTORY_SEPARATOR): su Linux
+        // DIRECTORY_SEPARATOR e' "/", quindi usarlo qui non costruirebbe
+        // davvero un path misto e il test passerebbe anche senza il fix.
+        $nativeBase = str_replace('/', '\\', $this->tempDir);
+        $mixedDestination = $nativeBase.'\\assets/img';
 
         $fullPath = $this->service->upload($file, $mixedDestination, 'final-name.jpg');
 
