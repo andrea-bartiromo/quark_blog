@@ -44,8 +44,15 @@ class ArticleLinkSuggestionController extends Controller
 
     /**
      * Applica un suggerimento al body ricevuto dal client (contenuto
-     * corrente di TinyMCE, non necessariamente salvato) e marca il
-     * suggerimento come accettato. Non tocca mai il record Article.
+     * corrente di TinyMCE, non necessariamente salvato) e restituisce
+     * l'HTML aggiornato. Non tocca mai il record Article e non marca il
+     * suggerimento come accettato qui: quella decisione diventa definitiva
+     * solo quando l'articolo viene davvero salvato (vedi
+     * ArticleLinkSuggestionService::markAccepted, invocato da
+     * Admin/Redazione ArticleController::update) — altrimenti un
+     * inserimento seguito da un abbandono della modifica senza salvare
+     * marcherebbe per sempre "gestito" un collegamento mai arrivato
+     * nell'articolo.
      */
     public function insert(Request $request, Article $article, ArticleLinkSuggestion $suggestion): JsonResponse
     {
@@ -71,12 +78,6 @@ class ArticleLinkSuggestionController extends Controller
                 'message' => 'La frase suggerita non è più presente nel testo (o si trova in un punto non modificabile, come un titolo o una citazione). Il testo potrebbe essere stato modificato: prova ad analizzare di nuovo i collegamenti.',
             ], 422);
         }
-
-        $suggestion->update([
-            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
-            'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
-        ]);
 
         return response()->json([
             'body' => $updatedBody,

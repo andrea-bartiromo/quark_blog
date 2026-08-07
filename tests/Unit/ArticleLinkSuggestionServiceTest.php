@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Models\User;
+use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +20,7 @@ class ArticleLinkSuggestionServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new ArticleLinkSuggestionService;
+        $this->service = new ArticleLinkSuggestionService(new ArticleLinkInsertionService);
     }
 
     private function article(array $overrides = []): Article
@@ -255,5 +256,57 @@ class ArticleLinkSuggestionServiceTest extends TestCase
             ArticleLinkSuggestion::where('target_article_id', $target->id)->first()->status
         );
         $this->assertSame(1, ArticleLinkSuggestion::where('target_article_id', $target->id)->count());
+    }
+
+    // 10. Se l'anchor migliore (titolo) attraversa un tag inline e non è inseribile, si ripiega su un termine condiviso che lo è davvero
+    public function test_it_falls_back_to_an_insertable_shared_term_when_the_title_anchor_is_not_insertable(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli più efficienti',
+            'category' => 'energia',
+        ]);
+
+        // Il titolo del target compare per intero nel testo appiattito, ma
+        // "solari" è dentro <strong>: la frase completa non vive in un solo
+        // nodo di testo del DOM e quindi non è realmente inseribile.
+        $source = $this->article([
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli <strong>solari</strong> di nuova generazione, molto richiesti nel settore energia.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertNotSame('pannelli solari di nuova generazione', mb_strtolower($suggestion->anchor_text));
+        $this->assertTrue(
+            (new ArticleLinkInsertionService)->canInsert($source->body, $suggestion->anchor_text)
+        );
+    }
+
+    // 11. Se NESSUna anchor candidata è inseribile (tutto dentro un titolo), non propone affatto il collegamento
+    public function test_it_proposes_nothing_when_no_candidate_anchor_is_insertable(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli più efficienti',
+            'category' => 'energia',
+        ]);
+
+        // Titolo e tutti i termini condivisi compaiono SOLO dentro un h2:
+        // un punteggio che passerebbe la soglia, ma nessuna anchor
+        // realmente inseribile — il suggerimento non deve essere generato.
+        $source = $this->article([
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<h2>Pannelli solari di nuova generazione: uno sguardo</h2><p>Testo del paragrafo senza altre corrispondenze pertinenti qui.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+        $this->assertSame(0, ArticleLinkSuggestion::where('target_article_id', $target->id)->count());
     }
 }

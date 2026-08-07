@@ -106,4 +106,33 @@ class ArticleLinkSuggestionUiTest extends TestCase
 
         $response->assertSee(route('admin.articles.link-suggestions.analyze', $article), false);
     }
+
+    // 6. Il titolo dell'articolo target è incorporato nel JSON iniziale in modo script-safe: non può chiudere il tag <script>
+    public function test_target_titles_are_embedded_safely_in_the_initial_suggestions_json(): void
+    {
+        $editor = $this->editor();
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Titolo malevolo </script><script>alert(1)</script>',
+        ]);
+        $source = $this->article(['user_id' => $editor->id]);
+
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'corpo',
+            'reason' => 'motivo di test',
+            'confidence_score' => 55,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $source));
+
+        $response->assertOk();
+        // Il payload JSON non deve MAI contenere una sequenza </script> letterale
+        // dentro il tag application/json: romperebbe fuori dallo script e
+        // inietterebbe markup arbitrario nel form di un altro redattore.
+        $response->assertDontSee('</script><script>alert(1)</script>', false);
+        // Ma il contenuto (escapato in modo script-safe) deve comunque essere presente.
+        $response->assertSee('Titolo malevolo', false);
+    }
 }

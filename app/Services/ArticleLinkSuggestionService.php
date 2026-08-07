@@ -80,6 +80,10 @@ class ArticleLinkSuggestionService
         'cui', 'chi', 'cosa', 'quale', 'quali', 'quanto', 'quanti', 'quanta', 'quante',
     ];
 
+    public function __construct(
+        private readonly ArticleLinkInsertionService $insertionService,
+    ) {}
+
     /**
      * Analizza $source contro tutti gli altri articoli pubblicati e
      * persiste/aggiorna i suggerimenti 'proposed'. Non tocca mai righe già
@@ -123,7 +127,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $match = $this->scoreLink($source->category, $sourcePlainBody, $sourceTerms, $candidate);
+            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate);
 
             if ($match === null) {
                 // Un suggerimento "proposed" che non passa più la soglia
@@ -207,7 +211,7 @@ class ArticleLinkSuggestionService
             }
 
             $sourceTerms = $this->extractTerms($sourcePlainBody);
-            $match = $this->scoreLink($candidateSource->category, $sourcePlainBody, $sourceTerms, $targetAsCandidate);
+            $match = $this->scoreLink($candidateSource->category, (string) $candidateSource->body, $sourcePlainBody, $sourceTerms, $targetAsCandidate);
 
             if ($match === null) {
                 $this->supersedeIfActionable($existingSuggestion);
@@ -241,24 +245,21 @@ class ArticleLinkSuggestionService
      * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string}  $candidateTarget
      * @return array{score:int,anchor:string,context:?string,reason:string}|null
      */
-    private function scoreLink(string $sourceCategory, string $sourcePlainBody, array $sourceTerms, object $candidateTarget): ?array
+    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget): ?array
     {
         $score = 0;
-        $anchor = null;
-        $anchorPosition = null;
         $matchedTerms = [];
         $titleMatched = false;
+        $titleOccurrence = null;
 
         $title = trim((string) $candidateTarget->title);
 
         if (mb_strlen($title, 'UTF-8') >= self::MIN_TITLE_LENGTH_FOR_PHRASE_MATCH) {
-            $occurrence = $this->findPhrase($sourcePlainBody, $title);
+            $titleOccurrence = $this->findPhrase($sourcePlainBody, $title);
 
-            if ($occurrence !== null) {
+            if ($titleOccurrence !== null) {
                 $score += self::TITLE_MATCH_SCORE;
                 $titleMatched = true;
-                $anchor = $occurrence['text'];
-                $anchorPosition = $occurrence['position'];
             }
         }
 
@@ -273,15 +274,6 @@ class ArticleLinkSuggestionService
         $score += count($scoredTerms) * self::TERM_MATCH_SCORE;
         $matchedTerms = $scoredTerms;
 
-        if ($anchor === null && ! empty($sharedTerms)) {
-            $occurrence = $this->findPhrase($sourcePlainBody, $sharedTerms[0]);
-
-            if ($occurrence !== null) {
-                $anchor = $occurrence['text'];
-                $anchorPosition = $occurrence['position'];
-            }
-        }
-
         $categoryMatched = $sourceCategory === $candidateTarget->category;
 
         if ($categoryMatched) {
@@ -290,16 +282,51 @@ class ArticleLinkSuggestionService
 
         $score = min(100, $score);
 
-        if ($score < self::MIN_SCORE_THRESHOLD || $anchor === null) {
+        if ($score < self::MIN_SCORE_THRESHOLD) {
+            return null;
+        }
+
+        // L'anchor scelta deve essere non solo presente nel testo appiattito
+        // usato per lo scoring, ma davvero inseribile: un singolo nodo di
+        // testo idoneo, non spezzato da un tag inline (es. <strong>) e non
+        // dentro un link/titolo/citazione esistente — altrimenti "Inserisci"
+        // fallirebbe sempre per un suggerimento che sembrava valido.
+        // Si prova prima il titolo (se ha contribuito al punteggio), poi i
+        // termini condivisi dal più lungo al più corto.
+        $anchorCandidates = [];
+
+        if ($titleOccurrence !== null) {
+            $anchorCandidates[] = $titleOccurrence;
+        }
+
+        foreach ($sharedTerms as $term) {
+            $occurrence = $this->findPhrase($sourcePlainBody, $term);
+
+            if ($occurrence !== null) {
+                $anchorCandidates[] = $occurrence;
+            }
+        }
+
+        $anchor = null;
+        $anchorPosition = null;
+
+        foreach ($anchorCandidates as $occurrence) {
+            if ($this->insertionService->canInsert($sourceBodyHtml, $occurrence['text'])) {
+                $anchor = $occurrence['text'];
+                $anchorPosition = $occurrence['position'];
+
+                break;
+            }
+        }
+
+        if ($anchor === null) {
             return null;
         }
 
         return [
             'score' => $score,
             'anchor' => $anchor,
-            'context' => $anchorPosition !== null
-                ? $this->buildContextExcerpt($sourcePlainBody, $anchorPosition, mb_strlen($anchor, 'UTF-8'))
-                : null,
+            'context' => $this->buildContextExcerpt($sourcePlainBody, $anchorPosition, mb_strlen($anchor, 'UTF-8')),
             'reason' => $this->buildReason($titleMatched, $matchedTerms, $categoryMatched, $candidateTarget->category),
         ];
     }
@@ -404,6 +431,33 @@ class ArticleLinkSuggestionService
         if ($suggestion && $suggestion->isActionable()) {
             $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
         }
+    }
+
+    /**
+     * Marca "accepted" i suggerimenti applicati nell'editor durante questa
+     * modifica, ma SOLO ora che l'articolo è stato davvero salvato — non al
+     * momento di "Inserisci" (che modifica solo il testo nel form). Se la
+     * redazione inserisce un collegamento e poi abbandona la modifica senza
+     * salvare, il suggerimento resta 'proposed' e può essere riproposto,
+     * invece di risultare "gestito" per sempre senza che il link sia mai
+     * arrivato nell'articolo pubblicato.
+     *
+     * @param  array<int, int|string>  $suggestionIds
+     */
+    public function markAccepted(Article $article, array $suggestionIds, int $reviewerId): void
+    {
+        if (empty($suggestionIds)) {
+            return;
+        }
+
+        ArticleLinkSuggestion::where('source_article_id', $article->id)
+            ->whereIn('id', $suggestionIds)
+            ->proposed()
+            ->update([
+                'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+                'reviewed_at' => now(),
+                'reviewed_by' => $reviewerId,
+            ]);
     }
 
     private function plainText(string $html): string

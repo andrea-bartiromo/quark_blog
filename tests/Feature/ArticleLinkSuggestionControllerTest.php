@@ -90,9 +90,71 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         // Il record Article non è stato toccato: il salvataggio resta un'azione umana esplicita.
         $this->assertSame($originalBody, $source->fresh()->body);
 
+        // "Inserisci" non marca ancora accettato: lo fa solo il salvataggio
+        // effettivo dell'articolo (vedi markAccepted). Se la redazione
+        // abbandona la modifica senza salvare, il suggerimento resta
+        // riproponibile invece di risultare "gestito" per sempre.
+        $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->fresh()->status);
+        $this->assertNull($suggestion->fresh()->reviewed_at);
+        $this->assertNull($suggestion->fresh()->reviewed_by);
+    }
+
+    // 2b. Il salvataggio effettivo dell'articolo (Admin) marca accettati i suggerimenti applicati nel form
+    public function test_admin_update_marks_applied_suggestions_as_accepted_on_save(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.route('articolo', $target->slug).'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
         $this->assertSame(ArticleLinkSuggestion::STATUS_ACCEPTED, $suggestion->fresh()->status);
         $this->assertNotNull($suggestion->fresh()->reviewed_at);
         $this->assertSame($editor->id, $suggestion->fresh()->reviewed_by);
+    }
+
+    // 2c. Se l'articolo non viene mai salvato (o è salvato senza quel suggerimento tra gli applicati), resta "proposed"
+    public function test_admin_update_without_applied_suggestions_leaves_them_proposed(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $source->body,
+            'category' => $source->category,
+            'status' => 'draft',
+        ]);
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->fresh()->status);
     }
 
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone

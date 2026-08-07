@@ -43,7 +43,13 @@
          style="display:flex;flex-direction:column;gap:.6rem;margin-top:.75rem;">
     </div>
 
-    <script type="application/json" id="link-suggestions-initial">{!! json_encode($linkSuggestions->map(fn ($s) => [
+    {{--
+      Js::from() (non json_encode() grezzo) escapa </script>, <, >, & e gli
+      apici tramite JSON_HEX_* — un titolo articolo che contenga
+      letteralmente "</script>" non può altrimenti chiudere questo tag ed
+      iniettare markup nella pagina di un altro redattore.
+    --}}
+    <script type="application/json" id="link-suggestions-initial">{!! \Illuminate\Support\Js::from($linkSuggestions->map(fn ($s) => [
       'id' => $s->id,
       'anchor_text' => $s->anchor_text,
       'context_excerpt' => $s->context_excerpt,
@@ -128,6 +134,24 @@ document.addEventListener('DOMContentLoaded', function () {
     if (! listEl.querySelector('[data-suggestion-id]')) {
       listEl.innerHTML = '<p class="form-hint" style="margin:0;">Nessun collegamento suggerito al momento.</p>';
     }
+  }
+
+  // Traccia (lato form, non sul server) quali suggerimenti sono stati
+  // inseriti in questa sessione di modifica: diventano "accepted" solo
+  // quando l'articolo viene davvero salvato (vedi
+  // ArticleLinkSuggestionService::markAccepted), non al click su
+  // "Inserisci" — se la redazione abbandona la modifica senza salvare, il
+  // suggerimento resta 'proposed' e può essere riproposto.
+  function trackAppliedSuggestion(id) {
+    const form = listEl.closest('form');
+    if (! form) {
+      return;
+    }
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'applied_link_suggestions[]';
+    hidden.value = id;
+    form.appendChild(hidden);
   }
 
   if (initialDataEl) {
@@ -220,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
             bodyField.value = result.data.body;
           }
 
+          trackAppliedSuggestion(suggestionId);
           removeCard(suggestionId);
           setStatus('Collegamento inserito nel testo — ricordati di salvare l\'articolo.', false);
         })

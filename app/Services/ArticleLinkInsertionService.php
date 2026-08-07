@@ -43,6 +43,36 @@ class ArticleLinkInsertionService
      */
     public function insert(string $bodyHtml, string $anchorText, string $targetUrl): ?string
     {
+        $located = $this->locateInsertionPoint($bodyHtml, $anchorText);
+
+        if ($located === null) {
+            return null;
+        }
+
+        $this->splitAndWrap($located['dom'], $located['textNode'], $located['position'], trim($anchorText), $targetUrl);
+
+        return $this->innerHtml($located['dom'], $located['root']);
+    }
+
+    /**
+     * True se $anchorText è presente per intero in un singolo nodo di
+     * testo idoneo del body — senza modificare nulla. Usata da
+     * App\Services\ArticleLinkSuggestionService per scartare in fase di
+     * generazione le anchor che attraverserebbero un tag inline (es.
+     * <strong>) o che si trovano solo dentro un link/titolo/citazione
+     * esistente: una anchor non verificata qui fallirebbe comunque
+     * silenziosamente al momento di "Inserisci".
+     */
+    public function canInsert(string $bodyHtml, string $anchorText): bool
+    {
+        return $this->locateInsertionPoint($bodyHtml, $anchorText) !== null;
+    }
+
+    /**
+     * @return array{dom: DOMDocument, root: DOMNode, textNode: DOMText, position: int}|null
+     */
+    private function locateInsertionPoint(string $bodyHtml, string $anchorText): ?array
+    {
         $anchorText = trim($anchorText);
 
         if ($anchorText === '' || trim($bodyHtml) === '') {
@@ -72,9 +102,7 @@ class ArticleLinkInsertionService
 
         [$textNode, $position] = $target;
 
-        $this->splitAndWrap($dom, $textNode, $position, $anchorText, $targetUrl);
-
-        return $this->innerHtml($dom, $root);
+        return ['dom' => $dom, 'root' => $root, 'textNode' => $textNode, 'position' => $position];
     }
 
     /**
