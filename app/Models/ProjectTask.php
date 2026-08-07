@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ProjectTaskGithubSyncService;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,13 @@ class ProjectTask extends Model
         static::saved(function (ProjectTask $task) {
             if ($task->wasRecentlyCreated || $task->wasChanged(['type', 'article_id', 'manual_override'])) {
                 app(ProjectTaskSyncService::class)->syncTask($task);
+            }
+
+            // Stesso principio, per il collegamento a GitHub (Blocco B):
+            // impostare o cambiare il branch avvia subito un tentativo di
+            // sync, senza attendere il prossimo giro dello scheduler.
+            if ($task->wasRecentlyCreated || $task->wasChanged(['type', 'github_branch', 'manual_override'])) {
+                app(ProjectTaskGithubSyncService::class)->syncTask($task);
             }
         });
     }

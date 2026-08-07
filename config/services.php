@@ -40,4 +40,13 @@ return [
         'key' => env('ANTHROPIC_API_KEY'),
     ],
 
+    // GitHub — sync di sola lettura branch/PR per l'Area Progettazione
+    // (Blueprint automazione B4-Progettazione). Token fine-grained,
+    // sola lettura su Contents/Pull requests/Metadata del solo repo
+    // configurato — mai esposto al browser.
+    'github' => [
+        'token' => env('GITHUB_TOKEN'),
+        'repo' => env('GITHUB_SYNC_REPO', 'andrea-bartiromo/quark_blog'),
+    ],
+
 ];
