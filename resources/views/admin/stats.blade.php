@@ -209,6 +209,67 @@
     font-size: .78rem;
   }
 
+  .stats-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.75rem 0 .85rem;
+  }
+
+  .stats-section-heading h2 {
+    font-size: .8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .stats-period-selector {
+    display: inline-flex;
+    gap: .35rem;
+    background: var(--soft-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    padding: .25rem;
+  }
+
+  .stats-period-pill {
+    display: inline-block;
+    padding: .35rem .8rem;
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  .stats-period-pill:hover {
+    color: var(--text-main);
+  }
+
+  .stats-period-pill.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .stats-kpi-value--sm {
+    font-size: 1.4rem;
+  }
+
+  .stats-kpi-delta {
+    font-weight: 900;
+  }
+
+  .stats-kpi-delta--up {
+    color: #16a34a;
+  }
+
+  .stats-kpi-delta--down {
+    color: var(--danger);
+  }
+
   @media (max-width: 1100px) {
     .stats-kpi-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -259,6 +320,10 @@
     <div class="stats-live">● Live data</div>
   </div>
 
+  <div class="stats-section-heading">
+    <h2>📚 Storico (lifetime)</h2>
+  </div>
+
   <div class="stats-kpi-grid">
     <div class="stats-card">
       <div class="stats-kpi-label">Views totali</div>
@@ -289,11 +354,55 @@
     </div>
   </div>
 
+  <div class="stats-section-heading">
+    <h2>📊 Traffico reale del periodo</h2>
+    <div class="stats-period-selector">
+      @foreach(\App\Services\ArticleAnalyticsService::ALLOWED_PERIODS as $option)
+        <a href="{{ route('admin.stats', ['period' => $option]) }}"
+           class="stats-period-pill {{ $period === $option ? 'active' : '' }}">{{ $option }} giorni</a>
+      @endforeach
+    </div>
+  </div>
+
+  <div class="stats-kpi-grid">
+    <div class="stats-card">
+      <div class="stats-kpi-label">Views periodo</div>
+      <div class="stats-kpi-value">{{ number_format($viewsPeriod, 0, ',', '.') }}</div>
+      <div class="stats-kpi-note">
+        Ultimi {{ $period }} giorni — esclude traffico interno
+        @if($periodChangePercent !== null)
+          <span class="stats-kpi-delta {{ $periodChangePercent >= 0 ? 'stats-kpi-delta--up' : 'stats-kpi-delta--down' }}">
+            {{ $periodChangePercent >= 0 ? '▲' : '▼' }} {{ number_format(abs($periodChangePercent), 1, ',', '.') }}%
+          </span>
+          vs periodo precedente
+        @endif
+      </div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stats-kpi-label">Views oggi</div>
+      <div class="stats-kpi-value">{{ number_format($viewsToday, 0, ',', '.') }}</div>
+      <div class="stats-kpi-note">Giornata editoriale in corso (Europe/Rome)</div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stats-kpi-label">Views ieri</div>
+      <div class="stats-kpi-value">{{ number_format($viewsYesterday, 0, ',', '.') }}</div>
+      <div class="stats-kpi-note">Giornata editoriale completa</div>
+    </div>
+
+    <div class="stats-card">
+      <div class="stats-kpi-label">Media views/giorno</div>
+      <div class="stats-kpi-value stats-kpi-value--sm">{{ number_format($avgViewsPerDay, 1, ',', '.') }}</div>
+      <div class="stats-kpi-note">Media sugli ultimi {{ $period }} giorni</div>
+    </div>
+  </div>
+
   <div class="stats-chart-grid">
     <div class="stats-card">
       <div class="stats-card-title">
         <h2>📈 Views nel tempo</h2>
-        <span class="stats-badge">Chart.js</span>
+        <span class="stats-badge">Ultimi {{ $period }} giorni</span>
       </div>
       <div class="stats-chart-box">
         <canvas id="viewsChart"></canvas>
@@ -303,7 +412,7 @@
     <div class="stats-card">
       <div class="stats-card-title">
         <h2>🧭 Categorie</h2>
-        <span class="stats-badge">Distribuzione</span>
+        <span class="stats-badge">Views · {{ $period }}gg</span>
       </div>
       <div class="stats-chart-box">
         <canvas id="categoriesChart"></canvas>
@@ -347,45 +456,49 @@
   <div class="stats-card">
     <div class="stats-card-title">
       <h2>🏆 Top articoli per visualizzazioni</h2>
-      <span class="stats-badge">Top 10</span>
+      <span class="stats-badge">Ultimi {{ $period }} giorni</span>
     </div>
 
-    <div class="stats-table-wrap">
-      <table class="admin-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Titolo</th>
-            <th>Categoria</th>
-            <th>Views</th>
-            <th>Lettura</th>
-            <th>Pubblicato</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($articles->take(10) as $i => $art)
+    @if($topArticlesPeriod->isEmpty())
+      <div class="stats-empty">Nessuna view registrata in questo periodo.</div>
+    @else
+      <div class="stats-table-wrap">
+        <table class="admin-table">
+          <thead>
             <tr>
-              <td style="font-weight:950;color:#d1d5db;font-size:1.1rem;">{{ $i + 1 }}</td>
-              <td>
-                <a href="{{ route('articolo', $art->slug) }}" target="_blank" class="stats-link">
-                  {{ Str::limit($art->title, 60) }}
-                </a>
-              </td>
-              <td>
-                <span class="badge badge--{{ $art->category }}">
-                  {{ config('laboratorio.categories.' . $art->category) }}
-                </span>
-              </td>
-              <td style="font-weight:850;color:#0d9488;">
-                {{ number_format($art->views, 0, ',', '.') }}
-              </td>
-              <td class="stats-muted">{{ $art->read_minutes }} min</td>
-              <td class="stats-muted">{{ optional($art->published_at)->format('d/m/Y') }}</td>
+              <th>#</th>
+              <th>Titolo</th>
+              <th>Categoria</th>
+              <th>Views periodo</th>
+              <th>Views lifetime</th>
+              <th>Lettura</th>
             </tr>
-          @endforeach
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @foreach($topArticlesPeriod as $i => $art)
+              <tr>
+                <td style="font-weight:950;color:#d1d5db;font-size:1.1rem;">{{ $i + 1 }}</td>
+                <td>
+                  <a href="{{ route('articolo', $art->slug) }}" target="_blank" class="stats-link">
+                    {{ Str::limit($art->title, 60) }}
+                  </a>
+                </td>
+                <td>
+                  <span class="badge badge--{{ $art->category }}">
+                    {{ config('laboratorio.categories.' . $art->category) }}
+                  </span>
+                </td>
+                <td style="font-weight:850;color:#0d9488;">
+                  {{ number_format($art->period_views, 0, ',', '.') }}
+                </td>
+                <td class="stats-muted">{{ number_format($art->lifetime_views, 0, ',', '.') }}</td>
+                <td class="stats-muted">{{ $art->read_minutes }} min</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    @endif
   </div>
 
 </div>
@@ -396,7 +509,7 @@
 (function () {
   'use strict';
 
-  const endpoint = '/admin/stats/charts';
+  const endpoint = '/admin/stats/charts?period={{ $period }}';
   const chartInstances = {};
 
   const isDarkMode = () => {

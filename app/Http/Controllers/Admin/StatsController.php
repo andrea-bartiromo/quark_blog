@@ -4,13 +4,40 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
+use App\Services\ArticleAnalyticsService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StatsController extends Controller
 {
-    public function index()
+    public function index(Request $request, ArticleAnalyticsService $analytics)
     {
-        // Top articoli per views
+        $period = ArticleAnalyticsService::normalizePeriod($request->query('period'));
+
+        $today = $analytics->editorialToday();
+        $yesterday = $today->clone()->subDay();
+        $periodStart = $today->clone()->subDays($period - 1);
+        $previousPeriodEnd = $periodStart->clone()->subDay();
+        $previousPeriodStart = $previousPeriodEnd->clone()->subDays($period - 1);
+
+        $viewsToday = $analytics->totalViewsForDate($today);
+        $viewsYesterday = $analytics->totalViewsForDate($yesterday);
+        $viewsPeriod = $analytics->totalViewsForRange($periodStart, $today);
+        $viewsPreviousPeriod = $analytics->totalViewsForRange($previousPeriodStart, $previousPeriodEnd);
+
+        // null quando non esiste un periodo precedente comparabile (somma
+        // zero): mostrare "+100%"/"-100%" sarebbe fuorviante quanto un
+        // vero e proprio 0% "nessuna variazione".
+        $periodChangePercent = $viewsPreviousPeriod > 0
+            ? round((($viewsPeriod - $viewsPreviousPeriod) / $viewsPreviousPeriod) * 100, 1)
+            : null;
+
+        $avgViewsPerDay = round($viewsPeriod / $period, 1);
+
+        $topArticlesPeriod = $analytics->topArticlesForRange($periodStart, $today, 10);
+
+        // Top articoli per views lifetime (dato storico, distinto da quello
+        // del periodo — resta qui solo per il KPI "Top article" lifetime).
         $articles = Article::published()
             ->orderByDesc('views')
             ->limit(15)
@@ -97,18 +124,26 @@ class StatsController extends Controller
             'byCategory',
             'newsletterGrowth',
             'articlesByMonth',
-            'topCommented'
+            'topCommented',
+            'period',
+            'viewsToday',
+            'viewsYesterday',
+            'viewsPeriod',
+            'periodChangePercent',
+            'avgViewsPerDay',
+            'topArticlesPeriod'
         ));
     }
 
-    public function charts()
+    public function charts(Request $request, ArticleAnalyticsService $analytics)
     {
-        $viewsLast7Days = DB::table('article_views')
-            ->selectRaw('date(viewed_at) as day, COUNT(*) as views')
-            ->where('viewed_at', '>=', now()->subDays(7))
-            ->groupBy('day')
-            ->orderBy('day')
-            ->get();
+        $period = ArticleAnalyticsService::normalizePeriod($request->query('period'));
+        $today = $analytics->editorialToday();
+        $periodStart = $today->clone()->subDays($period - 1);
+
+        $viewsSeries = $analytics->dailySeries($period)
+            ->map(fn (int $views, string $date) => ['day' => $date, 'views' => $views])
+            ->values();
 
         $newsletterGrowth = DB::table('newsletter')
             ->selectRaw('date(created_at) as day, COUNT(*) as total')
@@ -117,25 +152,13 @@ class StatsController extends Controller
             ->orderBy('day')
             ->get();
 
-        $categoryDistribution = DB::table('articles')
-            ->selectRaw('category, COUNT(*) as total')
-            ->where('status', 'published')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'label' => config(
-                        'laboratorio.categories.'.$item->category,
-                        $item->category
-                    ),
-                    'total' => (int) $item->total,
-                ];
-            })
-            ->values();
+        // Views del periodo per categoria (non conteggio articoli): quale
+        // categoria sta ricevendo più traffico reale, non solo quante ne
+        // pubblichiamo.
+        $categoryDistribution = $analytics->categoryTotalsForRange($periodStart, $today);
 
         return response()->json([
-            'views' => $viewsLast7Days,
+            'views' => $viewsSeries,
             'newsletter' => $newsletterGrowth,
             'categories' => $categoryDistribution,
         ]);
