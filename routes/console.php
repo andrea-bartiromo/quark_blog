@@ -58,3 +58,13 @@ Schedule::command('projects:sync-derived-statuses')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/projects-sync.log'));
+
+// ── Area Progettazione: sync GitHub task di Sviluppo ─────────────
+// Ogni 5 minuti: riallinea branch/PR dei task di Sviluppo (sola lettura,
+// idempotente — una run senza cambiamenti non fa nulla). Se il token non
+// è configurato o GitHub non è raggiungibile, il servizio non solleva
+// eccezioni: il comando termina comunque con successo.
+Schedule::command('projects:sync-github-tasks')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/projects-github-sync.log'));
