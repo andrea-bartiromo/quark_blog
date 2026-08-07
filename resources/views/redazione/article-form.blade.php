@@ -71,6 +71,8 @@
       </p>
     </div>
 
+    @include('partials.article-link-suggestions', ['article' => $article ?? null, 'linkSuggestions' => $linkSuggestions ?? collect(), 'linkSuggestionRoutePrefix' => 'redazione'])
+
     <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:1.25rem;">
       <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;
                   letter-spacing:.1em;margin-bottom:1rem;">Categoria *</div>

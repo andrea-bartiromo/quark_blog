@@ -18,6 +18,7 @@ use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\Category;
+use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
@@ -30,7 +31,8 @@ class ArticleController extends Controller
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
-        private readonly PublicMediaSyncService $publicMediaSync
+        private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ArticleLinkSuggestionService $linkSuggestionService,
     ) {}
 
     public function index(Request $request)
@@ -92,6 +94,11 @@ class ArticleController extends Controller
         return view('admin.article-form', [
             'article' => $article,
             'categories' => Category::options(),
+            'linkSuggestions' => $article->linkSuggestions()
+                ->proposed()
+                ->with('targetArticle:id,title,slug')
+                ->orderByDesc('confidence_score')
+                ->get(),
         ]);
     }
 
@@ -113,6 +120,12 @@ class ArticleController extends Controller
         }
 
         $article->update($data);
+
+        $this->linkSuggestionService->markAccepted(
+            $article,
+            (array) $request->input('applied_link_suggestions', []),
+            $request->user()->id
+        );
 
         return redirect()
             ->route('admin.articles')

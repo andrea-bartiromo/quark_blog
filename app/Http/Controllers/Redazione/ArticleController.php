@@ -8,6 +8,7 @@ use App\Http\Requests\Redazione\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\User;
+use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
@@ -20,7 +21,8 @@ class ArticleController extends Controller
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
-        private readonly PublicMediaSyncService $publicMediaSync
+        private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ArticleLinkSuggestionService $linkSuggestionService,
     ) {}
 
     public function index()
@@ -166,9 +168,15 @@ class ArticleController extends Controller
 
         $categories = config('laboratorio.categories');
 
+        $linkSuggestions = $article->linkSuggestions()
+            ->proposed()
+            ->with('targetArticle:id,title,slug')
+            ->orderByDesc('confidence_score')
+            ->get();
+
         return view(
             'redazione.article-form',
-            compact('article', 'categories')
+            compact('article', 'categories', 'linkSuggestions')
         );
     }
 
@@ -263,6 +271,12 @@ class ArticleController extends Controller
             'twitter_description' => $data['twitter_description'] ?? null,
             'twitter_image' => $data['twitter_image'] ?? null,
         ]);
+
+        $this->linkSuggestionService->markAccepted(
+            $article,
+            (array) $request->input('applied_link_suggestions', []),
+            $request->user()->id
+        );
 
         $this->notifyEditor($article, true);
 

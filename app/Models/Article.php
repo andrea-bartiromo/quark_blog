@@ -131,6 +131,11 @@ class Article extends Model
         return $this->belongsToMany(Project::class, 'project_article')->withTimestamps();
     }
 
+    public function linkSuggestions()
+    {
+        return $this->hasMany(ArticleLinkSuggestion::class, 'source_article_id');
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublished(Builder $q): Builder
