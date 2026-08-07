@@ -4,6 +4,7 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Campagne</h1>
+  <a href="{{ route('admin.comunicazione.campaigns.create') }}" class="btn btn--primary">+ Nuova campagna</a>
 </div>
 
 <form method="GET" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -30,7 +31,8 @@
 @if($campaigns->isEmpty())
   <div class="admin-card project-empty-state">
     <div class="project-empty-state__icon">📨</div>
-    <p class="project-empty-state__text">Nessuna campagna trovata. La creazione di nuove campagne arriva in un blocco successivo del Sistema Comunicazione — nel frattempo la newsletter continua da <a href="{{ route('admin.newsletter') }}">Newsletter</a>.</p>
+    <p class="project-empty-state__text">Nessuna campagna trovata. <strong>Crea la prima</strong> per iniziare — resta in bozza finché l'invio non sarà disponibile in un blocco successivo. Nel frattempo la newsletter continua da <a href="{{ route('admin.newsletter') }}">Newsletter</a>.</p>
+    <a href="{{ route('admin.comunicazione.campaigns.create') }}" class="btn btn--primary">+ Nuova campagna</a>
   </div>
 @else
   <div class="admin-table-wrap">
@@ -59,7 +61,19 @@
               —
             @endif
           </td>
-          <td><a href="{{ route('admin.comunicazione.campaigns.show', $campaign) }}" class="action-btn">Apri</a></td>
+          <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            <a href="{{ route('admin.comunicazione.campaigns.show', $campaign) }}" class="action-btn">Apri</a>
+            <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="action-btn">Modifica</a>
+            <form method="POST" action="{{ route('admin.comunicazione.campaigns.duplicate', $campaign) }}">
+              @csrf
+              <button type="submit" class="action-btn">Duplica</button>
+            </form>
+            <form method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
+                  onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
+              @csrf @method('DELETE')
+              <button type="submit" class="action-btn action-btn--danger">Elimina</button>
+            </form>
+          </td>
         </tr>
         @endforeach
       </tbody>

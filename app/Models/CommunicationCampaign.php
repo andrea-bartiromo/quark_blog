@@ -40,7 +40,7 @@ class CommunicationCampaign extends Model
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
-        'uuid', 'type', 'status', 'title', 'subject', 'preheader', 'content',
+        'uuid', 'type', 'status', 'title', 'subject', 'preheader', 'description', 'content', 'internal_notes',
         'template_id', 'sender_profile_id',
         'scheduled_at', 'sending_started_at', 'completed_at',
         'project_id', 'series_id', 'idempotency_key',
@@ -68,6 +68,11 @@ class CommunicationCampaign extends Model
     public function sends(): HasMany
     {
         return $this->hasMany(CommunicationSend::class, 'campaign_id');
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(CommunicationCampaignActivityLog::class, 'campaign_id');
     }
 
     /**

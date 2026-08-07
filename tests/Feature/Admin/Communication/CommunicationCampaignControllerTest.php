@@ -32,25 +32,29 @@ class CommunicationCampaignControllerTest extends TestCase
         $response->assertRedirect(route('redazione.dashboard'));
     }
 
-    public function test_an_editor_sees_the_empty_state_when_there_are_no_campaigns(): void
+    public function test_an_editor_sees_the_empty_state_with_a_creation_cta_when_there_are_no_campaigns(): void
     {
         $response = $this->actingAs($this->editor())->get(route('admin.comunicazione.campaigns.index'));
 
         $response->assertOk();
         $response->assertSee('Nessuna campagna trovata');
-        $response->assertDontSee('Nuova campagna');
+        $response->assertSee('Nuova campagna');
     }
 
-    public function test_the_list_shows_no_creation_or_edit_actions(): void
+    public function test_the_list_shows_creation_and_row_level_actions(): void
     {
         CommunicationCampaign::factory()->create();
 
         $response = $this->actingAs($this->editor())->get(route('admin.comunicazione.campaigns.index'));
 
         $response->assertOk();
-        $response->assertDontSee('Nuova campagna');
-        $response->assertDontSee('Elimina');
-        $response->assertDontSee('Duplica');
+        $response->assertSee('Nuova campagna');
+        $response->assertSee('Modifica');
+        $response->assertSee('Duplica');
+        $response->assertSee('Elimina');
+        // Nessuna azione di invio in questo blocco.
+        $response->assertDontSee('Invia ora');
+        $response->assertDontSee('Programma invio');
     }
 
     public function test_the_type_filter_returns_only_matching_campaigns(): void
@@ -120,7 +124,7 @@ class CommunicationCampaignControllerTest extends TestCase
         $this->assertSame([$newer->id, $older->id], $ids->all());
     }
 
-    public function test_an_editor_can_open_a_campaign_read_only_detail(): void
+    public function test_an_editor_can_open_a_campaign_detail_with_edit_and_delete_available(): void
     {
         $campaign = CommunicationCampaign::factory()->create(['title' => 'Dettaglio di prova']);
 
@@ -128,7 +132,9 @@ class CommunicationCampaignControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Dettaglio di prova');
-        $response->assertDontSee('Elimina');
+        $response->assertSee('Modifica campagna');
+        $response->assertSee('Elimina campagna');
+        $response->assertSee('Duplica campagna');
     }
 
     public function test_pagination_is_server_side(): void
