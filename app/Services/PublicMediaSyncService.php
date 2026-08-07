@@ -22,6 +22,14 @@ use RuntimeException;
 class PublicMediaSyncService
 {
     /**
+     * Tentativi e attesa tra un tentativo e l'altro per rimuovere un file
+     * appena scritto (vedi removeFileWithRetry()).
+     */
+    private const REMOVE_RETRY_ATTEMPTS = 5;
+
+    private const REMOVE_RETRY_DELAY_MICROSECONDS = 100_000; // 100ms
+
+    /**
      * Copia un file gia' scritto in public/assets/img anche nella radice
      * pubblica secondaria, preservando le eventuali sottocartelle presenti
      * in $diskName.
@@ -56,7 +64,7 @@ class PublicMediaSyncService
         clearstatcache(true, $target);
 
         if (! is_file($target) || ! $this->sameContent($target, $absoluteSourcePath)) {
-            if (file_exists($target) && ! $this->removeFile($target)) {
+            if (file_exists($target) && ! $this->removeFileWithRetry($target)) {
                 throw new RuntimeException(
                     'Verifica della copia pubblica fallita e la copia non valida non puo\' essere rimossa automaticamente: '
                     .'e\' necessaria una pulizia manuale in '.$target
@@ -78,11 +86,13 @@ class PublicMediaSyncService
      */
     public function cleanupAfterFailedCreate(string $fullPath): void
     {
+        clearstatcache(true, $fullPath);
+
         if (! file_exists($fullPath)) {
             return;
         }
 
-        if (! @unlink($fullPath)) {
+        if (! $this->removeFileWithRetry($fullPath)) {
             Log::warning('PublicMediaSyncService: pulizia del file locale non riuscita dopo un fallimento di sincronizzazione.', [
                 'operation' => 'cleanup_after_failed_create',
                 'path' => $fullPath,
@@ -182,7 +192,7 @@ class PublicMediaSyncService
             return;
         }
 
-        if (! @unlink($target)) {
+        if (! $this->removeFileWithRetry($target)) {
             Log::warning('PublicMediaSyncService: impossibile rimuovere la copia creata durante una move() fallita.', [
                 'operation' => 'move_compensation',
                 'disk_name' => $diskName,
@@ -290,5 +300,46 @@ class PublicMediaSyncService
     protected function removeFile(string $path): bool
     {
         return @unlink($path);
+    }
+
+    /**
+     * Ritenta la rimozione di un file appena scritto un numero limitato di
+     * volte, con una breve attesa tra un tentativo e l'altro.
+     *
+     * Su Windows, un file può restare brevemente bloccato subito dopo la
+     * scrittura da un handle non ancora rilasciato dal sistema operativo o
+     * da una scansione antivirus in tempo reale — nessuna correttezza del
+     * path (già verificata: stesso path restituito da ImageService::upload(),
+     * mai ricostruito) può prevenire questa condizione, che è transitoria
+     * per definizione e sparisce da sola dopo una breve attesa. Su Linux il
+     * primo tentativo riesce quasi sempre, quindi il ciclo si comporta come
+     * una singola chiamata a removeFile() senza alcuna attesa aggiuntiva.
+     *
+     * Prima di ogni tentativo invalida la stat cache e ricontrolla
+     * l'esistenza del file: se nel frattempo è già stato rimosso (es. da un
+     * tentativo precedente il cui esito era stato riportato come "false" per
+     * una race sull'errore, ma che in realtà aveva avuto successo), il
+     * cleanup è comunque idempotente e riporta successo senza un ulteriore
+     * unlink().
+     */
+    private function removeFileWithRetry(string $path): bool
+    {
+        for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
+            if ($this->removeFile($path)) {
+                return true;
+            }
+
+            clearstatcache(true, $path);
+
+            if (! file_exists($path)) {
+                return true;
+            }
+
+            if ($attempt < self::REMOVE_RETRY_ATTEMPTS) {
+                usleep(self::REMOVE_RETRY_DELAY_MICROSECONDS);
+            }
+        }
+
+        return false;
     }
 }

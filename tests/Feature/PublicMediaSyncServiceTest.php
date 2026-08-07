@@ -368,6 +368,81 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertFileDoesNotExist($source);
     }
 
+    // Riproduce, indipendentemente dal sistema operativo su cui gira il test,
+    // il caso reale osservato su Windows: un file appena scritto puo'
+    // restare brevemente bloccato (un handle non ancora rilasciato, o una
+    // scansione antivirus in tempo reale) e un unlink() immediatamente
+    // successivo puo' fallire pur non essendoci nulla di "davvero" sbagliato
+    // — un secondo tentativo, dopo una breve attesa, riesce. Qui simuliamo
+    // esattamente questa condizione transitoria (fallisce le prime N volte,
+    // poi riesce) tramite una sottoclasse che sovrascrive removeFile() —
+    // stesso punto di estensione gia' usato altrove in questo file — cosi'
+    // il test esercita il comportamento di retry reale, non solo un mock
+    // dell'implementazione.
+    public function test_cleanup_after_failed_create_retries_a_transient_removal_failure(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            public int $attempts = 0;
+
+            protected function removeFile(string $path): bool
+            {
+                $this->attempts++;
+
+                // Fallisce le prime 2 volte (blocco transitorio), poi la
+                // rimozione ha davvero successo — non e' un doppio mock:
+                // il file esiste ancora finche' non viene realmente rimosso.
+                if ($this->attempts < 3) {
+                    return false;
+                }
+
+                return @unlink($path);
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileDoesNotExist($source);
+        $this->assertSame(3, $service->attempts);
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    // Complemento del test sopra: se il blocco non e' transitorio (il file
+    // resta irremovibile per tutti i tentativi), il comportamento esistente
+    // (log del warning, nessuna eccezione) resta invariato — il retry non
+    // trasforma un fallimento reale in un successo silenzioso.
+    public function test_cleanup_after_failed_create_still_logs_a_warning_when_the_failure_never_resolves(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            public int $attempts = 0;
+
+            protected function removeFile(string $path): bool
+            {
+                $this->attempts++;
+
+                return false;
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileExists($source);
+        $this->assertGreaterThan(1, $service->attempts);
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['operation'] === 'cleanup_after_failed_create'
+                && $context['path'] === $source
+        );
+    }
+
     public function test_cleanup_after_failed_create_is_a_noop_when_there_is_nothing_to_remove(): void
     {
         // Nessuna eccezione attesa: puo' capitare se create() e' fallita
