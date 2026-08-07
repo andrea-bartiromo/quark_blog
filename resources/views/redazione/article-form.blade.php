@@ -36,13 +36,13 @@
 
       <div class="form-group">
         <label class="form-label">Titolo *</label>
-        <input class="form-input" type="text" name="title"
+        <input class="form-input" type="text" id="title" name="title"
                value="{{ old('title', $article->title ?? '') }}" required>
       </div>
 
       <div class="form-group">
         <label class="form-label">Sommario (max 300 caratteri)</label>
-        <textarea class="form-textarea" name="excerpt"
+        <textarea class="form-textarea" id="excerpt" name="excerpt"
                   style="min-height:80px;" maxlength="300">{{ old('excerpt', $article->excerpt ?? '') }}</textarea>
       </div>
 
@@ -166,9 +166,12 @@
         </label>
         <input class="form-input" type="text" id="seo_title" name="seo_title" maxlength="70"
                value="{{ old('seo_title', $article->seo_title ?? '') }}" style="font-size:.82rem;">
-        <small class="form-hint">
-          Se vuoto, viene usato il titolo dell'articolo. Consigliati fino a 60 caratteri per evitare troncamenti nei risultati di ricerca.
-        </small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">
+            Se vuoto, viene usato il titolo dell'articolo (vedi anteprima nel campo). Consigliati fino a 60 caratteri.
+          </small>
+          <button type="button" class="action-btn" data-reset-for="seo_title" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -178,17 +181,22 @@
         </label>
         <textarea class="form-textarea" id="seo_description" name="seo_description" maxlength="200"
                   style="min-height:70px;font-size:.82rem;">{{ old('seo_description', $article->seo_description ?? '') }}</textarea>
-        <small class="form-hint">
-          Se vuoto, viene usato il sommario; se anche quello è vuoto, le prime righe del testo. Consigliati fino a 160 caratteri.
-        </small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">
+            Se vuoto, viene usato il sommario, altrimenti le prime righe del testo (vedi anteprima). Consigliati fino a 160 caratteri.
+          </small>
+          <button type="button" class="action-btn" data-reset-for="seo_description" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="canonical_url">URL canonico (opzionale)</label>
         <input class="form-input" type="url" id="canonical_url" name="canonical_url" maxlength="2048"
-               value="{{ old('canonical_url', $article->canonical_url ?? '') }}" style="font-size:.82rem;">
+               value="{{ old('canonical_url', $article->canonical_url ?? '') }}"
+               @if(isset($article) && $article->exists) placeholder="{{ route('articolo', $article->slug) }}" @endif
+               style="font-size:.82rem;">
         <small class="form-hint">
-          Da usare solo se questo contenuto è pubblicato anche altrove. Se vuoto, viene usato l'URL dell'articolo.
+          Da usare solo se questo contenuto è pubblicato anche altrove. Se vuoto, viene usato l'URL naturale dell'articolo.
         </small>
       </div>
 
@@ -213,14 +221,20 @@
         <label class="form-label" for="og_title">OG title</label>
         <input class="form-input" type="text" id="og_title" name="og_title" maxlength="70"
                value="{{ old('og_title', $article->og_title ?? '') }}" style="font-size:.82rem;">
-        <small class="form-hint">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+          <button type="button" class="action-btn" data-reset-for="og_title" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="og_description">OG description</label>
         <textarea class="form-textarea" id="og_description" name="og_description" maxlength="200"
                   style="min-height:60px;font-size:.82rem;">{{ old('og_description', $article->og_description ?? '') }}</textarea>
-        <small class="form-hint">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+          <button type="button" class="action-btn" data-reset-for="og_description" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -239,14 +253,20 @@
         <label class="form-label" for="twitter_title">Twitter title</label>
         <input class="form-input" type="text" id="twitter_title" name="twitter_title" maxlength="70"
                value="{{ old('twitter_title', $article->twitter_title ?? '') }}" style="font-size:.82rem;">
-        <small class="form-hint">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">Se vuoto, viene usato il SEO title (o il titolo dell'articolo).</small>
+          <button type="button" class="action-btn" data-reset-for="twitter_title" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="twitter_description">Twitter description</label>
         <textarea class="form-textarea" id="twitter_description" name="twitter_description" maxlength="200"
                   style="min-height:60px;font-size:.82rem;">{{ old('twitter_description', $article->twitter_description ?? '') }}</textarea>
-        <small class="form-hint">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.35rem;">
+          <small class="form-hint" style="margin:0;">Se vuoto, viene usata la SEO description (con la stessa catena di fallback).</small>
+          <button type="button" class="action-btn" data-reset-for="twitter_description" hidden>↺ Automatico</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -302,10 +322,16 @@ tinymce.init({
     a { color:#0d9488; }
   `,
   setup: function(editor) {
-    editor.on('change input', function() { editor.save(); });
+    editor.on('change input', function() {
+      editor.save();
+      if (typeof window.kairusRefreshSeoFallbackPreview === 'function') {
+        window.kairusRefreshSeoFallbackPreview();
+      }
+    });
   }
 });
 </script>
 
 @include('partials.char-counter-script')
+@include('partials.article-seo-fallback-script')
 @endsection
