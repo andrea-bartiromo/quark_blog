@@ -29,6 +29,7 @@ use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TuringController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\ArticleLinkSuggestionController;
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ContactController;
@@ -118,6 +119,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::delete('/articoli/{article}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
     Route::patch('/articoli/{article}/verifica', [AdminArticleController::class, 'updateVerification'])->name('articles.verify');
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+
+    Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
+    Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
+    Route::post('/articoli/{article}/collegamenti/{suggestion}/ignora', [ArticleLinkSuggestionController::class, 'ignore'])->name('articles.link-suggestions.ignore');
 
     // Categorie
     Route::get('/categorie', [CategoryController::class, 'index'])->name('categories');
@@ -318,6 +323,10 @@ Route::middleware(['auth', 'redazione'])->prefix('redazione')->name('redazione.'
     Route::get('/articoli/{article}/modifica', [App\Http\Controllers\Redazione\ArticleController::class, 'edit'])->name('articles.edit');
     Route::put('/articoli/{article}', [App\Http\Controllers\Redazione\ArticleController::class, 'update'])->name('articles.update');
     Route::delete('/articoli/{article}', [App\Http\Controllers\Redazione\ArticleController::class, 'destroy'])->name('articles.destroy');
+
+    Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
+    Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
+    Route::post('/articoli/{article}/collegamenti/{suggestion}/ignora', [ArticleLinkSuggestionController::class, 'ignore'])->name('articles.link-suggestions.ignore');
 
     Route::get('/profilo', [App\Http\Controllers\Redazione\ProfileController::class, 'edit'])->name('profile');
     Route::put('/profilo', [App\Http\Controllers\Redazione\ProfileController::class, 'update'])->name('profile.update');

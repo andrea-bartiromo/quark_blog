@@ -109,11 +109,13 @@ class ArticleLinkSuggestionService
         $results = collect();
 
         foreach ($candidates as $candidate) {
+            $existingSuggestion = $existing->get($candidate->id);
+
             if (in_array($candidate->slug, $alreadyLinkedSlugs, true)) {
+                $this->supersedeIfActionable($existingSuggestion);
+
                 continue;
             }
-
-            $existingSuggestion = $existing->get($candidate->id);
 
             // Una decisione già presa dalla redazione non viene mai
             // ricalcolata o riproposta.
@@ -124,6 +126,11 @@ class ArticleLinkSuggestionService
             $match = $this->scoreLink($source->category, $sourcePlainBody, $sourceTerms, $candidate);
 
             if ($match === null) {
+                // Un suggerimento "proposed" che non passa più la soglia
+                // (es. testo modificato) viene marcato superato, non
+                // lasciato a proporre un collegamento non più pertinente.
+                $this->supersedeIfActionable($existingSuggestion);
+
                 continue;
             }
 
@@ -185,13 +192,15 @@ class ArticleLinkSuggestionService
 
             $alreadyLinkedSlugs = $this->linkedSlugsInBody((string) $candidateSource->body);
 
-            if (in_array($target->slug, $alreadyLinkedSlugs, true)) {
-                continue;
-            }
-
             $existingSuggestion = ArticleLinkSuggestion::where('source_article_id', $candidateSource->id)
                 ->where('target_article_id', $target->id)
                 ->first();
+
+            if (in_array($target->slug, $alreadyLinkedSlugs, true)) {
+                $this->supersedeIfActionable($existingSuggestion);
+
+                continue;
+            }
 
             if ($existingSuggestion && ! $existingSuggestion->isActionable()) {
                 continue;
@@ -201,6 +210,8 @@ class ArticleLinkSuggestionService
             $match = $this->scoreLink($candidateSource->category, $sourcePlainBody, $sourceTerms, $targetAsCandidate);
 
             if ($match === null) {
+                $this->supersedeIfActionable($existingSuggestion);
+
                 continue;
             }
 
@@ -379,6 +390,20 @@ class ArticleLinkSuggestionService
         $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $word);
 
         return $transliterated !== false ? mb_strtolower($transliterated) : $word;
+    }
+
+    /**
+     * Marca "superseded" un suggerimento ancora 'proposed' che non è più
+     * valido (testo modificato, o target ora già collegato manualmente) —
+     * lo fa sparire dalle proposte attive senza cancellarne lo storico e
+     * senza toccare 'accepted'/'ignored' (decisioni già prese dalla
+     * redazione, mai sovrascritte automaticamente).
+     */
+    private function supersedeIfActionable(?ArticleLinkSuggestion $suggestion): void
+    {
+        if ($suggestion && $suggestion->isActionable()) {
+            $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+        }
     }
 
     private function plainText(string $html): string

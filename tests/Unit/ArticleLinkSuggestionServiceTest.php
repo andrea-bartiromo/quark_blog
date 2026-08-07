@@ -226,4 +226,34 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $this->assertNotNull($suggestion);
         $this->assertStringContainsStringIgnoringCase($suggestion->anchor_text, $sourceBody);
     }
+
+    // 9. Un suggerimento "proposed" non più valido (testo modificato) viene marcato superseded, non lasciato attivo
+    public function test_a_stale_proposed_suggestion_is_marked_superseded_when_it_no_longer_qualifies(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli solari più efficienti sul mercato',
+            'category' => 'energia',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+            'category' => 'energia',
+        ]);
+
+        $first = $this->service->analyzeForSource($source);
+        $this->assertNotNull($first->firstWhere('target_article_id', $target->id));
+
+        $source->update(['body' => '<p>Testo completamente riscritto, senza più alcuna corrispondenza pertinente.</p>']);
+
+        $second = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertFalse($second->contains('target_article_id', $target->id));
+        $this->assertSame(
+            ArticleLinkSuggestion::STATUS_SUPERSEDED,
+            ArticleLinkSuggestion::where('target_article_id', $target->id)->first()->status
+        );
+        $this->assertSame(1, ArticleLinkSuggestion::where('target_article_id', $target->id)->count());
+    }
 }
