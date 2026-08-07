@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
@@ -51,7 +52,12 @@ class ProjectController extends Controller
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
 
-        $project = Project::create($data);
+        // Transazione: lo spegnimento dell'eventuale predefinito precedente
+        // (dentro Project::saving()) e la creazione di questa riga sono due
+        // statement SQL distinti — senza transazione un'altra richiesta
+        // potrebbe leggere lo stato a metà strada (nessun predefinito, o
+        // temporaneamente due).
+        $project = DB::transaction(fn () => Project::create($data));
 
         ProjectActivityLog::record(
             project: $project,
@@ -132,7 +138,10 @@ class ProjectController extends Controller
         $data['is_default_editorial'] = $request->boolean('is_default_editorial');
         $data['updated_by'] = auth()->id();
 
-        $project->update($data);
+        // Stessa ragione della transazione in store(): l'update di questa
+        // riga e lo spegnimento dell'eventuale predefinito precedente devono
+        // committare insieme, non come due statement osservabili separati.
+        DB::transaction(fn () => $project->update($data));
 
         if ($before['operational_status'] !== $project->operational_status) {
             ProjectActivityLog::record(
