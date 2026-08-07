@@ -233,7 +233,10 @@ class ArticleController extends Controller
 
         unset($data['published_date'], $data['published_time']);
 
-        if (! empty($data['body'])) {
+        // array_key_exists, non empty(): un body '0' e' valido (passa la
+        // regola 'required' del FormRequest) ma empty('0') e' true in PHP,
+        // il che salterebbe silenziosamente il calcolo per quel solo caso.
+        if (array_key_exists('body', $data)) {
             $data['read_minutes'] = Article::calculateReadMinutes($data['body']);
         }
 

@@ -116,4 +116,20 @@ class ArticleReadMinutesTest extends TestCase
         $response->assertDontSee('name="read_minutes"', false);
         $response->assertSee('Calcolato automaticamente', false);
     }
+
+    // 6. Regressione (revisione CodeRabbit): empty('0') è true in PHP — un
+    //    corpo che è letteralmente la stringa "0" (valido: passa la regola
+    //    'required') non deve far saltare silenziosamente il calcolo
+    public function test_admin_store_computes_read_minutes_even_when_body_is_the_string_zero(): void
+    {
+        $this->actingAs($this->editor())->post(route('admin.articles.store'), [
+            'title' => 'Articolo con corpo zero',
+            'body' => '0',
+            'category' => 'energia',
+            'status' => 'draft',
+        ]);
+
+        $article = Article::where('title', 'Articolo con corpo zero')->firstOrFail();
+        $this->assertSame(1, $article->read_minutes);
+    }
 }

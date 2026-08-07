@@ -369,8 +369,27 @@ class ArticleSeoFieldsTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
 
         $response->assertOk();
-        $response->assertSee('placeholder="'.$article->metaCanonicalUrl().'"', false);
+        $response->assertSee('placeholder="'.route('articolo', $article->slug).'"', false);
         $this->assertNull($article->fresh()->canonical_url);
+    }
+
+    // 13b. Regressione (revisione Codex): se l'articolo ha già un canonical
+    //      personalizzato, il placeholder NON deve mostrare quel valore —
+    //      svuotare il campo e salvare porta canonical_url a null, e il
+    //      fallback runtime diventa l'URL naturale, non l'URL personalizzato
+    //      precedente. metaCanonicalUrl() userebbe ancora il valore corrente
+    //      finché il campo resta valorizzato: sbagliato come anteprima di
+    //      "cosa succede se lo svuoto".
+    public function test_canonical_url_placeholder_shows_the_natural_url_even_when_a_custom_value_is_set(): void
+    {
+        $editor = $this->editor();
+        $article = $this->publishedArticle($editor, ['canonical_url' => 'https://example.com/pubblicato-altrove']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        $response->assertSee('placeholder="'.route('articolo', $article->slug).'"', false);
+        $response->assertDontSee('placeholder="https://example.com/pubblicato-altrove"', false);
     }
 
     public function test_canonical_url_has_no_placeholder_on_the_create_form(): void

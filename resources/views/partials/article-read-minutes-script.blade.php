@@ -14,6 +14,11 @@ window.kairusUpdateReadMinutesPreview = function () {
     return;
   }
 
+  // .textContent, ottenuto via DOMParser, ha già le entità HTML decodificate
+  // (es. &nbsp; -> U+00A0) — stesso trattamento di
+  // Article::calculateReadMinutes() lato server (html_entity_decode). \s in
+  // una regex JS include già U+00A0, quindi un semplice split sugli spazi
+  // conta i token esattamente come il server.
   const text = new DOMParser().parseFromString(bodyField.value, 'text/html').body.textContent || '';
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(1, Math.round(wordCount / 200));

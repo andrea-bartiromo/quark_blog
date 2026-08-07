@@ -8,7 +8,16 @@
 --}}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const watchedIds = ['title', 'excerpt', 'body', 'seo_title', 'seo_description'];
+  // I campi con catena di fallback sono inclusi anche loro: digitare in
+  // og_title, ad esempio, deve far comparire subito il suo stesso pulsante
+  // "Ripristina automatico" (altrimenti resterebbe nascosto finché non
+  // cambia un campo diverso).
+  const watchedIds = [
+    'title', 'excerpt', 'body',
+    'seo_title', 'seo_description',
+    'og_title', 'og_description',
+    'twitter_title', 'twitter_description',
+  ];
   const watchedFields = watchedIds.map((id) => document.getElementById(id)).filter(Boolean);
 
   if (! document.getElementById('seo_title')) {
@@ -77,6 +86,14 @@ document.addEventListener('DOMContentLoaded', function () {
     applyFallback('twitter_title', effectiveSeoTitle());
     applyFallback('twitter_description', effectiveSeoDescription());
   }
+
+  // Esposta globalmente: il testo di #body è sincronizzato da TinyMCE
+  // chiamando editor.save() (imposta .value via JS, senza mai sparare un
+  // evento 'input' nativo) — il setup TinyMCE di entrambi i form la
+  // richiama esplicitamente dopo ogni save(), altrimenti l'anteprima della
+  // description resterebbe ferma al testo iniziale finché non cambia un
+  // altro campo osservato.
+  window.kairusRefreshSeoFallbackPreview = refresh;
 
   watchedFields.forEach((field) => field.addEventListener('input', refresh));
 

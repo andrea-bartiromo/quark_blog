@@ -230,18 +230,26 @@ class Article extends Model
     }
 
     /**
-     * Minuti di lettura stimati dal corpo dell'articolo: conteggio parole
-     * sul testo (tag HTML rimossi) diviso 200 parole/minuto — velocità di
-     * lettura media convenzionale per un lettore adulto in italiano — con
-     * arrotondamento all'intero più vicino e minimo di 1 minuto. Unico
-     * punto del codice che esegue questo calcolo: Admin\ArticleController e
-     * Redazione\ArticleController lo richiamano entrambi invece di
+     * Minuti di lettura stimati dal corpo dell'articolo: conteggio token
+     * separati da spazi sul testo (tag HTML rimossi, entità come &nbsp;
+     * decodificate) diviso 200 parole/minuto — velocità di lettura media
+     * convenzionale per un lettore adulto in italiano — con arrotondamento
+     * all'intero più vicino e minimo di 1 minuto. Non usa str_word_count():
+     * tratta l'apostrofo tipografico (') diversamente da quello dritto (')
+     * e conta le entità HTML non decodificate (es. &nbsp;) come parole,
+     * producendo risultati incoerenti con un semplice split sugli spazi —
+     * che è anche l'unica tokenizzazione replicabile in modo affidabile
+     * lato client per l'anteprima (partials/article-read-minutes-script).
+     * Unico punto del codice che esegue questo calcolo: Admin\ArticleController
+     * e Redazione\ArticleController lo richiamano entrambi invece di
      * duplicare la formula (in precedenza usavano due formule diverse e non
      * documentate, con risultati incoerenti tra le due aree).
      */
     public static function calculateReadMinutes(?string $body): int
     {
-        $wordCount = str_word_count(strip_tags((string) $body));
+        $text = html_entity_decode(strip_tags((string) $body), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $tokens = preg_split('/[\s\x{00A0}]+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+        $wordCount = count($tokens);
 
         return max(1, (int) round($wordCount / 200));
     }

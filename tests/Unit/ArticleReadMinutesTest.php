@@ -46,4 +46,31 @@ class ArticleReadMinutesTest extends TestCase
             Article::calculateReadMinutes($htmlBody)
         );
     }
+
+    // 5. Regressione (revisione CodeRabbit): un'entità HTML residua come
+    //    &nbsp; non deve contare come una parola in più — str_word_count()
+    //    lo farebbe (verificato empiricamente), spingendo 299 parole reali
+    //    sopra la soglia di arrotondamento a 2 minuti invece di 1
+    public function test_html_entities_do_not_count_as_extra_words(): void
+    {
+        $body = str_repeat('parola ', 299).'&nbsp;';
+
+        $this->assertSame(1, Article::calculateReadMinutes($body));
+    }
+
+    // 6. Regressione: apostrofo dritto e tipografico devono produrre lo
+    //    stesso conteggio — un conteggio "a parole" (str_word_count) tratta
+    //    i due diversamente, un conteggio "a token separati da spazi" no,
+    //    ed è anche l'unico riproducibile in modo affidabile lato client
+    //    per l'anteprima
+    public function test_straight_and_typographic_apostrophes_count_the_same(): void
+    {
+        $straight = str_repeat("l'energia ", 400);
+        $typographic = str_repeat('l’energia ', 400);
+
+        $this->assertSame(
+            Article::calculateReadMinutes($straight),
+            Article::calculateReadMinutes($typographic)
+        );
+    }
 }

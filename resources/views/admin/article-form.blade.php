@@ -256,7 +256,7 @@
         <label class="form-label" for="canonical_url">URL canonico (opzionale)</label>
         <input class="form-input" type="url" id="canonical_url" name="canonical_url" maxlength="2048"
                value="{{ old('canonical_url', $article->canonical_url ?? '') }}"
-               @if(isset($article) && $article->exists) placeholder="{{ $article->metaCanonicalUrl() }}" @endif
+               @if(isset($article) && $article->exists) placeholder="{{ route('articolo', $article->slug) }}" @endif
                style="font-size:.82rem;">
         <small class="form-hint">
           Da usare solo se questo contenuto è pubblicato anche altrove. Se vuoto, viene usato l'URL naturale dell'articolo.
@@ -389,6 +389,9 @@ document.addEventListener('DOMContentLoaded', function () {
         editor.save();
         if (typeof window.kairusUpdateReadMinutesPreview === 'function') {
           window.kairusUpdateReadMinutesPreview();
+        }
+        if (typeof window.kairusRefreshSeoFallbackPreview === 'function') {
+          window.kairusRefreshSeoFallbackPreview();
         }
       });
     },
