@@ -204,6 +204,51 @@ class HttpsCanonicalizationTest extends TestCase
         $response->assertSee('<meta name="robots" content="noindex,follow">', false);
     }
 
+    // 5quinquies. Il canonical va sempre HTML-escaped: canonical_url è un
+    // campo libero compilabile in admin (validato solo come URL, non a
+    // prova di "&"/"\"" per un attributo href). layouts/partials/head.blade.php
+    // usava @yield (mai escapato) invece di {{ }}: con un query string
+    // legittimo contenente "&" il markup risultava tecnicamente invalido
+    // (un "&" letterale in un attributo HTML).
+    public function test_custom_canonical_url_is_html_escaped(): void
+    {
+        $article = $this->publishedArticle($this->author(), [
+            'canonical_url' => 'https://kairus.it/articolo/originale?ref=newsletter&utm=agosto',
+        ]);
+
+        $response = $this->get('https://kairus.it/articolo/'.$article->slug);
+
+        $response->assertOk();
+        $response->assertSee(
+            '<link rel="canonical" href="https://kairus.it/articolo/originale?ref=newsletter&amp;utm=agosto">',
+            false
+        );
+    }
+
+    // 6bis. /ricerca è una pagina di risultati interna, mai una pagina di
+    // contenuto: non deve mai comparire in sitemap.xml, indipendentemente
+    // dalla policy robots (SeoController::sitemap() già non la elenca —
+    // qui blocchiamo una regressione futura).
+    public function test_sitemap_never_lists_the_search_page(): void
+    {
+        $response = $this->get('https://kairus.it/sitemap.xml');
+
+        $response->assertOk();
+        $response->assertDontSee('/ricerca', false);
+    }
+
+    // 6ter. robots.txt (file statico tracciato nel repository) deve
+    // continuare a bloccare la scansione di /ricerca: stessa policy
+    // "noindex,follow" espressa a livello di crawler, non solo di
+    // indicizzazione pagina per pagina. File statico facile da modificare
+    // per errore senza che nessun test se ne accorga.
+    public function test_robots_txt_disallows_the_search_page(): void
+    {
+        $robotsTxt = file_get_contents(public_path('robots.txt'));
+
+        $this->assertStringContainsString('Disallow: /ricerca', $robotsTxt);
+    }
+
     // 7. Nessuna regressione sulle route pubbliche principali.
     public function test_main_public_routes_still_respond_with_200(): void
     {
