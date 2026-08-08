@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -134,6 +135,23 @@ class ImageService
         $file->move($destinationPath, $fileName);
 
         $fullPath = $destinationPath.'/'.$fileName;
+
+        // DIAGNOSTICA TEMPORANEA (vedi PublicMediaSyncService::logPathDiagnostics):
+        // registra il path esatto restituito da questo metodo, cosi' da
+        // poterlo confrontare — a partire dai log di una vera esecuzione
+        // Windows — con quello effettivamente ricevuto piu' avanti da
+        // PublicMediaSyncService::cleanupAfterFailedCreate(), per escludere
+        // (o confermare) una qualunque ricostruzione/alterazione del path
+        // nel tragitto tra i due punti.
+        Log::debug('ImageService: diagnostica — path restituito da upload().', [
+            'checkpoint' => 'image_service:upload:returned',
+            'destination_path' => $destinationPath,
+            'file_name' => $fileName,
+            'full_path' => $fullPath,
+            'file_exists' => file_exists($fullPath),
+            'is_file' => is_file($fullPath),
+            'realpath' => realpath($fullPath),
+        ]);
 
         if (! is_file($fullPath)) {
             throw new \RuntimeException(

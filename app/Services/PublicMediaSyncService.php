@@ -86,9 +86,18 @@ class PublicMediaSyncService
      */
     public function cleanupAfterFailedCreate(string $fullPath): void
     {
+        $this->logPathDiagnostics('cleanup_after_failed_create:received', $fullPath);
+
         clearstatcache(true, $fullPath);
 
+        $this->logPathDiagnostics('cleanup_after_failed_create:after_clearstatcache', $fullPath);
+
         if (! file_exists($fullPath)) {
+            Log::debug('PublicMediaSyncService: diagnostica — file non trovato, nessuna rimozione necessaria.', [
+                'checkpoint' => 'cleanup_after_failed_create:file_not_found',
+                'path' => $fullPath,
+            ]);
+
             return;
         }
 
@@ -98,6 +107,38 @@ class PublicMediaSyncService
                 'path' => $fullPath,
             ]);
         }
+    }
+
+    /**
+     * DIAGNOSTICA TEMPORANEA (da rimuovere una volta identificata la causa
+     * reale del fallimento di cleanup su Windows reale — vedi PR di
+     * hardening #123, che non ha risolto il problema nonostante il retry).
+     *
+     * Registra lo stato del path cosi' come lo vede questo layer, per poter
+     * confrontare — a partire dai log prodotti da una vera esecuzione
+     * Windows — se il path ricevuto qui e' esattamente lo stesso restituito
+     * da ImageService::upload() e se file_exists()/is_file() sono coerenti
+     * con quanto poi osservato da unlink() e dal filesUnder() dei test.
+     */
+    private function logPathDiagnostics(string $checkpoint, string $path): void
+    {
+        Log::debug('PublicMediaSyncService: diagnostica path.', [
+            'checkpoint' => $checkpoint,
+            'path' => $path,
+            'path_length' => strlen($path),
+            'contains_backslash' => str_contains($path, '\\'),
+            'contains_double_slash' => str_contains($path, '//') || str_contains($path, '\\\\'),
+            'file_exists' => file_exists($path),
+            'is_file' => is_file($path),
+            'is_readable' => is_readable($path),
+            'is_writable' => is_writable($path),
+            'realpath' => realpath($path),
+            'dirname' => dirname($path),
+            'basename' => basename($path),
+            'dir_exists' => is_dir(dirname($path)),
+            'dir_realpath' => realpath(dirname($path)),
+            'dir_is_writable' => is_writable(dirname($path)),
+        ]);
     }
 
     /**
@@ -299,7 +340,24 @@ class PublicMediaSyncService
      */
     protected function removeFile(string $path): bool
     {
-        return @unlink($path);
+        $this->logPathDiagnostics('remove_file:before_unlink', $path);
+
+        $result = @unlink($path);
+
+        // error_get_last() e' popolato anche quando l'errore e' soppresso
+        // da "@": l'operatore sopprime solo la segnalazione, non lo storico.
+        // Va letto subito dopo unlink(), prima di qualunque altra chiamata
+        // che potrebbe sovrascriverlo.
+        $lastError = $result ? null : error_get_last();
+
+        Log::debug('PublicMediaSyncService: diagnostica — esito unlink().', [
+            'checkpoint' => 'remove_file:after_unlink',
+            'path' => $path,
+            'unlink_result' => $result,
+            'error_get_last' => $lastError,
+        ]);
+
+        return $result;
     }
 
     /**
@@ -326,12 +384,27 @@ class PublicMediaSyncService
     {
         for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
+                Log::debug('PublicMediaSyncService: diagnostica — rimozione riuscita.', [
+                    'checkpoint' => 'remove_file_with_retry:success',
+                    'attempt' => $attempt,
+                    'path' => $path,
+                ]);
+
                 return true;
             }
 
             clearstatcache(true, $path);
 
-            if (! file_exists($path)) {
+            $stillExists = file_exists($path);
+
+            Log::debug('PublicMediaSyncService: diagnostica — ricontrollo dopo clearstatcache.', [
+                'checkpoint' => 'remove_file_with_retry:recheck_after_clearstatcache',
+                'attempt' => $attempt,
+                'path' => $path,
+                'file_exists' => $stillExists,
+            ]);
+
+            if (! $stillExists) {
                 return true;
             }
 
@@ -339,6 +412,12 @@ class PublicMediaSyncService
                 usleep(self::REMOVE_RETRY_DELAY_MICROSECONDS);
             }
         }
+
+        Log::debug('PublicMediaSyncService: diagnostica — tutti i tentativi di rimozione esauriti.', [
+            'checkpoint' => 'remove_file_with_retry:exhausted',
+            'path' => $path,
+            'attempts' => self::REMOVE_RETRY_ATTEMPTS,
+        ]);
 
         return false;
     }
