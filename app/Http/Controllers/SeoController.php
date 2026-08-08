@@ -23,7 +23,14 @@ class SeoController extends Controller
     {
         $articles = Article::published()->get(['slug', 'category', 'updated_at']);
         $categories = array_keys(Category::options());
-        $base = config('app.url');
+
+        // url('/') (mai config('app.url') letto a mano) cosi' da rispettare
+        // URL::forceScheme('https') impostato dal middleware
+        // ForceHttpsUrlScheme: un APP_URL configurato senza schema https
+        // non deve produrre un sitemap con URL http, un segnale di
+        // canonicalizzazione ambiguo per Google tanto quanto un canonical
+        // http.
+        $base = rtrim(url('/'), '/');
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'.PHP_EOL;
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.PHP_EOL;
@@ -48,7 +55,7 @@ class SeoController extends Controller
     public function feed(): Response
     {
         $articles = Article::published()->with('author')->limit(20)->get();
-        $base = config('app.url');
+        $base = rtrim(url('/'), '/');
         $siteName = config('laboratorio.name');
         $now = now()->toRfc2822String();
 
