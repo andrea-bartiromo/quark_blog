@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectDecision;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,6 +62,31 @@ class ProjectDecisionControllerTest extends TestCase
             ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'decisions']));
 
         $this->assertDatabaseMissing('project_decisions', ['id' => $decision->id]);
+    }
+
+    // ── Audit 0, gap #2: Cronologia sulla cancellazione ──────────────
+
+    public function test_deleting_a_decision_records_it_in_the_activity_log_and_the_entry_survives_the_deletion(): void
+    {
+        $project = Project::factory()->create();
+        $decision = ProjectDecision::factory()->for($project)->create(['title' => 'Decisione da eliminare']);
+        $editor = $this->editor();
+
+        $this->actingAs($editor)
+            ->delete(route('admin.progettazione.projects.decisions.destroy', [$project, $decision]))
+            ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'decisions']));
+
+        $this->assertDatabaseMissing('project_decisions', ['id' => $decision->id]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'subject_type' => 'decision',
+            'subject_id' => $decision->id,
+            'subject_title' => 'Decisione da eliminare',
+            'action' => 'Decisione eliminata',
+            'source' => ProjectActivityLog::SOURCE_MANUAL,
+            'user_id' => $editor->id,
+        ]);
     }
 
     /**
