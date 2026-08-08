@@ -48,7 +48,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique(['source_article_id', 'target_article_id']);
+            $table->unique(['source_article_id', 'target_article_id'], 'als_source_target_unique');
             $table->index('status');
         });
     }
