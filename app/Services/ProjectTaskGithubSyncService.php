@@ -182,7 +182,12 @@ class ProjectTaskGithubSyncService
                 $task->manual_status = $target;
             }
 
-            if ($derivedStatus === ProjectTask::DERIVED_GH_PR_MERGED) {
+            // Condizionato su $target (già calcolato da resolveManualStatus()),
+            // non sulla sola classificazione "merged": una PR mergiata non
+            // significa che la task abbia davvero raggiunto STATUS_COMPLETED
+            // — blocked/suspended/cancelled/manual_override fanno tornare
+            // $target a null, e completed_at non deve attivarsi per loro.
+            if ($target === ProjectTask::STATUS_COMPLETED) {
                 $task->completed_at ??= now();
             }
 

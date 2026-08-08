@@ -333,4 +333,104 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
 
         $this->assertNull($task->fresh()->github_checks_state);
     }
+
+    // ── Hardening (PR #132): completed_at solo su transizione effettiva ──
+
+    public function test_completed_at_is_set_when_a_normal_task_actually_completes(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_IN_REVIEW,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertNotNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_stays_null_when_a_blocked_task_merges(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_BLOCKED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_BLOCKED, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_stays_null_when_a_suspended_task_merges(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_SUSPENDED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_SUSPENDED, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_stays_null_when_a_cancelled_task_merges(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_CANCELLED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_CANCELLED, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_stays_null_when_manual_override_prevents_completion(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'manual_override' => true,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_TODO, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_already_set_is_never_reset_or_altered_by_a_later_sync(): void
+    {
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_COMPLETED,
+            'completed_at' => '2026-01-01 09:00:00',
+        ]);
+        $originalCompletedAt = $task->completed_at;
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertTrue($fresh->completed_at->equalTo($originalCompletedAt));
+    }
+
+    public function test_completed_at_is_idempotent_across_repeated_syncs_after_completion(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $firstCompletedAt = $task->fresh()->completed_at;
+
+        $this->travel(1)->hours();
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertTrue($fresh->completed_at->equalTo($firstCompletedAt));
+    }
 }
