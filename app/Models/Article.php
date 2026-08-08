@@ -81,6 +81,33 @@ class Article extends Model
         // sui salvataggi successivi — un collegamento rimosso a mano non
         // deve poter essere ripristinato automaticamente da una modifica.
         static::created(fn (Article $article) => app(ProjectEditorialLinkService::class)->linkToDefaultProject($article));
+
+        // Registra lo slug precedente per un redirect 301 (vedi
+        // ArticleSlugRedirect e ArticleController::show()) invece di
+        // lasciare che un link esterno o un risultato di ricerca non
+        // ancora ricrawlato punti a un 404 dopo una rinomina.
+        static::updated(function (Article $article) {
+            if (! $article->wasChanged('slug')) {
+                return;
+            }
+
+            $oldSlug = $article->getOriginal('slug');
+
+            if (blank($oldSlug) || $oldSlug === $article->slug) {
+                return;
+            }
+
+            ArticleSlugRedirect::updateOrCreate(
+                ['old_slug' => $oldSlug],
+                ['article_id' => $article->id]
+            );
+
+            // Il nuovo slug potrebbe essere stato, in passato, lo slug di
+            // un'altra rinomina: un redirect che punterebbe da uno slug
+            // ora di nuovo "attivo" verso se stesso non ha senso e
+            // andrebbe rimosso, non lasciato a fare da eco.
+            ArticleSlugRedirect::where('old_slug', $article->slug)->delete();
+        });
     }
 
     // Etichette leggibili per lo stato di verifica

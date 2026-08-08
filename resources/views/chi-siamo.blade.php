@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Chi siamo — Kairus')
 @section('description', 'Kairus è il blog italiano di divulgazione scientifica fondato da Andrea Bartiromo. Scopri la nostra storia, la filosofia editoriale e il protocollo di verifica.')
+@section('canonical', route('chi-siamo'))
 
 @section('content')
 <div class="public-page public-page--about">

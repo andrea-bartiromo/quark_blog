@@ -2,6 +2,7 @@
 
 use App\Console\Commands\FetchNewsAndGenerateDrafts;
 use App\Http\Middleware\EditorMiddleware;
+use App\Http\Middleware\ForceHttpsUrlScheme;
 use App\Http\Middleware\LoginRateLimiter;
 use App\Http\Middleware\LogLoginAttempts;
 use App\Http\Middleware\RedazioneMiddleware;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'login.limit' => LoginRateLimiter::class,
             'login.log' => LogLoginAttempts::class,
         ]);
+        $middleware->prepend(ForceHttpsUrlScheme::class);
         $middleware->append(SecurityHeaders::class);
         $middleware->throttleApi();
     })

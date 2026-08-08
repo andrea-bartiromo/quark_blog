@@ -7,6 +7,16 @@
 <meta name="robots" content="@yield('robots', 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1')">
 
 @hasSection('canonical')
+{{--
+    @yield (non {{ }}) è corretto qui, non una svista: la forma a due
+    argomenti @section('canonical', $valore) — usata da tutte le viste
+    che impostano questa sezione — chiama già e($valore) internamente
+    (Illuminate\View\Factory::startSection()), quindi il contenuto della
+    sezione è già HTML-escaped nel momento in cui viene memorizzato.
+    Un {{ }} qui applicherebbe un secondo escaping (es. "&amp;" nel
+    canonical_url di un articolo diventerebbe "&amp;amp;"), corrompendo
+    l'URL. Verificato con un test dedicato (canonical_url contenente "&").
+--}}
 <link rel="canonical" href="@yield('canonical')">
 @endif
 
