@@ -11,6 +11,7 @@ use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProjectTaskController extends Controller
 {
@@ -110,7 +111,24 @@ class ProjectTaskController extends Controller
 
     public function destroy(Project $project, ProjectTask $task)
     {
-        $task->delete();
+        // Log e delete nella stessa transazione: nessuna FK reale lega
+        // subject_id alla riga cancellata (project_activity_logs.subject_id
+        // non ha vincolo verso project_tasks), quindi la entry sopravvive
+        // comunque alla cancellazione — la transazione serve solo a
+        // garantire che le due scritture non possano mai divergere (log
+        // creato ma delete fallito, o viceversa).
+        DB::transaction(function () use ($project, $task) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'task',
+                subjectId: $task->id,
+                subjectTitle: $task->title,
+                action: 'Attività eliminata',
+                userId: auth()->id(),
+            );
+
+            $task->delete();
+        });
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'tasks'])->with('success', 'Attività eliminata.');
     }

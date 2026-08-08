@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectDocument;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProjectDocumentController extends Controller
 {
@@ -103,7 +104,22 @@ class ProjectDocumentController extends Controller
 
     public function destroy(Project $project, ProjectDocument $document)
     {
-        $document->delete();
+        // Vedi commento in ProjectTaskController::destroy(): stessa ragione
+        // per la transazione (nessuna FK reale su subject_id, la entry
+        // sopravvive comunque — la transazione garantisce solo che log e
+        // delete non possano divergere).
+        DB::transaction(function () use ($project, $document) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'document',
+                subjectId: $document->id,
+                subjectTitle: $document->title,
+                action: 'Documento eliminato',
+                userId: auth()->id(),
+            );
+
+            $document->delete();
+        });
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'documents'])->with('success', 'Documento eliminato.');
     }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Article;
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -97,6 +98,31 @@ class ProjectTaskControllerTest extends TestCase
             ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'tasks']));
 
         $this->assertDatabaseMissing('project_tasks', ['id' => $task->id]);
+    }
+
+    // ── Audit 0, gap #2: Cronologia sulla cancellazione ──────────────
+
+    public function test_deleting_a_task_records_it_in_the_activity_log_and_the_entry_survives_the_deletion(): void
+    {
+        $project = Project::factory()->create();
+        $task = ProjectTask::factory()->for($project)->create(['title' => 'Attività da eliminare']);
+        $editor = $this->editor();
+
+        $this->actingAs($editor)
+            ->delete(route('admin.progettazione.projects.tasks.destroy', [$project, $task]))
+            ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'tasks']));
+
+        $this->assertDatabaseMissing('project_tasks', ['id' => $task->id]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'subject_type' => 'task',
+            'subject_id' => $task->id,
+            'subject_title' => 'Attività da eliminare',
+            'action' => 'Attività eliminata',
+            'source' => ProjectActivityLog::SOURCE_MANUAL,
+            'user_id' => $editor->id,
+        ]);
     }
 
     public function test_cross_project_tasks_index_lists_tasks_from_multiple_projects(): void
