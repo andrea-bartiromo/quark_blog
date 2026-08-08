@@ -8,6 +8,7 @@ use App\Models\MediaFolder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\Concerns\LogsWindowsCleanupHarnessDiagnostics;
 use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
@@ -24,6 +25,7 @@ class MediaPublicSyncTest extends TestCase
     use RefreshDatabase;
     use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use LogsWindowsCleanupHarnessDiagnostics;
 
     protected function setUp(): void
     {
@@ -248,7 +250,11 @@ class MediaPublicSyncTest extends TestCase
         $editor = $this->editor();
         $cover = UploadedFile::fake()->image('cover.jpg', 800, 600);
 
+        $this->logHarnessCheckpoint('article_cover:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('article_cover:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)->post(route('admin.articles.store'), [
             'title' => 'Articolo che non deve lasciare file orfani',
@@ -259,7 +265,15 @@ class MediaPublicSyncTest extends TestCase
             'cover_image_upload' => $cover,
         ]);
 
+        $this->logHarnessCheckpoint('article_cover:after_request_before_files_after');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('article_cover:files_after_computed', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
@@ -285,11 +299,23 @@ class MediaPublicSyncTest extends TestCase
         $editor = $this->editor();
         $image = UploadedFile::fake()->image('fallisce.jpg', 400, 300);
 
+        $this->logHarnessCheckpoint('media_library:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('media_library:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)->postJson(route('admin.media.upload'), ['image' => $image]);
 
+        $this->logHarnessCheckpoint('media_library:after_request_before_files_after');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('media_library:files_after_computed', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }

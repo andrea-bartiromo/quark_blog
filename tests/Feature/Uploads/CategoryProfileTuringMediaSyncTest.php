@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Tests\Concerns\LogsWindowsCleanupHarnessDiagnostics;
 use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
@@ -30,6 +31,7 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
     use RefreshDatabase;
     use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use LogsWindowsCleanupHarnessDiagnostics;
 
     protected function setUp(): void
     {
@@ -190,7 +192,11 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
         $editor = $this->editor();
         $image = UploadedFile::fake()->image('fallisce.jpg', 800, 600);
 
+        $this->logHarnessCheckpoint('category:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('category:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)->post(route('admin.categories.store'), [
             'name' => 'Categoria che non deve lasciare file orfani',
@@ -198,7 +204,15 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
             'image_upload' => $image,
         ]);
 
+        $this->logHarnessCheckpoint('category:after_request_before_files_after');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('category:files_after_computed', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
@@ -468,14 +482,26 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
             'content' => [],
         ]);
 
+        $this->logHarnessCheckpoint('turing:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('turing:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)
             ->post(route('admin.turing.update'), $this->turingPayload([
                 'hero_background_image_upload' => $image,
             ]));
 
+        $this->logHarnessCheckpoint('turing:after_request_before_files_after');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('turing:files_after_computed', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
