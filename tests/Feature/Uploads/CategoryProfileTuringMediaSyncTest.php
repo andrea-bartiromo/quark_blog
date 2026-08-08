@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Tests\Concerns\LogsWindowsCleanupHarnessDiagnostics;
 use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
@@ -30,6 +31,7 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
     use RefreshDatabase;
     use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use LogsWindowsCleanupHarnessDiagnostics;
 
     protected function setUp(): void
     {
@@ -190,7 +192,11 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
         $editor = $this->editor();
         $image = UploadedFile::fake()->image('fallisce.jpg', 800, 600);
 
+        $this->logHarnessCheckpoint('category:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('category:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)->post(route('admin.categories.store'), [
             'name' => 'Categoria che non deve lasciare file orfani',
@@ -198,7 +204,31 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
             'image_upload' => $image,
         ]);
 
+        // Checkpoint G: subito dopo che la request torna al test, PRIMA di
+        // qualunque scansione ricorsiva (filesUnder() fa scandir(), non
+        // legge la stat cache — ma vogliamo comunque il timestamp esatto
+        // di questo istante per il confronto con i checkpoint E/F lato
+        // controller).
+        $this->logHarnessCheckpoint('category:G_after_request_before_scan');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $diff = array_values(array_diff($filesAfter, $filesBefore));
+
+        // Checkpoint H: per ciascun file "risorto" (presente in filesAfter
+        // ma non in filesBefore), stato completo dopo clearstatcache
+        // esplicito — per escludere che sia un artefatto della stat cache
+        // di PHP piuttosto che una ricomparsa reale sul filesystem.
+        foreach ($diff as $resurrectedPath) {
+            $this->logHarnessPathCheckpoint('category:H_resurrected_file_after_clearstatcache', $resurrectedPath);
+        }
+
+        // Checkpoint I: confronto finale.
+        $this->logHarnessCheckpoint('category:I_final_comparison', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => $diff,
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }
@@ -468,14 +498,32 @@ class CategoryProfileTuringMediaSyncTest extends TestCase
             'content' => [],
         ]);
 
+        $this->logHarnessCheckpoint('turing:before_request');
+
         $filesBefore = $this->filesUnder(public_path('assets/img'));
+
+        $this->logHarnessCheckpoint('turing:files_before_computed', ['files_before' => $filesBefore]);
 
         $this->actingAs($editor)
             ->post(route('admin.turing.update'), $this->turingPayload([
                 'hero_background_image_upload' => $image,
             ]));
 
+        $this->logHarnessCheckpoint('turing:G_after_request_before_scan');
+
         $filesAfter = $this->filesUnder(public_path('assets/img'));
+
+        $diff = array_values(array_diff($filesAfter, $filesBefore));
+
+        foreach ($diff as $resurrectedPath) {
+            $this->logHarnessPathCheckpoint('turing:H_resurrected_file_after_clearstatcache', $resurrectedPath);
+        }
+
+        $this->logHarnessCheckpoint('turing:I_final_comparison', [
+            'files_before' => $filesBefore,
+            'files_after' => $filesAfter,
+            'diff' => $diff,
+        ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
     }

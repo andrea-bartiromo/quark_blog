@@ -22,14 +22,6 @@ use RuntimeException;
 class PublicMediaSyncService
 {
     /**
-     * Tentativi e attesa tra un tentativo e l'altro per rimuovere un file
-     * appena scritto (vedi removeFileWithRetry()).
-     */
-    private const REMOVE_RETRY_ATTEMPTS = 5;
-
-    private const REMOVE_RETRY_DELAY_MICROSECONDS = 100_000; // 100ms
-
-    /**
      * Copia un file gia' scritto in public/assets/img anche nella radice
      * pubblica secondaria, preservando le eventuali sottocartelle presenti
      * in $diskName.
@@ -64,7 +56,7 @@ class PublicMediaSyncService
         clearstatcache(true, $target);
 
         if (! is_file($target) || ! $this->sameContent($target, $absoluteSourcePath)) {
-            if (file_exists($target) && ! $this->removeFileWithRetry($target)) {
+            if (file_exists($target) && ! $this->removeFile($target)) {
                 throw new RuntimeException(
                     'Verifica della copia pubblica fallita e la copia non valida non puo\' essere rimossa automaticamente: '
                     .'e\' necessaria una pulizia manuale in '.$target
@@ -101,18 +93,28 @@ class PublicMediaSyncService
             return;
         }
 
-        if (! $this->removeFileWithRetry($fullPath)) {
+        if (! $this->removeFile($fullPath)) {
             Log::warning('PublicMediaSyncService: pulizia del file locale non riuscita dopo un fallimento di sincronizzazione.', [
                 'operation' => 'cleanup_after_failed_create',
                 'path' => $fullPath,
             ]);
         }
+
+        // Ultimo checkpoint prima che il controllo torni al chiamante
+        // (controller): se qui il file risulta gia' di nuovo presente,
+        // la ricomparsa avviene DENTRO questo metodo o subito dopo
+        // removeFile(), non altrove nel controller o nel kernel HTTP.
+        $this->logPathDiagnostics('cleanup_after_failed_create:before_return', $fullPath);
     }
 
     /**
      * DIAGNOSTICA TEMPORANEA (da rimuovere una volta identificata la causa
-     * reale del fallimento di cleanup su Windows reale — vedi PR di
-     * hardening #123, che non ha risolto il problema nonostante il retry).
+     * reale del fallimento di cleanup su Windows reale). La diagnostica
+     * raccolta in PR #124 ha gia' scagionato questo layer (path valido,
+     * unlink() riesce al primo tentativo): resta qui per continuare a
+     * escludere una regressione, mentre l'indagine si sposta sul test
+     * harness (vedi tests/Concerns/UsesIsolatedPublicPath e i test
+     * "cleans up the local file").
      *
      * Registra lo stato del path cosi' come lo vede questo layer, per poter
      * confrontare — a partire dai log prodotti da una vera esecuzione
@@ -122,9 +124,16 @@ class PublicMediaSyncService
      */
     private function logPathDiagnostics(string $checkpoint, string $path): void
     {
+        // clearstatcache() sempre qui, non lasciata ai singoli call site:
+        // ogni checkpoint di questa timeline deve riflettere lo stato reale
+        // del filesystem in quell'istante, mai la stat cache di PHP
+        // popolata da un controllo precedente nella stessa request.
+        clearstatcache(true, $path);
+
         Log::debug('PublicMediaSyncService: diagnostica path.', [
             'checkpoint' => $checkpoint,
             'path' => $path,
+            'hrtime_ns' => hrtime(true),
             'path_length' => strlen($path),
             'contains_backslash' => str_contains($path, '\\'),
             'contains_double_slash' => str_contains($path, '//') || str_contains($path, '\\\\'),
@@ -233,7 +242,7 @@ class PublicMediaSyncService
             return;
         }
 
-        if (! $this->removeFileWithRetry($target)) {
+        if (! $this->removeFile($target)) {
             Log::warning('PublicMediaSyncService: impossibile rimuovere la copia creata durante una move() fallita.', [
                 'operation' => 'move_compensation',
                 'disk_name' => $diskName,
@@ -337,6 +346,13 @@ class PublicMediaSyncService
      * root (i permessi vengono ignorati). Una sottoclasse di test che
      * sovrascrive questo singolo metodo e il modo meno invasivo per
      * verificare il comportamento quando la rimozione fallisce davvero.
+     *
+     * Nessun retry: la diagnostica raccolta su Windows reale (vedi PR #124)
+     * mostra unlink_result=true al primo tentativo in tutti i casi
+     * osservati, quindi l'ipotesi di un lock transitorio che il retry
+     * introdotto in PR #123 tentava di assorbire non e' confermata. Un
+     * ritentativo qui aggiungerebbe solo complessita' senza una causa
+     * osservata da cui difendersi.
      */
     protected function removeFile(string $path): bool
     {
@@ -353,72 +369,19 @@ class PublicMediaSyncService
         Log::debug('PublicMediaSyncService: diagnostica — esito unlink().', [
             'checkpoint' => 'remove_file:after_unlink',
             'path' => $path,
+            'hrtime_ns' => hrtime(true),
             'unlink_result' => $result,
             'error_get_last' => $lastError,
         ]);
 
+        // Checkpoint D della timeline richiesta (round 3): ricontrollo
+        // IMMEDIATO dopo unlink() + clearstatcache(true, $path), non solo
+        // subito prima della chiamata come 'remove_file:before_unlink' —
+        // per capire se il file e' gia' tornato a esistere nella stessa
+        // frazione di secondo, prima ancora che il controllo torni al
+        // chiamante (cleanupAfterFailedCreate()).
+        $this->logPathDiagnostics('remove_file:immediately_after_unlink_and_clearstatcache', $path);
+
         return $result;
-    }
-
-    /**
-     * Ritenta la rimozione di un file appena scritto un numero limitato di
-     * volte, con una breve attesa tra un tentativo e l'altro.
-     *
-     * Su Windows, un file può restare brevemente bloccato subito dopo la
-     * scrittura da un handle non ancora rilasciato dal sistema operativo o
-     * da una scansione antivirus in tempo reale — nessuna correttezza del
-     * path (già verificata: stesso path restituito da ImageService::upload(),
-     * mai ricostruito) può prevenire questa condizione, che è transitoria
-     * per definizione e sparisce da sola dopo una breve attesa. Su Linux il
-     * primo tentativo riesce quasi sempre, quindi il ciclo si comporta come
-     * una singola chiamata a removeFile() senza alcuna attesa aggiuntiva.
-     *
-     * Prima di ogni tentativo invalida la stat cache e ricontrolla
-     * l'esistenza del file: se nel frattempo è già stato rimosso (es. da un
-     * tentativo precedente il cui esito era stato riportato come "false" per
-     * una race sull'errore, ma che in realtà aveva avuto successo), il
-     * cleanup è comunque idempotente e riporta successo senza un ulteriore
-     * unlink().
-     */
-    private function removeFileWithRetry(string $path): bool
-    {
-        for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
-            if ($this->removeFile($path)) {
-                Log::debug('PublicMediaSyncService: diagnostica — rimozione riuscita.', [
-                    'checkpoint' => 'remove_file_with_retry:success',
-                    'attempt' => $attempt,
-                    'path' => $path,
-                ]);
-
-                return true;
-            }
-
-            clearstatcache(true, $path);
-
-            $stillExists = file_exists($path);
-
-            Log::debug('PublicMediaSyncService: diagnostica — ricontrollo dopo clearstatcache.', [
-                'checkpoint' => 'remove_file_with_retry:recheck_after_clearstatcache',
-                'attempt' => $attempt,
-                'path' => $path,
-                'file_exists' => $stillExists,
-            ]);
-
-            if (! $stillExists) {
-                return true;
-            }
-
-            if ($attempt < self::REMOVE_RETRY_ATTEMPTS) {
-                usleep(self::REMOVE_RETRY_DELAY_MICROSECONDS);
-            }
-        }
-
-        Log::debug('PublicMediaSyncService: diagnostica — tutti i tentativi di rimozione esauriti.', [
-            'checkpoint' => 'remove_file_with_retry:exhausted',
-            'path' => $path,
-            'attempts' => self::REMOVE_RETRY_ATTEMPTS,
-        ]);
-
-        return false;
     }
 }
