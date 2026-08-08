@@ -40,7 +40,7 @@ class ArticleLinkSuggestionService
 
     private const CATEGORY_BONUS = 10;
 
-    private const MIN_SCORE_THRESHOLD = 30;
+    private const MIN_SCORE_THRESHOLD = 40;
 
     private const MIN_TERM_LENGTH = 4;
 
@@ -79,7 +79,33 @@ class ArticleLinkSuggestionService
         'sopra', 'sotto', 'dentro', 'fuori', 'verso', 'senza', 'contro', 'secondo', 'circa',
         'cioe', 'infatti', 'inoltre', 'tuttavia', 'dunque',
         'cui', 'chi', 'cosa', 'quale', 'quali', 'quanto', 'quanti', 'quanta', 'quante',
+
+        // Audit qualità suggerimenti (Ago 2026): forme verbali generiche
+        // e aggettivi di paragone/giudizio — nessun segnale tematico,
+        // ma abbastanza lunghi da vincere lo scoring o essere scelti come
+        // anchor al posto di un termine realmente distintivo condiviso
+        // ("potrebbe", "significa", "stanno", "maggiore" osservati in uso
+        // editoriale reale).
+        'potrebbe', 'potrebbero', 'dovrebbe', 'dovrebbero', 'vorrebbe', 'vorrebbero',
+        'sta', 'stanno', 'stava', 'stavano',
+        'sia', 'siano', 'sarebbe', 'sarebbero',
+        'abbia', 'abbiano', 'avrebbe', 'avrebbero',
+        'fa', 'fanno', 'farebbe', 'farebbero',
+        'dice', 'dicono', 'direbbe',
+        'significa', 'significano', 'significherebbe',
+        'utilizza', 'utilizzano', 'utilizzato', 'utilizzata', 'utilizzati', 'utilizzate',
+        'trova', 'trovano', 'trovato', 'trovata',
+        'rappresenta', 'rappresentano',
+        'consente', 'consentono', 'permette', 'permettono',
+        'mostra', 'mostrano', 'sembra', 'sembrano',
+        'maggiore', 'maggiori', 'minore', 'minori', 'migliore', 'migliori', 'peggiore', 'peggiori',
+        'importante', 'importanti', 'principale', 'principali',
+        'diverso', 'diversa', 'diversi', 'diverse',
+        'possibile', 'possibili', 'necessario', 'necessaria', 'necessari', 'necessarie',
     ];
+
+    /** Lunghezza minima perché un termine in "-mente" sia escluso come avverbio di modo generico (esclude il sostantivo "mente" da solo). */
+    private const MIN_LENGTH_FOR_MENTE_ADVERB = 7;
 
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
@@ -413,6 +439,13 @@ class ArticleLinkSuggestionService
             }
 
             if (in_array($normalized, self::STOPWORDS, true)) {
+                continue;
+            }
+
+            // Avverbi di modo in "-mente" (profondamente, chiaramente, ...):
+            // pattern morfologico italiano affidabile, sempre un
+            // modificatore generico, mai un segnale tematico.
+            if (mb_strlen($normalized, 'UTF-8') >= self::MIN_LENGTH_FOR_MENTE_ADVERB && str_ends_with($normalized, 'mente')) {
                 continue;
             }
 

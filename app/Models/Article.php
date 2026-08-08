@@ -148,6 +148,7 @@ class Article extends Model
             ->proposed()
             ->with('targetArticle:id,title,slug')
             ->orderByDesc('confidence_score')
+            ->limit(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
             ->get();
     }
 
