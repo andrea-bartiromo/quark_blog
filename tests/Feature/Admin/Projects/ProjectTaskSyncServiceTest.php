@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Article;
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
 use App\Services\ProjectTaskSyncService;
@@ -152,5 +153,105 @@ class ProjectTaskSyncServiceTest extends TestCase
 
         $this->artisan('projects:sync-derived-statuses')->assertExitCode(0);
         $this->artisan('projects:sync-derived-statuses')->assertExitCode(0);
+    }
+
+    // ── Audit 0, gap #3: Cronologia sul completamento automatico ─────
+
+    public function test_publishing_the_linked_article_records_a_single_system_activity_log_entry(): void
+    {
+        $article = $this->article(Article::STATUS_DRAFT);
+        $task = ProjectTask::factory()->publication()->create([
+            'article_id' => $article->id,
+            'title' => 'Pubblicazione capitolo Enigma',
+        ]);
+
+        $article->update(['status' => Article::STATUS_PUBLISHED]);
+
+        $task->refresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $task->manual_status);
+
+        $this->assertSame(1, ProjectActivityLog::where('subject_type', 'project_task')->where('subject_id', $task->id)->count());
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $task->project_id,
+            'subject_type' => 'project_task',
+            'subject_id' => $task->id,
+            'subject_title' => 'Pubblicazione capitolo Enigma',
+            'action' => 'Articolo pubblicato — attività completata automaticamente',
+            'source' => ProjectActivityLog::SOURCE_SYSTEM,
+            'user_id' => null,
+        ]);
+    }
+
+    public function test_repeated_syncs_of_the_same_published_article_do_not_duplicate_the_log_entry(): void
+    {
+        $article = $this->article(Article::STATUS_DRAFT);
+        $task = ProjectTask::factory()->publication()->create(['article_id' => $article->id]);
+        $service = app(ProjectTaskSyncService::class);
+
+        $article->update(['status' => Article::STATUS_PUBLISHED]);
+        $task->refresh();
+
+        // Tre modi diversi in cui una nuova sincronizzazione può ripetersi
+        // sullo stesso stato ormai stabile: chiamata diretta al servizio,
+        // syncAll() da comando schedulato, nuovo salvataggio dell'articolo
+        // già pubblicato (che rifà scattare l'hook Article::saved).
+        $service->syncTask($task);
+        $service->syncAll();
+        $article->save();
+
+        $this->assertSame(1, ProjectActivityLog::where('subject_type', 'project_task')->where('subject_id', $task->id)->count());
+    }
+
+    public function test_no_log_is_recorded_when_the_task_was_already_completed_before_the_article_was_published(): void
+    {
+        $article = $this->article(Article::STATUS_DRAFT);
+        $task = ProjectTask::factory()->publication()->create([
+            'article_id' => $article->id,
+            'manual_status' => ProjectTask::STATUS_COMPLETED,
+        ]);
+
+        $article->update(['status' => Article::STATUS_PUBLISHED]);
+
+        $this->assertSame(0, ProjectActivityLog::where('subject_type', 'project_task')->where('subject_id', $task->id)->count());
+    }
+
+    public function test_no_log_is_recorded_when_the_linked_task_is_blocked_suspended_or_cancelled(): void
+    {
+        foreach ([ProjectTask::STATUS_BLOCKED, ProjectTask::STATUS_SUSPENDED, ProjectTask::STATUS_CANCELLED] as $status) {
+            $article = $this->article(Article::STATUS_DRAFT);
+            ProjectTask::factory()->publication()->create([
+                'article_id' => $article->id,
+                'manual_status' => $status,
+            ]);
+
+            $article->update(['status' => Article::STATUS_PUBLISHED]);
+        }
+
+        $this->assertSame(0, ProjectActivityLog::where('subject_type', 'project_task')->count());
+    }
+
+    public function test_no_log_is_recorded_when_manual_override_prevents_the_completion(): void
+    {
+        $article = $this->article(Article::STATUS_DRAFT);
+        $task = ProjectTask::factory()->publication()->create([
+            'article_id' => $article->id,
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'manual_override' => true,
+        ]);
+
+        $article->update(['status' => Article::STATUS_PUBLISHED]);
+
+        $this->assertSame(0, ProjectActivityLog::where('subject_type', 'project_task')->where('subject_id', $task->id)->count());
+    }
+
+    public function test_no_log_is_recorded_for_intermediate_draft_review_or_scheduled_transitions(): void
+    {
+        $article = $this->article(Article::STATUS_DRAFT);
+        $task = ProjectTask::factory()->publication()->create(['article_id' => $article->id]);
+
+        $article->update(['status' => Article::STATUS_REVIEW]);
+        $article->update(['status' => Article::STATUS_SCHEDULED, 'published_at' => now()->addDay()]);
+
+        $this->assertSame(0, ProjectActivityLog::where('subject_type', 'project_task')->where('subject_id', $task->id)->count());
     }
 }

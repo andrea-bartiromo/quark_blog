@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 
 /**
@@ -108,6 +109,12 @@ class ProjectTaskSyncService
             return false;
         }
 
+        // Catturato prima della mutazione: serve a distinguere una task che
+        // raggiunge completed solo ora da una già completed in precedenza
+        // (es. completata a mano) — solo la prima è una transizione reale
+        // da registrare in Cronologia.
+        $wasAlreadyCompleted = $task->manual_status === ProjectTask::STATUS_COMPLETED;
+
         self::$applying = true;
 
         try {
@@ -123,6 +130,21 @@ class ProjectTaskSyncService
             }
 
             $task->save();
+
+            // $target === STATUS_COMPLETED è già escluso da resolveManualStatus()
+            // per manual_override, blocked/suspended/cancelled e invalid_link:
+            // nessuna condizione aggiuntiva necessaria qui per quei casi.
+            if ($target === ProjectTask::STATUS_COMPLETED && ! $wasAlreadyCompleted) {
+                ProjectActivityLog::record(
+                    project: $task->project,
+                    subjectType: 'project_task',
+                    subjectId: $task->id,
+                    subjectTitle: $task->title,
+                    action: 'Articolo pubblicato — attività completata automaticamente',
+                    userId: null,
+                    source: ProjectActivityLog::SOURCE_SYSTEM,
+                );
+            }
         } finally {
             self::$applying = false;
         }
