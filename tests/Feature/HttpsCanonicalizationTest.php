@@ -85,6 +85,28 @@ class HttpsCanonicalizationTest extends TestCase
         );
     }
 
+    // 2bis. Gap trovato in revisione finale pre-merge: le 4 pagine
+    // statiche indicizzabili elencate in SeoController::staticSitemapPages()
+    // (la-redazione, chi-siamo, pubblicita, contatti) non impostavano mai
+    // 'canonical' — stessa causa esatta del bug originale sulla homepage,
+    // solo non segnalata da Search Console perché non ancora ricrawlate.
+    public function test_static_indexable_pages_have_an_absolute_https_canonical(): void
+    {
+        $pages = [
+            'https://kairus.it/la-redazione',
+            'https://kairus.it/chi-siamo',
+            'https://kairus.it/pubblicita',
+            'https://kairus.it/contatti',
+        ];
+
+        foreach ($pages as $url) {
+            $response = $this->get($url);
+
+            $response->assertOk();
+            $response->assertSee('<link rel="canonical" href="'.$url.'">', false);
+        }
+    }
+
     // 3. Assenza di canonical HTTP: anche una richiesta che arriva su http
     // (es. prima che un redirect lato server la intercetti) non deve mai
     // produrre un canonical http — questo è esattamente il fix di

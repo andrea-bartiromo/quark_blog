@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Contatti — Kairus')
 @section('description', 'Contatta la redazione di Kairus per segnalazioni, proposte di collaborazione o domande.')
+@section('canonical', route('contatti'))
 
 @section('content')
 <div class="public-page public-page--contacts">
