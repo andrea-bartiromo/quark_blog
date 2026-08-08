@@ -143,6 +143,32 @@ class ProjectController extends Controller
         // committare insieme, non come due statement osservabili separati.
         DB::transaction(fn () => $project->update($data));
 
+        if ($before['title'] !== $project->title) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'project',
+                subjectId: $project->id,
+                subjectTitle: $project->title,
+                action: 'Titolo progetto cambiato da «'.$before['title'].'» a «'.$project->title.'»',
+                userId: auth()->id(),
+                oldValue: $before['title'],
+                newValue: $project->title,
+            );
+        }
+
+        if ($before['priority'] !== $project->priority) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'project',
+                subjectId: $project->id,
+                subjectTitle: $project->title,
+                action: 'Priorità progetto cambiata da «'.(Project::priorityOptions()[$before['priority']] ?? $before['priority']).'» a «'.(Project::priorityOptions()[$project->priority] ?? $project->priority).'»',
+                userId: auth()->id(),
+                oldValue: $before['priority'],
+                newValue: $project->priority,
+            );
+        }
+
         if ($before['operational_status'] !== $project->operational_status) {
             ProjectActivityLog::record(
                 project: $project,
