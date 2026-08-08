@@ -541,6 +541,10 @@ body.admin-body textarea {
 .status--template-active { background: #d1fae5; color: #065f46; }
 .status--template-archived { background: #f3f4f6; color: #9ca3af; }
 
+/* Sistema Comunicazione — badge stato mittente (Comunicazione B4A) */
+.status--sender-profile-active { background: #d1fae5; color: #065f46; }
+.status--sender-profile-archived { background: #f3f4f6; color: #9ca3af; }
+
 /* Area Progettazione — schede del dettaglio progetto: bar leggibile e
    scrollabile orizzontalmente su mobile invece di andare a capo su piu' righe. */
 .project-tabs {
