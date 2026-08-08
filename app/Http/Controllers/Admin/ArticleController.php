@@ -12,6 +12,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsUploadCleanupTimeline;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
@@ -28,6 +29,12 @@ use RuntimeException;
 
 class ArticleController extends Controller
 {
+    use LogsUploadCleanupTimeline;
+
+    // DIAGNOSTICA TEMPORANEA (round 3, PR #125): vedi CategoryController,
+    // stesso motivo (il catch esterno non ha visibilita' su $fullPath).
+    private ?string $lastUploadedFullPathForDiagnostics = null;
+
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
@@ -73,6 +80,10 @@ class ArticleController extends Controller
         } catch (RuntimeException $exception) {
             report($exception);
 
+            if ($this->lastUploadedFullPathForDiagnostics) {
+                $this->logCleanupTimelineCheckpoint('controller:F_outer_catch_before_response', $this->lastUploadedFullPathForDiagnostics);
+            }
+
             return back()
                 ->withInput()
                 ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
@@ -109,6 +120,10 @@ class ArticleController extends Controller
             );
         } catch (RuntimeException $exception) {
             report($exception);
+
+            if ($this->lastUploadedFullPathForDiagnostics) {
+                $this->logCleanupTimelineCheckpoint('controller:F_outer_catch_before_response', $this->lastUploadedFullPathForDiagnostics);
+            }
 
             return back()
                 ->withInput()
@@ -207,10 +222,13 @@ class ArticleController extends Controller
              * che un fallimento qui non lasci un Media senza articolo
              * associato che punta a un file non davvero raggiungibile.
              */
+            $this->lastUploadedFullPathForDiagnostics = $fullPath;
+
             try {
                 $this->publicMediaSync->create($fullPath, $diskName);
             } catch (RuntimeException $exception) {
                 $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+                $this->logCleanupTimelineCheckpoint('controller:E_after_cleanup_return', $fullPath);
 
                 throw $exception;
             }

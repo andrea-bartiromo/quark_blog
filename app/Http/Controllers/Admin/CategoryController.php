@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsUploadCleanupTimeline;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Category;
@@ -15,6 +16,14 @@ use RuntimeException;
 
 class CategoryController extends Controller
 {
+    use LogsUploadCleanupTimeline;
+
+    // DIAGNOSTICA TEMPORANEA (round 3, PR #125): il catch esterno in
+    // store()/update() non ha visibilita' su $fullPath (locale a
+    // handleImageUpload()). Salvato qui solo per poter loggare il
+    // checkpoint F ("il piu' tardi possibile prima della risposta").
+    private ?string $lastUploadedFullPathForDiagnostics = null;
+
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
@@ -38,6 +47,10 @@ class CategoryController extends Controller
         } catch (RuntimeException $exception) {
             report($exception);
 
+            if ($this->lastUploadedFullPathForDiagnostics) {
+                $this->logCleanupTimelineCheckpoint('controller:F_outer_catch_before_response', $this->lastUploadedFullPathForDiagnostics);
+            }
+
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
 
@@ -59,6 +72,10 @@ class CategoryController extends Controller
             [$data, $imageToRetire] = $this->handleImageUpload($request, $data, $category);
         } catch (RuntimeException $exception) {
             report($exception);
+
+            if ($this->lastUploadedFullPathForDiagnostics) {
+                $this->logCleanupTimelineCheckpoint('controller:F_outer_catch_before_response', $this->lastUploadedFullPathForDiagnostics);
+            }
 
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
@@ -172,10 +189,13 @@ class CategoryController extends Controller
              * Media, cosi' un fallimento qui non lascia un riferimento
              * a un file non davvero raggiungibile.
              */
+            $this->lastUploadedFullPathForDiagnostics = $fullPath;
+
             try {
                 $this->publicMediaSync->create($fullPath, 'categories/'.$fileName);
             } catch (RuntimeException $exception) {
                 $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+                $this->logCleanupTimelineCheckpoint('controller:E_after_cleanup_return', $fullPath);
 
                 throw $exception;
             }

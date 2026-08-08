@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsUploadCleanupTimeline;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\MoveMediaRequest;
 use App\Http\Requests\Admin\UpdateMediaRequest;
@@ -21,6 +22,8 @@ use RuntimeException;
 
 class MediaController extends Controller
 {
+    use LogsUploadCleanupTimeline;
+
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaFolderService $mediaFolderService,
@@ -227,9 +230,14 @@ class MediaController extends Controller
         $this->publicMediaSync->create($fullPath, $diskName);
     } catch (RuntimeException $exception) {
         $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+        $this->logCleanupTimelineCheckpoint('controller:E_after_cleanup_return', $fullPath);
         report($exception);
 
         $message = 'Impossibile pubblicare il file caricato. Riprova o contatta l\'assistenza.';
+
+        // Checkpoint F: il piu' tardi possibile, immediatamente prima del
+        // return che genera la risposta HTTP effettiva.
+        $this->logCleanupTimelineCheckpoint('controller:F_before_response', $fullPath);
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json(['ok' => false, 'error' => $message], 500);

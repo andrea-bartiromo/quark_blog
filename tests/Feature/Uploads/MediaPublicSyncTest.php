@@ -265,14 +265,20 @@ class MediaPublicSyncTest extends TestCase
             'cover_image_upload' => $cover,
         ]);
 
-        $this->logHarnessCheckpoint('article_cover:after_request_before_files_after');
+        $this->logHarnessCheckpoint('article_cover:G_after_request_before_scan');
 
         $filesAfter = $this->filesUnder(public_path('assets/img'));
 
-        $this->logHarnessCheckpoint('article_cover:files_after_computed', [
+        $diff = array_values(array_diff($filesAfter, $filesBefore));
+
+        foreach ($diff as $resurrectedPath) {
+            $this->logHarnessPathCheckpoint('article_cover:H_resurrected_file_after_clearstatcache', $resurrectedPath);
+        }
+
+        $this->logHarnessCheckpoint('article_cover:I_final_comparison', [
             'files_before' => $filesBefore,
             'files_after' => $filesAfter,
-            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+            'diff' => $diff,
         ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');
@@ -307,14 +313,20 @@ class MediaPublicSyncTest extends TestCase
 
         $this->actingAs($editor)->postJson(route('admin.media.upload'), ['image' => $image]);
 
-        $this->logHarnessCheckpoint('media_library:after_request_before_files_after');
+        $this->logHarnessCheckpoint('media_library:G_after_request_before_scan');
 
         $filesAfter = $this->filesUnder(public_path('assets/img'));
 
-        $this->logHarnessCheckpoint('media_library:files_after_computed', [
+        $diff = array_values(array_diff($filesAfter, $filesBefore));
+
+        foreach ($diff as $resurrectedPath) {
+            $this->logHarnessPathCheckpoint('media_library:H_resurrected_file_after_clearstatcache', $resurrectedPath);
+        }
+
+        $this->logHarnessCheckpoint('media_library:I_final_comparison', [
             'files_before' => $filesBefore,
             'files_after' => $filesAfter,
-            'diff' => array_values(array_diff($filesAfter, $filesBefore)),
+            'diff' => $diff,
         ]);
 
         $this->assertSame($filesBefore, $filesAfter, 'Il file caricato non deve restare orfano se la sincronizzazione fallisce.');

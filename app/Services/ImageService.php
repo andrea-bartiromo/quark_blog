@@ -145,12 +145,16 @@ class ImageService
         // nel tragitto tra i due punti.
         Log::debug('ImageService: diagnostica — path restituito da upload().', [
             'checkpoint' => 'image_service:upload:returned',
+            'hrtime_ns' => hrtime(true),
             'destination_path' => $destinationPath,
             'file_name' => $fileName,
             'full_path' => $fullPath,
             'file_exists' => file_exists($fullPath),
             'is_file' => is_file($fullPath),
             'realpath' => realpath($fullPath),
+            'uploaded_file_object_id' => spl_object_id($file),
+            'uploaded_file_pathname' => $file->getPathname(),
+            'uploaded_file_is_valid' => $file->isValid(),
         ]);
 
         if (! is_file($fullPath)) {

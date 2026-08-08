@@ -99,6 +99,12 @@ class PublicMediaSyncService
                 'path' => $fullPath,
             ]);
         }
+
+        // Ultimo checkpoint prima che il controllo torni al chiamante
+        // (controller): se qui il file risulta gia' di nuovo presente,
+        // la ricomparsa avviene DENTRO questo metodo o subito dopo
+        // removeFile(), non altrove nel controller o nel kernel HTTP.
+        $this->logPathDiagnostics('cleanup_after_failed_create:before_return', $fullPath);
     }
 
     /**
@@ -118,9 +124,16 @@ class PublicMediaSyncService
      */
     private function logPathDiagnostics(string $checkpoint, string $path): void
     {
+        // clearstatcache() sempre qui, non lasciata ai singoli call site:
+        // ogni checkpoint di questa timeline deve riflettere lo stato reale
+        // del filesystem in quell'istante, mai la stat cache di PHP
+        // popolata da un controllo precedente nella stessa request.
+        clearstatcache(true, $path);
+
         Log::debug('PublicMediaSyncService: diagnostica path.', [
             'checkpoint' => $checkpoint,
             'path' => $path,
+            'hrtime_ns' => hrtime(true),
             'path_length' => strlen($path),
             'contains_backslash' => str_contains($path, '\\'),
             'contains_double_slash' => str_contains($path, '//') || str_contains($path, '\\\\'),
@@ -356,9 +369,18 @@ class PublicMediaSyncService
         Log::debug('PublicMediaSyncService: diagnostica — esito unlink().', [
             'checkpoint' => 'remove_file:after_unlink',
             'path' => $path,
+            'hrtime_ns' => hrtime(true),
             'unlink_result' => $result,
             'error_get_last' => $lastError,
         ]);
+
+        // Checkpoint D della timeline richiesta (round 3): ricontrollo
+        // IMMEDIATO dopo unlink() + clearstatcache(true, $path), non solo
+        // subito prima della chiamata come 'remove_file:before_unlink' —
+        // per capire se il file e' gia' tornato a esistere nella stessa
+        // frazione di secondo, prima ancora che il controllo torni al
+        // chiamante (cleanupAfterFailedCreate()).
+        $this->logPathDiagnostics('remove_file:immediately_after_unlink_and_clearstatcache', $path);
 
         return $result;
     }

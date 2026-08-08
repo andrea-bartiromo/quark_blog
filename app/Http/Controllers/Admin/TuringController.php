@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Concerns\LogsUploadCleanupTimeline;
 use App\Http\Controllers\Controller;
 use App\Models\SpecialPage;
 use App\Services\ImageService;
@@ -12,7 +13,13 @@ use RuntimeException;
 
 class TuringController extends Controller
 {
+    use LogsUploadCleanupTimeline;
+
     private const SLUG = 'turing';
+
+    // DIAGNOSTICA TEMPORANEA (round 3, PR #125): vedi CategoryController,
+    // stesso motivo (il catch esterno non ha visibilita' su $fullPath).
+    private ?string $lastUploadedFullPathForDiagnostics = null;
 
     public function __construct(
         private readonly PublicMediaSyncService $publicMediaSync,
@@ -42,6 +49,10 @@ class TuringController extends Controller
             ]);
         } catch (RuntimeException $exception) {
             report($exception);
+
+            if ($this->lastUploadedFullPathForDiagnostics) {
+                $this->logCleanupTimelineCheckpoint('controller:F_outer_catch_before_response', $this->lastUploadedFullPathForDiagnostics);
+            }
 
             return back()->withInput()->withErrors(['content' => 'Impossibile pubblicare una delle immagini caricate. Riprova o contatta l\'assistenza.']);
         }
@@ -331,11 +342,13 @@ class TuringController extends Controller
         // su Windows può restituire "/" e "\" nello stesso path) prima di
         // scrivere il file e restituire il path da usare per il cleanup.
         $fullPath = $this->imageService->upload($file, $uploadPath, $diskName);
+        $this->lastUploadedFullPathForDiagnostics = $fullPath;
 
         try {
             $this->publicMediaSync->create($fullPath, $diskName);
         } catch (RuntimeException $exception) {
             $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+            $this->logCleanupTimelineCheckpoint('controller:E_after_cleanup_return', $fullPath);
 
             throw $exception;
         }
