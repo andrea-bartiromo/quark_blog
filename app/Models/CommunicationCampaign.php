@@ -97,6 +97,11 @@ class CommunicationCampaign extends Model
         return $this->belongsTo(CommunicationTemplate::class, 'template_id');
     }
 
+    public function senderProfile(): BelongsTo
+    {
+        return $this->belongsTo(CommunicationSenderProfile::class, 'sender_profile_id');
+    }
+
     /**
      * La versione esatta usata al momento dell'associazione — non la
      * versione attiva corrente del template, che può essere cambiata da

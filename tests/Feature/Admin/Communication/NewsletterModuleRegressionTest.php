@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin\Communication;
 
+use App\Models\CommunicationSenderProfile;
 use App\Models\Newsletter;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,5 +45,26 @@ class NewsletterModuleRegressionTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.newsletter.preview'));
 
         $response->assertOk();
+    }
+
+    /**
+     * Comunicazione B4A introduce comm_sender_profiles e completa la FK su
+     * comm_campaigns.sender_profile_id: verifica esplicitamente che questo
+     * non abbia alcun effetto sul modulo Newsletter legacy, che resta
+     * un sistema completamente separato (nessuna tabella/modello condiviso).
+     */
+    public function test_newsletter_legacy_still_works_after_sender_profiles_are_introduced(): void
+    {
+        CommunicationSenderProfile::factory()->default()->create();
+        $editor = User::factory()->create(['role' => 'editor']);
+        Newsletter::create(['email' => 'ancora-qui-b4a@example.com', 'confirmed' => true, 'unsubscribe_token' => 'unsub-b4a']);
+
+        $subscribeResponse = $this->post(route('newsletter.subscribe'), ['email' => 'nuovo-b4a@example.com']);
+        $subscribeResponse->assertRedirect();
+        $this->assertDatabaseHas('newsletter', ['email' => 'nuovo-b4a@example.com']);
+
+        $indexResponse = $this->actingAs($editor)->get(route('admin.newsletter'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('ancora-qui-b4a@example.com');
     }
 }

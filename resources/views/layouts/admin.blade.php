@@ -58,6 +58,7 @@
       $isComunicazioneDashboard = request()->routeIs('admin.comunicazione.dashboard');
       $isComunicazioneCampaigns = request()->routeIs('admin.comunicazione.campaigns.*');
       $isComunicazioneTemplates = request()->routeIs('admin.comunicazione.templates.*');
+      $isComunicazioneSenderProfiles = request()->routeIs('admin.comunicazione.sender-profiles.*');
       $isAds           = request()->routeIs('admin.ads*');
       $isTuring        = request()->routeIs('admin.turing*');
       $isSuggestions   = request()->routeIs('admin.suggestions*');
@@ -175,6 +176,12 @@
          @class(['active' => $isComunicazioneTemplates])
          @if($isComunicazioneTemplates) aria-current="page" @endif>
         <span class="icon">🧩</span> Template
+      </a>
+
+      <a href="{{ route('admin.comunicazione.sender-profiles.index') }}"
+         @class(['active' => $isComunicazioneSenderProfiles])
+         @if($isComunicazioneSenderProfiles) aria-current="page" @endif>
+        <span class="icon">📤</span> Mittenti
       </a>
 
       <a href="{{ route('admin.newsletter') }}"

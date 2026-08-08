@@ -69,6 +69,17 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label" for="sender_profile_id">Mittente</label>
+      <select class="form-select" id="sender_profile_id" name="sender_profile_id">
+        <option value="">Nessuno</option>
+        @foreach($senderProfileOptions as $senderProfile)
+          <option value="{{ $senderProfile->id }}" @selected((string) old('sender_profile_id', $campaign->sender_profile_id) === (string) $senderProfile->id)>{{ $senderProfile->name }} ({{ $senderProfile->from_email }})</option>
+        @endforeach
+      </select>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Solo l'identità del mittente: l'invio non è ancora disponibile in questo blocco.</div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label" for="description">Descrizione interna</label>
       <textarea class="form-textarea" id="description" name="description" rows="3">{{ old('description', $campaign->description) }}</textarea>
       <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Mai mostrata al destinatario — solo per la redazione.</div>
