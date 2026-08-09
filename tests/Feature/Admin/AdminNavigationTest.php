@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Article;
+use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -62,6 +63,46 @@ class AdminNavigationTest extends TestCase
         $this->assertStringNotContainsString($activeMarker, $nav);
     }
 
+    /**
+     * Verifica lo stato aperto/chiuso del gruppo collassabile (<details>)
+     * la cui <summary> contiene esattamente $label. I gruppi sono fratelli,
+     * mai annidati, quindi un match non-greedy fino al primo </details>
+     * successivo individua correttamente i confini del singolo gruppo.
+     */
+    private function assertGroupOpen(TestResponse $response, string $label): void
+    {
+        $nav = $this->normalizeWhitespace($this->navFragment($response));
+        $pattern = '/<details class="admin-nav__group" open\s*> <summary[^>]*>'.preg_quote($label, '/').'<\/summary>/';
+
+        $this->assertMatchesRegularExpression($pattern, $nav, "Il gruppo \"{$label}\" dovrebbe essere aperto.");
+    }
+
+    private function assertGroupClosed(TestResponse $response, string $label): void
+    {
+        $nav = $this->normalizeWhitespace($this->navFragment($response));
+        $openPattern = '/<details class="admin-nav__group" open\s*> <summary[^>]*>'.preg_quote($label, '/').'<\/summary>/';
+        $closedPattern = '/<details class="admin-nav__group" > <summary[^>]*>'.preg_quote($label, '/').'<\/summary>/';
+
+        $this->assertDoesNotMatchRegularExpression($openPattern, $nav, "Il gruppo \"{$label}\" non dovrebbe essere aperto.");
+        $this->assertMatchesRegularExpression($closedPattern, $nav, "Il gruppo \"{$label}\" dovrebbe comunque essere presente (chiuso).");
+    }
+
+    /**
+     * Estrae il blocco <details>...</details> del gruppo $label (dal
+     * markup con whitespace normalizzato), per verificare quali voci
+     * contiene senza dipendere da quelle degli altri gruppi.
+     */
+    private function groupBlock(TestResponse $response, string $label): string
+    {
+        $nav = $this->normalizeWhitespace($this->navFragment($response));
+        $pattern = '/<details class="admin-nav__group"[^>]*> <summary[^>]*>'.preg_quote($label, '/').'<\/summary>.*?<\/details>/';
+
+        $this->assertMatchesRegularExpression($pattern, $nav, "Impossibile trovare il gruppo \"{$label}\".");
+        preg_match($pattern, $nav, $matches);
+
+        return $matches[0];
+    }
+
     public function test_an_authorized_editor_sees_the_admin_navigation(): void
     {
         $editor = $this->editor();
@@ -95,7 +136,10 @@ class AdminNavigationTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.dashboard'));
         $nav = $this->navFragment($response);
 
-        foreach (['Principale', 'Contenuti', 'Redazione', 'Comunicazione', 'Strumenti', 'Account'] as $group) {
+        foreach ([
+            'Principale', 'Contenuti', 'Redazione', 'Progettazione', 'Comunicazione',
+            'Strumenti', 'Monetizzazione', 'Analisi', 'Sistema', 'Account',
+        ] as $group) {
             $this->assertStringContainsString($group, $nav);
         }
     }
@@ -323,7 +367,7 @@ class AdminNavigationTest extends TestCase
     public function test_the_progettazione_projects_link_is_active_for_nested_project_routes(): void
     {
         $editor = $this->editor();
-        $project = \App\Models\Project::factory()->create();
+        $project = Project::factory()->create();
 
         $response = $this->actingAs($editor)->get(route('admin.progettazione.projects.tasks.create', $project));
 
@@ -339,5 +383,155 @@ class AdminNavigationTest extends TestCase
 
         $projectsResponse = $this->actingAs($editor)->get(route('admin.progettazione.projects.index'));
         $this->assertNavLinkNotActive($projectsResponse, 'admin.progettazione.dashboard');
+    }
+
+    // ── Nuova information architecture: gruppi collassabili ─────────────
+    //
+    // La sidebar precedente aveva un solo gruppo comprimibile ("Strumenti",
+    // contenente Turing, Assistente AI, Statistiche, Attività e Anteprima
+    // newsletter — un insieme eterogeneo senza un criterio comune). La
+    // nuova IA rende comprimibili anche Contenuti/Redazione/Progettazione/
+    // Comunicazione, aggiunge Monetizzazione/Analisi/Sistema come gruppi
+    // dedicati, e sposta Statistiche→Analisi, Attività→Sistema, Anteprima
+    // newsletter→Comunicazione (restano affini a Newsletter). "Strumenti"
+    // resta con solo Turing e Assistente AI (strumenti editoriali AI).
+
+    public function test_only_the_group_containing_the_active_page_is_open(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+
+        // Dashboard e Account non sono raggruppati (sempre visibili, FASE
+        // 5.2 della missione IA): nessun gruppo dovrebbe risultare aperto.
+        foreach ([
+            'Contenuti', 'Redazione', 'Progettazione', 'Comunicazione',
+            'Strumenti', 'Monetizzazione', 'Analisi', 'Sistema',
+        ] as $group) {
+            $this->assertGroupClosed($response, $group);
+        }
+    }
+
+    public function test_the_monetizzazione_group_opens_for_the_ads_page(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.ads'));
+
+        $this->assertGroupOpen($response, 'Monetizzazione');
+        $this->assertNavLinkActive($response, 'admin.ads');
+
+        foreach (['Contenuti', 'Redazione', 'Progettazione', 'Comunicazione', 'Strumenti', 'Analisi', 'Sistema'] as $other) {
+            $this->assertGroupClosed($response, $other);
+        }
+    }
+
+    public function test_the_analisi_group_opens_for_the_stats_page(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.stats'));
+
+        $this->assertGroupOpen($response, 'Analisi');
+        $this->assertNavLinkActive($response, 'admin.stats');
+        $this->assertGroupClosed($response, 'Strumenti');
+    }
+
+    public function test_the_sistema_group_opens_for_the_activity_page(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.activity'));
+
+        $this->assertGroupOpen($response, 'Sistema');
+        $this->assertNavLinkActive($response, 'admin.activity');
+        $this->assertGroupClosed($response, 'Strumenti');
+    }
+
+    public function test_the_comunicazione_group_opens_for_the_newsletter_preview_page(): void
+    {
+        // Anteprima newsletter e' stata spostata da "Strumenti" a
+        // "Comunicazione" (dove vive anche "Newsletter"): verifica che sia
+        // il nuovo gruppo ad aprirsi, non quello vecchio.
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.newsletter.preview'));
+
+        $this->assertGroupOpen($response, 'Comunicazione');
+        $this->assertNavLinkActive($response, 'admin.newsletter.preview');
+        $this->assertGroupClosed($response, 'Strumenti');
+    }
+
+    public function test_the_strumenti_group_only_contains_turing_and_ai_assistant(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.turing'));
+        $block = $this->groupBlock($response, 'Strumenti');
+
+        $this->assertStringContainsString('Turing', $block);
+        $this->assertStringContainsString('Assistente AI', $block);
+        $this->assertStringNotContainsString('Statistiche', $block);
+        $this->assertStringNotContainsString('>Attività<', $block);
+        $this->assertStringNotContainsString('Anteprima newsletter', $block);
+    }
+
+    public function test_the_comunicazione_group_contains_newsletter_preview(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.comunicazione.dashboard'));
+        $block = $this->groupBlock($response, 'Comunicazione');
+
+        $this->assertStringContainsString('Newsletter', $block);
+        $this->assertStringContainsString('Anteprima newsletter', $block);
+    }
+
+    public function test_nav_icons_are_hidden_from_assistive_technology(): void
+    {
+        // L'etichetta testuale accanto a ogni icona e' gia' il nome
+        // accessibile del link: annunciare anche l'emoji duplicherebbe
+        // l'informazione per chi usa uno screen reader.
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+        $nav = $this->navFragment($response);
+
+        $this->assertStringContainsString('<span class="icon" aria-hidden="true">', $nav);
+        $this->assertStringNotContainsString('<span class="icon">', $nav);
+    }
+
+    public function test_nav_labels_are_wrapped_for_compact_mode_visibility_toggling(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+        $nav = $this->navFragment($response);
+
+        $this->assertStringContainsString('<span class="admin-nav__label">Dashboard</span>', $nav);
+    }
+
+    public function test_the_compact_sidebar_toggle_is_present_and_accessible(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+
+        $response->assertSee('data-admin-sidebar-compact-toggle', false);
+        $response->assertSee('aria-pressed="false"', false);
+        $response->assertSee('Comprimi la sidebar', false);
+    }
+
+    public function test_see_site_link_uses_noopener_for_the_new_tab(): void
+    {
+        // target="_blank" senza rel="noopener" lascia alla pagina aperta
+        // accesso a window.opener (tabnabbing) — corretto qui perche' e'
+        // esattamente la riga toccata dal refactor del link "Vedi sito".
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.dashboard'));
+        $nav = $this->normalizeWhitespace($this->navFragment($response));
+
+        $this->assertStringContainsString('target="_blank" rel="noopener"', $nav);
     }
 }
