@@ -69,11 +69,17 @@ di sapere quale piano è realmente attivo, lo espone solo come riferimento.
   --keep=7`, invocato quotidianamente dallo scheduler). Non va ridotta senza
   una decisione esplicita di Andrea — è l'unica rete di sicurezza per il
   database in caso di problemi.
-- **Dati analitici** (`article_views`, `newsletter_opens`, `newsletter_clicks`,
-  `activity_log`): hanno valore editoriale/storico. Qualunque proposta di
-  retention o aggregazione richiede una decisione di prodotto (privacy,
-  valore storico dei dati) — vedi §7, non è mai un'azione da eseguire in
-  autonomia.
+- **Dati analitici** (`article_views`, `article_daily_views`,
+  `newsletter_opens`, `newsletter_clicks`, `activity_log`): hanno valore
+  editoriale/storico. **`article_daily_views` in particolare non è solo
+  uno storico "di riserva"**: è la fonte dati esclusiva letta da
+  `ArticleAnalyticsService` per le serie a 7/30/90 giorni, i totali e le
+  classifiche mostrate nella dashboard — eliminarla o svuotarla cancella
+  le analitiche visibili oggi agli editor, anche se `article_views` (il
+  log grezzo per-pageview da cui è aggregata) restasse intatto. Qualunque
+  proposta di retention o aggregazione richiede una decisione di prodotto
+  (privacy, valore storico dei dati) — vedi §7, non è mai un'azione da
+  eseguire in autonomia.
 - **File nella radice pubblica secondaria** (`MEDIA_PUBLIC_ROOT`, quando
   configurata): è un mirror best-effort gestito da `PublicMediaSyncService`,
   non una directory da toccare a mano.
@@ -115,9 +121,21 @@ L'audit riporta tre stati possibili:
 
 **Conferma definitiva (verificata leggendo il codice di
 `ImageService::resizeAndCompress()`, non per deduzione): oggi Kairus non
-converte mai automaticamente JPG/PNG in WebP.** Ogni immagine viene
-ridimensionata e ricompressa sempre nello stesso formato in cui è stata
-caricata — mai una conversione di formato.
+converte mai automaticamente JPG/PNG in WebP.** Quando un'immagine viene
+ridimensionata o ricompressa, resta sempre nello stesso formato in cui è
+stata caricata — mai una conversione di formato.
+
+**Attenzione: non tutti gli upload vengono davvero ridimensionati o
+ricompressi.** Non è corretto assumere, interpretando la crescita dei
+media, che ogni file su disco sia già ottimizzato:
+
+- Le pagine speciali di Turing (`Admin\TuringController`) non chiamano mai
+  `resizeAndCompress()`: il file viene salvato esattamente come caricato
+  (fino a 16 MB per upload), senza alcun ridimensionamento o
+  ricompressione.
+- `Admin\CategoryController` usa `alwaysReencode: false`: un'immagine già
+  sotto i 1200px di larghezza non viene ricompressa affatto, resta
+  byte-per-byte identica all'originale caricato.
 
 Policy consigliata per i **nuovi** upload (nessun cambiamento di codice
 implicato, solo una linea guida editoriale):
@@ -150,13 +168,36 @@ essere transazionale e mai lasciare un articolo senza copertina:
    solo i percorsi nell'allowlist di `ScansJsonContentLeaves`) vanno
    riscritti come sostituzione di stringa, con lo stesso rischio di falsi
    positivi già noto a `MediaReferenceService` per quei campi.
-4. Solo dopo che *tutti* i riferimenti sono stati aggiornati con successo,
-   sincronizzare la nuova copia su `MEDIA_PUBLIC_ROOT` (se configurata) ed
-   eliminare il vecchio file — mai prima, per non lasciare mai una finestra
-   in cui un riferimento punta a un file che non esiste più.
-5. In caso di fallimento in un punto qualsiasi: rollback della transazione
-   DB, il file originale resta intatto e valido — nessun articolo si trova
-   mai senza immagine.
+   **Ogni `disk_name` presente in `config('media.protected_disk_names')`
+   va escluso a priori dalla conversione** (mai processato, nemmeno
+   proposto): sono riferimenti hardcoded fuori dal database — in
+   controller, viste Blade o seeder — che nessuna scansione a runtime può
+   scoprire. Esempio reale già presente nel codice:
+   `resources/views/turing/partials/hero.blade.php:17` referenzia
+   `turing/portraits/alan-turing-portrait.png` direttamente nel markup;
+   convertirlo e rimuovere l'originale romperebbe l'hero di Turing anche
+   se ogni riferimento DB fosse stato aggiornato correttamente. La lista
+   in `protected_disk_names` esiste proprio per questo ed è l'unica difesa
+   possibile finché resta manuale.
+4. **La cancellazione del vecchio file non è mai rollback-abile insieme
+   alla transazione DB** — sono due sistemi distinti, non un'unica unità
+   atomica. L'ordine corretto è: (a) commit della transazione DB con tutti
+   i riferimenti aggiornati al nuovo `disk_name`; (b) solo dopo che il
+   commit è confermato durevole, sincronizzare la nuova copia su
+   `MEDIA_PUBLIC_ROOT` (se configurata) ed eliminare il vecchio file. Se il
+   commit fallisce, si interrompe prima del passo (b): il vecchio file
+   resta semplicemente intatto, nessun riferimento è mai stato spostato.
+   Se invece il commit riesce ma l'eliminazione del vecchio file fallisce
+   (es. permessi, I/O): non è un problema di coerenza dei riferimenti (già
+   tutti validi e puntano al nuovo file) — è un file ormai orfano da
+   ripulire con un intervento successivo (lo stesso `storage:audit`
+   lo segnalerebbe), non un articolo rotto.
+5. Il file originale resta sempre intatto e valido fino al passo 4(b): non
+   esiste una finestra in cui un riferimento punta a un file inesistente,
+   e nessun articolo si trova mai senza immagine — ma questa garanzia
+   dipende dal rispettare rigorosamente l'ordine del punto 4, non da un
+   generico "rollback" che tratti DB e filesystem come un'unica
+   transazione (non lo sono).
 
 Questo resta un **prerequisito progettuale**, non un'implementazione: una
 conversione di massa è esplicitamente fuori scope per l'audit ed è
@@ -266,10 +307,11 @@ priorità massima allo stato attuale (utilizzo ~23% del budget).
   `logErrors`, con conseguente compressione più debole e nessun log in caso
   di errore GD — allineabile agli altri 3 flussi senza cambi di
   comportamento visibile.
-- **`TuringController`: estensione da MIME, non dal client**: unico flusso a
-  usare `getClientOriginalExtension()` invece di
-  `ImageService::safeExtension()` (MIME-sniffed) — allineabile per
-  coerenza con gli altri flussi.
+- **Estensione da MIME, non dal client, anche in `TuringController` e
+  `CategoryController`**: entrambi i flussi usano
+  `getClientOriginalExtension()` invece di `ImageService::safeExtension()`
+  (MIME-sniffed) — gli unici due su 6 flussi di upload totali. Allineabile
+  per coerenza con gli altri 4, che già usano il rilevamento MIME.
 - **Verifica del worker di coda in produzione**: `SendNewsletterJob` è
   `ShouldQueue`, ma l'unico `queue:listen` nel repository è nello script di
   sviluppo locale (`composer dev`) — da verificare se in produzione
@@ -286,7 +328,10 @@ priorità massima allo stato attuale (utilizzo ~23% del budget).
   componente di crescita più a rischio nel lungo periodo (§6), ma qualunque
   proposta tocca dati con valore analitico/editoriale e privacy (IP hash,
   user agent) — richiede sempre una decisione esplicita, mai un'azione
-  automatica.
+  automatica. Una eventuale retention del solo log grezzo `article_views`
+  dovrebbe comunque preservare `article_daily_views` (l'aggregato già
+  usato dalla dashboard, vedi §3), altrimenti si perderebbero le
+  analitiche visibili oggi, non solo lo storico grezzo.
 - **Conversione legacy a WebP** (vedi §5): beneficio potenzialmente
   significativo sui PNG fotografici più pesanti della libreria, ma riscrive
   dati di produzione — richiede decisione esplicita e l'implementazione
