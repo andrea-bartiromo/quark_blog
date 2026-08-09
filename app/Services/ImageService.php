@@ -435,6 +435,90 @@ class ImageService
         return $extension;
     }
 
+    /**
+     * Restituisce $path con l'estensione sostituita, preservando
+     * directory e basename. Path-agnostico (funziona sia su path
+     * assoluti che su disk_name relativi): usato ovunque un nome file
+     * debba "diventare .webp" senza toccare il resto del percorso.
+     */
+    public function changeExtension(string $path, string $newExtension): string
+    {
+        $dir = dirname($path);
+        $base = pathinfo($path, PATHINFO_FILENAME);
+        $prefix = ($dir === '.' || $dir === '') ? '' : $dir.'/';
+
+        return $prefix.$base.'.'.ltrim(strtolower(trim($newExtension)), '.');
+    }
+
+    /**
+     * Politica per i NUOVI upload editoriali (FASE 5): se il formato lo
+     * consente (JPG/PNG, mai WebP-gia'-tale ne' GIF), converte il file
+     * appena caricato in WebP e sostituisce l'originale sullo stesso
+     * percorso (stesso basename, estensione .webp) — cosi' i nuovi
+     * upload smettono di crescere lo storage in formati piu' pesanti,
+     * senza toccare nulla del catalogo editoriale gia' esistente (quello
+     * resta compito della migrazione legacy separata).
+     *
+     * Degrado sicuro e deliberatamente conservativo: se la conversione
+     * fallisce per qualunque motivo (encoder assente, file corrotto,
+     * scrittura fallita), il file originale caricato resta intatto e
+     * invariato — il chiamante deve semplicemente procedere con
+     * l'ottimizzazione nello stesso formato (resizeAndCompress()) come
+     * faceva prima dell'introduzione di questo metodo. Non solleva mai
+     * un'eccezione: un problema di conversione WebP non deve mai far
+     * fallire un upload che altrimenti sarebbe riuscito.
+     *
+     * @return array{full_path: string, ext: string, mime_type: string, webp_applied: bool}
+     */
+    public function autoConvertToWebpIfEligible(
+        string $fullPath,
+        string $ext,
+        int $webpQuality,
+        int $webpMaxWidth,
+    ): array {
+        $ext = strtolower(trim($ext, '. '));
+        $mimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+        ];
+
+        $unchanged = [
+            'full_path' => $fullPath,
+            'ext' => $ext,
+            'mime_type' => $mimeTypes[$ext] ?? 'application/octet-stream',
+            'webp_applied' => false,
+        ];
+
+        if (! in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+            return $unchanged;
+        }
+
+        $webpPath = $this->changeExtension($fullPath, 'webp');
+
+        try {
+            $this->convertToWebp($fullPath, $webpPath, $webpQuality, $webpMaxWidth);
+        } catch (\Throwable $exception) {
+            Log::warning('ImageService: conversione automatica a WebP fallita, mantengo il formato originale.', [
+                'full_path' => $fullPath,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return $unchanged;
+        }
+
+        @unlink($fullPath);
+
+        return [
+            'full_path' => $webpPath,
+            'ext' => 'webp',
+            'mime_type' => 'image/webp',
+            'webp_applied' => true,
+        ];
+    }
+
     // ────────────────────────────────────────────────────────────────
     // Conversione WebP (media:webp-audit / media:convert-webp)
     //
