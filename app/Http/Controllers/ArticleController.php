@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
 use App\Services\ArticleViewTrackingService;
 
@@ -54,7 +55,21 @@ class ArticleController extends Controller
         $article = Article::published()
             ->where('slug', $slug)
             ->with('author', 'comments')
-            ->firstOrFail();
+            ->first();
+
+        if (! $article) {
+            $redirect = ArticleSlugRedirect::where('old_slug', $slug)->first();
+
+            // Stessa definizione di "pubblicamente visibile" usata sopra
+            // (published() applica anche il controllo su published_at):
+            // 301 solo se l'articolo di destinazione è davvero raggiungibile
+            // ora, altrimenti si ricade nel normale 404.
+            $target = $redirect ? Article::published()->find($redirect->article_id) : null;
+
+            abort_unless($target, 404);
+
+            return redirect()->route('articolo', $target->slug, 301);
+        }
 
         $sessionKey = 'article_viewed_'.$article->id;
 

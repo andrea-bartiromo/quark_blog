@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectPrompt;
 use App\Models\ProjectTask;
 use App\Models\User;
@@ -65,6 +66,31 @@ class ProjectPromptControllerTest extends TestCase
             ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'prompts']));
 
         $this->assertDatabaseMissing('project_prompts', ['id' => $prompt->id]);
+    }
+
+    // ── Audit 0, gap #2: Cronologia sulla cancellazione ──────────────
+
+    public function test_deleting_a_prompt_records_it_in_the_activity_log_and_the_entry_survives_the_deletion(): void
+    {
+        $project = Project::factory()->create();
+        $prompt = ProjectPrompt::factory()->for($project)->create(['title' => 'Prompt da eliminare']);
+        $editor = $this->editor();
+
+        $this->actingAs($editor)
+            ->delete(route('admin.progettazione.projects.prompts.destroy', [$project, $prompt]))
+            ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'prompts']));
+
+        $this->assertDatabaseMissing('project_prompts', ['id' => $prompt->id]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'subject_type' => 'prompt',
+            'subject_id' => $prompt->id,
+            'subject_title' => 'Prompt da eliminare',
+            'action' => 'Prompt eliminato',
+            'source' => ProjectActivityLog::SOURCE_MANUAL,
+            'user_id' => $editor->id,
+        ]);
     }
 
     public function test_editor_can_link_a_prompt_to_a_task_of_the_same_project(): void

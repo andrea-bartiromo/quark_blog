@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Pubblicità e collaborazioni — Kairus')
 @section('description', 'Collabora con Kairus. Opportunità pubblicitarie e partnership per raggiungere un pubblico scientifico qualificato.')
+@section('canonical', route('pubblicita'))
 
 @section('content')
 <div class="public-page public-page--advertising">

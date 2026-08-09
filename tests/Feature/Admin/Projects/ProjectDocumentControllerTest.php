@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,6 +72,31 @@ class ProjectDocumentControllerTest extends TestCase
             ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'documents']));
 
         $this->assertDatabaseMissing('project_documents', ['id' => $document->id]);
+    }
+
+    // ── Audit 0, gap #2: Cronologia sulla cancellazione ──────────────
+
+    public function test_deleting_a_document_records_it_in_the_activity_log_and_the_entry_survives_the_deletion(): void
+    {
+        $project = Project::factory()->create();
+        $document = ProjectDocument::factory()->for($project)->create(['title' => 'Documento da eliminare']);
+        $editor = $this->editor();
+
+        $this->actingAs($editor)
+            ->delete(route('admin.progettazione.projects.documents.destroy', [$project, $document]))
+            ->assertRedirect(route('admin.progettazione.projects.show', [$project, 'tab' => 'documents']));
+
+        $this->assertDatabaseMissing('project_documents', ['id' => $document->id]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'subject_type' => 'document',
+            'subject_id' => $document->id,
+            'subject_title' => 'Documento da eliminare',
+            'action' => 'Documento eliminato',
+            'source' => ProjectActivityLog::SOURCE_MANUAL,
+            'user_id' => $editor->id,
+        ]);
     }
 
     /**

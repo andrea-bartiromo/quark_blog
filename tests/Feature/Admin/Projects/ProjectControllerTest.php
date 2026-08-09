@@ -114,6 +114,112 @@ class ProjectControllerTest extends TestCase
         $this->assertSame('titolo-originale', $project->fresh()->slug);
     }
 
+    // ── Audit 0, gap #1: Cronologia su modifica titolo/priorità ──────
+
+    public function test_updating_only_the_title_is_recorded_in_the_activity_log(): void
+    {
+        $project = Project::factory()->create(['title' => 'Titolo originale']);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => 'Titolo aggiornato',
+            'type' => $project->type,
+            'operational_status' => $project->operational_status,
+            'priority' => $project->priority,
+        ]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Titolo progetto cambiato da «Titolo originale» a «Titolo aggiornato»',
+            'old_value' => 'Titolo originale',
+            'new_value' => 'Titolo aggiornato',
+        ]);
+    }
+
+    public function test_updating_only_the_priority_is_recorded_in_the_activity_log(): void
+    {
+        $project = Project::factory()->create(['priority' => Project::PRIORITY_MEDIUM]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => $project->type,
+            'operational_status' => $project->operational_status,
+            'priority' => Project::PRIORITY_CRITICAL,
+        ]);
+
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Priorità progetto cambiata da «Media» a «Critica»',
+            'old_value' => Project::PRIORITY_MEDIUM,
+            'new_value' => Project::PRIORITY_CRITICAL,
+        ]);
+    }
+
+    public function test_updating_a_project_without_changing_title_or_priority_creates_no_spurious_log_entries(): void
+    {
+        $project = Project::factory()->create([
+            'title' => 'Titolo invariato',
+            'priority' => Project::PRIORITY_MEDIUM,
+            'operational_status' => Project::STATUS_IDEA,
+        ]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => 'Titolo invariato',
+            'type' => $project->type,
+            'operational_status' => Project::STATUS_IDEA,
+            'priority' => Project::PRIORITY_MEDIUM,
+        ]);
+
+        $this->assertSame(0, ProjectActivityLog::where('project_id', $project->id)->count());
+    }
+
+    public function test_updating_only_operational_status_via_the_full_form_keeps_the_existing_log_message_format(): void
+    {
+        $project = Project::factory()->create(['operational_status' => Project::STATUS_IDEA]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => $project->title,
+            'type' => $project->type,
+            'operational_status' => Project::STATUS_IN_PROGRESS,
+            'priority' => $project->priority,
+        ]);
+
+        $this->assertSame(1, ProjectActivityLog::where('project_id', $project->id)->count());
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Stato progetto cambiato da «Idea» a «In lavorazione»',
+        ]);
+    }
+
+    public function test_changing_title_priority_and_status_together_creates_three_separate_log_entries(): void
+    {
+        $project = Project::factory()->create([
+            'title' => 'Titolo originale',
+            'priority' => Project::PRIORITY_MEDIUM,
+            'operational_status' => Project::STATUS_IDEA,
+        ]);
+
+        $this->actingAs($this->editor())->put(route('admin.progettazione.projects.update', $project), [
+            'title' => 'Titolo aggiornato',
+            'type' => $project->type,
+            'operational_status' => Project::STATUS_IN_PROGRESS,
+            'priority' => Project::PRIORITY_CRITICAL,
+        ]);
+
+        $this->assertSame(3, ProjectActivityLog::where('project_id', $project->id)->count());
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Titolo progetto cambiato da «Titolo originale» a «Titolo aggiornato»',
+        ]);
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Priorità progetto cambiata da «Media» a «Critica»',
+        ]);
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'action' => 'Stato progetto cambiato da «Idea» a «In lavorazione»',
+        ]);
+    }
+
     public function test_quick_status_change_updates_status_without_the_full_form(): void
     {
         $project = Project::factory()->create(['operational_status' => Project::STATUS_IDEA]);

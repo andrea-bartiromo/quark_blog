@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'La redazione — Kairus')
 @section('description', 'Conosci la redazione di Kairus. Giornalisti e divulgatori scientifici appassionati che raccontano la scienza ogni giorno.')
+@section('canonical', route('redazione'))
 
 @section('content')
 <div class="container" style="padding-block:3rem;max-width:800px;">
