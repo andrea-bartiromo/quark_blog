@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateProjectPromptRequest;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectPrompt;
+use Illuminate\Support\Facades\DB;
 
 class ProjectPromptController extends Controller
 {
@@ -94,7 +95,22 @@ class ProjectPromptController extends Controller
 
     public function destroy(Project $project, ProjectPrompt $prompt)
     {
-        $prompt->delete();
+        // Vedi commento in ProjectTaskController::destroy(): stessa ragione
+        // per la transazione (nessuna FK reale su subject_id, la entry
+        // sopravvive comunque — la transazione garantisce solo che log e
+        // delete non possano divergere).
+        DB::transaction(function () use ($project, $prompt) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'prompt',
+                subjectId: $prompt->id,
+                subjectTitle: $prompt->title,
+                action: 'Prompt eliminato',
+                userId: auth()->id(),
+            );
+
+            $prompt->delete();
+        });
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'prompts'])->with('success', 'Prompt eliminato.');
     }

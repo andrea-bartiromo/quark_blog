@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateProjectDecisionRequest;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectDecision;
+use Illuminate\Support\Facades\DB;
 
 class ProjectDecisionController extends Controller
 {
@@ -85,7 +86,22 @@ class ProjectDecisionController extends Controller
 
     public function destroy(Project $project, ProjectDecision $decision)
     {
-        $decision->delete();
+        // Vedi commento in ProjectTaskController::destroy(): stessa ragione
+        // per la transazione (nessuna FK reale su subject_id, la entry
+        // sopravvive comunque — la transazione garantisce solo che log e
+        // delete non possano divergere).
+        DB::transaction(function () use ($project, $decision) {
+            ProjectActivityLog::record(
+                project: $project,
+                subjectType: 'decision',
+                subjectId: $decision->id,
+                subjectTitle: $decision->title,
+                action: 'Decisione eliminata',
+                userId: auth()->id(),
+            );
+
+            $decision->delete();
+        });
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'decisions'])->with('success', 'Decisione eliminata.');
     }
