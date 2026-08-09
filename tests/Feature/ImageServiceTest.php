@@ -404,6 +404,49 @@ class ImageServiceTest extends TestCase
         $this->assertSame(1600, $info[0]);
     }
 
+    // ── 12b. WebP non supportato dal build GD ───────────────────────────
+
+    public function test_webp_resize_degrades_safely_when_gd_lacks_webp_read_support(): void
+    {
+        // Riproduce esattamente il ramo reale di createImageResource() per
+        // 'webp' quando imagecreatefromwebp() non esiste in questo build
+        // GD (`function_exists('imagecreatefromwebp') ? ... : false`): la
+        // sottoclasse restituisce `false` invece di lanciare, cosi' come
+        // farebbe il codice di produzione su quel build, non un errore
+        // generico — vedi anche il test "genuine GD failure" sopra, che
+        // copre invece il caso di un'eccezione realmente sollevata da GD.
+        $service = new class extends ImageService
+        {
+            protected function createImageResource(string $path, string $ext)
+            {
+                return strtolower($ext) === 'webp' ? false : parent::createImageResource($path, $ext);
+            }
+        };
+
+        $file = $this->makeSolidImageUpload('photo.webp', 2000, 1000, 'webp');
+        $destination = $this->tempDir.'/assets/img';
+        mkdir($destination, 0775, true);
+        $fullPath = $service->upload($file, $destination, 'photo.webp');
+        $originalBytes = file_get_contents($fullPath);
+
+        Log::spy();
+
+        // Preset Admin\MediaController (logErrors=true): l'immagine e' piu'
+        // larga di maxWidth, quindi il ramo di resize chiama davvero
+        // createImageResource() prima di ridimensionare.
+        $service->resizeAndCompress(
+            $fullPath, 'webp', 1600, ['jpg' => 82, 'png' => 7, 'webp' => 82],
+            preserveTransparency: true, alwaysReencode: true, logErrors: true
+        );
+
+        // Nessuna eccezione propagata al chiamante, file originale intatto:
+        // la stessa garanzia di sicurezza degli altri fallimenti GD, non un
+        // comportamento speciale per WebP.
+        $this->assertFileExists($fullPath);
+        $this->assertSame($originalBytes, file_get_contents($fullPath));
+        Log::shouldHaveReceived('warning')->once();
+    }
+
     // ── 13. GD non disponibile (limite documentato) ────────────────────
 
     public function test_resize_is_a_safe_no_op_when_the_target_file_does_not_exist(): void
