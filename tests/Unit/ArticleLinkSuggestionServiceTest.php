@@ -109,6 +109,7 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $target = $this->article([
             'title' => 'Cronaca cittadina di ieri',
             'excerpt' => 'Fatti locali della settimana',
+            'body' => '<p>Resoconto degli eventi principali avvenuti in città.</p>',
             'category' => 'energia',
         ]);
 
@@ -451,6 +452,7 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $target = $this->article([
             'title' => 'Cronaca cittadina di ieri',
             'excerpt' => 'Fatti locali della settimana.',
+            'body' => '<p>Resoconto degli eventi principali avvenuti in città.</p>',
             'category' => 'energia',
         ]);
 
