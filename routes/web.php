@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\Communication\CommunicationCampaignController;
 use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
+use App\Http\Controllers\Admin\Communication\CommunicationSenderProfileController;
 use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaController;
@@ -280,6 +281,16 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::post('/template/{template}/archivia', [CommunicationTemplateController::class, 'archive'])->name('templates.archive');
         Route::delete('/template/{template}', [CommunicationTemplateController::class, 'destroy'])->name('templates.destroy');
         Route::get('/template/{template}/anteprima', [CommunicationTemplateController::class, 'preview'])->name('templates.preview');
+
+        // Mittenti (Comunicazione B4A — sola identità di invio, nessun invio email)
+        Route::get('/mittenti', [CommunicationSenderProfileController::class, 'index'])->name('sender-profiles.index');
+        Route::get('/mittenti/nuovo', [CommunicationSenderProfileController::class, 'create'])->name('sender-profiles.create');
+        Route::post('/mittenti', [CommunicationSenderProfileController::class, 'store'])->name('sender-profiles.store');
+        Route::get('/mittenti/{senderProfile}', [CommunicationSenderProfileController::class, 'show'])->name('sender-profiles.show');
+        Route::get('/mittenti/{senderProfile}/modifica', [CommunicationSenderProfileController::class, 'edit'])->name('sender-profiles.edit');
+        Route::put('/mittenti/{senderProfile}', [CommunicationSenderProfileController::class, 'update'])->name('sender-profiles.update');
+        Route::post('/mittenti/{senderProfile}/archivia', [CommunicationSenderProfileController::class, 'archive'])->name('sender-profiles.archive');
+        Route::delete('/mittenti/{senderProfile}', [CommunicationSenderProfileController::class, 'destroy'])->name('sender-profiles.destroy');
     });
 });
 

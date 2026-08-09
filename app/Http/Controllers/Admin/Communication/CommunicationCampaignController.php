@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreCommunicationCampaignRequest;
 use App\Http\Requests\Admin\UpdateCommunicationCampaignRequest;
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
+use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
 use Illuminate\Http\Request;
@@ -49,6 +50,7 @@ class CommunicationCampaignController extends Controller
             'campaign' => $campaign,
             'projectOptions' => $this->projectOptions(),
             'templateOptions' => $this->templateOptions(),
+            'senderProfileOptions' => $this->senderProfileOptions(),
             'selectedTemplateId' => $selectedTemplateId,
             'selectedTemplateVersionId' => $selectedTemplateVersionId,
             'prefill' => $prefill,
@@ -82,7 +84,7 @@ class CommunicationCampaignController extends Controller
 
     public function show(Request $request, CommunicationCampaign $campaign)
     {
-        $campaign->load(['project', 'createdBy', 'updatedBy', 'template', 'templateVersion']);
+        $campaign->load(['project', 'createdBy', 'updatedBy', 'template', 'templateVersion', 'senderProfile']);
 
         $activeTab = $request->string('tab')->value() ?: 'overview';
 
@@ -107,6 +109,7 @@ class CommunicationCampaignController extends Controller
             'campaign' => $campaign,
             'projectOptions' => $this->projectOptions(),
             'templateOptions' => $this->templateOptions(),
+            'senderProfileOptions' => $this->senderProfileOptions(),
             'selectedTemplateId' => $selectedTemplateId,
             'selectedTemplateVersionId' => $selectedTemplateVersionId,
             'prefill' => $prefill,
@@ -237,6 +240,11 @@ class CommunicationCampaignController extends Controller
     private function templateOptions()
     {
         return CommunicationTemplate::active()->orderBy('name')->get(['id', 'name']);
+    }
+
+    private function senderProfileOptions()
+    {
+        return CommunicationSenderProfile::active()->orderBy('name')->get(['id', 'name', 'from_email']);
     }
 
     private function projectOptions()

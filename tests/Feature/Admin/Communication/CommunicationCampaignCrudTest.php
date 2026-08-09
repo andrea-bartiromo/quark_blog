@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Communication;
 
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
+use App\Models\CommunicationSenderProfile;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,6 +129,49 @@ class CommunicationCampaignCrudTest extends TestCase
         $this->actingAs($this->editor())->post(route('admin.comunicazione.campaigns.store'), $this->validPayload());
 
         $this->assertNull(CommunicationCampaign::firstOrFail()->project_id);
+    }
+
+    // ── Mittente (Comunicazione B4A) ────────────────────────────
+
+    public function test_creating_a_campaign_can_link_it_to_a_sender_profile(): void
+    {
+        $senderProfile = CommunicationSenderProfile::factory()->create();
+
+        $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.store'), $this->validPayload(['sender_profile_id' => $senderProfile->id]));
+
+        $campaign = CommunicationCampaign::firstOrFail();
+        $this->assertSame($senderProfile->id, $campaign->sender_profile_id);
+        $this->assertTrue($campaign->senderProfile->is($senderProfile));
+    }
+
+    public function test_creating_a_campaign_without_a_sender_profile_leaves_it_nullable(): void
+    {
+        $this->actingAs($this->editor())->post(route('admin.comunicazione.campaigns.store'), $this->validPayload());
+
+        $this->assertNull(CommunicationCampaign::firstOrFail()->sender_profile_id);
+    }
+
+    public function test_sender_profile_id_must_reference_an_existing_sender_profile(): void
+    {
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.store'), $this->validPayload(['sender_profile_id' => 999999]));
+
+        $response->assertSessionHasErrors('sender_profile_id');
+        $this->assertDatabaseCount('comm_campaigns', 0);
+    }
+
+    public function test_an_editor_can_change_the_sender_profile_of_an_existing_campaign(): void
+    {
+        $campaign = CommunicationCampaign::factory()->create();
+        $senderProfile = CommunicationSenderProfile::factory()->create();
+
+        $this->actingAs($this->editor())->put(
+            route('admin.comunicazione.campaigns.update', $campaign),
+            $this->validPayload(['sender_profile_id' => $senderProfile->id])
+        );
+
+        $this->assertSame($senderProfile->id, $campaign->fresh()->sender_profile_id);
     }
 
     public function test_title_is_required(): void

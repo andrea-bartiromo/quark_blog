@@ -69,6 +69,16 @@
         <dd style="margin:.2rem 0 0;font-weight:600;">{{ $campaign->project?->title ?? '—' }}</dd>
       </div>
       <div>
+        <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Mittente</dt>
+        <dd style="margin:.2rem 0 0;font-weight:600;">
+          @if($campaign->senderProfile)
+            <a href="{{ route('admin.comunicazione.sender-profiles.show', $campaign->senderProfile) }}">{{ $campaign->senderProfile->name }}</a>
+          @else
+            —
+          @endif
+        </dd>
+      </div>
+      <div>
         <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Autore</dt>
         <dd style="margin:.2rem 0 0;font-weight:600;">{{ $campaign->createdBy?->name ?? '—' }}</dd>
       </div>
