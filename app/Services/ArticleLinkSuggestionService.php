@@ -9,26 +9,75 @@ use Illuminate\Support\Str;
 
 /**
  * Genera suggerimenti di collegamento interno tra articoli con un ranking
- * deterministico e trasparente — nessuna chiamata AI esterna. Ogni
- * suggerimento è sempre una PROPOSTA persistita con stato 'proposed': non
- * scrive mai nel body dell'articolo (quello è
+ * deterministico e trasparente — nessuna chiamata AI esterna, nessun
+ * embedding. Ogni suggerimento è sempre una PROPOSTA persistita con stato
+ * 'proposed': non scrive mai nel body dell'articolo (quello è
  * App\Services\ArticleLinkInsertionService, invocato solo su azione umana
  * esplicita "Inserisci").
  *
- * Punteggio (0-100, soglia minima 30 per essere proposto):
- *   - +50 se il TITOLO dell'articolo target compare per intero nel testo
- *     sorgente (segnale forte e specifico — quasi sempre >= soglia da solo);
- *   - +15 per ciascun termine significativo condiviso tra il testo sorgente
- *     e titolo/sommario del target (fino a 3 termini, +45 max);
- *   - +10 se sorgente e target condividono la stessa categoria (mai da
- *     solo sufficiente a superare la soglia: evita corrispondenze basate
- *     solo su "stessa categoria" senza alcun segnale testuale reale).
+ * Punteggio (0-100, soglia minima 40 per essere proposto — MIN_SCORE_THRESHOLD),
+ * composto da quattro segnali indipendenti, sommati:
+ *   - LEXICAL RELEVANCE — titolo: +50 se il TITOLO dell'articolo target
+ *     compare per intero nel testo sorgente (segnale forte, quasi sempre
+ *     >= soglia da solo);
+ *   - LEXICAL RELEVANCE — termini: +15 per ciascun termine condiviso (fino
+ *     a 3, +45 max) tra il testo sorgente e titolo+excerpt+un estratto del
+ *     body del target (vedi extractTargetTerms());
+ *   - SPECIFICITY (V2, Ago 2026) — ciascun termine condiviso vale i +15
+ *     pieni solo se "specifico" (compare in meno del 20% del pool di
+ *     candidati analizzato in questa chiamata — vedi
+ *     GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO); un termine "generico"
+ *     ("nuove", "tecnologie", "settore" — onnipresenti in testi editoriali
+ *     "stato dell'arte") vale solo +5 (TERM_MATCH_SCORE_GENERIC). Disattivo
+ *     sotto MIN_CORPUS_SIZE_FOR_SPECIFICITY candidati (segnale statistico
+ *     non significativo su un pool troppo piccolo);
+ *   - CATEGORY BONUS — +10 se sorgente e target condividono la categoria
+ *     (mai da solo sufficiente a superare la soglia).
  *
- * L'anchor text proposta è SEMPRE una frase già presente nel testo sorgente
- * (il titolo del target se vi compare, altrimenti il termine condiviso più
- * lungo trovato) — mai una frase generata o generica: soddisfa il
- * requisito di non introdurre anchor artificiali ("clicca qui" e simili
- * sono strutturalmente impossibili con questo approccio).
+ * Esempi (vedi anche tests/Feature/InternalLinkingQualityTest.php):
+ *   - Sole → Betelgeuse: termini specifici condivisi (betelgeuse,
+ *     luminosità, supernova) → score alto, anchor "Betelgeuse" (specifico,
+ *     non un sostantivo generico più lungo);
+ *   - relatività → GPS: cross-category, termini specifici condivisi
+ *     (relativistica, orologi, atomici) → suggerito nonostante categorie
+ *     diverse (il bonus categoria non è mai un gate);
+ *   - "tecnologia spaziale" → "tecnologia medica": condividono solo
+ *     "nuove"/"tecnologie"/"prossimi" — tutti classificati generici nel
+ *     pool → punteggio insufficiente, NON suggerito (V1 lo suggeriva
+ *     erroneamente, score 45, anchor "tecnologie");
+ *   - CRISPR-Cas9 → mRNA: nessun termine letteralmente condiviso nei testi
+ *     → NON suggerito, limite lessicale accettato (nessuna similarità
+ *     semantica in questa versione, per design).
+ *
+ * ANCHOR QUALITY (V2): tra i termini condivisi, l'anchor preferisce quelli
+ * "specifici" (stesso segnale di cui sopra) — la lunghezza resta solo lo
+ * spareggio finale fra termini della stessa classe, non più il criterio
+ * primario (V1). L'anchor text proposta resta SEMPRE una frase già
+ * presente nel testo sorgente (il titolo del target se vi compare,
+ * altrimenti il termine condiviso più specifico trovato) — mai una frase
+ * generata: "clicca qui" e simili restano strutturalmente impossibili.
+ *
+ * SIMMETRIA (V2): includere una porzione del body del target
+ * (TARGET_BODY_EXCERPT_CHARS) nell'estrazione termini, oltre a
+ * titolo+excerpt, riduce l'asimmetria per cui A→B trovava un
+ * collegamento che B→A non trovava (il vocabolario condiviso compariva
+ * nel body del target ma mai nel suo titolo/excerpt). Non elimina
+ * l'asimmetria in ogni caso (dipende comunque da dove nel testo compare
+ * il vocabolario condiviso), ma la riduce nei casi osservati empiricamente.
+ *
+ * NORMALIZZAZIONE MORFOLOGICA (V2): famiglie molto conservative
+ * (satellite/satellitare/satelliti/satellitari) riconosciute solo tramite
+ * un prefisso condiviso di almeno 8 caratteri (vedi
+ * shareConservativeStem()) — non uno stemmer linguistico, nessuna regola
+ * su suffissi/desinenze italiane.
+ *
+ * LIMITI NOTI, non risolti in questa versione (fuori scope, richiederebbero
+ * nuova infrastruttura): nessuna similarità semantica/embedding (due
+ * articoli concettualmente collegati ma senza vocabolario letterale
+ * condiviso non vengono mai suggeriti); l'anchor resta sempre una singola
+ * parola o il titolo del target, mai una locuzione multi-parola costruita
+ * dai termini condivisi; l'asimmetria A→B/B→A non è eliminata in ogni
+ * caso, solo ridotta.
  */
 class ArticleLinkSuggestionService
 {
@@ -56,6 +105,62 @@ class ArticleLinkSuggestionService
     private const MIN_TITLE_LENGTH_FOR_PHRASE_MATCH = 8;
 
     private const CONTEXT_WINDOW_CHARS = 60;
+
+    /**
+     * V2 — segnale di specificità lessicale (Ago 2026, audit su 32 casi
+     * empirici). Un termine condiviso che ricorre in più di questa quota
+     * del pool di candidati analizzato non è un segnale di pertinenza
+     * reale ("nuove", "tecnologie", "settore" compaiono in praticamente
+     * ogni articolo "stato dell'arte") — vedi buildDocumentFrequency().
+     * Calcolato deterministicamente dal corpus dei candidati ad ogni
+     * chiamata di analyzeForSource()/analyzeForNewTarget(), nessuna
+     * persistenza, nessuna infrastruttura nuova.
+     */
+    private const GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO = 0.20;
+
+    /**
+     * Con pochi candidati nel pool la frequenza documentale non è un
+     * campione statisticamente significativo: con un solo candidato,
+     * qualunque termine che condivide con il target avrebbe frequenza
+     * 100% e verrebbe classificato generico anche se realmente
+     * distintivo. Sotto questa soglia la classificazione resta disattivata
+     * (tutti i termini "specifici", stesso comportamento di corpusSize=0)
+     * — un sito con pochissimi articoli pubblicati si comporta come V1,
+     * non peggio.
+     */
+    private const MIN_CORPUS_SIZE_FOR_SPECIFICITY = 5;
+
+    /** Punteggio ridotto per un termine condiviso ma classificato generico (vedi sopra) — non zero: resta comunque un debole segnale di overlap, non un errore. */
+    private const TERM_MATCH_SCORE_GENERIC = 5;
+
+    /**
+     * V2 — porzione di body del candidato TARGET inclusa nell'estrazione
+     * termini, oltre a titolo+excerpt (che da soli causavano l'asimmetria
+     * A→B / B→A documentata nell'audit: sourceTerms leggeva l'intero body,
+     * targetTerms solo titolo+excerpt). Bounded per restare compatibile
+     * con MAX_CANDIDATES=300 candidati per analisi — non l'intero body,
+     * che per 300 candidati sarebbe un costo di memoria/CPU non
+     * proporzionato al beneficio. 800 caratteri di testo semplice
+     * approssimano l'introduzione editoriale, dove il vocabolario più
+     * rappresentativo del pezzo compare tipicamente per primo (stile
+     * "piramide rovesciata").
+     */
+    private const TARGET_BODY_EXCERPT_CHARS = 800;
+
+    /**
+     * V2 — normalizzazione morfologica MOLTO conservativa (famiglia
+     * satellite/satellitare/satelliti/satellitari, osservata nell'audit).
+     * Non uno stemmer: due termini sono considerati la stessa "famiglia"
+     * SOLO se condividono un prefisso di almeno questa lunghezza E sono
+     * entrambi lunghi almeno questo tanto — una soglia di 8 caratteri
+     * rende le collisioni accidentali tra parole italiane non correlate
+     * rare (parole che condividono 8+ caratteri iniziali sono quasi
+     * sempre la stessa radice). Applicata solo al confronto tra termini
+     * in scoreLink(), mai a extractTerms(): il tokenizer (#140) resta
+     * invariato, e i termini restituiti/salvati come anchor restano
+     * sempre quelli realmente presenti nel testo.
+     */
+    private const MIN_CONSERVATIVE_STEM_PREFIX_LENGTH = 8;
 
     /** Limite candidati per restare compatibile con FASE 8 (calcolo on-demand, mai su ogni keypress). */
     private const MAX_CANDIDATES = 300;
@@ -142,7 +247,15 @@ class ArticleLinkSuggestionService
             ->where('id', '!=', $source->id)
             ->orderByDesc('published_at')
             ->limit(self::MAX_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category']);
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body']);
+
+        // V2 — un'unica passata sull'intero pool di candidati (stessa
+        // Collection già caricata sopra, nessuna query aggiuntiva) per
+        // calcolare quanti candidati condividono ciascun termine: la base
+        // del segnale di specificità lessicale usato da scoreLink() più
+        // sotto (vedi GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO).
+        $documentFrequency = $this->buildDocumentFrequency($candidates);
+        $corpusSize = $candidates->count();
 
         $existing = ArticleLinkSuggestion::forSource($source->id)->get()->keyBy('target_article_id');
 
@@ -163,7 +276,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate);
+            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $documentFrequency, $corpusSize);
 
             if ($match === null) {
                 // Un suggerimento "proposed" che non passa più la soglia
@@ -234,6 +347,11 @@ class ArticleLinkSuggestionService
             'slug' => $target->slug,
             'excerpt' => $target->excerpt,
             'category' => $target->category,
+            // V2 — $target è un singolo Article già in memoria (non parte
+            // del cursor() sui candidati sotto): includerne il body non
+            // introduce alcun costo aggiuntivo, e risolve la stessa
+            // asimmetria di analyzeForSource() anche su questo percorso.
+            'body' => $target->body,
         ];
 
         $results = collect();
@@ -287,13 +405,14 @@ class ArticleLinkSuggestionService
     }
 
     /**
-     * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string}  $candidateTarget
+     * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string,body?:?string}  $candidateTarget
+     * @param  array<string,int>  $documentFrequency  V2 — quanti candidati del pool corrente contengono ciascun termine (vedi buildDocumentFrequency()). Vuoto = nessuna classificazione generico/specifico, tutti i termini condivisi restano a punteggio pieno (fallback usato da analyzeForNewTarget(), che itera i candidati via cursor() e non può costruire questa mappa senza una seconda passata sul DB — vedi docblock di analyzeForNewTarget()).
+     * @param  int  $corpusSize  Dimensione del pool usato per calcolare $documentFrequency — 0 disabilita la classificazione (stesso motivo sopra).
      * @return array{score:int,anchor:string,context:?string,reason:string}|null
      */
-    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget): ?array
+    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $documentFrequency = [], int $corpusSize = 0): ?array
     {
         $score = 0;
-        $matchedTerms = [];
         $titleMatched = false;
         $titleOccurrence = null;
 
@@ -308,16 +427,27 @@ class ArticleLinkSuggestionService
             }
         }
 
-        $targetTerms = $this->extractTerms(($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? ''));
-        $sharedTerms = array_values(array_intersect($targetTerms, $sourceTerms));
+        // V2 — titolo+excerpt+porzione di body (non più solo titolo+excerpt,
+        // vedi TARGET_BODY_EXCERPT_CHARS): risolve l'asimmetria A→B / B→A
+        // documentata nell'audit, dove il vocabolario condiviso compariva
+        // nel body del target ma mai nel suo titolo/excerpt.
+        $targetTerms = $this->extractTargetTerms($candidateTarget);
 
-        // Termine più lungo per primo: se serve un'anchor dai soli termini
-        // (nessun match sul titolo), la frase più specifica è preferibile.
-        usort($sharedTerms, fn ($a, $b) => mb_strlen($b, 'UTF-8') <=> mb_strlen($a, 'UTF-8'));
+        // V2 — intersezione esatta PIÙ famiglie morfologiche molto
+        // conservative (satellite/satellitare/satelliti/satellitari): vedi
+        // shareConservativeStem().
+        $sharedTerms = $this->sharedTerms($targetTerms, $sourceTerms);
 
-        $scoredTerms = array_slice($sharedTerms, 0, self::MAX_SCORED_TERM_MATCHES);
-        $score += count($scoredTerms) * self::TERM_MATCH_SCORE;
-        $matchedTerms = $scoredTerms;
+        // V2 — specifico prima di generico (segnale di document frequency),
+        // lunghezza solo come spareggio finale fra termini della stessa
+        // classe: sostituisce l'ordinamento V1 (solo lunghezza), che
+        // permetteva a un termine generico ma lungo di vincere su uno più
+        // corto ma realmente distintivo.
+        $rankedTerms = $this->rankSharedTerms($sharedTerms, $documentFrequency, $corpusSize);
+
+        $scoredTerms = array_slice($rankedTerms, 0, self::MAX_SCORED_TERM_MATCHES);
+        $score += array_sum(array_map(fn (array $t) => $t['points'], $scoredTerms));
+        $matchedTerms = array_column($scoredTerms, 'term');
 
         $categoryMatched = $sourceCategory === $candidateTarget->category;
 
@@ -337,15 +467,16 @@ class ArticleLinkSuggestionService
         // dentro un link/titolo/citazione esistente — altrimenti "Inserisci"
         // fallirebbe sempre per un suggerimento che sembrava valido.
         // Si prova prima il titolo (se ha contribuito al punteggio), poi i
-        // termini condivisi dal più lungo al più corto.
+        // termini condivisi in ordine di specificità (V2: non più solo
+        // lunghezza) dal più al meno specifico.
         $anchorCandidates = [];
 
         if ($titleOccurrence !== null) {
             $anchorCandidates[] = $titleOccurrence;
         }
 
-        foreach ($sharedTerms as $term) {
-            $occurrence = $this->findPhrase($sourcePlainBody, $term);
+        foreach ($rankedTerms as $ranked) {
+            $occurrence = $this->findPhrase($sourcePlainBody, $ranked['term']);
 
             if ($occurrence !== null) {
                 $anchorCandidates[] = $occurrence;
@@ -374,6 +505,151 @@ class ArticleLinkSuggestionService
             'context' => $this->buildContextExcerpt($sourcePlainBody, $anchorPosition, mb_strlen($anchor, 'UTF-8')),
             'reason' => $this->buildReason($titleMatched, $matchedTerms, $categoryMatched, $candidateTarget->category),
         ];
+    }
+
+    /**
+     * V2 — termini del ruolo "target": titolo + excerpt (invariato da V1)
+     * più una porzione limitata del body in chiaro, se disponibile (vedi
+     * TARGET_BODY_EXCERPT_CHARS). $candidate->body è assente/null per i
+     * candidati caricati da analyzeForNewTarget() nel ruolo di sorgente
+     * (quelli usano già il body intero altrove) — qui serve solo quando
+     * l'oggetto gioca il ruolo di TARGET.
+     */
+    private function extractTargetTerms(object $candidateTarget): array
+    {
+        $bodyExcerpt = '';
+
+        if (! empty($candidateTarget->body)) {
+            $bodyExcerpt = mb_substr(
+                $this->plainText((string) $candidateTarget->body),
+                0,
+                self::TARGET_BODY_EXCERPT_CHARS,
+                'UTF-8'
+            );
+        }
+
+        return $this->extractTerms(
+            ($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? '').' '.$bodyExcerpt
+        );
+    }
+
+    /**
+     * V2 — costruisce la mappa "termine => in quanti candidati compare",
+     * base del segnale di specificità lessicale. Una sola passata sulla
+     * Collection già caricata in memoria da analyzeForSource() (nessuna
+     * query aggiuntiva): per ogni candidato vengono estratti gli stessi
+     * targetTerms che scoreLink() userebbe se quel candidato fosse il
+     * target di un confronto, così la mappa è coerente con ciò che viene
+     * effettivamente confrontato.
+     *
+     * @param  Collection<int, object>  $candidates
+     * @return array<string, int>
+     */
+    private function buildDocumentFrequency(Collection $candidates): array
+    {
+        $frequency = [];
+
+        foreach ($candidates as $candidate) {
+            foreach (array_unique($this->extractTargetTerms($candidate)) as $term) {
+                $frequency[$term] = ($frequency[$term] ?? 0) + 1;
+            }
+        }
+
+        return $frequency;
+    }
+
+    /**
+     * @return array<int, string> termini condivisi (esatti + famiglie morfologiche conservative), senza ordine specifico
+     */
+    private function sharedTerms(array $targetTerms, array $sourceTerms): array
+    {
+        $matched = array_values(array_intersect($targetTerms, $sourceTerms));
+
+        // V2 — famiglia morfologica conservativa: un termine del target
+        // senza corrispondenza esatta può comunque condividere un prefisso
+        // lungo con un termine sorgente. Si usa sempre il termine SORGENTE
+        // (deve trovarsi letteralmente nel body sorgente per poter
+        // diventare anchor — invariante preesistente mai violato).
+        foreach ($targetTerms as $targetTerm) {
+            if (in_array($targetTerm, $matched, true)) {
+                continue;
+            }
+
+            foreach ($sourceTerms as $sourceTerm) {
+                if ($this->shareConservativeStem($targetTerm, $sourceTerm)) {
+                    $matched[] = $sourceTerm;
+
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matched));
+    }
+
+    /**
+     * V2 — normalizzazione morfologica MOLTO conservativa (vedi
+     * MIN_CONSERVATIVE_STEM_PREFIX_LENGTH): NON uno stemmer linguistico,
+     * nessuna regola su suffissi/desinenze italiane. Due termini sono
+     * considerati la stessa famiglia solo se sono entrambi lunghi almeno
+     * la soglia E condividono un prefisso di almeno la stessa lunghezza —
+     * una soglia di 8 caratteri rende estremamente rare le collisioni tra
+     * parole italiane non correlate (parole che condividono 8+ caratteri
+     * iniziali sono quasi sempre la stessa radice: "satellite"/
+     * "satellitare"/"satelliti"/"satellitari" condividono "satellit",
+     * 8 caratteri). Applicata solo qui, mai a extractTerms(): il
+     * tokenizer resta quello di #140, invariato.
+     */
+    private function shareConservativeStem(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        $prefixLength = self::MIN_CONSERVATIVE_STEM_PREFIX_LENGTH;
+
+        if (mb_strlen($a, 'UTF-8') < $prefixLength || mb_strlen($b, 'UTF-8') < $prefixLength) {
+            return false;
+        }
+
+        return mb_substr($a, 0, $prefixLength, 'UTF-8') === mb_substr($b, 0, $prefixLength, 'UTF-8');
+    }
+
+    /**
+     * V2 — classifica ogni termine condiviso come specifico o generico in
+     * base a quanti candidati del pool corrente lo contengono (vedi
+     * GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO), poi ordina: specifici prima
+     * di generici, lunghezza decrescente come spareggio solo fra termini
+     * della stessa classe. $corpusSize === 0 (nessuna mappa disponibile,
+     * vedi scoreLink()) rende ogni termine "specifico" — nessuna
+     * classificazione, punteggio pieno per tutti, comportamento identico a
+     * V1.
+     *
+     * @return array<int, array{term:string, points:int, is_generic:bool}>
+     */
+    private function rankSharedTerms(array $sharedTerms, array $documentFrequency, int $corpusSize): array
+    {
+        $ranked = array_map(function (string $term) use ($documentFrequency, $corpusSize) {
+            $frequency = $documentFrequency[$term] ?? 0;
+            $isGeneric = $corpusSize >= self::MIN_CORPUS_SIZE_FOR_SPECIFICITY
+                && ($frequency / $corpusSize) >= self::GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO;
+
+            return [
+                'term' => $term,
+                'is_generic' => $isGeneric,
+                'points' => $isGeneric ? self::TERM_MATCH_SCORE_GENERIC : self::TERM_MATCH_SCORE,
+            ];
+        }, $sharedTerms);
+
+        usort($ranked, function (array $a, array $b) {
+            if ($a['is_generic'] !== $b['is_generic']) {
+                return $a['is_generic'] <=> $b['is_generic'];
+            }
+
+            return mb_strlen($b['term'], 'UTF-8') <=> mb_strlen($a['term'], 'UTF-8');
+        });
+
+        return $ranked;
     }
 
     /**
