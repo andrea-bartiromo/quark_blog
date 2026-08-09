@@ -183,7 +183,14 @@ class ArticleLinkSuggestionService
         'anche', 'ancora', 'gia', 'mentre', 'dove', 'quando',
         'io', 'tu', 'lui', 'lei', 'noi', 'voi', 'loro',
         'questo', 'questa', 'questi', 'queste', 'quello', 'quella', 'quelli', 'quelle',
-        'mio', 'mia', 'tuo', 'tua', 'suo', 'sua', 'nostro', 'nostra', 'vostro', 'vostra',
+        // Pronomi possessivi: prima del red team review V2 (Ago 2026)
+        // mancavano tutti i plurali (solo le forme singolari erano
+        // presenti) — "suoi"/"sue" potevano contare come termine
+        // "condiviso" tra due articoli senza alcuna relazione tematica
+        // reale (vedi InternalLinkingQualityTest::
+        // test_unrelated_articles_sharing_only_generic_words_are_not_suggested).
+        'mio', 'mia', 'miei', 'mie', 'tuo', 'tua', 'tuoi', 'tue', 'suo', 'sua', 'suoi', 'sue',
+        'nostro', 'nostra', 'nostri', 'nostre', 'vostro', 'vostra', 'vostri', 'vostre',
         'essere', 'avere', 'fare', 'dire', 'potere', 'dovere', 'volere', 'stare', 'andare', 'venire',
         'sono', 'era', 'erano', 'sara', 'saranno', 'ha', 'hanno', 'aveva', 'avevano', 'deve', 'devono', 'puo', 'possono',
         'non', 'piu', 'molto', 'poco', 'tutto', 'tutti', 'tutta', 'tutte', 'ogni',
