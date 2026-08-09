@@ -119,4 +119,27 @@ class ArticleLinkSuggestionTest extends TestCase
         $this->assertCount(1, $proposed);
         $this->assertSame($pending->id, $proposed->first()->target_article_id);
     }
+
+    // 5. Il numero massimo di suggerimenti restituiti alla redazione è
+    // rispettato — "pochi ma pertinenti" invece di una lista lunga di
+    // proposte mediocri (Audit qualità suggerimenti, Ago 2026).
+    public function test_proposed_link_suggestions_are_capped_at_the_maximum(): void
+    {
+        $source = $this->article();
+
+        for ($i = 0; $i < 6; $i++) {
+            ArticleLinkSuggestion::create([
+                'source_article_id' => $source->id,
+                'target_article_id' => $this->article()->id,
+                'anchor_text' => 'termine '.$i,
+                'reason' => 'motivo',
+                'confidence_score' => 50 + $i,
+                'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
+            ]);
+        }
+
+        $this->assertSame(6, ArticleLinkSuggestion::proposed()->forSource($source->id)->count());
+        $this->assertCount(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS, $source->proposedLinkSuggestions());
+        $this->assertSame(55, $source->proposedLinkSuggestions()->first()->confidence_score);
+    }
 }

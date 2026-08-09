@@ -309,4 +309,213 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $this->assertFalse($suggestions->contains('target_article_id', $target->id));
         $this->assertSame(0, ArticleLinkSuggestion::where('target_article_id', $target->id)->count());
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Audit qualità suggerimenti (Ago 2026): anchor grammaticalmente
+    // deboli e soglia troppo permissiva a match generici — vedi report.
+    // ══════════════════════════════════════════════════════════════════
+
+    // 12. Una parola generica condivisa ("potrebbe") non diventa mai
+    // l'anchor, anche se letteralmente presente in entrambi i testi:
+    // resta disponibile un termine realmente distintivo condiviso.
+    public function test_a_generic_shared_word_like_potrebbe_is_never_chosen_as_anchor(): void
+    {
+        // "potrebbe" è il termine condiviso più lungo (8 caratteri) e
+        // comparirebbe per primo tra i candidati anchor ordinati per
+        // lunghezza decrescente — esattamente il caso che innescava il bug.
+        $target = $this->article([
+            'title' => 'Il litio non basta più: cosa cambia',
+            'excerpt' => 'Il prezzo del litio potrebbe salire ancora nei prossimi mesi.',
+            'category' => 'energia',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Materiali critici per le batterie del futuro',
+            'body' => '<p>Gli analisti dicono che il prezzo potrebbe salire: il litio resta comunque centrale per le batterie di nuova generazione.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertNotSame('potrebbe', mb_strtolower($suggestion->anchor_text));
+    }
+
+    // 13. Un avverbio di modo in "-mente" ("profondamente") non diventa
+    // mai l'anchor, anche se condiviso letteralmente tra i due testi.
+    public function test_a_generic_mente_adverb_like_profondamente_is_never_chosen_as_anchor(): void
+    {
+        $target = $this->article([
+            'title' => 'Chirurgia robotica: il futuro degli interventi',
+            'excerpt' => 'La chirurgia robotica cambia profondamente la sala operatoria.',
+            'category' => 'salute',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Innovazione in ospedale',
+            'body' => '<p>La tecnologia sta cambiando profondamente il modo in cui operiamo: sempre più spesso si parla di chirurgia robotica negli ospedali italiani.</p>',
+            'category' => 'salute',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertNotSame('profondamente', mb_strtolower($suggestion->anchor_text));
+    }
+
+    // 14. Una forma verbale generica condivisa ("significa") non diventa
+    // mai l'anchor.
+    public function test_a_generic_verb_form_like_significa_is_never_chosen_as_anchor(): void
+    {
+        // "significa" (9 caratteri) è il termine condiviso più lungo:
+        // stesso meccanismo del test precedente, verbo diverso.
+        $target = $this->article([
+            'title' => 'Il bonus ristrutturazioni cambia ancora',
+            'excerpt' => 'Una modifica sull\'importo dello sconto che significa meno vantaggi per i proprietari.',
+            'category' => 'economia',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Novità fiscali per la casa',
+            'body' => '<p>Il governo conferma che il nuovo importo dello sconto sul bonus significa un taglio per molte famiglie proprietarie di casa.</p>',
+            'category' => 'economia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertNotSame('significa', mb_strtolower($suggestion->anchor_text));
+    }
+
+    // 15. Un match basato solo su due parole generiche condivise (nessun
+    // titolo, nessuna categoria in comune) non supera più la soglia.
+    public function test_a_match_based_only_on_generic_shared_words_does_not_pass_the_threshold(): void
+    {
+        $target = $this->article([
+            'title' => 'Il sistema idrico di Milano',
+            'excerpt' => 'Un progetto per il livello delle falde acquifere.',
+            'category' => 'ambiente',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Nuove tecnologie per le auto elettriche',
+            'body' => '<p>Il sistema di ricarica raggiunge un livello di efficienza mai visto prima nel settore automotive.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 16. Stesso tema, stessa categoria e termini specifici insieme
+    // producono un punteggio più alto di un semplice match testuale.
+    public function test_shared_topic_category_and_specific_terms_together_increase_the_score(): void
+    {
+        $target = $this->article([
+            'title' => 'Idrogeno verde: la scommessa industriale italiana',
+            'excerpt' => 'Elettrolizzatori e stoccaggio per la filiera dell\'idrogeno verde.',
+            'category' => 'energia',
+        ]);
+
+        $weakSource = $this->article([
+            'title' => 'Rassegna settimanale energia',
+            'body' => '<p>Tra gli argomenti della settimana, un cenno rapido su elettrolizzatori e stoccaggio.</p>',
+            'category' => 'energia',
+        ]);
+
+        $strongSource = $this->article([
+            'title' => 'Decarbonizzazione dell\'industria pesante',
+            'body' => '<p>La filiera dell\'idrogeno verde, con i suoi elettrolizzatori e lo stoccaggio dedicato, è centrale per la decarbonizzazione.</p>',
+            'category' => 'energia',
+        ]);
+
+        $weakSuggestions = $this->service->analyzeForSource($weakSource);
+        $strongSuggestions = $this->service->analyzeForSource($strongSource);
+
+        $weak = $weakSuggestions->firstWhere('target_article_id', $target->id);
+        $strong = $strongSuggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($weak);
+        $this->assertNotNull($strong);
+        $this->assertGreaterThan($weak->confidence_score, $strong->confidence_score);
+    }
+
+    // 6. Un candidato semanticamente debole (zero segnali testuali) non
+    // viene mai proposto solo perché condivide la categoria.
+    public function test_a_weak_candidate_is_never_proposed_on_category_match_alone(): void
+    {
+        $target = $this->article([
+            'title' => 'Cronaca cittadina di ieri',
+            'excerpt' => 'Fatti locali della settimana.',
+            'category' => 'energia',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Ricette di cucina regionale',
+            'body' => '<p>Un articolo che parla esclusivamente di ricette, ingredienti e tradizioni gastronomiche locali.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 19. Limite noto e documentato: il suggeritore è puramente lessicale
+    // (nessun NLP/embedding semantico). Se il testo sorgente non usa
+    // ALCUNA parola in comune con titolo/sommario del target — anche
+    // quando la connessione concettuale è reale (relatività generale e
+    // correzione dell'orologio dei satelliti GPS) — nessun suggerimento
+    // può nascere: non esiste alcuna frase nel testo su cui costruire
+    // un'anchor "sempre presente nel testo sorgente" (invariante di
+    // design). Colmare questo gap richiederebbe similarità semantica
+    // (embedding) o una knowledge base di concetti collegati: fuori
+    // perimetro per questa PR (nessuna nuova infrastruttura/costo
+    // runtime, nessuna dipendenza esterna).
+    public function test_documented_limitation_no_suggestion_across_purely_conceptual_links_without_shared_vocabulary(): void
+    {
+        $gps = $this->article([
+            'title' => 'Come funziona il posizionamento satellitare',
+            'excerpt' => 'La rete di satelliti che permette di calcolare la propria posizione sulla Terra.',
+            'category' => 'scienza',
+        ]);
+
+        $relativity = $this->article([
+            'title' => 'La curvatura dello spaziotempo spiegata semplice',
+            'body' => '<p>Einstein descrisse la gravità non come una forza ma come la geometria dello spaziotempo, curvato dalla presenza di massa ed energia.</p>',
+            'category' => 'scienza',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($relativity);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $gps->id));
+    }
+
+    // 19b. Controprova: quando la redazione scrive esplicitamente il
+    // collegamento nel testo (anche solo nominando il concetto target),
+    // il suggerimento nasce correttamente — il limite sopra riguarda solo
+    // le connessioni MAI messe per iscritto nel corpo dell'articolo.
+    public function test_the_same_conceptual_link_is_found_once_the_source_text_actually_names_it(): void
+    {
+        $gps = $this->article([
+            'title' => 'Come funziona il posizionamento satellitare GPS',
+            'excerpt' => 'La rete di satelliti che permette di calcolare la propria posizione sulla Terra.',
+            'category' => 'scienza',
+        ]);
+
+        $relativity = $this->article([
+            'title' => 'La curvatura dello spaziotempo spiegata semplice',
+            'body' => '<p>Einstein descrisse la gravità come geometria dello spaziotempo. Un caso pratico: senza le correzioni relativistiche, il posizionamento satellitare GPS accumulerebbe chilometri di errore al giorno.</p>',
+            'category' => 'scienza',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($relativity);
+        $suggestion = $suggestions->firstWhere('target_article_id', $gps->id);
+
+        $this->assertNotNull($suggestion);
+    }
 }

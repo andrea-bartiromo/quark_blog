@@ -22,6 +22,9 @@ class ArticleLinkSuggestion extends Model
 
     public const STATUS_SUPERSEDED = 'superseded';
 
+    /** Meno suggerimenti, più pertinenti: limite alla lista mostrata in redazione (Audit qualità suggerimenti, Ago 2026). */
+    public const MAX_PROPOSED_RESULTS = 5;
+
     protected $fillable = [
         'source_article_id',
         'target_article_id',
