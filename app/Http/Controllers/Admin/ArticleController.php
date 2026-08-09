@@ -54,15 +54,27 @@ class ArticleController extends Controller
 
         $articles = $query->get();
 
-        // Indicatore collegamenti interni: limitato ai soli articoli
+        // Indicatore "collegamenti ad articoli": limitato ai soli articoli
         // programmati (il caso d'uso richiesto — capire prima della
-        // pubblicazione se un pezzo ha già dei link). Il parsing DOM del
-        // body ha un costo per riga non trascurabile su liste grandi (vedi
-        // PR); qui resta limitato al sottoinsieme "programmato", tipicamente
-        // poche unità, non all'intera lista (che oggi non è paginata).
+        // pubblicazione se un pezzo ha già collegato altri articoli
+        // Kairus). Il parsing DOM del body ha un costo per riga non
+        // trascurabile su liste grandi (vedi PR #141); qui resta limitato
+        // al sottoinsieme "programmato", tipicamente poche unità, non
+        // all'intera lista (che oggi non è paginata). Nessuna query
+        // aggiuntiva: countArticleLinks() opera sul body già caricato
+        // dalla query principale sopra.
+        //
+        // Conta SOLO i link verso altri articoli Kairus (/articolo/{slug}),
+        // non qualunque link interno (homepage/categorie/pagine statiche
+        // incluse, come faceva countInternalLinks() usato qui prima —
+        // ambiguità rilevata in audit, corretta con decisione prodotto B:
+        // "Collegamenti ad articoli"). Stessa definizione, stessa funzione
+        // condivisa con App\Services\ArticleLinkSuggestionService (mai due
+        // implementazioni divergenti di "collegamento ad articolo") — vedi
+        // ArticleLinkInsertionService::linkedArticleSlugsInBody().
         foreach ($articles as $article) {
             if ($article->isScheduled()) {
-                $article->internal_links_count = $this->linkInsertionService->countInternalLinks((string) $article->body);
+                $article->article_links_count = $this->linkInsertionService->countArticleLinks((string) $article->body);
             }
         }
 
