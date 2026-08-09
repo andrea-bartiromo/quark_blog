@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\ImageService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -423,7 +424,7 @@ class ImageServiceTest extends TestCase
             }
         };
 
-        $file = $this->makeSolidImageUpload('photo.webp', 2000, 1000, 'webp');
+        $file = $this->makeWebpUploadWithoutGdEncoder('photo.webp');
         $destination = $this->tempDir.'/assets/img';
         mkdir($destination, 0775, true);
         $fullPath = $service->upload($file, $destination, 'photo.webp');
@@ -445,6 +446,31 @@ class ImageServiceTest extends TestCase
         $this->assertFileExists($fullPath);
         $this->assertSame($originalBytes, file_get_contents($fullPath));
         Log::shouldHaveReceived('warning')->once();
+    }
+
+    /**
+     * Costruisce la fixture WebP SENZA passare da imagewebp(): il test
+     * sopra riproduce cosa succede quando il build GD non supporta WebP, e
+     * un build del genere non ha quasi mai ne' il lettore ne' lo scrittore
+     * WebP (stessa libwebp sottostante) — costruire la fixture con
+     * imagewebp() farebbe fallire il test stesso con un errore fatale
+     * "undefined function" proprio nell'ambiente che intende coprire,
+     * prima ancora di raggiungere l'override del servizio. I byte sono un
+     * WebP lossy valido e minimale (1601x2, a tinta unita), pre-codificato
+     * una tantum e incollato qui come letterale: nessun encoder WebP e'
+     * necessario per leggerlo, solo getimagesize()/RIFF header parsing
+     * (sempre disponibili in GD indipendentemente dal supporto WebP).
+     * Larghezza scelta appena sopra 1600px per attraversare comunque il
+     * ramo di resize di resizeAndCompress().
+     */
+    private function makeWebpUploadWithoutGdEncoder(string $originalName): UploadedFile
+    {
+        $base64 = 'UklGRnwAAABXRUJQVlA4IHAAAAAwCQCdASpBBgIAPm02mkmkIyKhIGgAgA2JaW7hdflwH4AfgAAA7odVSbJiHVUmyYh1VJsmIdVSbJiHVUmyYh1VJsmIdVSbJiHVUmyYh1VJsloAAP79K7//9b/6ggP07P//poowpj7b+ehAAAAAAAAA';
+
+        $path = $this->tempDir.'/'.uniqid('webp-fixture-', true).'.webp';
+        file_put_contents($path, base64_decode($base64));
+
+        return new UploadedFile($path, $originalName, 'image/webp', null, true);
     }
 
     // ── 13. GD non disponibile (limite documentato) ────────────────────
