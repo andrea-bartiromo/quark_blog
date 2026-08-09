@@ -272,6 +272,131 @@ class MediaWebpAuditServiceTest extends TestCase
         $this->assertSame(1, $report['scanned_count']);
     }
 
+    public function test_path_filter_keeps_root_relative_disk_names_for_classification(): void
+    {
+        // Prima di questo fix, --path restringeva anche la base della
+        // scansione: "categories/icon.png" diventava relative_path
+        // "icon.png", che non corrisponde piu' a nessun Media.disk_name
+        // (sempre root-relative), facendo cadere il file in
+        // no_media_record anche se e' regolarmente registrato e referenziato.
+        $this->putFile('categories/icon.png');
+        $this->media('categories/icon.png');
+
+        Category::create([
+            'name' => 'Categoria test',
+            'slug' => 'categoria-test-'.uniqid(),
+            'image' => 'icon.png',
+        ]);
+
+        $report = $this->service()->audit(['path' => 'categories', 'measureActual' => false]);
+
+        $this->assertSame(1, $report['scanned_count']);
+        $this->assertSame(1, $report['candidates']['count']);
+        $this->assertSame('categories/icon.png', $report['candidates']['files'][0]['relative_path']);
+        $this->assertSame(0, $report['excluded']['no_media_record']['count']);
+    }
+
+    // ── Conflitto di destinazione WebP ─────────────────────────────────
+
+    public function test_candidate_is_excluded_when_webp_destination_file_already_exists(): void
+    {
+        $this->putFile('photo.png');
+        $this->media('photo.png');
+        // Un .webp con lo stesso nome esiste gia': convertire sovrascriverebbe
+        // un asset non correlato, non e' mai un candidato sicuro.
+        $this->putFile('photo.webp', ext: 'webp');
+
+        Ad::create([
+            'name' => 'Banner con conflitto',
+            'position' => 'sidebar',
+            'type' => 'banner',
+            'active' => true,
+            'priority' => 1,
+            'banner_image' => 'photo.png',
+        ]);
+
+        $report = $this->service()->audit(['measureActual' => false]);
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['webp_destination_conflict']['count']);
+    }
+
+    public function test_candidate_is_excluded_when_another_media_record_already_owns_the_webp_disk_name(): void
+    {
+        $this->putFile('picture.png');
+        $this->media('picture.png');
+        // Nessun file "picture.webp" su disco, ma un Media diverso possiede
+        // gia' quel disk_name: riscrivere il riferimento punterebbe a
+        // contenuto non correlato.
+        $this->putFile('unrelated.png');
+        $unrelated = $this->media('unrelated.png');
+        $unrelated->update(['disk_name' => 'picture.webp']);
+
+        Ad::create([
+            'name' => 'Banner con conflitto DB',
+            'position' => 'sidebar',
+            'type' => 'banner',
+            'active' => true,
+            'priority' => 1,
+            'banner_image' => 'picture.png',
+        ]);
+
+        $report = $this->service()->audit(['measureActual' => false]);
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['webp_destination_conflict']['count']);
+    }
+
+    // ── Risparmio aggregato solo su misura completa ─────────────────────
+
+    public function test_aggregate_savings_are_null_when_not_every_candidate_was_measured(): void
+    {
+        $this->putFile('good.png', 200, 200);
+        $this->media('good.png');
+
+        // File con estensione .png ma contenuto non decodificabile: la
+        // conversione di prova fallisce, measureActualWebpSize() restituisce
+        // null per questo candidato.
+        $corruptPath = $this->mediaDir().'/corrupt.png';
+        file_put_contents($corruptPath, 'questo non e\' un\'immagine valida');
+        Media::create([
+            'user_id' => User::factory()->create()->id,
+            'filename' => 'corrupt.png',
+            'disk_name' => 'corrupt.png',
+            'mime_type' => 'image/png',
+            'size' => filesize($corruptPath),
+        ]);
+
+        $report = $this->service()->audit(['measureActual' => true]);
+
+        $this->assertSame(2, $report['candidates']['count']);
+        $this->assertSame(1, $report['candidates']['measured_count']);
+        $this->assertNull($report['candidates']['estimated_webp_size_bytes']);
+        $this->assertNull($report['candidates']['saving_bytes']);
+        $this->assertNull($report['candidates']['saving_percent']);
+
+        $byPath = collect($report['candidates']['files'])->keyBy('relative_path');
+        $this->assertNotNull($byPath['good.png']['estimated_webp_size_bytes']);
+        $this->assertNull($byPath['corrupt.png']['estimated_webp_size_bytes']);
+    }
+
+    // ── File Media non immagine esclusi dal controllo "mancanti" ────────
+
+    public function test_missing_media_files_ignores_non_image_media_records(): void
+    {
+        Media::create([
+            'user_id' => User::factory()->create()->id,
+            'filename' => 'manuale.pdf',
+            'disk_name' => 'manuale.pdf',
+            'mime_type' => 'application/pdf',
+            'size' => 1024,
+        ]);
+
+        $report = $this->service()->audit(['measureActual' => false]);
+
+        $this->assertNotContains('manuale.pdf', $report['missing_media_files']);
+    }
+
     public function test_article_filter_restricts_to_that_articles_cover(): void
     {
         $this->putFile('cover-a.png');

@@ -42,11 +42,24 @@ class MediaWebpAuditService
         $measureActual = $options['measureActual'] ?? true;
         $articleFilter = $options['article'] ?? null;
 
-        $baseDir = public_path('assets/img'.($path !== null ? '/'.ltrim($path, '/') : ''));
-        $files = $this->walkDirectory($baseDir);
+        // Si scansiona sempre dalla radice: i percorsi relativi devono
+        // restare root-relative (uguali a Media.disk_name) anche quando
+        // --path restringe il report, altrimenti "categories/a.png"
+        // diventerebbe "a.png" e ogni confronto con il DB fallirebbe.
+        $baseDir = public_path('assets/img');
+        $allFiles = $this->walkDirectory($baseDir);
+
+        $normalizedPath = $path !== null ? trim($path, '/') : null;
+        $scopedFiles = $normalizedPath === null
+            ? $allFiles
+            : array_values(array_filter(
+                $allFiles,
+                fn (array $f) => $f['relative_path'] === $normalizedPath
+                    || str_starts_with($f['relative_path'], $normalizedPath.'/')
+            ));
 
         $files = array_values(array_filter(
-            $files,
+            $scopedFiles,
             fn (array $f) => in_array($f['extension'], self::IMAGE_EXTENSIONS, true)
                 && $f['size_bytes'] >= $minSize
                 && ($only === null || in_array($f['extension'], $only, true))
@@ -61,7 +74,12 @@ class MediaWebpAuditService
             ));
         }
 
-        $diskNames = Media::query()->pluck('disk_name')->all();
+        $existingRelativePaths = array_fill_keys(array_column($allFiles, 'relative_path'), true);
+        $allDiskNames = Media::query()->pluck('disk_name')->all();
+        $imageDiskNames = array_values(array_filter(
+            $allDiskNames,
+            fn (string $diskName) => in_array(strtolower(pathinfo($diskName, PATHINFO_EXTENSION)), self::IMAGE_EXTENSIONS, true)
+        ));
         $mediaByDiskName = Media::query()->get()->keyBy('disk_name');
         $scannedDiskNames = array_column($files, 'relative_path');
 
@@ -72,6 +90,7 @@ class MediaWebpAuditService
             'turing_unmanaged' => ['count' => 0, 'size_bytes' => 0, 'files' => []],
             'protected' => ['count' => 0, 'size_bytes' => 0, 'files' => []],
             'no_media_record' => ['count' => 0, 'size_bytes' => 0, 'files' => []],
+            'webp_destination_conflict' => ['count' => 0, 'size_bytes' => 0, 'files' => []],
             'blocked_references' => ['count' => 0, 'size_bytes' => 0, 'files' => []],
         ];
         $candidates = [];
@@ -116,6 +135,13 @@ class MediaWebpAuditService
             }
 
             $webpDiskName = $this->withExtension($file['relative_path'], 'webp');
+
+            if (isset($existingRelativePaths[$webpDiskName]) || in_array($webpDiskName, $allDiskNames, true)) {
+                $this->addExcluded($excluded, 'webp_destination_conflict', $file, "Esiste gia' un file o un record Media con il nome di destinazione '{$webpDiskName}': la conversione sovrascriverebbe un asset esistente o punterebbe il riferimento a un file non correlato.");
+
+                continue;
+            }
+
             $preflight = $this->referenceService->preflight($media, $webpDiskName);
 
             if ($preflight['blocking_references'] !== []) {
@@ -158,7 +184,7 @@ class MediaWebpAuditService
         usort($candidates, fn (array $a, array $b) => $b['current_size_bytes'] <=> $a['current_size_bytes']);
 
         $missingMediaFiles = array_values(array_filter(
-            $diskNames,
+            $imageDiskNames,
             fn (string $diskName) => ! in_array($diskName, $scannedDiskNames, true)
                 && ($path === null)
                 && ($only === null)
@@ -167,10 +193,22 @@ class MediaWebpAuditService
 
         $duplicates = $this->findSafeDuplicates($files);
 
+        // Il risparmio aggregato viene esposto solo se OGNI candidato e'
+        // stato misurato realmente: sommare un sottoinsieme parziale (es.
+        // una conversione fallita su un file corrotto) sotto lo stesso nome
+        // di un totale darebbe un numero silenziosamente sbagliato.
+        // 'measured_count' resta sempre disponibile per osservabilita'.
         $candidateTotalCurrent = array_sum(array_column($candidates, 'current_size_bytes'));
-        $candidateTotalEstimated = array_sum(array_filter(array_column($candidates, 'estimated_webp_size_bytes')));
         $measuredCandidates = array_filter($candidates, fn (array $c) => $c['estimated_webp_size_bytes'] !== null);
-        $measuredCurrentTotal = array_sum(array_column($measuredCandidates, 'current_size_bytes'));
+        $allCandidatesMeasured = $candidates !== [] && count($measuredCandidates) === count($candidates);
+
+        $candidateTotalEstimated = $allCandidatesMeasured
+            ? array_sum(array_column($candidates, 'estimated_webp_size_bytes'))
+            : null;
+        $candidateSavingBytes = $allCandidatesMeasured ? ($candidateTotalCurrent - $candidateTotalEstimated) : null;
+        $candidateSavingPercent = $allCandidatesMeasured && $candidateTotalCurrent > 0
+            ? round((($candidateTotalCurrent - $candidateTotalEstimated) / $candidateTotalCurrent) * 100, 1)
+            : null;
 
         return [
             'scanned_count' => count($files),
@@ -179,12 +217,11 @@ class MediaWebpAuditService
             'already_webp' => $alreadyWebp,
             'candidates' => [
                 'count' => count($candidates),
+                'measured_count' => count($measuredCandidates),
                 'current_size_bytes' => $candidateTotalCurrent,
-                'estimated_webp_size_bytes' => $measuredCandidates !== [] ? $candidateTotalEstimated : null,
-                'saving_bytes' => $measuredCandidates !== [] ? ($measuredCurrentTotal - $candidateTotalEstimated) : null,
-                'saving_percent' => $measuredCandidates !== [] && $measuredCurrentTotal > 0
-                    ? round((($measuredCurrentTotal - $candidateTotalEstimated) / $measuredCurrentTotal) * 100, 1)
-                    : null,
+                'estimated_webp_size_bytes' => $candidateTotalEstimated,
+                'saving_bytes' => $candidateSavingBytes,
+                'saving_percent' => $candidateSavingPercent,
                 'files' => $candidates,
             ],
             'excluded' => $excluded,

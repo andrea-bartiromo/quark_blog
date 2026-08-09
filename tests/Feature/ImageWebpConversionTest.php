@@ -367,7 +367,9 @@ class ImageWebpConversionTest extends TestCase
             2 => $flipMethod->invoke($service, $image, IMG_FLIP_HORIZONTAL),
             3 => $rotateMethod->invoke($service, $image, 180),
             4 => $flipMethod->invoke($service, $image, IMG_FLIP_VERTICAL),
+            5 => $flipMethod->invoke($service, $rotateMethod->invoke($service, $image, -90), IMG_FLIP_HORIZONTAL),
             6 => $rotateMethod->invoke($service, $image, -90),
+            7 => $flipMethod->invoke($service, $rotateMethod->invoke($service, $image, -90), IMG_FLIP_VERTICAL),
             8 => $rotateMethod->invoke($service, $image, 90),
             default => $image,
         };
@@ -419,6 +421,39 @@ class ImageWebpConversionTest extends TestCase
 
         $this->assertTrue($this->isRedCorner($flipped, 'top-right'));
         imagedestroy($flipped);
+    }
+
+    public function test_orientation_5_transposes_along_the_main_diagonal(): void
+    {
+        // Orientamento 5 (Transpose): riflessione lungo la diagonale
+        // principale. Un marcatore in alto a sinistra resta in alto a
+        // sinistra (e' sulla diagonale), le dimensioni si scambiano.
+        // Verificato empiricamente con un'immagine a 4 angoli distinti
+        // prima di questa correzione (i casi 5 e 7 erano scambiati).
+        $image = $this->markedImage(20, 10);
+
+        $transposed = $this->applyOrientation($image, 5);
+
+        $this->assertSame(10, imagesx($transposed));
+        $this->assertSame(20, imagesy($transposed));
+        $this->assertTrue($this->isRedCorner($transposed, 'top-left'));
+        imagedestroy($transposed);
+    }
+
+    public function test_orientation_7_transverses_along_the_anti_diagonal(): void
+    {
+        // Orientamento 7 (Transverse): riflessione lungo la diagonale
+        // secondaria. Un marcatore in alto a sinistra finisce in basso a
+        // destra (l'angolo opposto sulla diagonale secondaria), le
+        // dimensioni si scambiano.
+        $image = $this->markedImage(20, 10);
+
+        $transversed = $this->applyOrientation($image, 7);
+
+        $this->assertSame(10, imagesx($transversed));
+        $this->assertSame(20, imagesy($transversed));
+        $this->assertTrue($this->isRedCorner($transversed, 'bottom-right'));
+        imagedestroy($transversed);
     }
 
     public function test_full_conversion_applies_exif_orientation_end_to_end(): void

@@ -615,9 +615,9 @@ class ImageService
             2 => $this->flipped($image, IMG_FLIP_HORIZONTAL),
             3 => $this->rotated($image, 180),
             4 => $this->flipped($image, IMG_FLIP_VERTICAL),
-            5 => $this->flipped($this->rotated($image, 90, destroyOriginal: true), IMG_FLIP_HORIZONTAL),
+            5 => $this->flipped($this->rotated($image, -90, destroyOriginal: true), IMG_FLIP_HORIZONTAL),
             6 => $this->rotated($image, -90),
-            7 => $this->flipped($this->rotated($image, -90, destroyOriginal: true), IMG_FLIP_HORIZONTAL),
+            7 => $this->flipped($this->rotated($image, -90, destroyOriginal: true), IMG_FLIP_VERTICAL),
             8 => $this->rotated($image, 90),
             default => $image,
         };

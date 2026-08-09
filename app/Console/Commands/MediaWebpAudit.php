@@ -85,6 +85,8 @@ class MediaWebpAudit extends Command
             $this->line('  Risparmio potenziale: '.$human($candidates['saving_bytes']).' ('.$candidates['saving_percent'].'%)');
         } elseif ($candidates['count'] === 0) {
             $this->line('  (nessun candidato: nulla da misurare)');
+        } elseif ($candidates['measured_count'] > 0) {
+            $this->line('  (misura parziale: '.$candidates['measured_count'].'/'.$candidates['count'].' candidati misurati, alcune conversioni di prova sono fallite — nessun totale aggregato per evitare un numero fuorviante, vedi i singoli file sotto)');
         } else {
             $this->line('  (--no-measure: nessuna stima del peso WebP calcolata)');
         }
@@ -107,6 +109,7 @@ class MediaWebpAudit extends Command
             'turing_unmanaged' => 'Turing (nessun record Media, non ancora dimostrato sicuro)',
             'protected' => 'Riferimenti statici protetti',
             'no_media_record' => 'Nessun record Media (richiede revisione manuale)',
+            'webp_destination_conflict' => 'Destinazione WebP gia\' esistente (file o record Media)',
             'blocked_references' => 'Riferimenti non aggiornabili in sicurezza',
         ];
         foreach ($report['excluded'] as $bucket => $data) {
