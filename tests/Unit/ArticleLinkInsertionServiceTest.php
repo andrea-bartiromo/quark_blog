@@ -216,4 +216,94 @@ class ArticleLinkInsertionServiceTest extends TestCase
 
         $this->assertFalse($previous);
     }
+
+    // ── countInternalLinks() — indicatore collegamenti interni ──────────
+
+    public function test_count_returns_zero_for_a_body_with_no_links(): void
+    {
+        $this->assertSame(0, $this->service->countInternalLinks('<p>Nessun collegamento qui.</p>'));
+    }
+
+    public function test_count_returns_zero_for_an_empty_body(): void
+    {
+        $this->assertSame(0, $this->service->countInternalLinks(''));
+    }
+
+    public function test_count_counts_a_single_relative_internal_link(): void
+    {
+        $body = '<p>Vedi <a href="/articolo/pannelli-solari">questo articolo</a>.</p>';
+
+        $this->assertSame(1, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_counts_n_internal_links(): void
+    {
+        $body = '<p><a href="/articolo/a">A</a> e <a href="/articolo/b">B</a> e <a href="/articolo/c">C</a>.</p>';
+
+        $this->assertSame(3, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_excludes_external_links(): void
+    {
+        $body = '<p>Vedi <a href="https://www.wikipedia.org/wiki/Sole">Wikipedia</a>.</p>';
+
+        $this->assertSame(0, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_on_a_mix_of_internal_and_external_links_counts_only_internal(): void
+    {
+        $body = '<p><a href="/articolo/interno">Interno</a> e <a href="https://esempio.com/pagina">Esterno</a> e <a href="/articolo/altro-interno">Altro interno</a>.</p>';
+
+        $this->assertSame(2, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_excludes_anchors_without_an_href_attribute(): void
+    {
+        $body = '<p><a id="ancora-locale">Non è un link</a> e <a href="/articolo/vero">questo si\'</a>.</p>';
+
+        $this->assertSame(1, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_excludes_an_anchor_with_an_empty_href(): void
+    {
+        $body = '<p><a href="">vuoto</a></p>';
+
+        $this->assertSame(0, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_accepts_an_absolute_url_on_the_configured_app_host(): void
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $body = '<p><a href="'.$appUrl.'/articolo/pannelli-solari">Assoluto interno</a></p>';
+
+        $this->assertSame(1, $this->service->countInternalLinks($body));
+    }
+
+    public function test_count_does_not_throw_on_malformed_html(): void
+    {
+        $malformed = '<p>Testo con <a href="/articolo/rotto">link non chiuso <strong>e tag annidati sbagliati</p>';
+
+        $count = $this->service->countInternalLinks($malformed);
+
+        $this->assertSame(1, $count);
+    }
+
+    public function test_count_does_not_throw_on_severely_broken_html(): void
+    {
+        $malformed = '<<<>>><a href="/articolo/x">x</a><div><span>';
+
+        $this->assertSame(1, $this->service->countInternalLinks($malformed));
+    }
+
+    public function test_count_restores_the_previous_libxml_error_reporting_state(): void
+    {
+        libxml_use_internal_errors(false);
+
+        $this->service->countInternalLinks('<p><a href="/articolo/x">x</a></p>');
+
+        $previous = libxml_use_internal_errors(true);
+        libxml_use_internal_errors(false);
+
+        $this->assertFalse($previous);
+    }
 }

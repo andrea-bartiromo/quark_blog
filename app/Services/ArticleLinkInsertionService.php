@@ -128,6 +128,50 @@ class ArticleLinkInsertionService
     }
 
     /**
+     * Conta i collegamenti interni realmente presenti nel body — non solo
+     * quelli passati dal suggeritore (App\Models\ArticleLinkSuggestion
+     * traccia solo i propri suggerimenti, mai un link digitato a mano).
+     * Riusa isSafeInternalHref() per la definizione di "interno", la
+     * stessa già applicata prima di ogni inserimento — nessuna seconda
+     * definizione divergente. Un href assente o non valido/esterno non
+     * viene conteggiato. HTML malformato non solleva mai un'eccezione:
+     * stesso parsing con soppressione errori libxml già usato altrove in
+     * questa classe.
+     */
+    public function countInternalLinks(string $bodyHtml): int
+    {
+        if (trim($bodyHtml) === '') {
+            return 0;
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="__link_count_root__">'.$bodyHtml.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $xpath = new DOMXPath($dom);
+        $anchors = $xpath->query('//a[@href]');
+
+        if ($anchors === false) {
+            return 0;
+        }
+
+        $count = 0;
+
+        foreach ($anchors as $anchor) {
+            if ($this->isSafeInternalHref($anchor->getAttribute('href'))) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * @return array{dom: DOMDocument, root: DOMNode, textNode: DOMText, position: int}|null
      */
     private function locateInsertionPoint(string $bodyHtml, string $anchorText): ?array
