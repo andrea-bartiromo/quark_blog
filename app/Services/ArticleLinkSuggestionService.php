@@ -44,6 +44,15 @@ class ArticleLinkSuggestionService
 
     private const MIN_TERM_LENGTH = 4;
 
+    /**
+     * Soglia più bassa per i soli termini che contengono almeno una cifra
+     * (GPT-5, H2O, 5G, CO2...): a 2-3 caratteri sono già identificatori
+     * specifici, a differenza di una parola puramente alfabetica della
+     * stessa lunghezza (quasi sempre una congiunzione/preposizione, già
+     * coperta da STOPWORDS separatamente).
+     */
+    private const MIN_ALNUM_TERM_LENGTH = 2;
+
     private const MIN_TITLE_LENGTH_FOR_PHRASE_MATCH = 8;
 
     private const CONTEXT_WINDOW_CHARS = 60;
@@ -427,14 +436,32 @@ class ArticleLinkSuggestionService
     {
         $text = mb_strtolower($this->plainText($text), 'UTF-8');
 
-        preg_match_all('/\p{L}[\p{L}\'-]*/u', $text, $matches);
+        // Il token inizia e finisce sempre su un carattere alfanumerico
+        // (mai un trattino/apostrofo pendente): a differenza della regex
+        // precedente ('\p{L}[\p{L}\'-]*', solo lettere), questa include
+        // anche le cifre nel corpo del token — necessario per preservare
+        // identificatori alfanumerici come "gpt-5", "covid-19", "h2o", "5g"
+        // invece di troncarli al primo carattere numerico.
+        preg_match_all("/[\\p{L}\\p{N}](?:[\\p{L}\\p{N}'-]*[\\p{L}\\p{N}])?/u", $text, $matches);
 
         $terms = [];
 
         foreach ($matches[0] ?? [] as $word) {
             $normalized = $this->stripAccents($word);
+            $hasDigit = (bool) preg_match('/\p{N}/u', $word);
 
-            if (mb_strlen($word, 'UTF-8') < self::MIN_TERM_LENGTH) {
+            // Un numero puro isolato ("11", "2026") non e' mai una parola
+            // chiave, indipendentemente dalla lunghezza — invariante
+            // preesistente, preservato: la regex ora accetta anche cifre
+            // nel corpo del token, ma un token senza ALCUNA lettera resta
+            // sempre escluso.
+            if (preg_match('/\p{L}/u', $word) !== 1) {
+                continue;
+            }
+
+            $minLength = $hasDigit ? self::MIN_ALNUM_TERM_LENGTH : self::MIN_TERM_LENGTH;
+
+            if (mb_strlen($word, 'UTF-8') < $minLength) {
                 continue;
             }
 
