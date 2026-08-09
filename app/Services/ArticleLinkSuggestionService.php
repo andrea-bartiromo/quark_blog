@@ -434,7 +434,14 @@ class ArticleLinkSuggestionService
      */
     private function extractTerms(string $text): array
     {
-        $text = mb_strtolower($this->plainText($text), 'UTF-8');
+        // V3 — il case ORIGINALE viene preservato fino a dopo la
+        // tokenizzazione (l'abbassamento a minuscolo diventa per-token più
+        // sotto, non più sull'intero testo qui): serve a riconoscere un
+        // acronimo corto tutto maiuscolo (vedi isShortUppercaseAcronym())
+        // prima che quell'informazione vada persa. La regex di
+        // tokenizzazione stessa è invariata (l'uso di \p{L}/\p{N} non
+        // dipende dal case).
+        $text = $this->normalizeUnicodePunctuation($this->plainText($text));
 
         // Il token inizia e finisce sempre su un carattere alfanumerico
         // (mai un trattino/apostrofo pendente): a differenza della regex
@@ -446,7 +453,16 @@ class ArticleLinkSuggestionService
 
         $terms = [];
 
-        foreach ($matches[0] ?? [] as $word) {
+        foreach ($matches[0] ?? [] as $rawWord) {
+            $isShortUppercaseAcronym = $this->isShortUppercaseAcronym($rawWord);
+
+            $word = mb_strtolower($rawWord, 'UTF-8');
+            $word = $this->stripItalianElision($word);
+
+            if ($word === '') {
+                continue;
+            }
+
             $normalized = $this->stripAccents($word);
             $hasDigit = (bool) preg_match('/\p{N}/u', $word);
 
@@ -461,7 +477,13 @@ class ArticleLinkSuggestionService
 
             $minLength = $hasDigit ? self::MIN_ALNUM_TERM_LENGTH : self::MIN_TERM_LENGTH;
 
-            if (mb_strlen($word, 'UTF-8') < $minLength) {
+            // V3 — un acronimo corto tutto maiuscolo nel testo originale
+            // (DNA, RNA, ESA, AI, ML, EU, ISS...) bypassa la soglia minima
+            // ordinaria: vedi isShortUppercaseAcronym() per il
+            // ragionamento completo. Sotto comunque a STOPWORDS/regola
+            // -mente come qualunque altro termine — nessuna eccezione a
+            // quei controlli.
+            if (! $isShortUppercaseAcronym && mb_strlen($word, 'UTF-8') < $minLength) {
                 continue;
             }
 
@@ -493,6 +515,146 @@ class ArticleLinkSuggestionService
     private function stripAccents(string $word): string
     {
         return mb_strtolower(Str::ascii($word));
+    }
+
+    /**
+     * Tokenizer V3 (consolidamento post-#142) — normalizza le varianti
+     * Unicode di trattino e apice alle rispettive forme ASCII PRIMA che
+     * la regex di tokenizzazione (invariata da #140) veda il testo.
+     * Puro preprocessing ortografico, non una regola di matching: non
+     * introduce alcuna nuova classe di caratteri accettata dal tokenizer,
+     * si limita a far sì che varianti tipografiche del "-" e dell'apice
+     * — plausibili da copia-incolla editoriale via Word/Google Docs, che
+     * le sostituiscono automaticamente — producano lo STESSO risultato
+     * della loro controparte ASCII, invece di spezzare silenziosamente
+     * il token (vedi ArticleLinkTokenizerV3Test per la caratterizzazione
+     * del comportamento precedente).
+     *
+     * Trattini normalizzati a "-" (U+002D): U+2010 HYPHEN, U+2011
+     * NON-BREAKING HYPHEN, U+2012 FIGURE DASH, U+2013 EN DASH, U+2014 EM
+     * DASH, U+2212 MINUS SIGN. Tutti questi, se usati come punteggiatura
+     * (circondati da spazi, il loro uso tipografico standard per un
+     * inciso), restano separatori di token esattamente come oggi — la
+     * normalizzazione ha effetto solo quando compaiono ADIACENTI a
+     * caratteri alfanumerici, l'unico caso in cui oggi spezzano un
+     * identificatore che dovrebbe restare unito.
+     *
+     * Apice normalizzato a "'" (U+0027): U+2019 RIGHT SINGLE QUOTATION
+     * MARK, l'apice tipografico che Word/Google Docs inseriscono al posto
+     * dell'apice dritto per le elisioni italiane (dell'universo).
+     */
+    private function normalizeUnicodePunctuation(string $text): string
+    {
+        return strtr($text, [
+            "\u{2010}" => '-',
+            "\u{2011}" => '-',
+            "\u{2012}" => '-',
+            "\u{2013}" => '-',
+            "\u{2014}" => '-',
+            "\u{2212}" => '-',
+            "\u{2019}" => "'",
+        ]);
+    }
+
+    /**
+     * Tokenizer V3 — elenco CHIUSO di preposizioni articolate/elisioni
+     * italiane comuni davanti a un sostantivo/aggettivo. Deliberatamente
+     * NON uno split indiscriminato su ogni apostrofo: solo questi prefissi
+     * esatti (già in minuscolo, il testo è normalizzato a monte) vengono
+     * riconosciuti, ordinati dal più lungo al più corto perché nessuno di
+     * questi è prefisso di un altro letto dall'inizio della parola (es.
+     * "dell'" e "d'" non collidono mai: "dell'universo" non inizia per
+     * "d'", il terzo carattere è "l" non l'apice).
+     */
+    private const ITALIAN_ELISION_PREFIXES = [
+        "dell'", "dall'", "nell'", "sull'", "all'", "quell'", "quest'",
+        "gl'", "un'", "l'", "d'", "c'", "s'",
+    ];
+
+    /**
+     * Riduce "dell'universo"/"l'intelligenza"/... al solo sostantivo
+     * ("universo"/"intelligenza"), così da condividere il termine con un
+     * articolo che scrive la stessa parola senza l'articolo elisio (es. un
+     * titolo che inizia con "Universo in espansione"). Prima di questo,
+     * l'intera locuzione con apostrofo era un unico token indivisibile,
+     * mai equivalente al sostantivo nudo scritto altrove — causa nota di
+     * mancati collegamenti (vedi ArticleLinkTokenizerV3Test).
+     *
+     * Il resto della pipeline (lunghezza minima, STOPWORDS, regola -mente)
+     * si applica IDENTICO al risultato: "un'AI" si riduce a "ai" e viene
+     * comunque scartato per lunghezza, "c'era" si riduce a "era" e viene
+     * comunque scartato perché è già una stopword — questo metodo non
+     * introduce alcuna eccezione a quelle regole, si limita a normalizzare
+     * il prefisso prima che vengano applicate.
+     *
+     * Se nessun prefisso noto corrisponde, la parola torna invariata: un
+     * apostrofo interno non riconosciuto (nessun caso reale trovato in
+     * questo dominio) non viene mai toccato.
+     */
+    private function stripItalianElision(string $word): string
+    {
+        foreach (self::ITALIAN_ELISION_PREFIXES as $prefix) {
+            if (str_starts_with($word, $prefix)) {
+                return mb_substr($word, mb_strlen($prefix, 'UTF-8'), null, 'UTF-8');
+            }
+        }
+
+        return $word;
+    }
+
+    /**
+     * V3 — elenco CHIUSO e curato di acronimi scientifici corti (2-3
+     * lettere) altrimenti scartati da MIN_TERM_LENGTH=4. Deliberatamente
+     * una ALLOWLIST esplicita, non una regola generale "2-4 lettere tutte
+     * maiuscole": un primo tentativo con una regola generale (qualunque
+     * token corto tutto maiuscolo) ha superato i casi positivi ma FALLITO
+     * più casi negativi realistici — in particolare "POI" (avverbio
+     * comune, "poi"), mai stato in STOPWORDS perché la sua lunghezza lo
+     * escludeva già da sé, diventava una falsa keyword non appena scritto
+     * in maiuscolo. Un elenco chiuso elimina strutturalmente questa
+     * classe di rischio: solo le stringhe qui elencate possono mai
+     * bypassare la soglia minima, non un pattern generale su "tutto
+     * maiuscolo" che richiederebbe di enumerare (e mantenere aggiornato
+     * per sempre) ogni parola funzionale italiana corta per essere
+     * davvero sicuro.
+     *
+     * "AI" (Intelligenza Artificiale, categoria stessa di Kairus) è
+     * deliberatamente ESCLUSA: collide con "ai" (preposizione articolata,
+     * "a"+"i"), già in STOPWORDS da prima di questa missione. Provare a
+     * fare un'eccezione qui riaprirebbe esattamente il rischio appena
+     * escluso con "POI" — limite noto e documentato, non un difetto da
+     * aggirare con un'eccezione ad hoc.
+     */
+    private const SHORT_ACRONYM_ALLOWLIST = ['dna', 'rna', 'esa', 'ml', 'eu', 'iss'];
+
+    /**
+     * Un token catturato dalla regex bypassa MIN_TERM_LENGTH solo se è
+     * scritto INTERAMENTE in maiuscolo nel testo ORIGINALE (prima di
+     * qualunque abbassamento di case) E la sua forma minuscola è nella
+     * allowlist curata sopra. Il requisito "tutto maiuscolo" resta come
+     * ulteriore livello di sicurezza anche con un elenco chiuso: un
+     * editoriale che scrivesse per ipotesi "l'esa di un problema" (parola
+     * italiana comune, non l'agenzia spaziale) in minuscolo non
+     * attiverebbe comunque l'eccezione.
+     *
+     * Bypassa SOLO il controllo di lunghezza minima in extractTerms():
+     * resta comunque soggetto a STOPWORDS e alla regola -mente come ogni
+     * altro termine, e al segnale di document-frequency già esistente in
+     * scoreLink() — un acronimo che risultasse "generico" (presente in
+     * una grossa quota del pool di candidati) verrebbe comunque svalutato
+     * a punteggio ridotto, stessa protezione di qualunque altra parola.
+     */
+    private function isShortUppercaseAcronym(string $rawWord): bool
+    {
+        if (preg_match('/^\p{L}+$/u', $rawWord) !== 1) {
+            return false;
+        }
+
+        if (mb_strtoupper($rawWord, 'UTF-8') !== $rawWord) {
+            return false;
+        }
+
+        return in_array(mb_strtolower($rawWord, 'UTF-8'), self::SHORT_ACRONYM_ALLOWLIST, true);
     }
 
     /**
