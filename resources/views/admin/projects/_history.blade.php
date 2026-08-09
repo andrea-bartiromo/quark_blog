@@ -19,4 +19,6 @@
       </div>
     @endforeach
   </div>
+
+  {{ $activityLog->links() }}
 @endif

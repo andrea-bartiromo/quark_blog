@@ -318,6 +318,75 @@ class ProjectControllerTest extends TestCase
     }
 
     /**
+     * Correzione #5 (stessa di Documenti/Prompt/Decisioni): la Cronologia
+     * è paginata (15 per pagina) invece di un elenco illimitato.
+     */
+    public function test_history_tab_paginates_at_fifteen_per_page(): void
+    {
+        $project = Project::factory()->create();
+        $editor = $this->editor();
+
+        for ($i = 0; $i < 16; $i++) {
+            ProjectActivityLog::record($project, 'project', $project->id, $project->title, "Voce {$i}", $editor->id);
+        }
+
+        $response = $this->actingAs($editor)
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
+
+        $response->assertOk();
+        $response->assertViewHas('activityLog', fn ($paginator) => $paginator->count() === 15);
+        $response->assertSee('page=2', false);
+    }
+
+    public function test_history_tab_returns_a_paginator_not_a_plain_collection(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
+
+        $response->assertViewHas('activityLog', fn ($activityLog) => $activityLog instanceof \Illuminate\Pagination\LengthAwarePaginator);
+    }
+
+    public function test_history_tab_second_page_shows_the_remaining_entries_preserving_the_tab_query_param(): void
+    {
+        $project = Project::factory()->create();
+        $editor = $this->editor();
+
+        // created_at identico per tutte le voci (inserite nello stesso
+        // istante): l'ordinamento secondario per id (già presente nel
+        // controller) resta l'unico modo per avere un ordine deterministico
+        // tra pagina 1 e pagina 2 — senza, il taglio a 15 sarebbe arbitrario.
+        for ($i = 0; $i < 17; $i++) {
+            ProjectActivityLog::record($project, 'project', $project->id, $project->title, "Voce {$i}", $editor->id);
+        }
+
+        $secondPage = $this->actingAs($editor)
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history', 'page' => 2]));
+
+        $secondPage->assertOk();
+        $secondPage->assertViewHas('activityLog', fn ($paginator) => $paginator->count() === 2);
+        // withQueryString() deve preservare "tab" insieme a "page", altrimenti
+        // il link "successiva" riporterebbe l'utente sulla tab "overview".
+        $secondPage->assertSee('tab=history', false);
+    }
+
+    public function test_history_tab_order_is_unaffected_by_pagination(): void
+    {
+        $project = Project::factory()->create();
+        $editor = $this->editor();
+
+        ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Prima voce', $editor->id);
+        ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Seconda voce', $editor->id);
+
+        $response = $this->actingAs($editor)
+            ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
+
+        $content = $response->getContent();
+        $this->assertTrue(strpos($content, 'Seconda voce') < strpos($content, 'Prima voce'));
+    }
+
+    /**
      * Rifinitura UX: "Elimina progetto" deve essere chiaramente visibile
      * nella pagina dettaglio, non solo raggiungibile via API/rotta.
      */
