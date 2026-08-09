@@ -26,6 +26,17 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
 
     private bool $fakeForceError = false;
 
+    // Audit 0 — caratterizzazione: a differenza di $fakeForceError (che fa
+    // fallire QUALUNQUE chiamata), questi due flag permettono di far
+    // fallire selettivamente solo l'endpoint check-runs o solo quello
+    // reviews, lasciando riuscire la ricerca PR — necessario per
+    // caratterizzare i casi di "partial failure" della matrice FASE 3
+    // (#2/#3/#4/#5), che altrimenti non sarebbero simulabili con il fixture
+    // esistente (tutto o niente).
+    private bool $failChecksEndpoint = false;
+
+    private bool $failReviewEndpoint = false;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,10 +63,18 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
             }
 
             if (str_contains($url, '/reviews')) {
+                if ($this->failReviewEndpoint) {
+                    return Http::response(['message' => 'Internal Server Error'], 500);
+                }
+
                 return Http::response($this->fakeReviews ?? [], 200);
             }
 
             if (str_contains($url, '/check-runs')) {
+                if ($this->failChecksEndpoint) {
+                    return Http::response(['message' => 'Internal Server Error'], 500);
+                }
+
                 return Http::response(['check_runs' => $this->fakeCheckRuns ?? []], 200);
             }
 
@@ -73,6 +92,8 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $this->fakeCheckRuns = $checkRuns;
         $this->fakeReviews = $reviews;
         $this->fakeBranchExists = $branchExists;
+        $this->failChecksEndpoint = false;
+        $this->failReviewEndpoint = false;
     }
 
     private function forceGithubError(): void
@@ -332,5 +353,314 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
 
         $this->assertNull($task->fresh()->github_checks_state);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Audit 0 — caratterizzazione (PR tests-only, nessuna correzione):
+    // partial failure, torn read, letture ripetute, concorrenza.
+    // Ogni test descrive il comportamento ATTUALE, anche quando sorprendente
+    // — vedi il report della PR per l'elenco delle anomalie da valutare in
+    // una futura PR di hardening.
+    // ══════════════════════════════════════════════════════════════════
+
+    // Matrice #2: PR trovata, endpoint checks fallisce (review riesce).
+    public function test_checks_endpoint_failure_leaves_checks_state_stale_but_still_persists_the_rest(): void
+    {
+        // Stato pregresso da un sync precedente riuscito, cosi' il fallback
+        // "resta al valore precedente" ha davvero un valore da mostrare.
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'APPROVED']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame('success', $task->fresh()->github_checks_state);
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']), reviews: [['state' => 'APPROVED']]);
+        $this->failChecksEndpoint = true;
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        // Il fallimento è assorbito: nessuna eccezione, il resto della
+        // sincronizzazione (classificazione PR, manual_status, review,
+        // completed_at, synced_at) procede comunque sui dati disponibili.
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertSame('merged', $fresh->github_pr_state);
+        $this->assertSame('approved', $fresh->github_review_state);
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertNotNull($fresh->github_synced_at);
+        // Il campo che dipendeva dalla chiamata fallita resta al valore
+        // PRECEDENTE ("success", da prima del merge) — non null, non
+        // "unknown": un valore reale ma ormai scaduto, indistinguibile nel
+        // dato stesso da un valore appena confermato.
+        $this->assertSame('success', $fresh->github_checks_state);
+    }
+
+    // Matrice #3/#5: PR trovata, endpoint review fallisce (checks riesce).
+    public function test_review_endpoint_failure_leaves_review_state_stale_but_still_persists_the_rest(): void
+    {
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'CHANGES_REQUESTED']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame('changes_requested', $task->fresh()->github_review_state);
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']), checkRuns: [['conclusion' => 'success']]);
+        $this->failReviewEndpoint = true;
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertSame('success', $fresh->github_checks_state);
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertNotNull($fresh->github_synced_at);
+        // Stesso principio: il task risulta "completato" mentre la review
+        // mostrata resta "changes_requested" — un dato pre-merge ormai
+        // scaduto, non un errore visibile.
+        $this->assertSame('changes_requested', $fresh->github_review_state);
+    }
+
+    // Matrice #4: entrambi checks e review falliscono nello stesso giro —
+    // il caso limite in cui NESSuno dei due dati accessori è aggiornato,
+    // ma la sincronizzazione avanza comunque lo stato principale.
+    public function test_both_checks_and_review_endpoints_failing_still_advances_status_with_both_states_stale(): void
+    {
+        // conclusion: null (non la stringa "pending", che non è un valore
+        // reale dell'API GitHub) è come fetchChecksState() rappresenta un
+        // check-run ancora in corso — vedi il ramo `in_array(null, ...)`.
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => null]], reviews: []);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame('pending', $task->fresh()->github_checks_state);
+        $this->assertSame('none', $task->fresh()->github_review_state);
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $this->failChecksEndpoint = true;
+        $this->failReviewEndpoint = true;
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertSame('pending', $fresh->github_checks_state);
+        $this->assertSame('none', $fresh->github_review_state);
+        $this->assertNotNull($fresh->github_synced_at);
+    }
+
+    // Torn read #1: fetchReviewState() non lega mai la review a uno SHA
+    // specifico (a differenza di fetchChecksState($sha)) — GitHub restituisce
+    // solo "l'ultima review sottomessa sulla PR", indipendentemente dal
+    // commit su cui è stata data. Una review approvata su un commit vecchio
+    // e checks falliti sul commit nuovo possono coesistere senza alcuna
+    // segnalazione di incoerenza.
+    public function test_review_state_is_never_correlated_to_a_specific_commit_unlike_checks_state(): void
+    {
+        $this->fakeGithub(
+            pr: $this->pr(['head' => ['sha' => 'new-commit-sha']]),
+            checkRuns: [['conclusion' => 'failure']],
+            reviews: [['state' => 'APPROVED']], // in realtà data su un commit precedente, ma la fixture/il codice non lo distinguono
+        );
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+
+        $fresh = $task->fresh();
+        // Persistito senza errori: checks "failure" e review "approved"
+        // fianco a fianco, nessuna delle due invalida l'altra.
+        $this->assertSame('failing', $fresh->github_checks_state);
+        $this->assertSame('approved', $fresh->github_review_state);
+    }
+
+    // Torn read #2 (FASE 6, secondo proiettile): una PR mergiata con checks
+    // provenienti da una fotografia precedente (chiamata fallita in questo
+    // giro) — lo stato "completed" viene comunque scritto e persiste
+    // insieme a un dato checks ormai non più verificato in questo sync.
+    public function test_a_merge_synced_with_a_failed_checks_call_persists_completed_alongside_a_stale_checks_snapshot(): void
+    {
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => null]]); // "pending", fotografia precedente
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame('pending', $task->fresh()->github_checks_state);
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $this->failChecksEndpoint = true;
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertNotNull($fresh->completed_at);
+        // Nessun campo distingue "checks confermati in questo sync" da
+        // "checks ereditati da un sync precedente perché questo è fallito".
+        $this->assertSame('pending', $fresh->github_checks_state);
+    }
+
+    // Matrice #6: la PR passa da open a merged tra due letture emulate
+    // (due syncTask() successivi, come farebbero due giri di scheduler).
+    public function test_pr_transitioning_from_open_to_merged_across_two_syncs_completes_the_task_on_the_second_run(): void
+    {
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'APPROVED']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame(ProjectTask::STATUS_IN_REVIEW, $task->fresh()->manual_status);
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:05:00Z']), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'APPROVED']]);
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertSame(1, ProjectActivityLog::where('subject_id', $task->id)->where('subject_type', 'project_task')->count());
+    }
+
+    // Matrice #7: la PR passa da open a closed-unmerged tra due letture
+    // emulate — nessun avanzamento automatico, richiede decisione umana.
+    public function test_pr_transitioning_from_open_to_closed_unmerged_across_two_syncs_does_not_advance_the_task(): void
+    {
+        $this->fakeGithub(pr: $this->pr());
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame(ProjectTask::STATUS_IN_REVIEW, $task->fresh()->manual_status);
+
+        $this->fakeGithub(pr: $this->pr(['state' => 'closed', 'merged_at' => null]));
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_CLOSED_UNMERGED, $fresh->derived_status);
+        // manual_status resta esattamente dove un umano lo troverebbe
+        // dall'ultimo sync utile: nessuna regressione, nessun avanzamento.
+        $this->assertSame(ProjectTask::STATUS_IN_REVIEW, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
+    // Matrice #8: due sync consecutivi con risposte identiche — oltre a
+    // github_synced_at, nessun altro campo deve cambiare, e nessuna entry
+    // di Cronologia deve duplicarsi anche fuori dal caso "merge" (già
+    // coperto da test_merge_is_only_logged_once_across_repeated_syncs).
+    public function test_two_consecutive_syncs_with_identical_responses_change_nothing_but_synced_at(): void
+    {
+        $this->fakeGithub(pr: $this->pr(), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'APPROVED']]);
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $firstSyncedAt = $task->fresh()->github_synced_at;
+
+        $this->travel(1)->minutes();
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_IN_REVIEW, $fresh->manual_status);
+        $this->assertSame('success', $fresh->github_checks_state);
+        $this->assertSame('approved', $fresh->github_review_state);
+        $this->assertTrue($fresh->github_synced_at->gt($firstSyncedAt));
+    }
+
+    // Matrice #9: un secondo sync riporta uno stato PIÙ VECCHIO (PR di
+    // nuovo "open") di quello già registrato (PR "merged"). Comportamento
+    // sorprendente ma coerente col codice attuale: SOLO manual_status è
+    // protetto dalla regressione (via PROGRESSION); derived_status e
+    // github_pr_state vengono sovrascritti senza alcuna guardia, producendo
+    // una riga incoerente (manual_status=completed, github_pr_state=open).
+    // completed_at, una volta impostato, non viene mai azzerato.
+    public function test_a_second_sync_reporting_an_older_pr_state_regresses_derived_fields_but_not_manual_status(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $task->fresh()->manual_status);
+        $completedAt = $task->fresh()->completed_at;
+
+        // Risposta "vecchia" (es. cache/proxy GitHub, o una race con
+        // un'altra chiamata) che mostra di nuovo la PR aperta.
+        $this->fakeGithub(pr: $this->pr());
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        // Guardia rispettata: manual_status non regredisce.
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        // Nessuna guardia invece su questi tre campi: riflettono sempre
+        // l'ultima risposta, anche se "più vecchia" della precedente.
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_OPEN, $fresh->derived_status);
+        $this->assertSame('open', $fresh->github_pr_state);
+        // completed_at non viene mai ripulito da una regressione successiva.
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertTrue($fresh->completed_at->equalTo($completedAt));
+    }
+
+    // Matrice #10 (suspended): stesso principio già verificato per blocked,
+    // esplicitato anche per suspended con asserzioni complete.
+    public function test_a_suspended_task_is_never_auto_overwritten_by_a_merged_pr(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_SUSPENDED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_SUSPENDED, $fresh->manual_status);
+        // derived_status/github_* si aggiornano comunque (sono informativi):
+        // solo manual_status resta intoccato.
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertSame('merged', $fresh->github_pr_state);
+        // Comportamento sorprendente ma confermato dal codice: la riga
+        // `if ($derivedStatus === DERIVED_GH_PR_MERGED) { $task->completed_at
+        // ??= now(); }` in applySync() non è condizionata su $target — scatta
+        // per QUALUNQUE task la cui PR risulti mergiata, anche se
+        // manual_status resta "suspended" e non diventa mai "completed".
+        // Risultato: una task sospesa con completed_at valorizzato.
+        $this->assertNotNull($fresh->completed_at);
+    }
+
+    // Matrice #10 (cancelled).
+    public function test_a_cancelled_task_is_never_auto_overwritten_by_a_merged_pr(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_CANCELLED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_CANCELLED, $fresh->manual_status);
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        // Stessa anomalia della task sospesa sopra: completed_at si attiva
+        // comunque, anche su una task annullata.
+        $this->assertNotNull($fresh->completed_at);
+    }
+
+    // Matrice #11, versione esaustiva: manual_override blocca SOLO
+    // manual_status — derived_status e i campi github_* continuano ad
+    // aggiornarsi silenziosamente sotto al valore "congelato" mostrato
+    // all'utente.
+    public function test_manual_override_still_updates_derived_and_github_fields_even_though_manual_status_is_frozen(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']), checkRuns: [['conclusion' => 'success']], reviews: [['state' => 'APPROVED']]);
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'manual_override' => true,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_TODO, $fresh->manual_status);
+        $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
+        $this->assertSame('merged', $fresh->github_pr_state);
+        $this->assertSame('success', $fresh->github_checks_state);
+        $this->assertSame('approved', $fresh->github_review_state);
+        $this->assertNotNull($fresh->github_synced_at);
+        // Stessa anomalia già osservata su blocked/suspended/cancelled:
+        // completed_at si attiva comunque, anche se manual_override
+        // congela manual_status a "todo" e la task non risulta mai
+        // "completed" agli occhi dell'utente.
+        $this->assertNotNull($fresh->completed_at);
+    }
+
+    // Matrice #12, versione esaustiva su tutti i campi rilevanti.
+    public function test_github_completely_unreachable_leaves_every_github_field_untouched(): void
+    {
+        $this->forceGithubError();
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_TODO,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_TODO, $fresh->manual_status);
+        $this->assertNull($fresh->derived_status);
+        $this->assertNull($fresh->github_pr_number);
+        $this->assertNull($fresh->github_pr_state);
+        $this->assertNull($fresh->github_checks_state);
+        $this->assertNull($fresh->github_review_state);
+        $this->assertNull($fresh->github_synced_at);
+        $this->assertNull($fresh->completed_at);
+        $this->assertSame(0, ProjectActivityLog::where('subject_id', $task->id)->where('subject_type', 'project_task')->count());
     }
 }
