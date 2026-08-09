@@ -8,12 +8,18 @@ use App\Http\Requests\Admin\UpdateCommunicationCampaignRequest;
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
 use App\Models\CommunicationSenderProfile;
+use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
+use App\Services\Communication\RecipientSnapshotService;
 use Illuminate\Http\Request;
 
 class CommunicationCampaignController extends Controller
 {
+    public function __construct(
+        private readonly RecipientSnapshotService $recipientSnapshot,
+    ) {}
+
     /**
      * Elenco Campagne. Ricerca/filtri/ordinamento/paginazione sono quelli
      * introdotti in sola lettura nel Blocco 1 (B1); qui si aggiungono solo
@@ -92,12 +98,21 @@ class CommunicationCampaignController extends Controller
             ? $campaign->activityLogs()->with('user')->orderByDesc('created_at')->orderByDesc('id')->get()
             : null;
 
+        $recipientCounts = $activeTab === 'sends'
+            ? [
+                'prepared' => $campaign->sends()->count(),
+                'eligible_total' => CommunicationSubscriber::confirmed()->count(),
+            ]
+            : null;
+
         return view('admin.communication.campaigns.show', [
             'campaign' => $campaign,
             'activeTab' => $activeTab,
             'typeOptions' => CommunicationCampaign::typeOptions(),
             'statusOptions' => CommunicationCampaign::statusOptions(),
             'activityLog' => $activityLog,
+            'recipientCounts' => $recipientCounts,
+            'canPrepareRecipients' => $this->recipientSnapshot->canPrepare($campaign),
         ]);
     }
 
@@ -197,6 +212,38 @@ class CommunicationCampaignController extends Controller
     public function preview(CommunicationCampaign $campaign)
     {
         return view('admin.communication.campaigns.preview', ['campaign' => $campaign]);
+    }
+
+    /**
+     * Newsletter 2.0, primo incremento: crea lo snapshot dei destinatari
+     * (comm_sends, status=queued) SENZA inviare alcuna email — vedi
+     * RecipientSnapshotService per idempotenza/eleggibilità/concorrenza.
+     * Rieseguibile a piacere: ogni run aggiunge solo gli iscritti confermati
+     * non ancora presenti, non tocca mai le righe già create.
+     */
+    public function prepareRecipients(CommunicationCampaign $campaign)
+    {
+        if (! $this->recipientSnapshot->canPrepare($campaign)) {
+            return back()->withErrors([
+                'recipients' => 'Impossibile preparare i destinatari per una campagna con stato "'.
+                    (CommunicationCampaign::statusOptions()[$campaign->status] ?? $campaign->status).'".',
+            ]);
+        }
+
+        $result = $this->recipientSnapshot->prepare($campaign);
+
+        CommunicationCampaignActivityLog::record(
+            campaign: $campaign,
+            subjectType: 'recipients',
+            subjectId: $campaign->id,
+            subjectTitle: $campaign->title,
+            action: "Destinatari preparati: {$result['added']} nuovi, {$result['already_present']} già presenti (totale iscritti confermati: {$result['eligible_total']})",
+            userId: auth()->id(),
+        );
+
+        return redirect()
+            ->route('admin.comunicazione.campaigns.show', [$campaign, 'tab' => 'sends'])
+            ->with('success', "{$result['added']} nuovi destinatari aggiunti. {$result['already_present']} erano già presenti.");
     }
 
     /**
