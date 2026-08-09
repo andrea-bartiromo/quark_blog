@@ -574,6 +574,34 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $this->assertTrue($fresh->completed_at->equalTo($completedAt));
     }
 
+    // ── Hardening (PR #133): completed_at solo su transizione effettiva ──
+
+    public function test_completed_at_is_set_when_a_normal_task_actually_completes(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_IN_REVIEW,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertNotNull($fresh->completed_at);
+    }
+
+    public function test_completed_at_stays_null_when_a_blocked_task_merges(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_BLOCKED,
+        ]);
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_BLOCKED, $fresh->manual_status);
+        $this->assertNull($fresh->completed_at);
+    }
+
     // Matrice #10 (suspended): stesso principio già verificato per blocked,
     // esplicitato anche per suspended con asserzioni complete.
     public function test_a_suspended_task_is_never_auto_overwritten_by_a_merged_pr(): void
@@ -587,16 +615,12 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $fresh = $task->fresh();
         $this->assertSame(ProjectTask::STATUS_SUSPENDED, $fresh->manual_status);
         // derived_status/github_* si aggiornano comunque (sono informativi):
-        // solo manual_status resta intoccato.
+        // solo manual_status resta intoccato. completed_at resta null grazie
+        // al fix #133 (gate su $target, non sul dato grezzo GitHub) — prima
+        // di #133 si attivava comunque, indipendentemente da manual_status.
         $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
         $this->assertSame('merged', $fresh->github_pr_state);
-        // Comportamento sorprendente ma confermato dal codice: la riga
-        // `if ($derivedStatus === DERIVED_GH_PR_MERGED) { $task->completed_at
-        // ??= now(); }` in applySync() non è condizionata su $target — scatta
-        // per QUALUNQUE task la cui PR risulti mergiata, anche se
-        // manual_status resta "suspended" e non diventa mai "completed".
-        // Risultato: una task sospesa con completed_at valorizzato.
-        $this->assertNotNull($fresh->completed_at);
+        $this->assertNull($fresh->completed_at);
     }
 
     // Matrice #10 (cancelled).
@@ -611,9 +635,9 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $fresh = $task->fresh();
         $this->assertSame(ProjectTask::STATUS_CANCELLED, $fresh->manual_status);
         $this->assertSame(ProjectTask::DERIVED_GH_PR_MERGED, $fresh->derived_status);
-        // Stessa anomalia della task sospesa sopra: completed_at si attiva
-        // comunque, anche su una task annullata.
-        $this->assertNotNull($fresh->completed_at);
+        // Stesso principio della task sospesa sopra: completed_at resta null
+        // grazie al fix #133.
+        $this->assertNull($fresh->completed_at);
     }
 
     // Matrice #11, versione esaustiva: manual_override blocca SOLO
@@ -636,11 +660,11 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $this->assertSame('success', $fresh->github_checks_state);
         $this->assertSame('approved', $fresh->github_review_state);
         $this->assertNotNull($fresh->github_synced_at);
-        // Stessa anomalia già osservata su blocked/suspended/cancelled:
-        // completed_at si attiva comunque, anche se manual_override
+        // Stesso principio già osservato su blocked/suspended/cancelled:
+        // completed_at resta null grazie al fix #133, anche se manual_override
         // congela manual_status a "todo" e la task non risulta mai
         // "completed" agli occhi dell'utente.
-        $this->assertNotNull($fresh->completed_at);
+        $this->assertNull($fresh->completed_at);
     }
 
     // Matrice #12, versione esaustiva su tutti i campi rilevanti.
@@ -662,5 +686,37 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $this->assertNull($fresh->github_synced_at);
         $this->assertNull($fresh->completed_at);
         $this->assertSame(0, ProjectActivityLog::where('subject_id', $task->id)->where('subject_type', 'project_task')->count());
+    }
+
+    public function test_completed_at_already_set_is_never_reset_or_altered_by_a_later_sync(): void
+    {
+        $task = ProjectTask::factory()->development()->create([
+            'github_branch' => 'feature/x',
+            'manual_status' => ProjectTask::STATUS_COMPLETED,
+            'completed_at' => '2026-01-01 09:00:00',
+        ]);
+        $originalCompletedAt = $task->completed_at;
+
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertTrue($fresh->completed_at->equalTo($originalCompletedAt));
+    }
+
+    public function test_completed_at_is_idempotent_across_repeated_syncs_after_completion(): void
+    {
+        $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
+        $task = ProjectTask::factory()->development()->create(['github_branch' => 'feature/x']);
+        $firstCompletedAt = $task->fresh()->completed_at;
+
+        $this->travel(1)->hours();
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+        app(ProjectTaskGithubSyncService::class)->syncTask($task->fresh());
+
+        $fresh = $task->fresh();
+        $this->assertSame(ProjectTask::STATUS_COMPLETED, $fresh->manual_status);
+        $this->assertTrue($fresh->completed_at->equalTo($firstCompletedAt));
     }
 }
