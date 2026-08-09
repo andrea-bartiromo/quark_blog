@@ -46,8 +46,8 @@
               </span>
               <time datetime="{{ $article->published_at->toIso8601String() }}">{{ $article->publishedAtForEditors()->translatedFormat('d M, H:i') }}</time>
             </span>
-            <span class="status status--links-count" title="{{ $article->internal_links_count }} {{ $article->internal_links_count === 1 ? 'collegamento interno nel testo' : 'collegamenti interni nel testo' }}">
-              🔗 {{ $article->internal_links_count }}
+            <span class="status status--links-count" title="{{ $article->article_links_count }} {{ $article->article_links_count === 1 ? 'collegamento ad altro articolo Kairus nel testo' : 'collegamenti ad altri articoli Kairus nel testo' }}">
+              🔗 {{ $article->article_links_count }} {{ $article->article_links_count === 1 ? 'articolo' : 'articoli' }}
             </span>
           @else
             <span class="status status--{{ $article->status }}">{{ \App\Models\Article::statusOptions()[$article->status] ?? $article->status }}</span>

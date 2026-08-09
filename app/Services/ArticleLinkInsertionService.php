@@ -46,9 +46,9 @@ class ArticleLinkInsertionService
 
     /**
      * @return string|null il nuovo HTML del body, o null se l'anchor non è
-     *                      stata trovata in una posizione valida, o l'href
-     *                      non supera la validazione di sicurezza (nessuna
-     *                      modifica in entrambi i casi).
+     *                     stata trovata in una posizione valida, o l'href
+     *                     non supera la validazione di sicurezza (nessuna
+     *                     modifica in entrambi i casi).
      */
     public function insert(string $bodyHtml, string $anchorText, string $targetUrl): ?string
     {
@@ -169,6 +169,79 @@ class ArticleLinkInsertionService
         }
 
         return $count;
+    }
+
+    /**
+     * Slug degli ALTRI ARTICOLI Kairus collegati nel body (href verso
+     * /articolo/{slug}, relativo o assoluto sullo stesso dominio) —
+     * DEFINIZIONE UNICA di "collegamento ad articolo", condivisa da
+     * App\Services\ArticleLinkSuggestionService (per non riproporre un
+     * collegamento già presente) e dal badge "collegamenti ad articoli"
+     * nella lista Admin Articoli (vedi countArticleLinks()). Prima
+     * dell'estrazione qui, questa logica viveva duplicata implicitamente:
+     * il badge contava QUALUNQUE link interno (homepage, categorie,
+     * pagine statiche inclusi — vedi countInternalLinks()), mentre solo
+     * il suggeritore aveva questa definizione più stretta.
+     *
+     * Deduplica per costruzione (array_unique): rappresenta gli ARTICOLI
+     * DISTINTI raggiunti dal testo, non il numero grezzo di tag <a> — un
+     * articolo collegato tre volte nello stesso paragrafo conta come 1.
+     * Scelta deliberata, non solo per riuso di codice: la domanda
+     * editoriale a cui il badge risponde ("ho già collegato altri
+     * articoli Kairus?") riguarda QUALI e QUANTI articoli sono
+     * raggiungibili, non quante volte compare il singolo link — due
+     * link allo stesso articolo non sono "due collegamenti" nel senso
+     * in cui un redattore la userebbe prima di pubblicare.
+     *
+     * Non richiede isSafeInternalHref(): un href assoluto verso un altro
+     * dominio che contenesse per coincidenza il segmento "/articolo/xyz"
+     * verrebbe qui riconosciuto (limite pre-esistente, noto, di probabilità
+     * trascurabile — "/articolo/" è una convenzione di URL specifica di
+     * Kairus).
+     *
+     * @return array<int, string>
+     */
+    public function linkedArticleSlugsInBody(string $html): array
+    {
+        if (trim($html) === '' || strip_tags($html) === $html) {
+            return [];
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div>'.$html.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $slugs = [];
+
+        foreach ($dom->getElementsByTagName('a') as $anchor) {
+            /** @var DOMElement $anchor */
+            $href = $anchor->getAttribute('href');
+
+            if ($href !== '' && preg_match('~/articolo/([^/?#]+)~', $href, $m)) {
+                $slugs[] = $m[1];
+            }
+        }
+
+        return array_unique($slugs);
+    }
+
+    /**
+     * Badge "collegamenti ad articoli" (lista Admin Articoli) — conta gli
+     * ALTRI ARTICOLI Kairus distinti raggiunti dal body, non tutti i link
+     * interni generici (quello resta countInternalLinks(), usato altrove
+     * per il badge sui soli articoli programmati). Nessuna query: il body
+     * è già caricato dalla query principale della lista, stesso parsing
+     * DOM di countInternalLinks(), nessun costo per riga aggiuntivo oltre
+     * al parsing stesso.
+     */
+    public function countArticleLinks(string $bodyHtml): int
+    {
+        return count($this->linkedArticleSlugsInBody($bodyHtml));
     }
 
     /**

@@ -248,7 +248,7 @@ class ArticleLinkSuggestionService
         }
 
         $sourceTerms = $this->extractTerms($sourcePlainBody);
-        $alreadyLinkedSlugs = $this->linkedSlugsInBody((string) $source->body);
+        $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $source->body);
 
         $candidates = Article::published()
             ->where('id', '!=', $source->id)
@@ -370,7 +370,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $alreadyLinkedSlugs = $this->linkedSlugsInBody((string) $candidateSource->body);
+            $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $candidateSource->body);
             $existingSuggestion = $existingByCandidateId->get($candidateSource->id);
 
             if (in_array($target->slug, $alreadyLinkedSlugs, true)) {
@@ -990,40 +990,5 @@ class ArticleLinkSuggestionService
             ENT_QUOTES | ENT_HTML5,
             'UTF-8'
         );
-    }
-
-    /**
-     * Slug degli articoli già collegati nel body (href verso /articolo/{slug})
-     * — evita di riproporre un collegamento già presente nel testo (FASE 7).
-     *
-     * @return array<int, string>
-     */
-    private function linkedSlugsInBody(string $html): array
-    {
-        if (trim($html) === '' || strip_tags($html) === $html) {
-            return [];
-        }
-
-        $previousLibxmlState = libxml_use_internal_errors(true);
-        $dom = new \DOMDocument('1.0', 'UTF-8');
-        $dom->loadHTML(
-            '<?xml encoding="UTF-8"><div>'.$html.'</div>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
-        );
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousLibxmlState);
-
-        $slugs = [];
-
-        foreach ($dom->getElementsByTagName('a') as $anchor) {
-            /** @var \DOMElement $anchor */
-            $href = $anchor->getAttribute('href');
-
-            if ($href !== '' && preg_match('~/articolo/([^/?#]+)~', $href, $m)) {
-                $slugs[] = $m[1];
-            }
-        }
-
-        return array_unique($slugs);
     }
 }
