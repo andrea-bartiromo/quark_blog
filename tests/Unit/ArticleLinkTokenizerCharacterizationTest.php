@@ -119,16 +119,30 @@ class ArticleLinkTokenizerCharacterizationTest extends TestCase
         $this->assertNotContains('3', $terms);
     }
 
-    // ── Apostrofi italiani (regressione — non deve rompersi) ──
+    // ── Apostrofi italiani ──────────────────────────────────────────
+    //
+    // Comportamento AGGIORNATO dal Tokenizer V3 (missione "CONSOLIDAMENTO
+    // INTERNAL LINKING + NEWSLETTER SAFETY + TOKENIZER V3"): fino a questo
+    // punto "l'informazione"/"dell'intelligenza" restavano un unico token
+    // indivisibile (mai equivalente al sostantivo nudo scritto altrove,
+    // es. un titolo che inizia con "Informazione e disinformazione").
+    // Un elenco chiuso di elisioni italiane comuni (vedi
+    // ArticleLinkSuggestionService::ITALIAN_ELISION_PREFIXES) ora estrae
+    // il sostantivo. Copertura completa del nuovo comportamento (inclusi
+    // i controlli negativi contro uno split indiscriminato) in
+    // tests/Unit/ArticleLinkTokenizerV3Test.php — qui si aggiorna solo
+    // l'aspettativa di queste due asserzioni storiche, non si elimina la
+    // regressione-guard: il tokenizer continua a NON perdere il
+    // sostantivo, semplicemente ora in forma normalizzata.
 
     public function test_apostrophe_after_article_is_preserved(): void
     {
-        $this->assertContains("l'informazione", $this->extractTerms("l'informazione"));
+        $this->assertContains('informazione', $this->extractTerms("l'informazione"));
     }
 
     public function test_apostrophe_with_preposition_dell_is_preserved(): void
     {
-        $this->assertContains("dell'intelligenza", $this->extractTerms("dell'intelligenza artificiale"));
+        $this->assertContains('intelligenza', $this->extractTerms("dell'intelligenza artificiale"));
     }
 
     // ── Trattini (regressione) ──
