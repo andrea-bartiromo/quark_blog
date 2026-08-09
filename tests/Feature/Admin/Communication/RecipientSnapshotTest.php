@@ -8,7 +8,9 @@ use App\Models\CommunicationSubscriber;
 use App\Models\User;
 use App\Services\Communication\RecipientSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 /**
@@ -36,6 +38,36 @@ class RecipientSnapshotTest extends TestCase
         app(RecipientSnapshotService::class)->prepare($campaign);
 
         Mail::assertNothingSent();
+    }
+
+    /**
+     * Safety gate (FASE 13 missione consolidamento): non basta verificare
+     * Mail:: — un ipotetico percorso di invio potrebbe passare da
+     * Notification:: (un canale mail via notifica invece che una Mailable
+     * diretta) o da un job in coda (Bus::dispatch/->queue()). Nessuno dei
+     * tre viene mai toccato dal servizio né dal controller: verificato
+     * qui end-to-end attraverso l'intera richiesta HTTP, non solo
+     * chiamando il servizio direttamente, così da coprire anche
+     * l'azione del controller e qualunque model event scatenato dal
+     * salvataggio delle righe comm_sends.
+     */
+    public function test_the_full_http_flow_never_touches_mail_notification_or_queue(): void
+    {
+        Mail::fake();
+        Notification::fake();
+        Bus::fake();
+
+        $campaign = CommunicationCampaign::factory()->draft()->create();
+        CommunicationSubscriber::factory()->confirmed()->count(5)->create();
+
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.recipients.prepare', $campaign));
+
+        $response->assertRedirect();
+
+        Mail::assertNothingSent();
+        Notification::assertNothingSent();
+        Bus::assertNothingDispatched();
     }
 
     public function test_it_creates_a_queued_send_row_for_each_confirmed_subscriber(): void
