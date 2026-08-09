@@ -28,6 +28,42 @@ use Illuminate\Support\Str;
  * stato dell'iscritto al momento di spedire, non fidarsi dello snapshot),
  * non a questo servizio. Rieseguire "Prepara destinatari" NON rimuove mai
  * righe esistenti, nemmeno per iscritti nel frattempo disiscritti.
+ *
+ * INVARIANTI CHE IL FUTURO STEP DI INVIO REALE DOVRÀ RISPETTARE (non
+ * implementate qui — questo servizio si ferma allo snapshot):
+ *
+ *   1. Iscritto disiscritto DOPO lo snapshot: la riga resta 'queued'.
+ *      Il sender deve riverificare lo stato dell'iscritto (confirmed)
+ *      SUBITO PRIMA di spedire, non fidarsi del fatto che la riga esista.
+ *   2. Iscritto 'pending' (mai confermato): non riceve mai una riga da
+ *      questo servizio (solo confirmed() è eleggibile) — ma se in futuro
+ *      un iscritto confermato potesse mai tornare 'pending', il sender
+ *      deve comunque validare lo stato al momento dell'invio, mai
+ *      assumerlo dalla sola presenza della riga 'queued'.
+ *   3. Iscritto cancellato DOPO lo snapshot: comm_sends.subscriber_id ha
+ *      cascadeOnDelete() dalla sua migration originale — la riga sparisce
+ *      automaticamente, il sender non troverà mai una riga orfana da
+ *      gestire esplicitamente (verificato in
+ *      RecipientSnapshotRaceAndScaleTest).
+ *   4. Email cambiata DOPO lo snapshot: comm_sends non denormalizza
+ *      l'email — il sender userà sempre l'email CORRENTE del subscriber
+ *      (tramite la relazione, mai un valore congelato), salvo una futura
+ *      decisione esplicita di denormalizzarla (non presa qui).
+ *   5. Contenuto della campagna modificato DOPO lo snapshot: snapshot dei
+ *      destinatari e contenuto della campagna sono concetti
+ *      DELIBERATAMENTE separati — comm_sends non contiene né referenzia
+ *      alcuna copia del contenuto. Nessun "content snapshot" implicito è
+ *      stato introdotto in questa missione.
+ *   6. Invio ripetuto/doppio: il futuro sistema di invio dovrà avere una
+ *      propria guardia di idempotenza (a livello di singolo Send, non
+ *      solo di snapshot) — questo servizio fornisce solo la base
+ *      (vincolo unique(campaign_id, subscriber_id), già usato qui).
+ *   7. Retry sugli invii falliti: comm_sends ha già le colonne
+ *      `status` (queued/sent/delivered/bounced/failed), `attempts`
+ *      (unsignedInteger, default 0) e `failure_reason` — predisposte
+ *      dalla migration originale esattamente per supportare un futuro
+ *      meccanismo di retry, mai popolate/incrementate da questo servizio
+ *      (attempts resta sempre 0 dopo "Prepara destinatari").
  */
 class RecipientSnapshotService
 {
