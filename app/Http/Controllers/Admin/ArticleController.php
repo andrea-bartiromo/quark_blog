@@ -208,23 +208,48 @@ class ArticleController extends Controller
             );
 
             /*
-             * Ricodifica e ottimizza l'immagine.
-             * Questo uniforma le copertine e rimuove
+             * FASE 5 (missione WebP): un nuovo upload JPG/PNG viene
+             * convertito automaticamente in WebP prima di essere
+             * pubblicato. Se la conversione non si applica (gia' WebP) o
+             * fallisce, si ricade sulla ricodifica/ottimizzazione nello
+             * stesso formato che uniforma comunque le copertine e rimuove
              * eventuali contenuti estranei incorporati.
              */
-            $this->imageService->resizeAndCompress(
-                $fullPath,
-                $ext,
-                1600,
-                [
-                    'jpg' => 82,
-                    'png' => 7,
-                    'webp' => 82,
-                ],
-                preserveTransparency: true,
-                alwaysReencode: true,
-                logErrors: true
-            );
+            $webpApplied = false;
+
+            if (config('media.auto_webp_on_upload', true)) {
+                $conversion = $this->imageService->autoConvertToWebpIfEligible(
+                    $fullPath,
+                    $ext,
+                    (int) config('media.webp_quality', 82),
+                    (int) config('media.webp_max_width', 1600)
+                );
+
+                $webpApplied = $conversion['webp_applied'];
+
+                if ($webpApplied) {
+                    $fullPath = $conversion['full_path'];
+                    $ext = $conversion['ext'];
+                    $mimeType = $conversion['mime_type'];
+                    $diskName = $this->imageService->changeExtension($diskName, 'webp');
+                }
+            }
+
+            if (! $webpApplied) {
+                $this->imageService->resizeAndCompress(
+                    $fullPath,
+                    $ext,
+                    1600,
+                    [
+                        'jpg' => 82,
+                        'png' => 7,
+                        'webp' => 82,
+                    ],
+                    preserveTransparency: true,
+                    alwaysReencode: true,
+                    logErrors: true
+                );
+            }
 
             /*
              * Replica la copertina nella document root pubblica secondaria

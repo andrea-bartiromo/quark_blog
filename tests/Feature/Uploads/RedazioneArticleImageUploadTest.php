@@ -68,7 +68,11 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame($author->id, $media->user_id);
         $this->assertSame('cover.jpg', $media->filename);
         $this->assertSame($article->cover_image, $media->disk_name);
-        $this->assertSame('image/jpeg', $media->mime_type);
+        // La copertina viene convertita automaticamente in WebP per i nuovi
+        // upload (FASE 5): il nome file originale resta 'cover.jpg' (solo
+        // un'etichetta), ma il disk_name/mime_type reali sono WebP.
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $article->cover_image);
         $this->assertSame(filesize($fullPath), $media->size);
     }
 
@@ -91,6 +95,28 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $this->assertSame(1600, $w);
         $this->assertSame(800, $h);
+    }
+
+    public function test_updating_the_cover_still_converts_to_webp_by_default(): void
+    {
+        $author = $this->author();
+        $original = UploadedFile::fake()->image('originale.jpg', 800, 600);
+
+        $this->actingAs($author)->post(route('redazione.articles.store'), $this->articlePayload([
+            'cover_image_upload' => $original,
+        ]));
+        $article = Article::where('title', 'Articolo redazione')->firstOrFail();
+
+        $newCover = UploadedFile::fake()->image('nuova.png', 800, 600);
+        $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+            'cover_image_upload' => $newCover,
+        ]));
+
+        $article->refresh();
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertStringEndsWith('.webp', $article->cover_image);
+        $this->assertSame('image/webp', $media->mime_type);
     }
 
     public function test_cover_upload_is_optional(): void
@@ -146,7 +172,8 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame($author->id, $media->user_id);
         $this->assertSame('nuova.jpg', $media->filename);
         $this->assertSame($article->cover_image, $media->disk_name);
-        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $article->cover_image);
         $this->assertSame(filesize($fullPath), $media->size);
     }
 

@@ -209,19 +209,50 @@ class MediaController extends Controller
         $diskName
     );
 
-    $this->imageService->resizeAndCompress(
-        $fullPath,
-        $ext,
-        1600,
-        [
-            'jpg' => 82,
-            'png' => 7,
-            'webp' => 82,
-        ],
-        preserveTransparency: true,
-        alwaysReencode: true,
-        logErrors: true
-    );
+    /*
+     * FASE 5 (missione WebP): un nuovo upload JPG/PNG viene convertito
+     * automaticamente in WebP prima di essere pubblicato, cosi' i nuovi
+     * upload smettono di far crescere lo storage in formati piu'
+     * pesanti. GIF e WebP restano invariati (autoConvertToWebpIfEligible
+     * e' un no-op sicuro per entrambi); se la conversione fallisce per
+     * qualunque motivo, si ricade sul comportamento preesistente
+     * (ottimizzazione nello stesso formato).
+     */
+    $webpApplied = false;
+
+    if (config('media.auto_webp_on_upload', true)) {
+        $conversion = $this->imageService->autoConvertToWebpIfEligible(
+            $fullPath,
+            $ext,
+            (int) config('media.webp_quality', 82),
+            (int) config('media.webp_max_width', 1600)
+        );
+
+        $webpApplied = $conversion['webp_applied'];
+
+        if ($webpApplied) {
+            $fullPath = $conversion['full_path'];
+            $ext = $conversion['ext'];
+            $mimeType = $conversion['mime_type'];
+            $diskName = $this->imageService->changeExtension($diskName, 'webp');
+        }
+    }
+
+    if (! $webpApplied) {
+        $this->imageService->resizeAndCompress(
+            $fullPath,
+            $ext,
+            1600,
+            [
+                'jpg' => 82,
+                'png' => 7,
+                'webp' => 82,
+            ],
+            preserveTransparency: true,
+            alwaysReencode: true,
+            logErrors: true
+        );
+    }
 
     try {
         $this->publicMediaSync->create($fullPath, $diskName);
