@@ -182,6 +182,21 @@ class ProjectTask extends Model
             ->whereNotIn('manual_status', [self::STATUS_COMPLETED, self::STATUS_CANCELLED]);
     }
 
+    /**
+     * Una task è eleggibile se non ha dipendenza (depends_on_task_id nullo)
+     * o se la dipendenza è realmente completed — qualunque altro stato
+     * della dipendenza (todo/taken/in_progress/in_review/blocked/suspended/
+     * cancelled) la rende non eleggibile. Solo un livello di catena: non
+     * naviga transitivamente le dipendenze (ProjectNextActionResolver v1).
+     */
+    public function scopeEligible(Builder $q): Builder
+    {
+        return $q->where(function (Builder $q2) {
+            $q2->whereNull('depends_on_task_id')
+                ->orWhereHas('dependsOn', fn (Builder $dep) => $dep->where('manual_status', self::STATUS_COMPLETED));
+        });
+    }
+
     // ── Stato effettivo ───────────────────────────────────────
 
     /**
