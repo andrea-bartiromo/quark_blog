@@ -18,6 +18,7 @@ use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\Category;
+use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
 use App\Services\MediaService;
@@ -33,6 +34,7 @@ class ArticleController extends Controller
         private readonly MediaService $mediaService,
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
+        private readonly ArticleLinkInsertionService $linkInsertionService,
     ) {}
 
     public function index(Request $request)
@@ -50,8 +52,22 @@ class ArticleController extends Controller
             });
         }
 
+        $articles = $query->get();
+
+        // Indicatore collegamenti interni: limitato ai soli articoli
+        // programmati (il caso d'uso richiesto — capire prima della
+        // pubblicazione se un pezzo ha già dei link). Il parsing DOM del
+        // body ha un costo per riga non trascurabile su liste grandi (vedi
+        // PR); qui resta limitato al sottoinsieme "programmato", tipicamente
+        // poche unità, non all'intera lista (che oggi non è paginata).
+        foreach ($articles as $article) {
+            if ($article->isScheduled()) {
+                $article->internal_links_count = $this->linkInsertionService->countInternalLinks((string) $article->body);
+            }
+        }
+
         return view('admin.articles', [
-            'articles' => $query->get(),
+            'articles' => $articles,
         ]);
     }
 

@@ -132,4 +132,104 @@ class ArticlesIndexTest extends TestCase
         $response->assertSee('Primo articolo');
         $response->assertSee('Secondo articolo');
     }
+
+    // ── Indicatore collegamenti interni (solo articoli programmati) ─────
+
+    private function scheduledArticle(User $user, array $overrides = []): Article
+    {
+        return $this->article($user, array_merge([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDay(),
+        ], $overrides));
+    }
+
+    public function test_scheduled_article_with_no_links_shows_a_zero_badge(): void
+    {
+        $editor = $this->editor();
+        $this->scheduledArticle($editor, ['body' => '<p>Nessun link qui.</p>']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('🔗 0', false);
+    }
+
+    public function test_scheduled_article_with_one_internal_link_shows_the_count(): void
+    {
+        $editor = $this->editor();
+        $target = $this->article($editor, ['status' => 'published', 'published_at' => now()->subDay()]);
+        $this->scheduledArticle($editor, [
+            'body' => '<p>Vedi <a href="'.route('articolo', $target->slug).'">questo</a>.</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('🔗 1', false);
+    }
+
+    public function test_scheduled_article_with_several_internal_links_shows_the_correct_count(): void
+    {
+        $editor = $this->editor();
+        $this->scheduledArticle($editor, [
+            'body' => '<p><a href="/articolo/a">A</a> <a href="/articolo/b">B</a> <a href="/articolo/c">C</a></p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('🔗 3', false);
+    }
+
+    public function test_scheduled_article_with_only_external_links_shows_a_zero_badge(): void
+    {
+        $editor = $this->editor();
+        $this->scheduledArticle($editor, [
+            'body' => '<p>Vedi <a href="https://www.wikipedia.org">Wikipedia</a>.</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('🔗 0', false);
+    }
+
+    public function test_scheduled_article_with_malformed_html_does_not_break_the_admin_page(): void
+    {
+        $editor = $this->editor();
+        $this->scheduledArticle($editor, [
+            'body' => '<p>Testo <a href="/articolo/rotto">link non chiuso <strong>tag annidati sbagliati</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertSee('🔗 1', false);
+    }
+
+    public function test_published_non_scheduled_article_shows_no_links_badge(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, [
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+            'body' => '<p>Vedi <a href="/articolo/qualcosa">qualcosa</a>.</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertDontSee('🔗', false);
+    }
+
+    public function test_draft_article_shows_no_links_badge(): void
+    {
+        $editor = $this->editor();
+        $this->article($editor, ['status' => 'draft']);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles'));
+
+        $response->assertOk();
+        $response->assertDontSee('🔗', false);
+    }
 }
