@@ -100,8 +100,15 @@ class ProjectController extends Controller
             ? Article::whereNotIn('id', $project->articles()->pluck('articles.id'))->orderByDesc('created_at')->limit(200)->get(['id', 'title'])
             : null;
 
+        // Stessa correzione #5 di Documenti/Prompt/Decisioni sopra: un
+        // ->get() illimitato non avrebbe retto un progetto "vivo" con
+        // centinaia di voci accumulate nel tempo (log di sola aggiunta,
+        // mai potato). Nessun pageName dedicato: activeTab rende le tab
+        // mutuamente esclusive per richiesta, quindi "page" non è mai
+        // condiviso con un altro paginator nella stessa risposta, esattamente
+        // come per documents/prompts/decisions.
         $activityLog = $activeTab === 'history'
-            ? $project->activityLogs()->with('user')->orderByDesc('created_at')->orderByDesc('id')->get()
+            ? $project->activityLogs()->with('user')->orderByDesc('created_at')->orderByDesc('id')->paginate(15)->withQueryString()
             : null;
 
         return view('admin.projects.show', [
