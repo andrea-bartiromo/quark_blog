@@ -18,6 +18,27 @@ return [
         'placeholder-1.svg',
         'hero-placeholder.svg',
         'turing/portraits/alan-turing-portrait.png',
+
+        // Default/fallback hardcoded in TuringPageController (mai in un
+        // campo DB, quindi mai scoperti da MediaReferenceService — sono
+        // gli unici valori realmente statici, distinti dagli eventuali
+        // override "background_image"/"image" salvati in
+        // special_pages.content, quelli si' gia coperti dalla scansione
+        // JSON esistente). Trovati con una ricerca esplicita di
+        // 'turing/' in app/, non per deduzione — vedi
+        // docs/EDITORIAL_MEDIA_WEBP.md.
+        'turing/hero/turing-hero.webp',
+        'turing/hero/turing-intro.webp',
+        'turing/backgrounds/turing-universal-machine-background.webp',
+        'turing/backgrounds/turing-legacy-panel.webp',
+        'turing/backgrounds/turing-test-background.webp',
+        'turing/backgrounds/turing-ai-background.webp',
+        'turing/enigma.webp',
+        'turing/enigma/turing-enigma-background.webp',
+        'turing/enigma/turing-enigma-panel.webp',
+        'turing/universal-machine.webp',
+        'turing/turing-test.webp',
+        'turing/modern-ai.webp',
     ],
 
     /*
@@ -86,5 +107,18 @@ return [
     | PublicMediaSyncService::resolveTarget()).
     */
     'public_root' => env('MEDIA_PUBLIC_ROOT'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conversione WebP
+    |--------------------------------------------------------------------------
+    |
+    | Parametri unici, condivisi da `media:webp-audit` (per le stime) e da
+    | `media:convert-webp` (per la conversione reale): stessa policy per
+    | entrambi, cosi' che l'audit sia un'anteprima fedele di cosa farebbe
+    | davvero la conversione, non solo una stima approssimata.
+    */
+    'webp_quality' => (int) env('MEDIA_WEBP_QUALITY', 82),
+    'webp_max_width' => (int) env('MEDIA_WEBP_MAX_WIDTH', 1600),
 
 ];
