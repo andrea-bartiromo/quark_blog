@@ -68,3 +68,17 @@ Schedule::command('projects:sync-github-tasks')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/projects-github-sync.log'));
+
+// ── Area Progettazione: sync calendario editoriale ───────────────
+// Ogni 5 minuti: collega automaticamente SOLO i match sicuri e non
+// ambigui tra le voci del calendario editoriale e gli articoli reali
+// (sola scrittura additiva — mai uno scollegamento, mai un match
+// ambiguo applicato). --execute esplicito: senza, il comando sarebbe un
+// dry-run che non farebbe nulla. Preferito a un hook sincrono su
+// Article::booted() (stesso pattern già usato sopra per Progettazione):
+// idempotente, a basso rischio, riusa l'infrastruttura già testata del
+// comando manuale — vedi docs/PROJECT_EDITORIAL_AUTOMATION.md.
+Schedule::command('project:sync-editorial-calendar --execute')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/projects-editorial-sync.log'));
