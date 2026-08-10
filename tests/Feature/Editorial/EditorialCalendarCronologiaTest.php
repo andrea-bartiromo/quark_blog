@@ -43,6 +43,7 @@ class EditorialCalendarCronologiaTest extends TestCase
         );
         ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Progetto creato', $editor->id);
         ProjectActivityLog::record($project, 'project', $project->id, $project->title, 'Collegamento automatico standard', null, source: ProjectActivityLog::SOURCE_SYSTEM);
+        ProjectActivityLog::record($project, 'project_task', 1, 'Task GitHub', 'Pull request #7 mergiata — attività completata automaticamente', null, source: ProjectActivityLog::SOURCE_GITHUB);
 
         $response = $this->actingAs($editor)
             ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
@@ -51,5 +52,6 @@ class EditorialCalendarCronologiaTest extends TestCase
         $response->assertSeeText('Sync calendario');
         $response->assertSeeText('Automatico');
         $response->assertSeeText('Manuale');
+        $response->assertSeeText('GitHub');
     }
 }

@@ -231,7 +231,7 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $this->assertSame(ProjectTask::DERIVED_INVALID_LINK, $task->derived_status);
     }
 
-    public function test_merge_records_a_system_activity_log_on_the_project(): void
+    public function test_merge_records_a_github_activity_log_on_the_project(): void
     {
         $this->fakeGithub(pr: $this->pr(['merged_at' => '2026-08-07T10:00:00Z']));
         $project = Project::factory()->create();
@@ -240,7 +240,11 @@ class ProjectTaskGithubSyncServiceTest extends TestCase
         $log = ProjectActivityLog::where('project_id', $project->id)->where('subject_type', 'project_task')->first();
 
         $this->assertNotNull($log);
-        $this->assertSame(ProjectActivityLog::SOURCE_SYSTEM, $log->source);
+        // FASE 8, missione Dashboard Automation V2: source dedicata
+        // (SOURCE_GITHUB), non più la generica SOURCE_SYSTEM — "il sistema
+        // ha dedotto qualcosa" e "GitHub ha segnalato un merge" sono
+        // provenienze diverse, mai la stessa etichetta.
+        $this->assertSame(ProjectActivityLog::SOURCE_GITHUB, $log->source);
         $this->assertNull($log->user_id);
         $this->assertStringContainsString('#42', $log->action);
     }
