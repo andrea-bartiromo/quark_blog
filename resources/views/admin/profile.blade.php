@@ -192,7 +192,7 @@
         </p>
         @if($analyticsExcludedSince)
           <p style="font-size:.72rem;color:var(--color-ink-muted);margin:0 0 1rem;">
-            Escluso dal {{ \Illuminate\Support\Carbon::parse($analyticsExcludedSince)->format('d/m/Y H:i') }}.
+            Escluso dal {{ \Illuminate\Support\Carbon::parse($analyticsExcludedSince)->timezone(\App\Models\Article::EDITORIAL_TIMEZONE)->format('d/m/Y H:i') }}.
           </p>
         @endif
         <form method="POST" action="{{ route('admin.analytics.reactivate') }}">
@@ -202,6 +202,18 @@
             Riattiva tracciamento
           </button>
         </form>
+      @elseif(! $analyticsEffectivelyActive)
+        {{--
+            Cookie assente ma GA4 comunque non attivo per tutt'altro
+            motivo (ambiente non-production, kill-switch
+            ANALYTICS_ENABLED=false, o Measurement ID vuoto): mai
+            etichettarlo "ATTIVO", sarebbe un'informazione di stato
+            scorretta esattamente nel posto pensato per verificarla.
+        --}}
+        <p style="font-size:.84rem;margin:0 0 1rem;">
+          <strong style="color:var(--color-ink-muted);">DISATTIVATO</strong> — Google Analytics non e' attivo
+          in questo ambiente (indipendentemente da questo browser). Non serve escluderti esplicitamente.
+        </p>
       @else
         <p style="font-size:.84rem;margin:0 0 1rem;">
           <strong>ATTIVO</strong> — questo browser viene conteggiato in Google Analytics come

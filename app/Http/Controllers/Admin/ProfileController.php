@@ -26,8 +26,20 @@ class ProfileController extends Controller
     {
         return view('admin.profile', [
             'user' => auth()->user(),
+            // Il cookie decide quale azione (escludi/riattiva) proporre —
+            // sempre disponibile indipendentemente dal resto, cosi'
+            // un'esclusione impostata ora resta pronta per quando
+            // l'ambiente/Measurement ID tornassero validi.
             'analyticsExcluded' => $this->analyticsExclusion->isExcluded($request),
             'analyticsExcludedSince' => $this->analyticsExclusion->excludedSince($request),
+            // Stato REALMENTE effettivo per questa richiesta (cookie +
+            // ambiente + Measurement ID insieme): senza questo, la pagina
+            // direbbe "ATTIVO" anche quando GA4 e' gia' disattivato per
+            // tutt'altro motivo (ambiente non-production, kill-switch
+            // ANALYTICS_ENABLED=false, Measurement ID vuoto) — un'
+            // informazione di stato scorretta esattamente nel posto
+            // pensato per verificarlo.
+            'analyticsEffectivelyActive' => $this->analyticsExclusion->shouldLoadAnalytics($request),
         ]);
     }
 
