@@ -50,7 +50,13 @@
           <td><span class="status status--project-{{ $project->operational_status }}">{{ $statusOptions[$project->operational_status] ?? $project->operational_status }}</span></td>
           <td><span class="status status--priority-{{ $project->priority }}">{{ \App\Models\Project::priorityOptions()[$project->priority] ?? $project->priority }}</span></td>
           <td>{{ $project->responsible?->name ?? '—' }}</td>
-          <td>{{ $project->progress }}%</td>
+          <td>
+            @if($project->open_tasks_count > 0)
+              {{ $project->progress }}%
+            @else
+              <span style="color:#9ca3af;">n/d</span>
+            @endif
+          </td>
           <td><a href="{{ route('admin.progettazione.projects.show', $project) }}" class="action-btn">Apri</a></td>
         </tr>
         @endforeach

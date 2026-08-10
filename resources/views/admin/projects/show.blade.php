@@ -83,7 +83,13 @@
       </div>
       <div>
         <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Avanzamento</dt>
-        <dd style="margin:.2rem 0 0;font-weight:600;">{{ $project->progress }}%</dd>
+        <dd style="margin:.2rem 0 0;font-weight:600;">
+          @if($project->hasCalculableProgress())
+            {{ $project->progress }}%
+          @else
+            <span style="font-weight:400;color:#9ca3af;">Non calcolabile (nessuna attività)</span>
+          @endif
+        </dd>
       </div>
       <div>
         <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Data di inizio</dt>
