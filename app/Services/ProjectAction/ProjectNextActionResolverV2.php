@@ -78,10 +78,20 @@ class ProjectNextActionResolverV2
     }
 
     /**
+     * Un progetto completato o annullato resta sempre "allineato": nessuna
+     * amministrazione in corso è più attesa lì, anche se qualche task
+     * residua risultasse ancora aperta o scaduta (un'incoerenza da
+     * correggere eventualmente a mano, non un segnale operativo attivo da
+     * inseguire — mai un'automazione rumorosa su progetti ormai chiusi).
+     *
      * @return list<NextActionSuggestion>
      */
     private function collectSignals(Project $project): array
     {
+        if (in_array($project->operational_status, [Project::STATUS_COMPLETED, Project::STATUS_CANCELLED], true)) {
+            return [];
+        }
+
         return [
             ...$this->taskSignal($project),
             ...$this->githubSignals($project),
@@ -255,10 +265,6 @@ class ProjectNextActionResolverV2
      */
     private function projectSignals(Project $project): array
     {
-        if (in_array($project->operational_status, [Project::STATUS_COMPLETED, Project::STATUS_CANCELLED], true)) {
-            return [];
-        }
-
         $signals = [];
 
         if ($project->due_date !== null) {

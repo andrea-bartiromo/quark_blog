@@ -134,4 +134,32 @@ class ProjectDashboardPerformanceTest extends TestCase
             "La pagina di un singolo progetto ha eseguito {$queryCount} query — indipendente dal numero totale di progetti nel database."
         );
     }
+
+    /**
+     * Percorso più costoso: un progetto con calendario editoriale carica
+     * ProjectNextActionResolverV2 / ProjectHealth su OGNI tab (non solo la
+     * panoramica, per il badge sempre visibile — vedi ProjectController::
+     * show()), che a sua volta esegue una riconciliazione completa del
+     * calendario (Article::all() su tutto il catalogo). Soglia più larga
+     * di proposito: verificato a parte per non nascondere questo costo
+     * dentro la soglia generica sopra.
+     */
+    public function test_a_calendar_linked_project_page_stays_bounded_on_any_tab(): void
+    {
+        $this->seedRealisticDataset();
+        $calendarProject = Project::whereHas('documents', fn ($q) => $q->where('is_editorial_calendar', true))->firstOrFail();
+
+        DB::enableQueryLog();
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.projects.show', [$calendarProject, 'tab' => 'tasks']));
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $response->assertOk();
+        $this->assertLessThan(
+            60,
+            $queryCount,
+            "La pagina di un progetto con calendario (tab non-overview) ha eseguito {$queryCount} query."
+        );
+    }
 }

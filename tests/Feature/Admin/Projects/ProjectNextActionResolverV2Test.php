@@ -51,6 +51,39 @@ class ProjectNextActionResolverV2Test extends TestCase
         $this->assertSame('aligned', $suggestion->code);
     }
 
+    /**
+     * Un progetto completato resta silenzioso anche se una task residua
+     * (mai eliminata) è ancora scaduta — non solo per i segnali di
+     * progetto (test sopra), ma per QUALUNQUE fonte (task, GitHub,
+     * calendario): nessuna amministrazione è più attesa su un progetto
+     * chiuso, mai un'automazione rumorosa lì.
+     */
+    public function test_a_completed_project_suppresses_every_signal_source_not_only_project_level_ones(): void
+    {
+        $project = $this->project(['operational_status' => Project::STATUS_COMPLETED]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'due_date' => now()->subDay(),
+        ]);
+
+        $suggestion = $this->resolver()->resolve($project);
+
+        $this->assertSame('aligned', $suggestion->code);
+    }
+
+    public function test_a_cancelled_project_is_also_always_aligned(): void
+    {
+        $project = $this->project(['operational_status' => Project::STATUS_CANCELLED]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'due_date' => now()->subDay(),
+        ]);
+
+        $suggestion = $this->resolver()->resolve($project);
+
+        $this->assertSame('aligned', $suggestion->code);
+    }
+
     // ── Segnali task (delega a ProjectNextActionResolver v1) ──────────
 
     public function test_an_overdue_task_produces_an_urgent_task_signal(): void
