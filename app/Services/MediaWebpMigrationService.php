@@ -100,9 +100,10 @@ class MediaWebpMigrationService
     {
         $webpAbsoluteToCleanup = null;
         $webpDiskNameToCleanup = null;
+        $secondaryCopyCreatedByThisRun = false;
 
         try {
-            return DB::transaction(function () use ($mediaId, &$webpAbsoluteToCleanup, &$webpDiskNameToCleanup) {
+            return DB::transaction(function () use ($mediaId, &$webpAbsoluteToCleanup, &$webpDiskNameToCleanup, &$secondaryCopyCreatedByThisRun) {
                 $media = Media::whereKey($mediaId)->lockForUpdate()->firstOrFail();
                 $evaluation = $this->evaluate($media);
 
@@ -122,6 +123,15 @@ class MediaWebpMigrationService
                     throw new RuntimeException('Impossibile creare la directory di destinazione.');
                 }
 
+                // Controllato PRIMA di create(): se la radice pubblica
+                // secondaria ha gia' un file a questo disk_name, non e'
+                // stato creato da questa esecuzione (evaluate() non
+                // controlla quella radice, solo quella primaria e il DB —
+                // vedi PublicMediaSyncService::targetIsFile()) e in caso di
+                // rollback non deve mai essere rimosso: potrebbe essere un
+                // file legittimo non correlato a questa conversione.
+                $secondaryTargetPreexisted = $this->publicMediaSync->targetIsFile($webpDiskName);
+
                 // Scrittura atomica (temp file + validazione + rename): non
                 // tocca mai $originalAbsolute. Se fallisce, non e' stato
                 // creato nulla da ripulire.
@@ -136,6 +146,7 @@ class MediaWebpMigrationService
                 // successivo deve ripulirlo (vedi catch esterno).
                 $webpAbsoluteToCleanup = $webpAbsolute;
                 $webpDiskNameToCleanup = $webpDiskName;
+                $secondaryCopyCreatedByThisRun = ! $secondaryTargetPreexisted;
 
                 $this->publicMediaSync->create($webpAbsolute, $webpDiskName);
 
@@ -184,7 +195,7 @@ class MediaWebpMigrationService
             });
         } catch (Throwable $exception) {
             if ($webpAbsoluteToCleanup !== null && $webpDiskNameToCleanup !== null) {
-                $this->cleanupOrphanedWebp($webpAbsoluteToCleanup, $webpDiskNameToCleanup);
+                $this->cleanupOrphanedWebp($webpAbsoluteToCleanup, $webpDiskNameToCleanup, $secondaryCopyCreatedByThisRun);
             }
 
             // La transazione e' gia' andata in rollback: disk_name torna
@@ -203,20 +214,35 @@ class MediaWebpMigrationService
 
     /**
      * Rimuove il file WebP generato ma reso orfano da un fallimento
-     * successivo, in entrambe le radici pubbliche — best-effort, non deve
-     * mai mascherare l'errore originale gia' catturato dal chiamante.
-     * Riusa gli stessi primitivi gia' usati dai flussi di upload per lo
-     * stesso scopo (PublicMediaSyncService::delete()/
-     * cleanupAfterFailedCreate()), nessuna nuova logica di rimozione.
+     * successivo — best-effort, non deve mai mascherare l'errore originale
+     * gia' catturato dal chiamante. Riusa gli stessi primitivi gia' usati
+     * dai flussi di upload per lo stesso scopo
+     * (PublicMediaSyncService::delete()/cleanupAfterFailedCreate()),
+     * nessuna nuova logica di rimozione.
+     *
+     * La copia nella radice pubblica secondaria viene rimossa SOLO se
+     * $createdByThisRun e' true: se un file era gia' presente li' prima di
+     * questa esecuzione (mai creato da questa conversione — vedi il
+     * controllo con PublicMediaSyncService::targetIsFile() PRIMA di
+     * create() in apply()), rimuoverlo cancellerebbe dati che questo
+     * servizio non ha mai scritto, indipendentemente dal motivo del
+     * fallimento successivo. Stesso principio di
+     * PublicMediaSyncService::move()/$newTargetPreexisted.
      */
-    private function cleanupOrphanedWebp(string $webpAbsolute, string $webpDiskName): void
+    private function cleanupOrphanedWebp(string $webpAbsolute, string $webpDiskName, bool $createdByThisRun): void
     {
-        try {
-            $this->publicMediaSync->delete($webpDiskName);
-        } catch (Throwable $exception) {
-            Log::critical('MediaWebpMigrationService: impossibile ripulire la copia del WebP orfano nella radice pubblica secondaria.', [
+        if ($createdByThisRun) {
+            try {
+                $this->publicMediaSync->delete($webpDiskName);
+            } catch (Throwable $exception) {
+                Log::critical('MediaWebpMigrationService: impossibile ripulire la copia del WebP orfano nella radice pubblica secondaria.', [
+                    'webp_disk_name' => $webpDiskName,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        } else {
+            Log::info('MediaWebpMigrationService: copia preesistente nella radice pubblica secondaria lasciata intatta durante il rollback (non creata da questa esecuzione).', [
                 'webp_disk_name' => $webpDiskName,
-                'error' => $exception->getMessage(),
             ]);
         }
 

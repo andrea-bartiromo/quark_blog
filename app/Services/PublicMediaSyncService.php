@@ -209,7 +209,17 @@ class PublicMediaSyncService
         return $this->publicRoot() !== null;
     }
 
-    private function targetIsFile(string $diskName): bool
+    /**
+     * Indica se esiste gia' un file nella radice pubblica secondaria per
+     * questo disk_name — "public" (non piu' solo uso interno di move())
+     * perche' un chiamante che sta per fare create() e potrebbe dover fare
+     * rollback (es. MediaWebpMigrationService) deve poter sapere PRIMA se
+     * un'eventuale copia li' presente e' stata creata da questa stessa
+     * operazione (quindi rimovibile in caso di fallimento successivo) o
+     * preesisteva (e va sempre lasciata intatta) — stesso principio gia'
+     * applicato da move() tramite $newTargetPreexisted.
+     */
+    public function targetIsFile(string $diskName): bool
     {
         $target = $this->resolveTarget($diskName);
 

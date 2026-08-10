@@ -417,6 +417,71 @@ class MediaWebpMigrationServiceTest extends TestCase
         $this->assertFileDoesNotExist($this->isolatedMediaPublicRoot.'/photo.webp');
     }
 
+    public function test_apply_never_deletes_a_secondary_root_file_that_preexisted_the_run(): void
+    {
+        $this->putImage('photo.jpg');
+        $media = $this->media('photo.jpg');
+
+        $secondaryPath = $this->isolatedMediaPublicRoot.'/photo.webp';
+        @mkdir(dirname($secondaryPath), 0775, true);
+        file_put_contents($secondaryPath, 'unrelated pre-existing content, not written by this migration');
+
+        $result = $this->service()->apply($media->id);
+
+        $this->assertSame('failed', $result->status);
+        $this->assertFileExists(
+            $secondaryPath,
+            'un file preesistente nella radice pubblica secondaria non deve mai essere cancellato da un rollback, anche se il fallimento e\' successivo alla generazione del WebP.'
+        );
+        $this->assertSame(
+            'unrelated pre-existing content, not written by this migration',
+            file_get_contents($secondaryPath),
+            'il contenuto del file preesistente non deve essere alterato.'
+        );
+    }
+
+    public function test_apply_does_not_clobber_a_reference_changed_concurrently_after_preflight(): void
+    {
+        $this->putImage('cover.jpg');
+        $this->media('cover.jpg');
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo con copertina',
+            'slug' => 'articolo-con-copertina-'.uniqid(),
+            'body' => 'Corpo generico senza riferimenti al file.',
+            'category' => 'scienza',
+            'status' => 'draft',
+            'read_minutes' => 1,
+            'verification_status' => 'unverified',
+            'cover_image' => 'cover.jpg',
+        ]);
+        $media = Media::where('disk_name', 'cover.jpg')->firstOrFail();
+
+        $service = new class(new MediaWebpAuditService(new MediaReferenceService, new ImageService), new ImageService, new PublicMediaSyncService) extends MediaWebpMigrationService
+        {
+            public ?Article $articleToRaceEdit = null;
+
+            protected function applyReferenceUpdates(array $updatable): void
+            {
+                // Simula un redattore che cambia la copertina esattamente
+                // tra il preflight (gia' eseguito) e questa scrittura.
+                $this->articleToRaceEdit?->update(['cover_image' => 'edited-concurrently.jpg']);
+
+                parent::applyReferenceUpdates($updatable);
+            }
+        };
+        $service->articleToRaceEdit = $article;
+
+        $result = $service->apply($media->id);
+
+        $this->assertSame('converted', $result->status);
+        $this->assertSame(
+            'edited-concurrently.jpg',
+            $article->fresh()->cover_image,
+            'un riferimento cambiato dopo il preflight non deve mai essere sovrascritto dal path migrato.'
+        );
+    }
+
     public function test_apply_rejects_a_destination_that_already_exists_as_a_file(): void
     {
         $this->putImage('photo.jpg');
