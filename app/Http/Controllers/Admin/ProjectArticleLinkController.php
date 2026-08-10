@@ -31,6 +31,7 @@ class ProjectArticleLinkController extends Controller
                 subjectTitle: $article->title,
                 action: 'Articolo collegato: «'.$article->title.'»',
                 userId: auth()->id(),
+                newValue: ProjectActivityLog::PROJECT_ARTICLE_LINKED,
             );
         }
 
@@ -48,6 +49,7 @@ class ProjectArticleLinkController extends Controller
             subjectTitle: $article->title,
             action: 'Articolo scollegato: «'.$article->title.'»',
             userId: auth()->id(),
+            newValue: ProjectActivityLog::PROJECT_ARTICLE_UNLINKED,
         );
 
         return redirect()->route('admin.progettazione.projects.show', [$project, 'tab' => 'articles'])->with('success', 'Articolo scollegato.');

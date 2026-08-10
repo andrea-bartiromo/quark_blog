@@ -9,6 +9,9 @@ use App\Models\Article;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
+use App\Services\Editorial\EditorialCalendarNextActionResolver;
+use App\Services\Editorial\EditorialCalendarProgress;
+use App\Services\Editorial\EditorialCalendarReconciliationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -96,6 +99,15 @@ class ProjectController extends Controller
             ? $project->articles()->with('author')->orderByDesc('project_article.created_at')->get()
             : null;
 
+        // Solo se il progetto ha un calendario marcato e solo per la
+        // panoramica: il ricalcolo (parsing + query articoli) non è gratis,
+        // niente lavoro extra sulle altre tab.
+        $editorialProgress = null;
+        if ($activeTab === 'overview' && $project->editorialCalendarDocument() !== null) {
+            $editorialReport = app(EditorialCalendarReconciliationService::class)->reconcile($project);
+            $editorialProgress = EditorialCalendarProgress::fromReport($editorialReport);
+        }
+
         $articleOptions = $activeTab === 'articles'
             ? Article::whereNotIn('id', $project->articles()->pluck('articles.id'))->orderByDesc('created_at')->limit(200)->get(['id', 'title'])
             : null;
@@ -121,6 +133,7 @@ class ProjectController extends Controller
             'linkedArticles' => $linkedArticles,
             'articleOptions' => $articleOptions,
             'activityLog' => $activityLog,
+            'editorialProgress' => $editorialProgress,
         ]);
     }
 
@@ -129,7 +142,7 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => $project,
             'responsibleOptions' => $this->responsibleOptions(),
-            'suggestedNextAction' => $project->suggestedNextAction(),
+            'suggestedNextAction' => app(EditorialCalendarNextActionResolver::class)->resolve($project),
         ]);
     }
 

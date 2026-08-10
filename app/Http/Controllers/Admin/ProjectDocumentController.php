@@ -56,6 +56,7 @@ class ProjectDocumentController extends Controller
         $data = $request->validated();
         $data['project_id'] = $project->id;
         $data['version'] = 1;
+        $data['is_editorial_calendar'] = $request->boolean('is_editorial_calendar');
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
 
@@ -86,6 +87,7 @@ class ProjectDocumentController extends Controller
     {
         $data = $request->validated();
         $data['version'] = $document->version + 1;
+        $data['is_editorial_calendar'] = $request->boolean('is_editorial_calendar');
         $data['updated_by'] = auth()->id();
 
         $document->update($data);
