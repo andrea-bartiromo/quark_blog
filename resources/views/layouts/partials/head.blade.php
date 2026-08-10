@@ -90,8 +90,22 @@
 
 <meta name="twitter:image" content="{{ $twitterImage }}">
 
-{{-- Google Analytics --}}
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-Y1853N6FZP"></script>
+{{--
+    Google Analytics — Analytics Hygiene (docs/ANALYTICS_HYGIENE.md).
+
+    Lo script gtag.js viene emesso SOLO quando
+    AnalyticsExclusionService::shouldLoadAnalytics() e' vero per QUESTA
+    richiesta: nessun Measurement ID configurato, ambiente diverso da
+    "production" (locale/testing/staging non esplicitamente abilitato), o
+    il cookie kairus_analytics_excluded presente sul browser bloccano il
+    caricamento a monte. Deliberato: preferire il non caricamento rispetto
+    a inviare eventi marcati male e filtrarli solo dopo.
+--}}
+@php
+    $shouldLoadAnalytics = app(\App\Services\AnalyticsExclusionService::class)->shouldLoadAnalytics(request());
+@endphp
+@if($shouldLoadAnalytics)
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ config('analytics.measurement_id') }}"></script>
 
 <script>
 window.dataLayer = window.dataLayer || [];
@@ -110,10 +124,11 @@ gtag('consent', 'default', {
 
 gtag('js', new Date());
 
-gtag('config', 'G-Y1853N6FZP', {
+gtag('config', '{{ config('analytics.measurement_id') }}', {
     anonymize_ip: true
 });
 </script>
+@endif
 
 {{-- Google AdSense --}}
 {{--

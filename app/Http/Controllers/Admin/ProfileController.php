@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AnalyticsExclusionService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
@@ -17,13 +18,28 @@ class ProfileController extends Controller
         private readonly MediaService $mediaService,
         private readonly ImageService $imageService,
         private readonly PublicMediaSyncService $publicMediaSync,
-        private readonly MediaRetirementService $mediaRetirement
+        private readonly MediaRetirementService $mediaRetirement,
+        private readonly AnalyticsExclusionService $analyticsExclusion
     ) {}
 
-    public function edit()
+    public function edit(Request $request)
     {
         return view('admin.profile', [
             'user' => auth()->user(),
+            // Il cookie decide quale azione (escludi/riattiva) proporre —
+            // sempre disponibile indipendentemente dal resto, cosi'
+            // un'esclusione impostata ora resta pronta per quando
+            // l'ambiente/Measurement ID tornassero validi.
+            'analyticsExcluded' => $this->analyticsExclusion->isExcluded($request),
+            'analyticsExcludedSince' => $this->analyticsExclusion->excludedSince($request),
+            // Stato REALMENTE effettivo per questa richiesta (cookie +
+            // ambiente + Measurement ID insieme): senza questo, la pagina
+            // direbbe "ATTIVO" anche quando GA4 e' gia' disattivato per
+            // tutt'altro motivo (ambiente non-production, kill-switch
+            // ANALYTICS_ENABLED=false, Measurement ID vuoto) — un'
+            // informazione di stato scorretta esattamente nel posto
+            // pensato per verificarlo.
+            'analyticsEffectivelyActive' => $this->analyticsExclusion->shouldLoadAnalytics($request),
         ]);
     }
 
