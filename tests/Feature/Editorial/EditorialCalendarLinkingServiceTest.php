@@ -55,8 +55,20 @@ class EditorialCalendarLinkingServiceTest extends TestCase
         $result = $this->service()->preview($project);
 
         $this->assertTrue($result->dryRun);
-        $this->assertSame(0, $result->linkedCount());
-        $this->assertCount(1, $result->report->safeToAutoLink());
+        $this->assertCount(0, $project->articles()->where('articles.id', $article->id)->get());
+    }
+
+    public function test_preview_reports_prospective_links_matching_the_safe_matches(): void
+    {
+        $project = $this->project();
+        $article = $this->article(['title' => 'Titolo da collegare']);
+        $this->calendarDocument($project, "28/08/2026 — Titolo da collegare\n");
+
+        $result = $this->service()->preview($project);
+
+        $this->assertTrue($result->dryRun);
+        $this->assertSame(1, $result->linkedCount());
+        $this->assertSame($article->id, $result->linked[0]->article->id);
         $this->assertCount(0, $project->articles()->where('articles.id', $article->id)->get());
     }
 
@@ -149,5 +161,82 @@ class EditorialCalendarLinkingServiceTest extends TestCase
 
         $this->assertSame(0, $result->linkedCount());
         $this->assertNull($result->report->documentId);
+    }
+
+    /**
+     * Regressione Codex #1 (P1): due voci di calendario con lo stesso
+     * titolo che risolvono entrambe sullo stesso, unico articolo del CMS
+     * non devono mai essere collegate entrambe — romperebbe il vincolo di
+     * unicità (project_id, article_id) sul secondo attach() ed
+     * effettivamente non è mai chiaro a quale voce l'articolo appartenga.
+     */
+    public function test_apply_never_attempts_to_link_the_same_article_to_two_calendar_entries(): void
+    {
+        $project = $this->project();
+        $this->article(['title' => 'Titolo ripetuto nel calendario']);
+        $this->calendarDocument(
+            $project,
+            "28/08/2026 — Titolo ripetuto nel calendario\n29/08/2026 — Titolo ripetuto nel calendario\n"
+        );
+
+        $result = $this->service()->apply($project);
+
+        $this->assertSame(0, $result->linkedCount());
+        $this->assertSame(0, ProjectActivityLog::where('project_id', $project->id)->count());
+    }
+
+    /**
+     * Regressione Codex #3 (P1): uno scollegamento manuale deve restare
+     * definitivo. Senza questo comportamento, la sincronizzazione
+     * schedulata (ogni 5 minuti) ricollegherebbe l'articolo alla prossima
+     * esecuzione, annullando silenziosamente una decisione umana esplicita.
+     */
+    public function test_apply_never_relinks_an_article_that_was_manually_unlinked(): void
+    {
+        $project = $this->project();
+        $article = $this->article(['title' => 'Titolo scollegato a mano']);
+        $this->calendarDocument($project, "28/08/2026 — Titolo scollegato a mano\n");
+
+        $this->service()->apply($project);
+        $this->assertTrue($project->articles()->where('articles.id', $article->id)->exists());
+
+        $project->articles()->detach($article->id);
+        ProjectActivityLog::record(
+            project: $project,
+            subjectType: 'project_article',
+            subjectId: $article->id,
+            subjectTitle: $article->title,
+            action: 'Articolo scollegato: «'.$article->title.'»',
+            userId: null,
+            newValue: ProjectActivityLog::PROJECT_ARTICLE_UNLINKED,
+        );
+
+        $result = $this->service()->apply($project);
+
+        $this->assertSame(0, $result->linkedCount());
+        $this->assertFalse($project->articles()->where('articles.id', $article->id)->exists());
+    }
+
+    public function test_preview_also_respects_a_manual_unlink(): void
+    {
+        $project = $this->project();
+        $article = $this->article(['title' => 'Titolo scollegato prima della preview']);
+        $this->calendarDocument($project, "28/08/2026 — Titolo scollegato prima della preview\n");
+
+        $project->articles()->attach($article->id);
+        $project->articles()->detach($article->id);
+        ProjectActivityLog::record(
+            project: $project,
+            subjectType: 'project_article',
+            subjectId: $article->id,
+            subjectTitle: $article->title,
+            action: 'Articolo scollegato: «'.$article->title.'»',
+            userId: null,
+            newValue: ProjectActivityLog::PROJECT_ARTICLE_UNLINKED,
+        );
+
+        $result = $this->service()->preview($project);
+
+        $this->assertSame(0, $result->linkedCount());
     }
 }

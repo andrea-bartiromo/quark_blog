@@ -241,6 +241,42 @@ class EditorialCalendarMatchingServiceTest extends TestCase
         $this->assertSame(EditorialCalendarMatchingService::MATCH_NONE, $matches[1]->matchType);
     }
 
+    /**
+     * Regressione Codex #1 (P1): due voci con lo stesso titolo che
+     * risolverebbero, prese singolarmente, sullo stesso unico articolo
+     * devono diventare entrambe ambigue in matchAll() — mai due match
+     * "sicuri" per lo stesso articolo, che romperebbero il vincolo di
+     * unicità del collegamento alla prima applicazione automatica.
+     */
+    public function test_match_all_demotes_two_entries_that_would_resolve_to_the_same_article(): void
+    {
+        $pool = $this->pool([$this->article(1, 'Titolo ripetuto')]);
+        $entries = [$this->entry('Titolo ripetuto', 1), $this->entry('Titolo ripetuto', 2)];
+
+        $matches = $this->service()->matchAll($entries, $pool, collect());
+
+        $this->assertCount(2, $matches);
+        foreach ($matches as $match) {
+            $this->assertSame(EditorialCalendarMatchingService::MATCH_AMBIGUOUS, $match->matchType);
+            $this->assertNull($match->article);
+            $this->assertFalse($match->isSafeToAutoLink());
+        }
+    }
+
+    public function test_match_all_does_not_demote_entries_resolving_to_different_articles(): void
+    {
+        $pool = $this->pool([
+            $this->article(1, 'Titolo A'),
+            $this->article(2, 'Titolo B'),
+        ]);
+        $entries = [$this->entry('Titolo A', 1), $this->entry('Titolo B', 2)];
+
+        $matches = $this->service()->matchAll($entries, $pool, collect());
+
+        $this->assertTrue($matches[0]->isSafeToAutoLink());
+        $this->assertTrue($matches[1]->isSafeToAutoLink());
+    }
+
     // ── normalizeTitle() ─────────────────────────────────────────────
 
     public function test_normalize_title_is_idempotent(): void

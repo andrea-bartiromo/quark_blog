@@ -52,10 +52,49 @@ class EditorialCalendarMatchingService
      */
     public function matchAll(array $entries, Collection $articlePool, Collection $linkedArticleIds): array
     {
-        return array_map(
+        $matches = array_map(
             fn (EditorialCalendarEntry $entry) => $this->matchEntry($entry, $articlePool, $linkedArticleIds),
             $entries
         );
+
+        return $this->demoteMatchesSharingTheSameArticle($matches);
+    }
+
+    /**
+     * Se più voci del calendario risolvono (in modo altrimenti sicuro) sullo
+     * STESSO articolo — es. due voci con lo stesso titolo pianificato in
+     * date diverse — nessuna delle due può essere considerata sicura da
+     * collegare in automatico: non è mai chiaro a quale voce l'articolo
+     * appartenga davvero, e collegarle entrambe romperebbe comunque il
+     * vincolo di unicità (project_id, article_id) sulla seconda scrittura.
+     * Richiede sempre una decisione umana, mai una scelta arbitraria tra le
+     * voci in conflitto.
+     *
+     * @param  list<EditorialCalendarMatch>  $matches
+     * @return list<EditorialCalendarMatch>
+     */
+    private function demoteMatchesSharingTheSameArticle(array $matches): array
+    {
+        $articleIdCounts = [];
+        foreach ($matches as $match) {
+            if ($match->article !== null) {
+                $articleIdCounts[$match->article->id] = ($articleIdCounts[$match->article->id] ?? 0) + 1;
+            }
+        }
+
+        return array_map(function (EditorialCalendarMatch $match) use ($articleIdCounts) {
+            if ($match->article === null || $articleIdCounts[$match->article->id] === 1) {
+                return $match;
+            }
+
+            return new EditorialCalendarMatch(
+                entry: $match->entry,
+                matchType: self::MATCH_AMBIGUOUS,
+                article: null,
+                candidates: [$match->article],
+                alreadyLinkedToProject: $match->alreadyLinkedToProject,
+            );
+        }, $matches);
     }
 
     /**

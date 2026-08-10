@@ -19,6 +19,14 @@ use App\Models\ProjectActivityLog;
  * servizio più volte di fila non produce mai collegamenti duplicati né
  * azioni di Cronologia ripetute. Mai uno scollegamento: questo servizio non
  * chiama mai detach().
+ *
+ * Rispetta uno scollegamento manuale: se l'evento più recente in Cronologia
+ * per un articolo è "scollegato" (unlink dalla tab Articoli del progetto —
+ * l'unico punto dell'applicazione che chiama detach()), quell'articolo non
+ * viene mai riproposto per il collegamento automatico, anche se il match
+ * tornerebbe altrimenti sicuro. Senza questo controllo la sincronizzazione
+ * schedulata (ogni 5 minuti, vedi routes/console.php) annullerebbe una
+ * decisione umana esplicita entro pochi minuti.
  */
 class EditorialCalendarLinkingService
 {
@@ -27,14 +35,24 @@ class EditorialCalendarLinkingService
     ) {}
 
     /**
-     * Sola lettura: calcola cosa verrebbe collegato senza scrivere nulla.
-     * È il comportamento di default del comando di sync.
+     * Sola lettura: calcola cosa verrebbe collegato senza scrivere nulla —
+     * stessa selezione di apply(), solo senza scrivere. È il comportamento
+     * di default del comando di sync.
      */
     public function preview(Project $project): EditorialCalendarLinkingResult
     {
         $report = $this->reconciliationService->reconcile($project);
 
-        return new EditorialCalendarLinkingResult($report, [], dryRun: true);
+        $prospective = array_map(
+            fn (EditorialCalendarReconciliationEntry $entry) => new EditorialCalendarLinkedEntry(
+                $entry->match->entry,
+                $entry->match->article,
+                $entry->match->matchType,
+            ),
+            $this->eligibleForAutoLink($project, $report)
+        );
+
+        return new EditorialCalendarLinkingResult($report, $prospective, dryRun: true);
     }
 
     /**
@@ -49,7 +67,7 @@ class EditorialCalendarLinkingService
 
         $linked = [];
 
-        foreach ($report->safeToAutoLink() as $reconciliationEntry) {
+        foreach ($this->eligibleForAutoLink($project, $report) as $reconciliationEntry) {
             $match = $reconciliationEntry->match;
             $article = $match->article;
 
@@ -68,6 +86,7 @@ class EditorialCalendarLinkingService
                 subjectTitle: $article->title,
                 action: "Articolo collegato automaticamente dalla sincronizzazione del calendario editoriale (voce #{$match->entry->position}): «{$article->title}»",
                 userId: null,
+                newValue: ProjectActivityLog::PROJECT_ARTICLE_LINKED,
                 source: ProjectActivityLog::SOURCE_EDITORIAL_SYNC,
             );
 
@@ -75,5 +94,30 @@ class EditorialCalendarLinkingService
         }
 
         return new EditorialCalendarLinkingResult($report, $linked, dryRun: false);
+    }
+
+    /**
+     * @return list<EditorialCalendarReconciliationEntry>
+     */
+    private function eligibleForAutoLink(Project $project, EditorialCalendarReconciliationReport $report): array
+    {
+        return array_values(array_filter(
+            $report->safeToAutoLink(),
+            fn (EditorialCalendarReconciliationEntry $entry) => $entry->match->article !== null
+                && ! $this->wasManuallyUnlinked($project, $entry->match->article->id)
+        ));
+    }
+
+    private function wasManuallyUnlinked(Project $project, int $articleId): bool
+    {
+        $latest = ProjectActivityLog::query()
+            ->where('project_id', $project->id)
+            ->where('subject_type', 'project_article')
+            ->where('subject_id', $articleId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return $latest !== null && $latest->new_value === ProjectActivityLog::PROJECT_ARTICLE_UNLINKED;
     }
 }
