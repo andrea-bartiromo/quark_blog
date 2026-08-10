@@ -69,6 +69,7 @@ class MediaWebpCleanupService
     public function __construct(
         private readonly MediaReferenceService $referenceService,
         private readonly ImageService $imageService,
+        private readonly PublicMediaSyncService $publicMediaSync,
     ) {}
 
     /**
@@ -99,6 +100,8 @@ class MediaWebpCleanupService
             'protected' => [],
             'turing_unmanaged' => [],
             'webp_missing_or_invalid' => [],
+            'webp_missing_in_secondary_root' => [],
+            'structured_reference_without_media' => [],
             'free_text_reference' => [],
             'static_source_reference' => [],
             'observation_period_not_elapsed' => [],
@@ -137,8 +140,45 @@ class MediaWebpCleanupService
             }
 
             $webpAbsolute = $baseDir.'/'.$webpDiskName;
-            if (! is_file($webpAbsolute) || @getimagesize($webpAbsolute) === false) {
-                $excluded['webp_missing_or_invalid'][] = $this->excludedEntry($file, "Il Media punta a '{$webpDiskName}' ma il file non esiste sul filesystem o non e' un'immagine valida: richiede indagine manuale, l'originale NON deve essere considerato eliminabile finche' questo non e' risolto.");
+            $webpImageInfo = is_file($webpAbsolute) ? @getimagesize($webpAbsolute) : false;
+
+            // getimagesize() valida "e' un'immagine decodificabile", non
+            // "e' davvero WebP": un file rinominato/corrotto che contiene
+            // bytes JPEG/PNG validi supererebbe un controllo piu' debole.
+            // Il tipo rilevato (indice [2]) deve essere esattamente
+            // IMAGETYPE_WEBP, altrimenti il sostituto non e' affidabile.
+            if ($webpImageInfo === false || $webpImageInfo[2] !== IMAGETYPE_WEBP) {
+                $excluded['webp_missing_or_invalid'][] = $this->excludedEntry($file, "Il Media punta a '{$webpDiskName}' ma il file non esiste sul filesystem o non e' realmente un'immagine WebP valida: richiede indagine manuale, l'originale NON deve essere considerato eliminabile finche' questo non e' risolto.");
+
+                continue;
+            }
+
+            // Quando MEDIA_PUBLIC_ROOT e' configurato, la copia realmente
+            // servita al pubblico puo' essere quella radice secondaria
+            // (es. public_html su cPanel), non solo public/assets/img:
+            // un originale non deve mai essere considerato eliminabile se
+            // quella copia manca, anche se la radice primaria e' a posto
+            // (drift di sincronizzazione, es. copia creata prima
+            // dell'attivazione di MEDIA_PUBLIC_ROOT).
+            if ($this->publicMediaSync->isEnabled() && ! $this->publicMediaSync->targetIsFile($webpDiskName)) {
+                $excluded['webp_missing_in_secondary_root'][] = $this->excludedEntry($file, "Il WebP '{$webpDiskName}' e' valido nella radice primaria ma manca nella radice pubblica secondaria configurata (MEDIA_PUBLIC_ROOT): rimuovere l'originale potrebbe lasciare il sito senza un sostituto realmente servito.");
+
+                continue;
+            }
+
+            // Un confronto per solo nome file tra originale e la sua
+            // ipotetica controparte WebP non prova che quel WebP sia
+            // stato prodotto DA quell'originale (potrebbero coesistere
+            // per puro caso di stesso basename in file diversi): un
+            // riferimento strutturato residuo al nome dell'originale
+            // stesso, anche senza un Media proprietario, deve bloccare
+            // la candidatura esattamente come una menzione in testo
+            // libero.
+            if ($this->referenceService->hasAnyStructuredReference($relativePath)) {
+                $excluded['structured_reference_without_media'][] = $this->excludedEntry(
+                    $file,
+                    'Un campo strutturato (copertina articolo, banner, foto profilo, immagine categoria o contenuto pagina speciale) fa ancora riferimento a questo file, pur non esistendo un Media che lo possiede: potrebbe non essere davvero un residuo di QUESTA migrazione.'
+                );
 
                 continue;
             }

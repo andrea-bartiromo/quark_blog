@@ -3,13 +3,16 @@
 namespace Tests\Unit;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Media;
 use App\Models\User;
 use App\Services\ImageService;
 use App\Services\MediaReferenceService;
 use App\Services\MediaWebpCleanupService;
+use App\Services\PublicMediaSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
 
@@ -21,6 +24,7 @@ use Tests\TestCase;
 class MediaWebpCleanupServiceTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesIsolatedMediaPublicRoot;
     use UsesIsolatedPublicPath;
 
     private string $isolatedSourceDir;
@@ -37,6 +41,9 @@ class MediaWebpCleanupServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (isset($this->isolatedMediaPublicRoot)) {
+            $this->tearDownIsolatedMediaPublicRoot();
+        }
         $this->tearDownIsolatedPublicPath();
         $this->deleteDirectory($this->isolatedSourceDir);
         parent::tearDown();
@@ -62,7 +69,7 @@ class MediaWebpCleanupServiceTest extends TestCase
 
     private function service(): MediaWebpCleanupService
     {
-        return new MediaWebpCleanupService(new MediaReferenceService, new ImageService);
+        return new MediaWebpCleanupService(new MediaReferenceService, new ImageService, new PublicMediaSyncService);
     }
 
     private function mediaDir(): string
@@ -234,6 +241,99 @@ class MediaWebpCleanupServiceTest extends TestCase
 
         $this->assertSame(0, $report['candidates']['count']);
         $this->assertSame(1, $report['excluded']['webp_missing_or_invalid']['count']);
+    }
+
+    public function test_a_replacement_that_is_a_valid_image_but_not_actually_webp_is_never_a_candidate(): void
+    {
+        // getimagesize() valida "e' un'immagine decodificabile", non "e'
+        // WebP": un file .webp che in realta' contiene un JPEG valido
+        // (rinominato per errore, o corrotto in modo "morbido") non deve
+        // mai passare come sostituto affidabile.
+        $this->putImage('mislabeled.jpg');
+        $this->putImage('mislabeled.webp', 'jpg');
+        $media = $this->media('mislabeled.webp', 'image/webp');
+        $this->ageMedia($media, 30);
+
+        $report = $this->service()->scan();
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['webp_missing_or_invalid']['count']);
+    }
+
+    public function test_a_missing_copy_in_the_secondary_public_root_excludes_the_candidate(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+
+        // Il WebP e' valido nella radice primaria, ma non e' mai stato
+        // sincronizzato (o e' andato perso) nella radice pubblica
+        // secondaria configurata: rimuovere l'originale lascerebbe il
+        // sito, se servito da li', senza un sostituto reale.
+        $this->migratedPair('drifted', ageDays: 30);
+
+        $report = $this->service()->scan();
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['webp_missing_in_secondary_root']['count']);
+    }
+
+    public function test_a_synced_copy_in_the_secondary_public_root_allows_the_candidate(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $this->migratedPair('synced', ageDays: 30);
+
+        // Simula una sincronizzazione gia' avvenuta: stesso file presente
+        // anche nella radice pubblica secondaria.
+        file_put_contents(
+            $this->isolatedMediaPublicRoot.'/synced.webp',
+            file_get_contents($this->mediaDir().'/synced.webp')
+        );
+
+        $report = $this->service()->scan();
+
+        $this->assertSame(1, $report['candidates']['count']);
+    }
+
+    public function test_a_structured_reference_without_an_owning_media_excludes_the_candidate(): void
+    {
+        // Caso limite che il solo confronto per nome file (originale vs
+        // controparte .webp) non puo' escludere da solo: un campo
+        // strutturato menziona ancora il nome dell'originale anche se
+        // nessun Media possiede piu' quel disk_name (es. dato residuo,
+        // o due file con lo stesso basename per puro caso).
+        $this->migratedPair('still-linked', ageDays: 30);
+
+        Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo con riferimento residuo',
+            'slug' => 'articolo-residuo-'.uniqid(),
+            'body' => 'Corpo generico senza menzioni testuali.',
+            'category' => 'scienza',
+            'status' => 'draft',
+            'read_minutes' => 1,
+            'verification_status' => 'unverified',
+            'cover_image' => 'still-linked.jpg',
+        ]);
+
+        $report = $this->service()->scan();
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['structured_reference_without_media']['count']);
+    }
+
+    public function test_a_category_structured_reference_without_an_owning_media_excludes_the_candidate(): void
+    {
+        $this->migratedPair('categories/icon', ageDays: 30);
+
+        Category::create([
+            'name' => 'Categoria di test',
+            'slug' => 'categoria-di-test-'.uniqid(),
+            'image' => 'icon.jpg',
+        ]);
+
+        $report = $this->service()->scan();
+
+        $this->assertSame(0, $report['candidates']['count']);
+        $this->assertSame(1, $report['excluded']['structured_reference_without_media']['count']);
     }
 
     public function test_a_free_text_mention_excludes_the_candidate(): void

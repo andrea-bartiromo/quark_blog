@@ -289,6 +289,55 @@ class MediaReferenceService
         return $mentions;
     }
 
+    /**
+     * Verifica se $diskName e' referenziato da un qualunque campo
+     * strutturato conosciuto (copertina articolo, banner pubblicitario,
+     * foto profilo, immagine categoria, contenuto pagina speciale),
+     * indipendentemente dal fatto che esista o meno un Media che possiede
+     * quello stesso disk_name.
+     *
+     * Diversa da preflight(): preflight() presuppone un Media reale e
+     * confronta il SUO disk_name attuale; questo metodo serve invece
+     * MediaWebpCleanupService (FASE 12), che deve valutare un file che,
+     * per costruzione, NON ha (piu') un proprio Media (e' un originale
+     * gia' migrato). Un confronto per solo nome file tra originale e la
+     * sua ipotetica controparte WebP non basta a provare che quel WebP
+     * sia stato prodotto DA quell'originale — potrebbero coesistere per
+     * puro caso di stesso basename in file diversi — quindi ogni
+     * riferimento strutturato residuo al nome dell'originale, anche senza
+     * un Media proprietario, deve bloccare la candidatura alla rimozione.
+     */
+    public function hasAnyStructuredReference(string $diskName): bool
+    {
+        if (Article::where('cover_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (Ad::where('banner_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (User::where('photo', $diskName)->exists()) {
+            return true;
+        }
+
+        if (dirname($diskName) === 'categories' && Category::where('image', basename($diskName))->exists()) {
+            return true;
+        }
+
+        return SpecialPage::query()
+            ->get(['content'])
+            ->contains(function (SpecialPage $page) use ($diskName): bool {
+                foreach ($this->collectStringLeaves($page->content ?? []) as $leaf) {
+                    if ($leaf['value'] === $diskName) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+    }
+
     private function scanStaticProtectedList(string $old, array &$blocking): void
     {
         if (in_array($old, config('media.protected_disk_names', []), true)) {

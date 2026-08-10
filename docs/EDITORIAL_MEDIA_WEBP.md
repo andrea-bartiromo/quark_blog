@@ -334,32 +334,48 @@ sono vere (mai una sola, mai per deduzione):
 2. esiste un `Media` il cui `disk_name` e' gia' la sua controparte
    `.webp` — quindi e' stato davvero migrato da `media:convert-webp`, non
    un file indipendente mai toccato dalla pipeline;
-3. quel file `.webp` esiste realmente su disco **ed e' un'immagine
-   valida** (`getimagesize()` riuscito) — il controllo di sicurezza piu'
-   importante di questo comando: se il sostituto e' mancante o corrotto,
-   il file non compare mai tra i candidati, indipendentemente da ogni
-   altro criterio;
-4. nessun `Media` punta ancora al file originale stesso (caso limite:
+3. quel file `.webp` esiste realmente su disco **ed e' DAVVERO
+   un'immagine WebP valida** — non solo un'immagine decodificabile di
+   qualunque formato: `getimagesize()` da solo accetterebbe anche un
+   JPEG/PNG rinominato per errore in `.webp`, quindi il tipo rilevato
+   (`IMAGETYPE_WEBP`) e' verificato esplicitamente. Il controllo di
+   sicurezza piu' importante di questo comando: se il sostituto e'
+   mancante, corrotto, o non realmente WebP, il file non compare mai tra
+   i candidati, indipendentemente da ogni altro criterio;
+4. se `MEDIA_PUBLIC_ROOT` e' configurato, il WebP esiste anche nella
+   radice pubblica secondaria (`PublicMediaSyncService::targetIsFile()`)
+   — potrebbe essere quella realmente servita al pubblico, e un drift di
+   sincronizzazione lì non deve mai passare inosservato;
+5. nessun `Media` punta ancora al file originale stesso (caso limite:
    duplicati di contenuto con un `.webp` indipendente);
-5. non e' nella lista protetta (`config('media.protected_disk_names')`);
-6. non e' sotto `turing/` (stessa esclusione categorica di
+6. non e' nella lista protetta (`config('media.protected_disk_names')`);
+7. non e' sotto `turing/` (stessa esclusione categorica di
    `media:webp-audit`/`media:convert-webp`);
-7. nessuna menzione in testo libero (`article.body`, `ad.html_code` —
+8. nessun campo strutturato (copertina articolo, banner pubblicitario,
+   foto profilo, immagine categoria, contenuto pagina speciale) menziona
+   ancora il nome dell'originale, **anche senza un Media proprietario**
+   (`MediaReferenceService::hasAnyStructuredReference()`) — un confronto
+   per solo nome file tra originale e webp non prova che il secondo sia
+   stato generato dal primo: potrebbero coesistere per puro caso di
+   stesso basename in file diversi, e questo controllo copre esattamente
+   quel caso limite;
+9. nessuna menzione in testo libero (`article.body`, `ad.html_code` —
    riusa `MediaReferenceService::findFreeTextMentions()`, la stessa
    ricerca gia' usata dal preflight di spostamento: mai una seconda
    definizione di "potrebbe essere nascosto in un campo di testo");
-8. nessuna menzione letterale del nome file nel codice sorgente
-   versionato (`resources/views`, `resources/css`, `resources/js`,
-   `public/css`, `public/js`);
-9. e' trascorso il periodo di osservazione minimo dalla migrazione
-   (`--min-age-days`, default `config('media.webp_cleanup_min_age_days')`
-   = 14 giorni, calcolato su `Media.updated_at` del record WebP — l'unico
-   timestamp di "quando e' stata applicata la migrazione" gia'
-   disponibile, nessuna nuova colonna introdotta per questo).
+10. nessuna menzione letterale del nome file nel codice sorgente
+    versionato (`resources/views`, `resources/css`, `resources/js`,
+    `public/css`, `public/js`);
+11. e' trascorso il periodo di osservazione minimo dalla migrazione
+    (`--min-age-days`, default `config('media.webp_cleanup_min_age_days')`
+    = 14 giorni, calcolato su `Media.updated_at` del record WebP — l'unico
+    timestamp di "quando e' stata applicata la migrazione" gia'
+    disponibile, nessuna nuova colonna introdotta per questo).
 
 Ogni esclusione viene riportata con un motivo esplicito (stessa filosofia
 di `media:webp-audit`): `not_migrated`, `still_referenced_by_media`,
 `protected`, `turing_unmanaged`, `webp_missing_or_invalid`,
+`webp_missing_in_secondary_root`, `structured_reference_without_media`,
 `free_text_reference`, `static_source_reference`,
 `observation_period_not_elapsed`.
 
