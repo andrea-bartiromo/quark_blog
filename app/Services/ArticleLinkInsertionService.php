@@ -245,6 +245,50 @@ class ArticleLinkInsertionService
     }
 
     /**
+     * Internal Linking V2 (content:internal-link-audit) — come
+     * linkedArticleSlugsInBody(), ma OGNI occorrenza (non deduplicata) con
+     * il testo dell'anchor: l'audit ha bisogno di sapere se la STESSA
+     * frase-anchor punta a destinazioni diverse nello stesso articolo
+     * ("anchor ambigui" — FASE 16), cosa che l'elenco deduplicato di slug
+     * non può più esprimere. Stessa definizione di "collegamento ad
+     * articolo" di linkedArticleSlugsInBody() (stesso pattern
+     * /articolo/{slug}), qui deliberatamente NON deduplicata: la
+     * deduplicazione è responsabilità di chi consuma il risultato, in base
+     * a cosa gli serve (il badge vuole "quanti articoli distinti", l'audit
+     * vuole anche "quante volte e con quale testo").
+     *
+     * @return array<int, array{slug: string, anchorText: string}>
+     */
+    public function internalArticleLinkOccurrences(string $html): array
+    {
+        if (trim($html) === '' || strip_tags($html) === $html) {
+            return [];
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div>'.$html.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $occurrences = [];
+
+        foreach ($dom->getElementsByTagName('a') as $anchor) {
+            /** @var DOMElement $anchor */
+            $href = $anchor->getAttribute('href');
+
+            if ($href !== '' && preg_match('~/articolo/([^/?#]+)~', $href, $m)) {
+                $occurrences[] = ['slug' => $m[1], 'anchorText' => trim($anchor->textContent)];
+            }
+        }
+
+        return $occurrences;
+    }
+
+    /**
      * @return array{dom: DOMDocument, root: DOMNode, textNode: DOMText, position: int}|null
      */
     private function locateInsertionPoint(string $bodyHtml, string $anchorText): ?array
