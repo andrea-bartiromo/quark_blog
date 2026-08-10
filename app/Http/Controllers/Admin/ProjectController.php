@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Services\Editorial\EditorialCalendarNextActionResolver;
 use App\Services\Editorial\EditorialCalendarProgress;
 use App\Services\Editorial\EditorialCalendarReconciliationService;
+use App\Services\ProjectAction\ProjectHealthResolver;
+use App\Services\ProjectAction\ProjectNextActionResolverV2;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -113,6 +115,14 @@ class ProjectController extends Controller
             $editorialProgress = EditorialCalendarProgress::fromReport($editorialReport);
         }
 
+        // FASE 3-4-6, missione Dashboard Automation V2: un solo progetto
+        // qui, mai un elenco — nessun rischio N+1 a differenza della
+        // dashboard (vedi ProjectDashboardController). Calcolato per ogni
+        // tab, non solo la panoramica: il badge di stato in testata alla
+        // pagina è condiviso da tutte le tab.
+        $nextActionSuggestion = app(ProjectNextActionResolverV2::class)->resolve($project);
+        $projectHealth = app(ProjectHealthResolver::class)->resolve($project);
+
         $articleOptions = $activeTab === 'articles'
             ? Article::whereNotIn('id', $project->articles()->pluck('articles.id'))->orderByDesc('created_at')->limit(200)->get(['id', 'title'])
             : null;
@@ -139,6 +149,8 @@ class ProjectController extends Controller
             'articleOptions' => $articleOptions,
             'activityLog' => $activityLog,
             'editorialProgress' => $editorialProgress,
+            'nextActionSuggestion' => $nextActionSuggestion,
+            'projectHealth' => $projectHealth,
         ]);
     }
 
