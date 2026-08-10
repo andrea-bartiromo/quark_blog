@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
+use App\Services\InternalLinking\ConceptCandidate;
+use App\Services\InternalLinking\ScientificConceptMatcher;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -228,8 +230,24 @@ class ArticleLinkSuggestionService
     /** Lunghezza minima perché un termine in "-mente" sia escluso come avverbio di modo generico (esclude il sostantivo "mente" da solo). */
     private const MIN_LENGTH_FOR_MENTE_ADVERB = 7;
 
+    /**
+     * V2 (Internal Linking V2, missione dedicata) — bonus per un CONCETTO
+     * scientifico multi-parola noto (config/scientific_concepts.php,
+     * es. "buco nero", "relatività generale") condiviso letteralmente tra
+     * sorgente e target — vedi App\Services\InternalLinking\
+     * ScientificConceptMatcher. Un concetto multi-parola è un segnale più
+     * specifico di un singolo termine condiviso (TERM_MATCH_SCORE): un
+     * numero di punti più alto lo riflette, senza sostituire i segnali
+     * esistenti (si somma, non li rimpiazza).
+     */
+    private const CONCEPT_MATCH_SCORE = 20;
+
+    /** Al più questi concetti contano ai fini del punteggio — "un buon segnale forte" è sufficiente, non serve premiare la ripetizione dello stesso tipo di segnale (stessa filosofia di MAX_SCORED_TERM_MATCHES). */
+    private const MAX_SCORED_CONCEPTS = 2;
+
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
+        private readonly ScientificConceptMatcher $conceptMatcher = new ScientificConceptMatcher,
     ) {}
 
     /**
@@ -248,6 +266,16 @@ class ArticleLinkSuggestionService
         }
 
         $sourceTerms = $this->extractTerms($sourcePlainBody);
+
+        // V2 (Internal Linking V2) — calcolato UNA VOLTA qui, non dentro
+        // scoreLink(): $sourcePlainBody non cambia tra un candidato e
+        // l'altro in questo metodo (a differenza di analyzeForNewTarget(),
+        // dove ogni candidato ha un proprio body e quindi un proprio
+        // scan), quindi ripetere la scansione dei concetti fino a
+        // MAX_CANDIDATES volte per la STESSA stringa sarebbe lavoro
+        // sprecato — stesso principio già applicato a $sourceTerms sopra.
+        $sourceConceptMatches = $this->conceptMatcher->conceptsPresentIn($sourcePlainBody);
+
         $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $source->body);
 
         $candidates = Article::published()
@@ -283,7 +311,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $documentFrequency, $corpusSize);
+            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $sourceConceptMatches, $documentFrequency, $corpusSize);
 
             if ($match === null) {
                 // Un suggerimento "proposed" che non passa più la soglia
@@ -384,7 +412,8 @@ class ArticleLinkSuggestionService
             }
 
             $sourceTerms = $this->extractTerms($sourcePlainBody);
-            $match = $this->scoreLink($candidateSource->category, (string) $candidateSource->body, $sourcePlainBody, $sourceTerms, $targetAsCandidate);
+            $sourceConceptMatches = $this->conceptMatcher->conceptsPresentIn($sourcePlainBody);
+            $match = $this->scoreLink($candidateSource->category, (string) $candidateSource->body, $sourcePlainBody, $sourceTerms, $targetAsCandidate, $sourceConceptMatches);
 
             if ($match === null) {
                 $this->supersedeIfActionable($existingSuggestion);
@@ -413,11 +442,12 @@ class ArticleLinkSuggestionService
 
     /**
      * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string,body?:?string}  $candidateTarget
+     * @param  array<int, ConceptCandidate>  $sourceConceptMatches  V2 — concetti trovati in $sourcePlainBody, calcolato dal chiamante UNA VOLTA (non qui): $sourcePlainBody resta lo stesso per ogni candidato dentro analyzeForSource(), ricalcolarlo per ciascuno dei fino a MAX_CANDIDATES candidati sarebbe lavoro ripetuto e sprecato (stesso principio già applicato a $sourceTerms).
      * @param  array<string,int>  $documentFrequency  V2 — quanti candidati del pool corrente contengono ciascun termine (vedi buildDocumentFrequency()). Vuoto = nessuna classificazione generico/specifico, tutti i termini condivisi restano a punteggio pieno (fallback usato da analyzeForNewTarget(), che itera i candidati via cursor() e non può costruire questa mappa senza una seconda passata sul DB — vedi docblock di analyzeForNewTarget()).
      * @param  int  $corpusSize  Dimensione del pool usato per calcolare $documentFrequency — 0 disabilita la classificazione (stesso motivo sopra).
      * @return array{score:int,anchor:string,context:?string,reason:string}|null
      */
-    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $documentFrequency = [], int $corpusSize = 0): ?array
+    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $sourceConceptMatches, array $documentFrequency = [], int $corpusSize = 0): ?array
     {
         $score = 0;
         $titleMatched = false;
@@ -456,6 +486,23 @@ class ArticleLinkSuggestionService
         $score += array_sum(array_map(fn (array $t) => $t['points'], $scoredTerms));
         $matchedTerms = array_column($scoredTerms, 'term');
 
+        // V2 (Internal Linking V2) — concetti scientifici multi-parola
+        // (config/scientific_concepts.php) menzionati per intero SIA nel
+        // testo sorgente SIA nel target: un segnale più specifico di un
+        // singolo termine condiviso, mai un sostituto (si somma).
+        // $sourceConceptMatches è un parametro (vedi sopra), non ricalcolato qui.
+        $sourceConceptCanonicals = array_values(array_unique(array_map(
+            fn (ConceptCandidate $c) => $c->canonicalTerm,
+            $sourceConceptMatches
+        )));
+        $targetConceptCanonicals = $this->conceptMatcher->canonicalTermsPresentIn($this->targetPlainText($candidateTarget));
+        $sharedConceptCanonicals = array_slice(
+            array_values(array_intersect($sourceConceptCanonicals, $targetConceptCanonicals)),
+            0,
+            self::MAX_SCORED_CONCEPTS
+        );
+        $score += count($sharedConceptCanonicals) * self::CONCEPT_MATCH_SCORE;
+
         $categoryMatched = $sourceCategory === $candidateTarget->category;
 
         if ($categoryMatched) {
@@ -480,6 +527,19 @@ class ArticleLinkSuggestionService
 
         if ($titleOccurrence !== null) {
             $anchorCandidates[] = $titleOccurrence;
+        }
+
+        // V2 — un concetto multi-parola condiviso è un'anchor più
+        // specifica/descrittiva di un singolo termine (FASE 23,
+        // accessibilità: l'anchor deve restare comprensibile fuori
+        // contesto) — provato subito dopo il titolo, prima dei termini
+        // singoli. Il testo resta SEMPRE quello verbatim trovato nella
+        // sorgente ($c->matchedText, es. "buchi neri"), mai la forma
+        // canonica.
+        foreach ($sourceConceptMatches as $conceptMatch) {
+            if (in_array($conceptMatch->canonicalTerm, $sharedConceptCanonicals, true)) {
+                $anchorCandidates[] = ['position' => $conceptMatch->position, 'text' => $conceptMatch->matchedText];
+            }
         }
 
         foreach ($rankedTerms as $ranked) {
@@ -510,7 +570,7 @@ class ArticleLinkSuggestionService
             'score' => $score,
             'anchor' => $anchor,
             'context' => $this->buildContextExcerpt($sourcePlainBody, $anchorPosition, mb_strlen($anchor, 'UTF-8')),
-            'reason' => $this->buildReason($titleMatched, $matchedTerms, $categoryMatched, $candidateTarget->category),
+            'reason' => $this->buildReason($titleMatched, $matchedTerms, $sharedConceptCanonicals, $categoryMatched, $candidateTarget->category),
         ];
     }
 
@@ -524,6 +584,22 @@ class ArticleLinkSuggestionService
      */
     private function extractTargetTerms(object $candidateTarget): array
     {
+        return $this->extractTerms($this->targetPlainText($candidateTarget));
+    }
+
+    /**
+     * V2 (Internal Linking V2) — testo semplice del ruolo "target" (titolo +
+     * excerpt + porzione di body, vedi extractTargetTerms()), estratto qui
+     * come stringa invece che già tokenizzato: ScientificConceptMatcher
+     * lavora su FRASI multi-parola, non sui singoli termini restituiti da
+     * extractTerms() — non può riutilizzare l'array di token già tokenizzati
+     * senza perdere l'adiacenza delle parole che compongono un concetto
+     * ("buco nero" tokenizzato diventerebbe due termini indipendenti,
+     * indistinguibile da "buco" e "nero" comparsi altrove nel testo senza
+     * relazione tra loro).
+     */
+    private function targetPlainText(object $candidateTarget): string
+    {
         $bodyExcerpt = '';
 
         if (! empty($candidateTarget->body)) {
@@ -535,9 +611,7 @@ class ArticleLinkSuggestionService
             );
         }
 
-        return $this->extractTerms(
-            ($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? '').' '.$bodyExcerpt
-        );
+        return ($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? '').' '.$bodyExcerpt;
     }
 
     /**
@@ -693,12 +767,19 @@ class ArticleLinkSuggestionService
         return ($start > 0 ? '… ' : '').$excerpt.($end < $totalLength ? ' …' : '');
     }
 
-    private function buildReason(bool $titleMatched, array $matchedTerms, bool $categoryMatched, string $category): string
+    /**
+     * @param  array<int, string>  $matchedConcepts  forme canoniche (config/scientific_concepts.php) condivise, es. ["buco nero"]
+     */
+    private function buildReason(bool $titleMatched, array $matchedTerms, array $matchedConcepts, bool $categoryMatched, string $category): string
     {
         $parts = [];
 
         if ($titleMatched) {
             $parts[] = 'il titolo dell\'articolo collegato compare nel testo';
+        }
+
+        if (! empty($matchedConcepts)) {
+            $parts[] = 'concetto scientifico riconosciuto: '.implode(', ', $matchedConcepts);
         }
 
         if (! empty($matchedTerms)) {

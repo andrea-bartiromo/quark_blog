@@ -520,4 +520,57 @@ class ArticleLinkSuggestionServiceTest extends TestCase
 
         $this->assertNotNull($suggestion);
     }
+
+    // ── Concetti scientifici multi-parola (Internal Linking V2) ──
+
+    // 20. Un concetto multi-parola noto (config/scientific_concepts.php),
+    // citato per intero in entrambi i testi, contribuisce al punteggio e
+    // viene preferito come anchor (più specifico di una singola parola).
+    public function test_a_shared_scientific_concept_contributes_to_the_score_and_is_used_as_anchor(): void
+    {
+        $target = $this->article([
+            'title' => 'Cosa sono i buchi neri supermassicci',
+            'excerpt' => 'Un viaggio nei buchi neri al centro delle galassie.',
+            'category' => 'spazio',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Osservazioni astronomiche recenti',
+            'body' => '<p>Gli astronomi hanno individuato un nuovo buco nero al centro di una galassia lontana, con proprietà sorprendenti.</p>',
+            'category' => 'spazio',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertSame('buco nero', $suggestion->anchor_text);
+        $this->assertStringContainsString('Concetto scientifico riconosciuto: buco nero', $suggestion->reason);
+    }
+
+    // 21. Il concetto multi-parola resta un segnale ADDITIVO: due parole
+    // generiche comuni che compaiono per puro caso in entrambi i testi
+    // (senza formare nessuna frase concettuale nota) non attivano il
+    // bonus — verificato indirettamente, il caso 6 (categoria da sola,
+    // nessun altro segnale) resta non suggerito anche dopo l'aggiunta del
+    // livello concettuale.
+    public function test_the_concept_bonus_never_creates_a_suggestion_when_no_known_concept_is_shared(): void
+    {
+        $target = $this->article([
+            'title' => 'Cronaca cittadina di ieri',
+            'excerpt' => 'Fatti locali della settimana.',
+            'body' => '<p>Resoconto degli eventi principali avvenuti in città.</p>',
+            'category' => 'energia',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Ricette di cucina regionale',
+            'body' => '<p>Un articolo che parla esclusivamente di ricette, ingredienti e tradizioni gastronomiche locali.</p>',
+            'category' => 'energia',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
 }
