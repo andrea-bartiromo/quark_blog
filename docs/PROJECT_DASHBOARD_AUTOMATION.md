@@ -215,13 +215,18 @@ introdotto: Next Action V2 e Project Health sono calcolati al bisogno
 Un dataset realistico (11 progetti, ~50 articoli, decine di task incluse
 dipendenze reali, un calendario editoriale, un log corposo —
 `ProjectDashboardPerformanceTest`) misura ~64 query per il caricamento
-della dashboard e ~14 per la pagina di un singolo progetto. La sezione
-"Richiedono attenzione" opera su un insieme **deliberatamente limitato**
-(i progetti già mostrati altrove in dashboard, mai l'intera tabella): un
-costo bounded, non un N+1 nel senso classico di crescita con l'intera
-tabella. `ProjectHealthResolver` e `ProjectNextActionResolverV2`
-condividono lo stesso calcolo per progetto (`ProjectHealth::$signals`) —
-richiamarli separatamente raddoppierebbe le query senza motivo.
+della dashboard e ~13 per la pagina di un singolo progetto (~13 anche per
+un progetto con calendario editoriale, su qualunque tab). La sezione
+"Richiedono attenzione" opera su un insieme **deliberatamente limitato**:
+i progetti già mostrati altrove in dashboard, **e comunque mai più di
+`ProjectDashboardController::MAX_ATTENTION_CANDIDATES` (20)** prima di
+risolvere — verificato confrontando il costo con 30 e con 150 progetti
+bloccati nel database: identico in entrambi i casi. `ProjectHealthResolver`
+e la view sulla pagina progetto condividono lo stesso calcolo per
+progetto (`ProjectHealth::$signals`) — richiamare
+`ProjectNextActionResolverV2::resolve()` separatamente raddoppierebbe le
+query senza motivo (bug reale trovato e corretto in review su questa
+stessa PR, vedi §"Trovato in review" nel report finale).
 
 ## 11. Limiti noti
 

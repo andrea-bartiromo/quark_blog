@@ -92,6 +92,26 @@ class ProjectTaskDependsOnCharacterizationTest extends TestCase
         ProjectTask::factory()->for($projectX)->create(['depends_on_task_id' => $taskInY->id]);
     }
 
+    /**
+     * Regressione Codex (PR #157, P2): spostare una task con una
+     * dipendenza già valida in un altro progetto (project_id è mass
+     * assignable) non toccava mai depends_on_task_id, quindi la guardia
+     * — attiva solo su isDirty('depends_on_task_id') — non si
+     * riattivava mai, lasciando una dipendenza cross-project non
+     * rilevata. Deve rifiutare anche quando cambia solo project_id.
+     */
+    public function test_moving_a_task_with_an_existing_dependency_to_another_project_is_rejected(): void
+    {
+        $projectX = $this->project(['title' => 'Progetto X']);
+        $projectY = $this->project(['title' => 'Progetto Y']);
+        $dependency = ProjectTask::factory()->for($projectX)->create();
+        $dependent = ProjectTask::factory()->for($projectX)->create(['depends_on_task_id' => $dependency->id]);
+
+        $this->expectException(InvalidTaskDependencyException::class);
+
+        $dependent->update(['project_id' => $projectY->id]);
+    }
+
     // 6. depends_on_task_id non è raggiungibile dal form HTTP: anche
     // inviandolo esplicitamente nella richiesta, StoreProjectTaskRequest
     // non lo valida/whitelista, quindi non viene mai salvato da lì.

@@ -13,8 +13,8 @@ use App\Models\User;
 use App\Services\Editorial\EditorialCalendarNextActionResolver;
 use App\Services\Editorial\EditorialCalendarProgress;
 use App\Services\Editorial\EditorialCalendarReconciliationService;
+use App\Services\ProjectAction\NextActionSuggestion;
 use App\Services\ProjectAction\ProjectHealthResolver;
-use App\Services\ProjectAction\ProjectNextActionResolverV2;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -119,9 +119,13 @@ class ProjectController extends Controller
         // qui, mai un elenco — nessun rischio N+1 a differenza della
         // dashboard (vedi ProjectDashboardController). Calcolato per ogni
         // tab, non solo la panoramica: il badge di stato in testata alla
-        // pagina è condiviso da tutte le tab.
-        $nextActionSuggestion = app(ProjectNextActionResolverV2::class)->resolve($project);
+        // pagina è condiviso da tutte le tab. Un solo resolve(): Project
+        // Health::$signals è già la stessa lista completa usata da
+        // ProjectNextActionResolverV2::resolve() — richiamarlo a parte
+        // rieseguirebbe (e per un progetto con calendario, riquerierebbe
+        // Article::all() su tutto il catalogo) esattamente le stesse cose.
         $projectHealth = app(ProjectHealthResolver::class)->resolve($project);
+        $nextActionSuggestion = $projectHealth->signals[0] ?? NextActionSuggestion::aligned();
 
         $articleOptions = $activeTab === 'articles'
             ? Article::whereNotIn('id', $project->articles()->pluck('articles.id'))->orderByDesc('created_at')->limit(200)->get(['id', 'title'])

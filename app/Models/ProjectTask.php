@@ -25,7 +25,13 @@ class ProjectTask extends Model
     protected static function booted(): void
     {
         static::saving(function (ProjectTask $task) {
-            if ($task->depends_on_task_id !== null && $task->isDirty('depends_on_task_id')) {
+            // Anche project_id, non solo depends_on_task_id: spostare una
+            // task con una dipendenza già valida in un altro progetto
+            // (project_id è mass assignable, un update() diretto lo
+            // permette) la renderebbe cross-project senza mai toccare il
+            // campo dipendenza — la guardia deve rivalutare in entrambi i
+            // casi, non solo quando la dipendenza stessa cambia.
+            if ($task->depends_on_task_id !== null && ($task->isDirty('depends_on_task_id') || $task->isDirty('project_id'))) {
                 static::guardAgainstInvalidDependency($task);
             }
         });

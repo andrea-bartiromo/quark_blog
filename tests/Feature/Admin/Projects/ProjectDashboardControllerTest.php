@@ -136,6 +136,31 @@ class ProjectDashboardControllerTest extends TestCase
         $response->assertSeeText('1 attività è in attesa di una dipendenza');
     }
 
+    /**
+     * Regressione Codex (PR #157, P2): un dipendente già completato o
+     * annullato non è più "in attesa" di nulla, anche se la sua
+     * dipendenza non è mai stata completata — non deve gonfiare il
+     * conteggio.
+     */
+    public function test_pending_dependency_count_excludes_dependents_in_a_terminal_status(): void
+    {
+        $project = Project::factory()->create(['operational_status' => Project::STATUS_IN_PROGRESS]);
+        $dependency = ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_IN_PROGRESS]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_COMPLETED,
+            'depends_on_task_id' => $dependency->id,
+        ]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_CANCELLED,
+            'depends_on_task_id' => $dependency->id,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertDontSeeText('in attesa di una dipendenza');
+    }
+
     public function test_pending_dependency_note_is_absent_when_there_are_none(): void
     {
         Project::factory()->create(['operational_status' => Project::STATUS_IN_PROGRESS]);

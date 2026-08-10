@@ -137,12 +137,19 @@ class ProjectDashboardPerformanceTest extends TestCase
 
     /**
      * Percorso più costoso: un progetto con calendario editoriale carica
-     * ProjectNextActionResolverV2 / ProjectHealth su OGNI tab (non solo la
-     * panoramica, per il badge sempre visibile — vedi ProjectController::
-     * show()), che a sua volta esegue una riconciliazione completa del
-     * calendario (Article::all() su tutto il catalogo). Soglia più larga
-     * di proposito: verificato a parte per non nascondere questo costo
-     * dentro la soglia generica sopra.
+     * ProjectHealth su OGNI tab (non solo la panoramica, per il badge
+     * sempre visibile — vedi ProjectController::show()), che a sua volta
+     * esegue una riconciliazione completa del calendario (Article::all()
+     * su tutto il catalogo). Soglia più larga di proposito: verificato a
+     * parte per non nascondere questo costo dentro la soglia generica
+     * sopra.
+     *
+     * Regressione Codex (PR #157, P2): show() risolveva
+     * ProjectNextActionResolverV2 E ProjectHealthResolver separatamente,
+     * raddoppiando la riconciliazione per un progetto con calendario — 24
+     * query prima del fix, 13 dopo (misurato). Soglia a 30, ampio margine
+     * sopra le 13 misurate ma ben sotto le 24 pre-fix: una regressione
+     * che duplicasse di nuovo il calcolo la farebbe fallire.
      */
     public function test_a_calendar_linked_project_page_stays_bounded_on_any_tab(): void
     {
@@ -157,9 +164,51 @@ class ProjectDashboardPerformanceTest extends TestCase
 
         $response->assertOk();
         $this->assertLessThan(
-            60,
+            30,
             $queryCount,
             "La pagina di un progetto con calendario (tab non-overview) ha eseguito {$queryCount} query."
+        );
+    }
+
+    /**
+     * Regressione Codex (PR #157, P1): $blockedProjects nella dashboard
+     * non ha un limite in query (mostra tutti i progetti bloccati nella
+     * sua card dedicata) — attentionItems() risolveva la salute di
+     * OGNUNO prima di scartare quasi tutti con take(8). La prova che
+     * conta non è un tetto assoluto (il costo per progetto varia: una
+     * task inesistente costringe il resolver v1 a provare tutte le sue
+     * query prima di arrendersi, più di quanto costi un progetto con
+     * task reali) — è che il costo NON CRESCA con il numero totale di
+     * progetti bloccati, perché il pool di candidati è limitato PRIMA di
+     * risolvere (MAX_ATTENTION_CANDIDATES), non solo il risultato finale
+     * (take(8)) dopo.
+     */
+    public function test_the_attention_section_cost_does_not_grow_with_the_number_of_blocked_projects(): void
+    {
+        $editor = $this->editor();
+
+        for ($i = 0; $i < 30; $i++) {
+            Project::factory()->create(['operational_status' => Project::STATUS_BLOCKED]);
+        }
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($editor)->get(route('admin.progettazione.dashboard'))->assertOk();
+        $countWith30 = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        for ($i = 0; $i < 120; $i++) {
+            Project::factory()->create(['operational_status' => Project::STATUS_BLOCKED]);
+        }
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($editor)->get(route('admin.progettazione.dashboard'))->assertOk();
+        $countWith150 = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(
+            $countWith30,
+            $countWith150,
+            "Con 30 progetti bloccati: {$countWith30} query. Con 150: {$countWith150} query. Devono coincidere — il pool di candidati è limitato prima di risolvere, non dopo."
         );
     }
 }
