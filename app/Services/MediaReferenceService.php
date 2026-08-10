@@ -228,39 +228,65 @@ class MediaReferenceService
 
     private function scanFreeTextFields(string $old, array &$blocking): void
     {
-        $escaped = $this->escapeLike($old);
+        foreach ($this->findFreeTextMentions($old) as $mention) {
+            $blocking[] = $this->reference(
+                $mention['type'],
+                $mention['model'],
+                $mention['record_id'],
+                $mention['field'],
+                $mention['description'],
+                $old,
+                null,
+                $mention['field'] === 'body'
+                    ? 'Il testo libero (body) non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
+                    : 'Il codice HTML libero non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
+            );
+        }
+    }
+
+    /**
+     * Cerca $value come sottostringa letterale nei campi di testo libero
+     * conosciuti (article.body, ad.html_code) — pubblico (non solo uso
+     * interno di scanFreeTextFields()) perche' MediaWebpCleanupService
+     * (FASE 12) deve poter fare la stessa ricerca su un file che non ha
+     * (o non ha piu') un record Media proprio: unica implementazione di
+     * "il nome/percorso potrebbe essere incollato in testo libero", mai
+     * due definizioni.
+     *
+     * @return list<array{type: string, model: class-string, record_id: int, field: string, description: string}>
+     */
+    public function findFreeTextMentions(string $value): array
+    {
+        $escaped = $this->escapeLike($value);
+        $mentions = [];
 
         Article::query()
             ->whereRaw("body LIKE ? ESCAPE '!'", ['%'.$escaped.'%'])
             ->get(['id', 'title'])
-            ->each(function (Article $article) use ($old, &$blocking): void {
-                $blocking[] = $this->reference(
-                    'article_body',
-                    Article::class,
-                    $article->id,
-                    'body',
-                    'Testo libero dell\'articolo "'.$article->title.'"',
-                    $old,
-                    null,
-                    'Il testo libero (body) non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
-                );
+            ->each(function (Article $article) use (&$mentions): void {
+                $mentions[] = [
+                    'type' => 'article_body',
+                    'model' => Article::class,
+                    'record_id' => $article->id,
+                    'field' => 'body',
+                    'description' => 'Testo libero dell\'articolo "'.$article->title.'"',
+                ];
             });
 
         Ad::query()
             ->whereRaw("html_code LIKE ? ESCAPE '!'", ['%'.$escaped.'%'])
             ->get(['id', 'name'])
-            ->each(function (Ad $ad) use ($old, &$blocking): void {
-                $blocking[] = $this->reference(
-                    'ad_html_code',
-                    Ad::class,
-                    $ad->id,
-                    'html_code',
-                    'Codice HTML libero dell\'annuncio "'.$ad->name.'"',
-                    $old,
-                    null,
-                    'Il codice HTML libero non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
-                );
+            ->each(function (Ad $ad) use (&$mentions): void {
+                $mentions[] = [
+                    'type' => 'ad_html_code',
+                    'model' => Ad::class,
+                    'record_id' => $ad->id,
+                    'field' => 'html_code',
+                    'description' => 'Codice HTML libero dell\'annuncio "'.$ad->name.'"',
+                ];
             });
+
+        return $mentions;
     }
 
     private function scanStaticProtectedList(string $old, array &$blocking): void
