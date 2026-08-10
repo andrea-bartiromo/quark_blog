@@ -92,6 +92,38 @@ class ProjectModelTest extends TestCase
         $this->assertCount(1, $project->decisions);
     }
 
+    // ── hasCalculableProgress() (FASE 5, Dashboard Automation V2) ──────
+
+    public function test_a_project_with_no_tasks_has_no_calculable_progress(): void
+    {
+        $project = Project::factory()->create();
+
+        $this->assertFalse($project->hasCalculableProgress());
+    }
+
+    public function test_a_project_with_only_cancelled_tasks_has_no_calculable_progress(): void
+    {
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_CANCELLED]);
+
+        $this->assertFalse($project->hasCalculableProgress());
+    }
+
+    public function test_a_project_with_at_least_one_non_cancelled_task_has_calculable_progress(): void
+    {
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_TODO]);
+
+        $this->assertTrue($project->hasCalculableProgress());
+    }
+
+    public function test_an_unsaved_project_has_no_calculable_progress(): void
+    {
+        $project = new Project;
+
+        $this->assertFalse($project->hasCalculableProgress());
+    }
+
     public function test_a_project_can_be_linked_to_an_existing_article_via_pivot(): void
     {
         $project = Project::factory()->create();

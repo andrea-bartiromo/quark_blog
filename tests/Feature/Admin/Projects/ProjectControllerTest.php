@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Admin\Projects;
 
+use App\Models\Article;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Tests\TestCase;
 
 class ProjectControllerTest extends TestCase
@@ -41,6 +43,26 @@ class ProjectControllerTest extends TestCase
             ->get(route('admin.progettazione.projects.index'))
             ->assertOk()
             ->assertSeeText('Speciale Enigma');
+    }
+
+    /**
+     * FASE 5, missione Dashboard Automation V2: la colonna Avanzamento
+     * dell'elenco distingue "0%" (progetto con attività, nessuna
+     * completata) da "n/d" (nessuna attività ancora) — senza query
+     * aggiuntive per riga (open_tasks_count è un withCount()).
+     */
+    public function test_index_shows_progress_percentage_when_calculable_and_n_d_otherwise(): void
+    {
+        $withTasks = Project::factory()->create(['title' => 'Progetto con attività']);
+        ProjectTask::factory()->for($withTasks)->create(['manual_status' => ProjectTask::STATUS_TODO]);
+
+        $withoutTasks = Project::factory()->create(['title' => 'Progetto senza attività']);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.index'));
+
+        $response->assertOk();
+        $response->assertSeeText('0%');
+        $response->assertSeeText('n/d');
     }
 
     public function test_editor_can_create_a_project(): void
@@ -345,7 +367,7 @@ class ProjectControllerTest extends TestCase
         $response = $this->actingAs($this->editor())
             ->get(route('admin.progettazione.projects.show', [$project, 'tab' => 'history']));
 
-        $response->assertViewHas('activityLog', fn ($activityLog) => $activityLog instanceof \Illuminate\Pagination\LengthAwarePaginator);
+        $response->assertViewHas('activityLog', fn ($activityLog) => $activityLog instanceof LengthAwarePaginator);
     }
 
     public function test_history_tab_second_page_shows_the_remaining_entries_preserving_the_tab_query_param(): void
@@ -445,13 +467,56 @@ class ProjectControllerTest extends TestCase
 
     public function test_progress_field_is_read_only_in_the_form(): void
     {
-        $project = Project::factory()->create(['progress' => 40]);
+        // progress e' ricalcolato automaticamente ad ogni salvataggio di
+        // task (ProjectTask::booted(), Blocco D): 2 completate su 5 non
+        // annullate produce 40%, un valore impostato "a mano" verrebbe
+        // sovrascritto immediatamente dalla prima task creata.
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->count(2)->create(['manual_status' => ProjectTask::STATUS_COMPLETED]);
+        ProjectTask::factory()->for($project)->count(3)->create(['manual_status' => ProjectTask::STATUS_TODO]);
 
         $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
 
         $response->assertOk();
         $response->assertDontSee('name="progress"', false);
         $response->assertSeeText('40%');
+    }
+
+    /**
+     * FASE 5, missione Dashboard Automation V2: senza attività non
+     * annullate, "0%" sarebbe indistinguibile da "non c'è ancora nulla da
+     * misurare" — il form lo dichiara esplicitamente invece di mostrare un
+     * numero.
+     */
+    public function test_progress_field_shows_not_calculable_without_any_task(): void
+    {
+        $project = Project::factory()->create(['progress' => 0]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.edit', $project));
+
+        $response->assertOk();
+        $response->assertSeeText('Non calcolabile');
+    }
+
+    public function test_overview_tab_shows_not_calculable_progress_without_any_task(): void
+    {
+        $project = Project::factory()->create();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.show', $project));
+
+        $response->assertOk();
+        $response->assertSeeText('Non calcolabile (nessuna attività)');
+    }
+
+    public function test_overview_tab_shows_the_progress_percentage_when_the_project_has_tasks(): void
+    {
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_COMPLETED]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.projects.show', $project));
+
+        $response->assertOk();
+        $response->assertSeeText('100%');
     }
 
     public function test_submitting_a_progress_value_from_the_form_is_ignored(): void
@@ -499,13 +564,13 @@ class ProjectControllerTest extends TestCase
     public function test_roadmap_tab_shows_a_linked_scheduled_article_on_its_editorial_date(): void
     {
         $project = Project::factory()->create();
-        $article = \App\Models\Article::create([
+        $article = Article::create([
             'user_id' => User::factory()->create()->id,
             'title' => 'Articolo in roadmap',
             'slug' => 'articolo-in-roadmap',
             'body' => 'Corpo.',
             'category' => 'intelligenza-artificiale',
-            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'status' => Article::STATUS_SCHEDULED,
             'published_at' => now()->addDays(3),
         ]);
         $project->articles()->attach($article->id);
@@ -526,13 +591,13 @@ class ProjectControllerTest extends TestCase
     public function test_roadmap_tab_shows_the_editorial_rome_date_not_the_raw_utc_date(): void
     {
         $project = Project::factory()->create();
-        $article = \App\Models\Article::create([
+        $article = Article::create([
             'user_id' => User::factory()->create()->id,
             'title' => 'Articolo a cavallo di mezzanotte',
             'slug' => 'articolo-a-cavallo-di-mezzanotte',
             'body' => 'Corpo.',
             'category' => 'intelligenza-artificiale',
-            'status' => \App\Models\Article::STATUS_SCHEDULED,
+            'status' => Article::STATUS_SCHEDULED,
             'published_at' => '2026-08-31 22:30:00',
         ]);
         $project->articles()->attach($article->id);
@@ -548,13 +613,13 @@ class ProjectControllerTest extends TestCase
     public function test_roadmap_tab_does_not_show_a_draft_linked_article(): void
     {
         $project = Project::factory()->create();
-        $article = \App\Models\Article::create([
+        $article = Article::create([
             'user_id' => User::factory()->create()->id,
             'title' => 'Bozza in roadmap',
             'slug' => 'bozza-in-roadmap',
             'body' => 'Corpo.',
             'category' => 'intelligenza-artificiale',
-            'status' => \App\Models\Article::STATUS_DRAFT,
+            'status' => Article::STATUS_DRAFT,
         ]);
         $project->articles()->attach($article->id);
 

@@ -14,6 +14,7 @@
           <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">
             {{ $log->user?->name ?? 'Sistema' }} · {{ match($log->source) {
               \App\Models\ProjectActivityLog::SOURCE_EDITORIAL_SYNC => 'Sync calendario',
+              \App\Models\ProjectActivityLog::SOURCE_GITHUB => 'GitHub',
               \App\Models\ProjectActivityLog::SOURCE_SYSTEM => 'Automatico',
               default => 'Manuale',
             } }} · {{ $log->subject_title }}
