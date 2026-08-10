@@ -11,7 +11,21 @@
   <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+  {{--
+      Cache-busting basato su filemtime(), non un numero di versione
+      manuale da ricordare di incrementare a ogni modifica (stesso
+      principio già in uso per premium-fixes.css?v=10 nel layout
+      pubblico, ma automatico qui): senza questo, un browser che aveva
+      già scaricato admin.css PRIMA di una modifica a questo file (es.
+      l'introduzione della sidebar comprimibile) può continuare a
+      servire la versione in cache invariata per giorni — il body
+      riceve comunque la classe admin-sidebar-compact dal pulsante di
+      collasso (il JavaScript funziona), ma senza le regole CSS che le
+      danno un effetto visibile: il controllo sembra "non fare nulla"
+      pur funzionando correttamente. Root cause verificata empiricamente
+      con un browser reale, non assunta — vedi docs/ADMIN_SIDEBAR.md.
+  --}}
+  <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ is_file(public_path('css/admin.css')) ? filemtime(public_path('css/admin.css')) : 1 }}">
   <meta name="robots" content="noindex,nofollow">
 </head>
 
@@ -168,7 +182,7 @@
       <x-admin.nav-link :route="route('admin.profile')" :active="$isProfile" icon="👤">Profilo</x-admin.nav-link>
       <x-admin.nav-link :route="route('home')" :external="true" icon="🌐">Vedi sito</x-admin.nav-link>
 
-      <button type="submit" form="logout-form" class="admin-nav__logout-btn">
+      <button type="submit" form="logout-form" class="admin-nav__logout-btn" title="Esci">
         <span class="icon" aria-hidden="true">🚪</span>
         <span class="admin-nav__label">Esci</span>
       </button>
@@ -314,10 +328,21 @@
     return;
   }
 
+  // Stato open/closed di ogni gruppo immediatamente prima di forzarli
+  // tutti aperti per la modalita' compatta (vedi sotto): senza
+  // ripristinarlo all'uscita, tornare alla sidebar estesa lasciava TUTTI
+  // i gruppi aperti anche se in origine solo quello della pagina
+  // corrente lo era — una sidebar normalmente ordinata che si ritrovava
+  // improvvisamente con ogni sezione dispiegata dopo un giro in
+  // modalita' compatta, senza che l'utente lo avesse chiesto.
+  let groupsOpenBeforeCompact = null;
+
   function applyCompact(compact) {
     document.body.classList.toggle('admin-sidebar-compact', compact);
     compactToggle.setAttribute('aria-pressed', compact ? 'true' : 'false');
     compactToggle.setAttribute('aria-label', compact ? 'Espandi la sidebar' : 'Comprimi la sidebar');
+
+    const groups = document.querySelectorAll('.admin-nav__group');
 
     // Senza testo ad accompagnarle, le icone non guadagnerebbero nulla
     // dall'essere dentro un gruppo "chiuso": in modalita' compatta i
@@ -327,9 +352,19 @@
     // comunque visibile il contenuto anche se un gruppo viene richiuso
     // per errore (es. da tastiera).
     if (compact) {
-      document.querySelectorAll('.admin-nav__group').forEach((group) => {
+      groupsOpenBeforeCompact = Array.from(groups).map((group) => group.open);
+      groups.forEach((group) => {
         group.open = true;
       });
+
+      return;
+    }
+
+    if (groupsOpenBeforeCompact) {
+      groups.forEach((group, index) => {
+        group.open = groupsOpenBeforeCompact[index] ?? false;
+      });
+      groupsOpenBeforeCompact = null;
     }
   }
 

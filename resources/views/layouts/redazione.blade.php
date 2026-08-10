@@ -9,7 +9,9 @@
   <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:wght@700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+  {{-- Cache-busting basato su filemtime(): stesso motivo di layouts/admin.blade.php,
+       admin.css e' condiviso da entrambi i layout. --}}
+  <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ is_file(public_path('css/admin.css')) ? filemtime(public_path('css/admin.css')) : 1 }}">
   <meta name="robots" content="noindex,nofollow">
   <style>
     .redazione-badge {

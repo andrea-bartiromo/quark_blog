@@ -103,3 +103,91 @@ reale, login incluso: nessun testo tagliato, nessuna sovrapposizione,
 nessuno scroll orizzontale con il drawer mobile aperto, focus visibile
 dopo Tab in modalità compatta, stato compatto persistito correttamente
 dopo un reload di pagina, drawer mobile chiudibile con Escape.
+
+---
+
+## Addendum — missione "Admin Sidebar UX & Navigation Hardening" (agosto 2026)
+
+Segnalazione: il pulsante «/» (sidebar compatta) "sembrava non produrre
+alcun effetto visibile" nell'uso reale. Indagine e fix completi in
+questa sezione.
+
+### Causa reale
+
+**Il codice funzionava correttamente** — verificato con un browser reale
+(Playwright/Chromium): click → `admin-sidebar-compact` applicata a
+`<body>` → sidebar 240px→64px → persistita in `localStorage` →
+sopravvive alla navigazione → funziona anche da tastiera.
+
+**Causa: nessun cache-busting su `admin.css`.** Il link non aveva mai un
+parametro di versione (`{{ asset('css/admin.css') }}`, senza `?v=`). Le
+regole della modalità compatta sono arrivate nel commit `e037c04`
+insieme al resto della sidebar ridisegnata (vedi sopra): un browser che
+aveva già scaricato `admin.css` **prima** di quel commit — o di
+qualunque modifica successiva al file — può continuare a servirlo dalla
+cache indefinitamente. Il JavaScript applica comunque la classe corretta
+a `<body>` (funziona), ma senza le regole CSS che le danno un effetto
+visibile: da qui la sensazione che il pulsante "non faccia nulla".
+
+### Fix: cache-busting automatico
+
+`layouts/admin.blade.php` e `layouts/redazione.blade.php` (entrambi
+referenziano lo stesso `css/admin.css`) ora versionano lo stylesheet con
+`filemtime()`:
+
+```blade
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
+```
+
+Automatico, non un numero da incrementare a mano: ogni deploy che tocca
+`admin.css` cambia il suo mtime sul filesystem, quindi l'URL servito
+cambia con lui, forzando ogni browser a scaricare la versione
+aggiornata — stesso principio già in uso per `premium-fixes.css?v=10`
+nel layout pubblico, reso qui automatico.
+
+### Fix correlato 1: stato dei gruppi non ripristinato
+
+Uscire dalla modalità compatta lasciava **tutti** i gruppi aperti, anche
+quelli mai espansi dall'utente: lo script forzava ogni gruppo aperto
+entrando in modalità compatta (necessario, altrimenti le icone da sole
+in un gruppo "chiuso" non servirebbero a nulla) ma non li richiudeva mai
+uscendo. Corretto: lo script salva lo stato aperto/chiuso di ogni gruppo
+immediatamente prima di forzarli aperti, e lo ripristina esattamente
+all'uscita dalla modalità compatta (`groupsOpenBeforeCompact` in
+`layouts/admin.blade.php`).
+
+### Fix correlato 2: gruppi indistinguibili in modalità compatta
+
+Con le etichette nascoste e tutti i gruppi forzati aperti, le icone di
+gruppi diversi finivano in un'unica colonna senza alcuna separazione
+visiva. Corretto con un sottile bordo superiore tra un gruppo e il
+successivo (`public/css/admin.css`, scoped a
+`.admin-sidebar-compact .admin-nav__group`), e con un tooltip nativo
+(`title`) sull'icona di ogni voce (`nav-link.blade.php`) — **sull'icona,
+non sul tag `<a>`**, per non alterare l'esatta sequenza di attributi
+attesa da `AdminNavigationTest::assertNavLinkActive()`.
+
+### Come verificare dopo il deploy
+
+1. DevTools → Network, cache disattivata: l'URL di `admin.css` deve
+   includere `?v=<numero>`.
+2. Cliccare `«` sotto il logo: la sidebar deve restringersi a sole
+   icone, il carattere deve ruotare in `»`, deve comparire un sottile
+   separatore tra un gruppo di icone e il successivo.
+3. Passare il mouse su un'icona in modalità compatta: deve comparire il
+   tooltip nativo del browser con l'etichetta della voce.
+4. Espandere manualmente un solo gruppo, comprimere la sidebar,
+   riespanderla: solo quel gruppo deve essere ancora aperto.
+
+### Limite noto, non corretto in questa missione
+
+`scrollbar-width: none` nasconde completamente la barra di scorrimento
+della sidebar. Con tutti i gruppi aperti (modalità compatta, o
+manualmente in modalità estesa) il contenuto può superare l'altezza
+della finestra su schermi bassi (~800px): verificato, il contenuto
+arriva a superare i 1000px. Resta raggiungibile scorrendo, ma senza
+alcuna indicazione visiva che ce ne sia altro sotto. Scelta di design
+preesistente (sidebar scura "pulita"), non toccata qui: correggerla bene
+richiederebbe una decisione estetica (es. un'ombreggiatura di fade in
+basso), fuori scope per un fix mirato — registrato come raccomandazione
+per un intervento futuro dedicato.
