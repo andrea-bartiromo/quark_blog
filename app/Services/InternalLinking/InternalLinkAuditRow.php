@@ -10,7 +10,7 @@ namespace App\Services\InternalLinking;
 final readonly class InternalLinkAuditRow
 {
     /**
-     * @param  array<int, array{slug: string, anchorText: string, classification: string}>  $outgoingLinks
+     * @param  array<int, array{slug: string, anchorText: string, classification: string, resolvedSlug: ?string}>  $outgoingLinks
      */
     public function __construct(
         public int $articleId,

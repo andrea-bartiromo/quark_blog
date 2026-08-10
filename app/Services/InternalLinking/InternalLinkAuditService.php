@@ -88,7 +88,7 @@ class InternalLinkAuditService
      * @param  Collection<int, Article>  $allArticles
      * @param  Collection<string, Article>  $bySlug
      * @param  Collection<string, string>  $redirectTargetSlugByOldSlug
-     * @return array{0: array<int, array<int, array{slug:string,anchorText:string,classification:string}>>, 1: array<string, int>}
+     * @return array{0: array<int, array<int, array{slug:string,anchorText:string,classification:string,resolvedSlug:?string}>>, 1: array<string, int>}
      */
     private function buildLinkGraph(Collection $allArticles, Collection $bySlug, Collection $redirectTargetSlugByOldSlug): array
     {
@@ -99,19 +99,34 @@ class InternalLinkAuditService
             $occurrences = $this->insertionService->internalArticleLinkOccurrences((string) $article->body);
 
             $classified = array_map(
-                fn (array $o) => [...$o, 'classification' => $this->classify($o['slug'], $article, $bySlug, $redirectTargetSlugByOldSlug)],
+                fn (array $o) => [
+                    ...$o,
+                    'classification' => $this->classify($o['slug'], $article, $bySlug, $redirectTargetSlugByOldSlug),
+                    // Regressione Codex (PR #158, P2): un redirect verso lo
+                    // stesso target del suo slug corrente non è un secondo
+                    // collegamento distinto — la deduplicazione (buildRow())
+                    // usa questa identità risolta, non lo slug grezzo scritto
+                    // nell'href.
+                    'resolvedSlug' => $this->resolveToCurrentSlug($o['slug'], $bySlug, $redirectTargetSlugByOldSlug),
+                ],
                 $occurrences
             );
 
             $outgoingByArticleId[$article->id] = $classified;
 
-            $resolvedTargetSlugs = array_unique(array_filter(array_map(
-                fn (array $o) => $this->resolveToCurrentSlug($o['slug'], $bySlug, $redirectTargetSlugByOldSlug),
-                $occurrences
-            )));
+            foreach (array_unique(array_filter(array_column($classified, 'resolvedSlug'))) as $resolvedSlug) {
+                // Regressione Codex (PR #158, P2): un incoming link conta
+                // solo se il target risolto è davvero pubblicamente
+                // visibile — un redirect (o uno slug diretto) che punta a un
+                // articolo non pubblico non è un collegamento che un
+                // lettore può davvero seguire, non deve "salvare" quel
+                // target dall'essere considerato isolato.
+                $resolvedArticle = $bySlug->get($resolvedSlug);
 
-            foreach ($resolvedTargetSlugs as $resolvedSlug) {
-                if ($resolvedSlug !== $article->slug && array_key_exists($resolvedSlug, $incomingCountBySlug)) {
+                if ($resolvedSlug !== $article->slug
+                    && array_key_exists($resolvedSlug, $incomingCountBySlug)
+                    && $resolvedArticle !== null
+                    && $this->isPubliclyVisible($resolvedArticle)) {
                     $incomingCountBySlug[$resolvedSlug]++;
                 }
             }
@@ -129,6 +144,26 @@ class InternalLinkAuditService
         return $redirectTargetSlugByOldSlug->get($slug);
     }
 
+    /**
+     * Stessa definizione di "pubblicamente visibile" di
+     * Article::scopePublished() (status published E published_at non nel
+     * futuro) — applicata qui su modelli già in memoria, senza una query
+     * aggiuntiva. Regressione Codex (PR #158, P2): un articolo con status
+     * 'published' ma published_at futuro (un'incoerenza possibile solo
+     * per manipolazione diretta del DB, mai tramite il form — vedi
+     * Article::booted()) non è raggiungibile pubblicamente: il pubblico
+     * ArticleController::show() usa published() per sia il match diretto
+     * sia la risoluzione di un redirect, la stessa condizione va applicata
+     * qui per non classificare 'valid'/'redirected' un link che in realtà
+     * darebbe 404 al lettore.
+     */
+    private function isPubliclyVisible(Article $article): bool
+    {
+        return $article->status === Article::STATUS_PUBLISHED
+            && $article->published_at !== null
+            && ! $article->published_at->isFuture();
+    }
+
     private function classify(string $targetSlug, Article $source, Collection $bySlug, Collection $redirectTargetSlugByOldSlug): string
     {
         if ($targetSlug === $source->slug) {
@@ -136,28 +171,42 @@ class InternalLinkAuditService
         }
 
         if ($bySlug->has($targetSlug)) {
-            return $bySlug->get($targetSlug)->status === Article::STATUS_PUBLISHED ? 'valid' : 'unpublished';
+            return $this->isPubliclyVisible($bySlug->get($targetSlug)) ? 'valid' : 'unpublished';
         }
 
         if ($redirectTargetSlugByOldSlug->has($targetSlug)) {
-            return 'redirected';
+            $resolvedArticle = $bySlug->get($redirectTargetSlugByOldSlug->get($targetSlug));
+
+            return $resolvedArticle !== null && $this->isPubliclyVisible($resolvedArticle) ? 'redirected' : 'unpublished';
         }
 
         return 'missing';
     }
 
     /**
-     * @param  array<int, array{slug:string,anchorText:string,classification:string}>  $outgoingLinks
+     * @param  array<int, array{slug:string,anchorText:string,classification:string,resolvedSlug:?string}>  $outgoingLinks
      */
     private function buildRow(Article $article, array $outgoingLinks, array $incomingCountBySlug): InternalLinkAuditRow
     {
+        // Regressione Codex (PR #158, P2): deduplicare per identità
+        // RISOLTA (resolvedSlug), non per lo slug grezzo scritto
+        // nell'href — un vecchio slug (redirect) e lo slug corrente dello
+        // stesso articolo non sono due destinazioni distinte. Uno slug
+        // 'missing' (resolvedSlug null) resta invece distinto per se
+        // stesso: due link rotti verso lo STESSO slug inesistente sono
+        // comunque un solo problema da segnalare, non due.
+        $distinctIdentities = array_unique(array_map(
+            fn (array $l) => $l['resolvedSlug'] ?? 'missing:'.$l['slug'],
+            $outgoingLinks
+        ));
+
         return new InternalLinkAuditRow(
             articleId: $article->id,
             title: $article->title,
             slug: $article->slug,
             status: $article->status,
             outgoingLinks: $outgoingLinks,
-            outgoingDistinctCount: count(array_unique(array_column($outgoingLinks, 'slug'))),
+            outgoingDistinctCount: count($distinctIdentities),
             incomingLinksCount: $incomingCountBySlug[$article->slug] ?? 0,
             hasAmbiguousAnchor: $this->hasAmbiguousAnchor($outgoingLinks),
         );

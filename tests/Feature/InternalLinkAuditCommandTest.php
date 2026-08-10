@@ -88,6 +88,99 @@ class InternalLinkAuditCommandTest extends TestCase
         $this->assertSame('redirected', $report->rows[0]->outgoingLinks[0]['classification']);
     }
 
+    /**
+     * Regressione Codex (PR #158, P2): un articolo con status 'published'
+     * ma published_at nel futuro non è raggiungibile dal pubblico —
+     * Article::scopePublished() (usato da ArticleController::show()) lo
+     * esclude. Un link verso quel target deve essere 'unpublished', non
+     * 'valid': il lettore riceverebbe comunque un 404.
+     */
+    public function test_a_link_to_a_published_status_article_with_a_future_published_at_is_classified_as_unpublished(): void
+    {
+        $target = $this->article(['slug' => 'pubblicato-nel-futuro', 'published_at' => now()->addDays(3)]);
+        $source = $this->article(['body' => '<p>Vedi <a href="/articolo/pubblicato-nel-futuro">questo</a>.</p>']);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(1, $report->unpublishedTargets);
+        $this->assertSame(0, $report->brokenLinks);
+    }
+
+    /**
+     * Regressione Codex (PR #158, P2): un redirect che risolve a un target
+     * NON pubblicamente visibile (es. retrocesso a bozza dopo la
+     * rinomina) darebbe comunque 404 al lettore — non deve essere
+     * classificato 'redirected' come se funzionasse.
+     */
+    public function test_a_redirect_resolving_to_a_non_public_target_is_classified_as_unpublished_not_redirected(): void
+    {
+        $target = $this->article(['slug' => 'ora-e-una-bozza', 'status' => Article::STATUS_DRAFT, 'published_at' => null]);
+        ArticleSlugRedirect::create(['old_slug' => 'vecchio-slug-bozza', 'article_id' => $target->id]);
+        $source = $this->article(['body' => '<p>Vedi <a href="/articolo/vecchio-slug-bozza">questo</a>.</p>']);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(0, $report->redirectedLinks);
+    }
+
+    /**
+     * Regressione Codex (PR #158, P2): un articolo con incoming link solo
+     * tramite un redirect verso un target non pubblico non deve "salvarlo"
+     * dall'essere considerato isolato — l'incoming count rispetta la
+     * stessa visibilità pubblica della classificazione.
+     */
+    public function test_incoming_links_count_never_credits_a_link_resolving_to_a_non_public_target(): void
+    {
+        $orphanButLinked = $this->article(['slug' => 'sembra-collegato', 'status' => Article::STATUS_DRAFT, 'published_at' => null]);
+        $this->article(['body' => '<p><a href="/articolo/sembra-collegato">link</a></p>']);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $orphanButLinked->id);
+
+        $this->assertSame(0, $report->rows[0]->incomingLinksCount);
+    }
+
+    /**
+     * Regressione Codex (PR #158, P2): un articolo che collega la stessa
+     * destinazione due volte — una tramite lo slug corrente, una tramite
+     * un vecchio slug ora reindirizzato — collega UN solo articolo
+     * distinto, non due. Prima del fix questo gonfiava
+     * outgoingDistinctCount (e la sua classificazione in "con 2+ link").
+     */
+    public function test_linking_the_same_target_via_its_current_slug_and_an_old_redirected_slug_counts_as_one_outgoing_link(): void
+    {
+        $target = $this->article(['slug' => 'slug-attuale']);
+        ArticleSlugRedirect::create(['old_slug' => 'slug-vecchio', 'article_id' => $target->id]);
+        $source = $this->article([
+            'body' => '<p><a href="/articolo/slug-attuale">nuovo</a> e anche <a href="/articolo/slug-vecchio">vecchio</a></p>',
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame(1, $report->rows[0]->outgoingDistinctCount);
+        $this->assertSame(1, $report->withOneOutgoingLink);
+        $this->assertSame(0, $report->withTwoOrMoreOutgoingLinks);
+    }
+
+    /**
+     * Contrasto con il test precedente: due link ROTTI (slug inesistenti,
+     * nessuna risoluzione) restano distinti tra loro se sono slug diversi
+     * — la deduplicazione riguarda solo identità RISOLTE, non "qualunque
+     * link rotto conta come uno".
+     */
+    public function test_two_distinct_broken_links_are_never_merged_into_one_outgoing_link(): void
+    {
+        $source = $this->article([
+            'body' => '<p><a href="/articolo/rotto-uno">a</a> e <a href="/articolo/rotto-due">b</a></p>',
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame(2, $report->rows[0]->outgoingDistinctCount);
+        $this->assertSame(2, $report->brokenLinks);
+    }
+
     public function test_an_external_link_is_never_counted_as_an_internal_article_link(): void
     {
         $source = $this->article(['body' => '<p>Vedi <a href="https://example.com/pagina">questo sito esterno</a>.</p>']);
