@@ -2,13 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Ad;
-use App\Models\Article;
-use App\Models\Category;
 use App\Models\Media;
 use App\Models\MediaFolder;
-use App\Models\SpecialPage;
-use App\Models\User;
+use App\Services\Concerns\AppliesMediaReferenceUpdates;
+use App\Services\Concerns\ResolvesMediaFileSafely;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -16,6 +13,9 @@ use Throwable;
 
 class MediaMoveService
 {
+    use AppliesMediaReferenceUpdates;
+    use ResolvesMediaFileSafely;
+
     public function __construct(
         private readonly MediaFolderService $folderService,
         private readonly MediaReferenceService $referenceService,
@@ -169,31 +169,6 @@ class MediaMoveService
         });
     }
 
-    private function safeExistingFilePath(string $root, string $diskName): string
-    {
-        $rootReal = realpath($root);
-        if ($rootReal === false) {
-            throw new RuntimeException('La radice media non e risolvibile.');
-        }
-
-        $path = $root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $diskName);
-
-        if (is_link($path)) {
-            throw new RuntimeException('Il file sorgente e un collegamento simbolico.');
-        }
-
-        if (! is_file($path)) {
-            throw new RuntimeException('Il file sorgente non esiste sul filesystem: '.$diskName);
-        }
-
-        $real = realpath($path);
-        if ($real === false || ! $this->isWithin($real, $rootReal)) {
-            throw new RuntimeException('Il file sorgente esce dalla radice media.');
-        }
-
-        return $real;
-    }
-
     private function assertNoCollision(string $newDiskName, string $newAbsolute, int $movingMediaId): void
     {
         if (Media::where('disk_name', $newDiskName)->where('id', '!=', $movingMediaId)->exists()) {
@@ -205,74 +180,5 @@ class MediaMoveService
         if (file_exists($newAbsolute) || is_link($newAbsolute)) {
             throw new RuntimeException('Esiste gia un file sul filesystem nella destinazione.');
         }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $updatable
-     */
-    private function applyReferenceUpdates(array $updatable): void
-    {
-        $specialPageRefs = [];
-
-        foreach ($updatable as $ref) {
-            if ($ref['type'] === 'special_page_content') {
-                $specialPageRefs[] = $ref;
-
-                continue;
-            }
-
-            $this->applySingleReference($ref);
-        }
-
-        $this->applySpecialPageReferences($specialPageRefs);
-    }
-
-    /**
-     * @param  array<string, mixed>  $ref
-     */
-    private function applySingleReference(array $ref): void
-    {
-        match ($ref['type']) {
-            'article_cover_image' => Article::whereKey($ref['record_id'])->update(['cover_image' => $ref['new_value']]),
-            'ad_banner_image' => Ad::whereKey($ref['record_id'])->update(['banner_image' => $ref['new_value']]),
-            'user_photo' => User::whereKey($ref['record_id'])->update(['photo' => $ref['new_value']]),
-            'category_image' => Category::whereKey($ref['record_id'])->update(['image' => $ref['new_value']]),
-            default => throw new RuntimeException('Tipo di riferimento sconosciuto: '.$ref['type']),
-        };
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $refs
-     */
-    private function applySpecialPageReferences(array $refs): void
-    {
-        $byPage = [];
-        foreach ($refs as $ref) {
-            $byPage[$ref['record_id']][] = $ref;
-        }
-
-        foreach ($byPage as $pageId => $pageRefs) {
-            $page = SpecialPage::whereKey($pageId)->lockForUpdate()->firstOrFail();
-            $content = $page->content ?? [];
-
-            foreach ($pageRefs as $ref) {
-                data_set($content, $ref['json_path'], $ref['new_value']);
-            }
-
-            $page->update(['content' => $content]);
-        }
-    }
-
-    private function isWithin(string $path, string $root): bool
-    {
-        $path = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
-        $root = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $root), DIRECTORY_SEPARATOR);
-
-        if (PHP_OS_FAMILY === 'Windows') {
-            $path = strtolower($path);
-            $root = strtolower($root);
-        }
-
-        return $path === $root || str_starts_with($path, $root.DIRECTORY_SEPARATOR);
     }
 }

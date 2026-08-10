@@ -12,6 +12,7 @@ dell'agosto 2026 (`docs/STORAGE_AUDIT.md`).
 2. [Audit — `media:webp-audit`](#2-audit--mediawebp-audit)
 3. [Riferimenti statici protetti](#3-riferimenti-statici-protetti)
 4. [Nuovi upload: conversione automatica in WebP](#4-nuovi-upload-conversione-automatica-in-webp)
+5. [Migrazione legacy — `media:convert-webp`](#5-migrazione-legacy--mediaconvert-webp)
 
 ---
 
@@ -207,3 +208,114 @@ disattiva istantaneamente la conversione automatica (i nuovi upload
 tornano al comportamento preesistente: stesso formato del sorgente,
 ottimizzato con `resizeAndCompress()`) **senza deploy**, utile come
 rollback immediato se emergesse un problema non previsto in produzione.
+
+## 5. Migrazione legacy — `media:convert-webp`
+
+FASE 6 della missione: dopo aver fermato la crescita futura (§4), migra
+progressivamente i file JPG/PNG **gia' esistenti** e registrati come
+Media. Riusa la stessa definizione di "candidato sicuro" di
+`media:webp-audit` (`MediaWebpAuditService::evaluateCandidate()`, una sola
+implementazione condivisa da entrambi i comandi) e la stessa scrittura
+atomica di `ImageService::convertToWebp()` gia' usata dai nuovi upload.
+
+### 5.1 Cosa fa, e cosa non fa mai
+
+Per ogni Media JPG/PNG idoneo: converte in un file WebP **nuovo** accanto
+all'originale, aggiorna `Media.disk_name`/`mime_type`/`size`, riscrive
+ogni riferimento strutturato aggiornabile (copertina articolo, banner
+pubblicita, foto profilo, immagine categoria, contenuto pagine speciali —
+tramite `MediaReferenceService::preflight()`, mai una logica di
+riferimento reinventata), e sincronizza la radice pubblica secondaria se
+configurata (`PublicMediaSyncService`).
+
+**L'originale non viene mai eliminato da questo comando.** La rimozione
+degli originali e' una fase futura, deliberatamente distinta — vedi
+`media:webp-cleanup` piu' sotto.
+
+### 5.2 Modalita dry-run (default) e `--execute`
+
+```bash
+php artisan media:convert-webp                          # dry-run: rivaluta e misura, non scrive nulla
+php artisan media:convert-webp --report=storage/app/reports/webp-plan.json
+php artisan media:convert-webp --execute                 # applica, con conferma interattiva
+php artisan media:convert-webp --execute --force          # applica senza conferma (mai salta i controlli di sicurezza)
+php artisan media:convert-webp --execute --media-id=42    # limita a uno o piu Media specifici
+php artisan media:convert-webp --execute --limit=50       # limita il numero di Media processati in questa esecuzione
+```
+
+Senza `--execute` il comando e' in sola lettura: rivaluta ogni Media
+JPG/PNG registrato, misura realmente (conversione usa-e-getta in una
+directory temporanea, mai in `public/assets/img`) il peso WebP
+risultante, e stampa/esporta un manifest. Con `--execute`, ogni Media
+viene **rivalutato di nuovo da zero** al momento dell'applicazione (mai
+fidandosi di un piano calcolato in precedenza: un altro processo
+potrebbe aver gia' convertito lo stesso file, o un nuovo riferimento
+bloccante potrebbe essere comparso nel frattempo) e convertito uno alla
+volta: un errore su un Media non blocca gli altri, non esiste una
+transazione unica su tutta la libreria.
+
+**Idempotente**: una seconda esecuzione e' sempre sicura. Un Media gia'
+convertito ha ormai `disk_name` `.webp` e non viene piu' selezionato
+dalla query dei candidati (esclusione `already_webp`, la stessa categoria
+usata da `media:webp-audit`).
+
+### 5.3 Atomicita' e gestione dei fallimenti
+
+Il WebP viene scritto e verificato **prima** di qualunque scrittura sul
+database (stessa scrittura atomica temp-file+rename di
+`ImageService::convertToWebp()`, mai un rename diretto sulla destinazione
+finale): un fallimento di conversione non lascia mai uno stato DB
+incoerente da compensare.
+
+Se invece un passo fallisce **dopo** che il WebP esiste gia' (sync
+pubblico, update `Media`, aggiornamento riferimenti, verifica finale
+post-conversione), l'intera transazione DB va in rollback e il file WebP
+generato — con l'eventuale copia nella radice pubblica secondaria — viene
+rimosso con best-effort prima di riportare lo stato `failed`: l'originale
+resta sempre l'unico stato coerente sul filesystem, mai un WebP orfano
+che il database non referenzia. Nessuna transazione filesystem+DB vera
+esiste (non e' possibile a livello tecnico): l'ordine delle operazioni
+sopra e la compensazione esplicita sono la strategia deliberata per
+tenerli allineati.
+
+### 5.4 Stati per Media e struttura del manifest
+
+| Stato | Significato |
+|---|---|
+| `planned` / `converted` | Candidato sicuro (dry-run) / convertito con successo (`--execute`) |
+| `skipped_<motivo>` | Escluso: `gif`, `protected`, `turing_unmanaged`, `webp_destination_conflict`, `blocked_references`, `already_webp` — stessa classificazione di `media:webp-audit` |
+| `missing_source` | Il file non esiste piu' sul filesystem, o e' un collegamento simbolico, o uscirebbe dalla radice media (path traversal): richiede indagine manuale, mai trattato come "quindi convertibile" |
+| `failed` | Errore tecnico (encoder assente, scrittura fallita, verifica post-conversione fallita): nessuna modifica applicata, rollback automatico |
+
+Il manifest JSON (`--report=...`) contiene `generated_at`, `mode`
+(`dry_run`/`executed`), `summary` (conteggio per stato) e `results` (uno
+per Media: `media_id`, `original_path`, `new_path`, `original_bytes`,
+`webp_bytes`, `saving_bytes`, `saving_percent`, `dimensions`,
+`updated_reference_count`, `reason`).
+
+### 5.5 Procedura operativa consigliata per la produzione
+
+1. Backup del database.
+2. Backup di `storage/app/public` e `public/assets/img`.
+3. Esecuzione in dry-run (senza `--execute`), revisione umana del
+   manifest (`--report=...`).
+4. Esecuzione in staging con `--execute`, verifica manuale di frontend e
+   pannello Admin (copertine articolo, categorie, media library).
+5. Esecuzione in produzione con `--execute` su un lotto limitato
+   (`--limit=...` o `--media-id=...`) prima dell'intera libreria.
+6. Nuovo dry-run di verifica per confermare lo stato finale (tutti i
+   Media migrati risultano `skipped_already_webp`).
+7. Periodo di osservazione prima di valutare la rimozione degli
+   originali — vedi §5.6, mai automatica.
+
+### 5.6 Rimozione futura degli originali (progettata, non eseguita)
+
+Deliberatamente fuori scope per questa missione. Un originale sara'
+considerabile per la rimozione solo quando, con verifica esplicita:
+esiste un WebP valido, il `Media` punta al WebP, nessun riferimento
+codice/DB/CSS/JS/Blade punta piu' all'originale, e' trascorso un periodo
+di osservazione in produzione, e un backup locale e' confermato. Un
+comando futuro READ-ONLY (`media:webp-cleanup --dry-run`) elenchera' i
+soli candidati secondo questi criteri, senza mai un flag che cancelli
+automaticamente: la cancellazione resta sempre una decisione editoriale
+esplicita e manuale.

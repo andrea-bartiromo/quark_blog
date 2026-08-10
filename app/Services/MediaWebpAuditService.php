@@ -108,52 +108,22 @@ class MediaWebpAuditService
                 continue;
             }
 
-            if ($file['extension'] === 'gif') {
-                $this->addExcluded($excluded, 'gif', $file, 'Animazione: la conversione perderebbe i frame successivi al primo.');
-
-                continue;
-            }
-
-            if (str_starts_with($file['relative_path'], 'turing/')) {
-                $this->addExcluded($excluded, 'turing_unmanaged', $file, 'Pagine speciali Turing: nessun record Media, riferimenti spesso hardcoded fuori dal DB (vedi config/media.php e docs/EDITORIAL_MEDIA_WEBP.md) — esclusa esplicitamente da questa missione finche\' non dimostrato sicuro.');
-
-                continue;
-            }
-
-            if (in_array($file['relative_path'], config('media.protected_disk_names', []), true)) {
-                $this->addExcluded($excluded, 'protected', $file, 'Riferimento statico protetto in config/media.php (hardcoded in controller/viste/seeder).');
-
-                continue;
-            }
-
             $media = $mediaByDiskName->get($file['relative_path']);
 
-            if ($media === null) {
-                $this->addExcluded($excluded, 'no_media_record', $file, 'Nessun record Media corrispondente: senza un riferimento strutturato da riscrivere, non e\' verificabile in sicurezza se e dove il file e\' usato. Richiede revisione manuale, non e\' un candidato automatico.');
+            $evaluation = $this->evaluateCandidate(
+                $media,
+                $file['relative_path'],
+                $file['extension'],
+                fn (string $webpDiskName) => isset($existingRelativePaths[$webpDiskName]) || in_array($webpDiskName, $allDiskNames, true)
+            );
+
+            if ($evaluation['status'] === 'excluded') {
+                $this->addExcluded($excluded, $evaluation['bucket'], $file, $evaluation['reason']);
 
                 continue;
             }
 
-            $webpDiskName = $this->withExtension($file['relative_path'], 'webp');
-
-            if (isset($existingRelativePaths[$webpDiskName]) || in_array($webpDiskName, $allDiskNames, true)) {
-                $this->addExcluded($excluded, 'webp_destination_conflict', $file, "Esiste gia' un file o un record Media con il nome di destinazione '{$webpDiskName}': la conversione sovrascriverebbe un asset esistente o punterebbe il riferimento a un file non correlato.");
-
-                continue;
-            }
-
-            $preflight = $this->referenceService->preflight($media, $webpDiskName);
-
-            if ($preflight['blocking_references'] !== []) {
-                $reasons = array_values(array_unique(array_filter(array_map(
-                    fn (array $ref) => $ref['blocking_reason'],
-                    $preflight['blocking_references']
-                ))));
-
-                $this->addExcluded($excluded, 'blocked_references', $file, implode(' | ', $reasons) ?: 'Riferimento non aggiornabile in sicurezza.');
-
-                continue;
-            }
+            $preflight = $evaluation['preflight'];
 
             $candidate = [
                 'relative_path' => $file['relative_path'],
@@ -251,6 +221,64 @@ class MediaWebpAuditService
     }
 
     /**
+     * Unica definizione di "candidato sicuro alla conversione WebP" del
+     * progetto: usata sia dalla scansione bulk di audit() sia da
+     * MediaWebpMigrationService (FASE 6). Le due non devono mai poter
+     * divergere silenziosamente su cosa e' safe — se cambia una regola di
+     * esclusione, cambia qui una volta sola.
+     *
+     * Non esegue alcuna scrittura. $webpDestinationExists riceve il
+     * disk_name proposto per il WebP e deve restituire true se esiste gia'
+     * un file o un record Media con quel nome (il chiamante decide come
+     * verificarlo in modo economico per il proprio contesto: cache
+     * precaricata per la scansione bulk, controllo diretto per una singola
+     * conversione).
+     *
+     * @return array{status: 'excluded', bucket: string, reason: string}|array{status: 'eligible', webp_disk_name: string, preflight: array<string, mixed>}
+     */
+    public function evaluateCandidate(
+        ?Media $media,
+        string $relativePath,
+        string $extension,
+        callable $webpDestinationExists,
+    ): array {
+        if ($extension === 'gif') {
+            return ['status' => 'excluded', 'bucket' => 'gif', 'reason' => 'Animazione: la conversione perderebbe i frame successivi al primo.'];
+        }
+
+        if (str_starts_with($relativePath, 'turing/')) {
+            return ['status' => 'excluded', 'bucket' => 'turing_unmanaged', 'reason' => 'Pagine speciali Turing: nessun record Media, riferimenti spesso hardcoded fuori dal DB (vedi config/media.php e docs/EDITORIAL_MEDIA_WEBP.md) — esclusa esplicitamente da questa missione finche\' non dimostrato sicuro.'];
+        }
+
+        if (in_array($relativePath, config('media.protected_disk_names', []), true)) {
+            return ['status' => 'excluded', 'bucket' => 'protected', 'reason' => 'Riferimento statico protetto in config/media.php (hardcoded in controller/viste/seeder).'];
+        }
+
+        if ($media === null) {
+            return ['status' => 'excluded', 'bucket' => 'no_media_record', 'reason' => 'Nessun record Media corrispondente: senza un riferimento strutturato da riscrivere, non e\' verificabile in sicurezza se e dove il file e\' usato. Richiede revisione manuale, non e\' un candidato automatico.'];
+        }
+
+        $webpDiskName = $this->withExtension($relativePath, 'webp');
+
+        if ($webpDestinationExists($webpDiskName)) {
+            return ['status' => 'excluded', 'bucket' => 'webp_destination_conflict', 'reason' => "Esiste gia' un file o un record Media con il nome di destinazione '{$webpDiskName}': la conversione sovrascriverebbe un asset esistente o punterebbe il riferimento a un file non correlato."];
+        }
+
+        $preflight = $this->referenceService->preflight($media, $webpDiskName);
+
+        if ($preflight['blocking_references'] !== []) {
+            $reasons = array_values(array_unique(array_filter(array_map(
+                fn (array $ref) => $ref['blocking_reason'],
+                $preflight['blocking_references']
+            ))));
+
+            return ['status' => 'excluded', 'bucket' => 'blocked_references', 'reason' => implode(' | ', $reasons) ?: 'Riferimento non aggiornabile in sicurezza.'];
+        }
+
+        return ['status' => 'eligible', 'webp_disk_name' => $webpDiskName, 'preflight' => $preflight];
+    }
+
+    /**
      * @return array{width: int, height: int}|null
      */
     private function safeDimensions(string $absolutePath): ?array
@@ -274,7 +302,7 @@ class MediaWebpAuditService
      * config('media.webp_max_width')), cosi' il numero riportato e' quello
      * vero, non un'approssimazione.
      */
-    private function measureActualWebpSize(string $absolutePath): ?int
+    public function measureActualWebpSize(string $absolutePath): ?int
     {
         $tempDir = sys_get_temp_dir().'/kairus-webp-audit-'.getmypid();
 
