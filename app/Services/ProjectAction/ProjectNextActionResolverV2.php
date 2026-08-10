@@ -34,13 +34,9 @@ class ProjectNextActionResolverV2
 
     public function resolve(Project $project): NextActionSuggestion
     {
-        $signals = $this->collectSignals($project);
+        $signals = $this->allSignals($project);
 
-        if ($signals === []) {
-            return NextActionSuggestion::aligned();
-        }
-
-        return $this->sorted($signals)[0];
+        return $signals[0] ?? NextActionSuggestion::aligned();
     }
 
     /**
@@ -53,9 +49,21 @@ class ProjectNextActionResolverV2
      */
     public function secondarySignals(Project $project, int $limit = 4): array
     {
-        $signals = $this->sorted($this->collectSignals($project));
+        return array_slice($this->allSignals($project), 1, $limit);
+    }
 
-        return array_slice($signals, 1, $limit);
+    /**
+     * Ogni segnale rilevato per il progetto, ordinato per severità — vuoto
+     * se non ce n'è nessuno (mai NextActionSuggestion::aligned() qui: quel
+     * valore sentinella è una scelta di resolve(), non un fatto rilevato).
+     * Usato anche da ProjectHealthResolver, per non ricalcolare due volte
+     * la stessa raccolta di segnali.
+     *
+     * @return list<NextActionSuggestion>
+     */
+    public function allSignals(Project $project): array
+    {
+        return $this->sorted($this->collectSignals($project));
     }
 
     /**
