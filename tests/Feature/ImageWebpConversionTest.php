@@ -427,6 +427,37 @@ class ImageWebpConversionTest extends TestCase
         $this->assertFileExists($source);
     }
 
+    public function test_auto_convert_falls_back_safely_when_removing_the_original_keeps_failing(): void
+    {
+        // Stesso pattern di sottoclasse gia' usato sopra per simulare un
+        // fallimento reale (qui removeFile(), non convertToWebp()): un
+        // unlink() che continua a fallire nonostante i retry deve essere
+        // trattato come un fallimento dell'intera conversione, non come
+        // un successo con effetto collaterale silenzioso (il sorgente
+        // resterebbe un orfano non tracciato mentre il chiamante registra
+        // solo il WebP).
+        $service = new class extends ImageService
+        {
+            protected function removeFile(string $path): bool
+            {
+                return false;
+            }
+        };
+
+        $source = $this->solidJpeg('photo.jpg', 100, 100);
+
+        $result = $service->autoConvertToWebpIfEligible($source, 'jpg', 82, 1600);
+
+        $this->assertFalse($result['webp_applied'], 'una rimozione del sorgente sempre fallita deve far ripiegare sull\'originale.');
+        $this->assertSame($source, $result['full_path']);
+        $this->assertSame('jpg', $result['ext']);
+        $this->assertFileExists($source, 'il file originale non deve mai sparire se non puo\' essere sostituito in modo pulito.');
+        $this->assertFileDoesNotExist(
+            $this->tempDir.'/photo.webp',
+            'il WebP generato ma orfano (sorgente non rimovibile) deve essere scartato, non lasciato accanto all\'originale.'
+        );
+    }
+
     public function test_auto_convert_respects_the_configured_max_width(): void
     {
         $source = $this->solidJpeg('wide.jpg', 2000, 1000);

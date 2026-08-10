@@ -11,6 +11,18 @@ use RuntimeException;
 class ImageService
 {
     /**
+     * Numero di tentativi per la rimozione del sorgente originale dopo una
+     * conversione WebP riuscita (vedi autoConvertToWebpIfEligible()) e
+     * intervallo tra un tentativo e l'altro. Stessi valori usati da
+     * PublicMediaSyncService::removeFileWithRetry() per lo stesso motivo:
+     * su Windows un file appena scritto puo' restare brevemente bloccato
+     * da un handle non ancora rilasciato o da una scansione antivirus.
+     */
+    private const SOURCE_REMOVAL_RETRY_ATTEMPTS = 5;
+
+    private const SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS = 100_000;
+
+    /**
      * Determina l'estensione sicura a partire dal MIME type
      * rilevato dal server, senza fidarsi del nome originale.
      */
@@ -509,7 +521,26 @@ class ImageService
             return $unchanged;
         }
 
-        @unlink($fullPath);
+        if (! $this->removeSourceWithRetry($fullPath)) {
+            // Rimozione del sorgente fallita anche dopo i tentativi: se
+            // registrassimo comunque webp_applied => true, il chiamante
+            // salverebbe solo il riferimento al WebP mentre l'originale
+            // JPG/PNG resterebbe sul filesystem come orfano non tracciato
+            // (esattamente la classe di bug gia' vista su Windows con
+            // PublicMediaSyncService). Trattiamo quindi la mancata
+            // rimozione come un fallimento dell'intera conversione: il
+            // WebP appena generato viene scartato e si ripiega
+            // sull'originale intatto, coerente con la degradazione sicura
+            // documentata sopra.
+            Log::warning('ImageService: WebP generato ma rimozione del sorgente originale fallita, mantengo il formato originale.', [
+                'full_path' => $fullPath,
+                'webp_path' => $webpPath,
+            ]);
+
+            @unlink($webpPath);
+
+            return $unchanged;
+        }
 
         return [
             'full_path' => $webpPath,
@@ -517,6 +548,50 @@ class ImageService
             'mime_type' => 'image/webp',
             'webp_applied' => true,
         ];
+    }
+
+    /**
+     * Ritenta la rimozione del sorgente originale un numero limitato di
+     * volte, con una breve attesa tra un tentativo e l'altro (stessa
+     * strategia di PublicMediaSyncService::removeFileWithRetry(), per lo
+     * stesso motivo: su Windows un file appena scritto puo' restare
+     * brevemente bloccato). Ricontrolla l'esistenza del file dopo ogni
+     * tentativo fallito cosi' da restare idempotente anche se un unlink()
+     * precedente e' in realta' riuscito nonostante un esito riportato come
+     * "false".
+     */
+    private function removeSourceWithRetry(string $path): bool
+    {
+        for ($attempt = 1; $attempt <= self::SOURCE_REMOVAL_RETRY_ATTEMPTS; $attempt++) {
+            if ($this->removeFile($path)) {
+                return true;
+            }
+
+            clearstatcache(true, $path);
+
+            if (! file_exists($path)) {
+                return true;
+            }
+
+            if ($attempt < self::SOURCE_REMOVAL_RETRY_ATTEMPTS) {
+                usleep(self::SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reso "protected" (da un `@unlink()` inline) esclusivamente per i
+     * test: un vero fallimento di unlink() su un file realmente presente
+     * non e' simulabile in modo affidabile in un processo che gira come
+     * root (i permessi vengono ignorati). Una sottoclasse di test che
+     * sovrascrive questo singolo metodo e' il modo meno invasivo per
+     * verificare il comportamento quando la rimozione fallisce davvero.
+     */
+    protected function removeFile(string $path): bool
+    {
+        return @unlink($path);
     }
 
     // ────────────────────────────────────────────────────────────────
