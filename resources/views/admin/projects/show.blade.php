@@ -102,6 +102,39 @@
       </div>
     @endif
   </div>
+
+  @if($editorialProgress)
+    {{-- FASE 8 automazione Piano Editoriale: fotografia compatta, mai
+         un'unica percentuale fuorviante — vedi EditorialCalendarProgress. --}}
+    <div class="admin-card" style="margin-top:1rem;">
+      <h3 style="margin-top:0;">Piano editoriale</h3>
+      <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;">
+        <div>
+          <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Voci pianificate</dt>
+          <dd style="margin:.2rem 0 0;font-weight:600;">{{ $editorialProgress->totalPlanned }}</dd>
+        </div>
+        <div>
+          <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Copertura (con articolo)</dt>
+          <dd style="margin:.2rem 0 0;font-weight:600;">{{ $editorialProgress->coveragePercent }}%</dd>
+        </div>
+        <div>
+          <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Pubblicato</dt>
+          <dd style="margin:.2rem 0 0;font-weight:600;">{{ $editorialProgress->publishedPercent }}%</dd>
+        </div>
+        <div>
+          <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Senza articolo</dt>
+          <dd style="margin:.2rem 0 0;font-weight:600;">{{ $editorialProgress->missingArticleCount }}</dd>
+        </div>
+        <div>
+          <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Richiedono revisione</dt>
+          <dd style="margin:.2rem 0 0;font-weight:600;">{{ $editorialProgress->needsReviewCount }}</dd>
+        </div>
+      </dl>
+      <div style="margin-top:.85rem;font-size:.76rem;color:#9ca3af;">
+        Aggiornato automaticamente dal calendario editoriale collegato. Nessuna modifica applicata qui — usa <code>project:sync-editorial-calendar</code> per collegare i match sicuri.
+      </div>
+    </div>
+  @endif
 @elseif($activeTab === 'roadmap')
   @include('admin.projects._roadmap')
 @elseif($activeTab === 'tasks')

@@ -93,6 +93,12 @@ final readonly class EditorialCalendarReconciliationReport
     }
 
     /** @return list<EditorialCalendarReconciliationEntry> */
+    public function statusMismatches(): array
+    {
+        return $this->withDiscrepancy(EditorialCalendarReconciliationEntry::DISCREPANCY_STATUS_MISMATCH);
+    }
+
+    /** @return list<EditorialCalendarReconciliationEntry> */
     private function withDiscrepancy(string $type): array
     {
         return array_values(array_filter($this->entries, fn (EditorialCalendarReconciliationEntry $e) => $e->discrepancyType === $type));

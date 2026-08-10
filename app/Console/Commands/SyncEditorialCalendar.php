@@ -7,7 +7,6 @@ use App\Models\ProjectDocument;
 use App\Services\Editorial\EditorialCalendarLinkingResult;
 use App\Services\Editorial\EditorialCalendarLinkingService;
 use App\Services\Editorial\EditorialCalendarMatchingService;
-use App\Services\Editorial\EditorialCalendarReconciliationEntry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
@@ -152,12 +151,7 @@ class SyncEditorialCalendar extends Command
         $this->line('  Nessun articolo corrispondente: '.count($report->missingArticles()));
         $this->line('  Richiedono revisione umana: '.count($report->requiringReview()));
         $this->line('  Discrepanze di data: '.count($report->dateDiscrepancies()));
-
-        $statusMismatches = array_filter(
-            $report->entries,
-            fn (EditorialCalendarReconciliationEntry $e) => $e->discrepancyType === EditorialCalendarReconciliationEntry::DISCREPANCY_STATUS_MISMATCH
-        );
-        $this->line('  Discrepanze di stato: '.count($statusMismatches));
+        $this->line('  Discrepanze di stato: '.count($report->statusMismatches()));
 
         if ($report->articlesOutsidePlan !== []) {
             $this->line('  Articoli collegati fuori piano: '.count($report->articlesOutsidePlan));
