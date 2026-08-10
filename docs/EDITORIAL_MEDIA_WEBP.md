@@ -13,6 +13,7 @@ dell'agosto 2026 (`docs/STORAGE_AUDIT.md`).
 3. [Riferimenti statici protetti](#3-riferimenti-statici-protetti)
 4. [Nuovi upload: conversione automatica in WebP](#4-nuovi-upload-conversione-automatica-in-webp)
 5. [Migrazione legacy — `media:convert-webp`](#5-migrazione-legacy--mediaconvert-webp)
+6. [Cleanup degli originali — `media:webp-cleanup`](#6-cleanup-degli-originali--mediawebp-cleanup)
 
 ---
 
@@ -306,16 +307,103 @@ per Media: `media_id`, `original_path`, `new_path`, `original_bytes`,
 6. Nuovo dry-run di verifica per confermare lo stato finale (tutti i
    Media migrati risultano `skipped_already_webp`).
 7. Periodo di osservazione prima di valutare la rimozione degli
-   originali — vedi §5.6, mai automatica.
+   originali — vedi §6, mai automatica.
 
-### 5.6 Rimozione futura degli originali (progettata, non eseguita)
+## 6. Cleanup degli originali — `media:webp-cleanup`
 
-Deliberatamente fuori scope per questa missione. Un originale sara'
-considerabile per la rimozione solo quando, con verifica esplicita:
-esiste un WebP valido, il `Media` punta al WebP, nessun riferimento
-codice/DB/CSS/JS/Blade punta piu' all'originale, e' trascorso un periodo
-di osservazione in produzione, e un backup locale e' confermato. Un
-comando futuro READ-ONLY (`media:webp-cleanup --dry-run`) elenchera' i
-soli candidati secondo questi criteri, senza mai un flag che cancelli
-automaticamente: la cancellazione resta sempre una decisione editoriale
-esplicita e manuale.
+FASE 12 della missione: dopo che un originale e' stato migrato (§5), il
+file JPG/PNG resta comunque sul filesystem — questo comando **elenca
+soltanto** quali di questi residui potrebbero un giorno essere rimossi,
+senza rimuoverli mai. **Nessun flag di esecuzione esiste in questa
+versione**: `media:webp-cleanup` e' sola lettura al 100%, per design, non
+per omissione temporanea di un flag facile da aggiungere in seguito.
+
+```bash
+php artisan media:webp-cleanup                       # report testuale
+php artisan media:webp-cleanup --json                 # JSON
+php artisan media:webp-cleanup --path=categories       # solo una sottocartella
+php artisan media:webp-cleanup --min-age-days=30        # soglia di osservazione diversa dal default
+```
+
+### 6.1 Criteri di candidatura
+
+Un file compare tra i "candidati" solo se **tutte** queste condizioni
+sono vere (mai una sola, mai per deduzione):
+
+1. e' un JPG/PNG sotto `public/assets/img`;
+2. esiste un `Media` il cui `disk_name` e' gia' la sua controparte
+   `.webp` — quindi e' stato davvero migrato da `media:convert-webp`, non
+   un file indipendente mai toccato dalla pipeline;
+3. quel file `.webp` esiste realmente su disco **ed e' DAVVERO
+   un'immagine WebP valida** — non solo un'immagine decodificabile di
+   qualunque formato: `getimagesize()` da solo accetterebbe anche un
+   JPEG/PNG rinominato per errore in `.webp`, quindi il tipo rilevato
+   (`IMAGETYPE_WEBP`) e' verificato esplicitamente. Il controllo di
+   sicurezza piu' importante di questo comando: se il sostituto e'
+   mancante, corrotto, o non realmente WebP, il file non compare mai tra
+   i candidati, indipendentemente da ogni altro criterio;
+4. se `MEDIA_PUBLIC_ROOT` e' configurato, il WebP esiste anche nella
+   radice pubblica secondaria (`PublicMediaSyncService::targetIsFile()`)
+   — potrebbe essere quella realmente servita al pubblico, e un drift di
+   sincronizzazione lì non deve mai passare inosservato;
+5. nessun `Media` punta ancora al file originale stesso (caso limite:
+   duplicati di contenuto con un `.webp` indipendente);
+6. non e' nella lista protetta (`config('media.protected_disk_names')`);
+7. non e' sotto `turing/` (stessa esclusione categorica di
+   `media:webp-audit`/`media:convert-webp`);
+8. nessun campo strutturato (copertina articolo, banner pubblicitario,
+   foto profilo, immagine categoria, contenuto pagina speciale) menziona
+   ancora il nome dell'originale, **anche senza un Media proprietario**
+   (`MediaReferenceService::hasAnyStructuredReference()`) — un confronto
+   per solo nome file tra originale e webp non prova che il secondo sia
+   stato generato dal primo: potrebbero coesistere per puro caso di
+   stesso basename in file diversi, e questo controllo copre esattamente
+   quel caso limite;
+9. nessuna menzione in testo libero (`article.body`, `ad.html_code` —
+   riusa `MediaReferenceService::findFreeTextMentions()`, la stessa
+   ricerca gia' usata dal preflight di spostamento: mai una seconda
+   definizione di "potrebbe essere nascosto in un campo di testo");
+10. nessuna menzione letterale del nome file nel codice sorgente
+    versionato (`resources/views`, `resources/css`, `resources/js`,
+    `public/css`, `public/js`);
+11. e' trascorso il periodo di osservazione minimo dalla migrazione
+    (`--min-age-days`, default `config('media.webp_cleanup_min_age_days')`
+    = 14 giorni, calcolato su `Media.updated_at` del record WebP — l'unico
+    timestamp di "quando e' stata applicata la migrazione" gia'
+    disponibile, nessuna nuova colonna introdotta per questo).
+
+Ogni esclusione viene riportata con un motivo esplicito (stessa filosofia
+di `media:webp-audit`): `not_migrated`, `still_referenced_by_media`,
+`protected`, `turing_unmanaged`, `webp_missing_or_invalid`,
+`webp_missing_in_secondary_root`, `structured_reference_without_media`,
+`free_text_reference`, `static_source_reference`,
+`observation_period_not_elapsed`.
+
+### 6.2 Cosa questo comando NON puo' verificare
+
+**La conferma di un backup locale reale** — nessuna integrazione di
+backup esiste nel progetto, quindi non e' un dato che il comando possa
+leggere o dedurre. Ogni esecuzione con almeno un candidato lo ricorda
+esplicitamente in output come promemoria per l'operatore umano: non viene
+mai assunto vero, ne' bypassato.
+
+### 6.3 Procedura futura per la rimozione effettiva (non implementata qui)
+
+Deliberatamente fuori scope per questa missione (`--force` esplicitamente
+non richiesto dalla missione stessa per questa fase). Quando si decidera'
+di implementare la rimozione:
+
+1. Eseguire `media:webp-cleanup` e rivedere umanamente ogni candidato
+   riportato (non fidarsi ciecamente dell'elenco: e' un aiuto alla
+   decisione, non una decisione).
+2. Confermare un backup locale reale e verificato di
+   `public/assets/img` (e della radice pubblica secondaria, se
+   configurata) precedente alla rimozione.
+3. Implementare deliberatamente un comando o flag di cancellazione
+   separato — mai come estensione rapida di questo comando di sola
+   lettura — con lo stesso livello di test, atomicita' e revisione delle
+   altre fasi di questa missione (backup automatico pre-cancellazione,
+   rimozione one-file-at-a-time con log per ogni file, mai una
+   cancellazione batch senza conferma per singolo file).
+4. Eseguire prima su un lotto limitato, verificare manualmente il
+   frontend, poi procedere sul resto.

@@ -141,4 +141,19 @@ return [
     */
     'auto_webp_on_upload' => env('MEDIA_AUTO_WEBP_ON_UPLOAD', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Periodo di osservazione minimo per il cleanup degli originali
+    |--------------------------------------------------------------------------
+    |
+    | Usato esclusivamente da `media:webp-cleanup` (FASE 12, sola lettura:
+    | elenca soltanto i candidati, non cancella mai nulla). Un originale
+    | JPG/PNG gia' migrato a WebP entra nell'elenco dei candidati solo se
+    | sono trascorsi almeno questi giorni da quando il Media corrispondente
+    | e' stato aggiornato al disk_name .webp (Media.updated_at del record
+    | WebP: l'unico timestamp di "quando e' stata applicata la migrazione"
+    | gia' disponibile, nessuna nuova colonna introdotta per questo).
+    */
+    'webp_cleanup_min_age_days' => (int) env('MEDIA_WEBP_CLEANUP_MIN_AGE_DAYS', 14),
+
 ];
