@@ -121,4 +121,24 @@ return [
     'webp_quality' => (int) env('MEDIA_WEBP_QUALITY', 82),
     'webp_max_width' => (int) env('MEDIA_WEBP_MAX_WIDTH', 1600),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Conversione automatica in WebP per i nuovi upload
+    |--------------------------------------------------------------------------
+    |
+    | Quando true (default), un nuovo upload JPG/PNG nella Libreria media, in
+    | copertina articolo (Admin e Redazione) o in immagine categoria viene
+    | convertito automaticamente in WebP prima di essere salvato — cosi' i
+    | nuovi upload smettono di crescere lo storage in formati piu' pesanti.
+    | Non riguarda mai i file gia' esistenti (quella e' la migrazione legacy
+    | separata, deliberatamente distinta) ne' i flussi esplicitamente
+    | esclusi (Turing: nessun record Media, alcuni riferimenti hardcoded).
+    |
+    | Interruttore di sicurezza reversibile senza deploy: impostare
+    | MEDIA_AUTO_WEBP_ON_UPLOAD=false in produzione disattiva istantaneamente
+    | la conversione per i nuovi upload (che tornano al comportamento
+    | preesistente: stesso formato del sorgente), senza toccare codice.
+    */
+    'auto_webp_on_upload' => env('MEDIA_AUTO_WEBP_ON_UPLOAD', true),
+
 ];

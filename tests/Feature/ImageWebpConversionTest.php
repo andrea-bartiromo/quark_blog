@@ -313,6 +313,162 @@ class ImageWebpConversionTest extends TestCase
         $service->convertToWebp($source, $this->tempDir.'/out.webp', 82);
     }
 
+    // ── changeExtension() ───────────────────────────────────────────────
+
+    public function test_change_extension_preserves_directory_and_basename(): void
+    {
+        $this->assertSame('categories/icon.webp', $this->service->changeExtension('categories/icon.png', 'webp'));
+    }
+
+    public function test_change_extension_works_on_a_bare_filename(): void
+    {
+        $this->assertSame('photo.webp', $this->service->changeExtension('photo.jpg', 'webp'));
+    }
+
+    public function test_change_extension_works_on_an_absolute_path(): void
+    {
+        $this->assertSame('/var/www/public/assets/img/hero.webp', $this->service->changeExtension('/var/www/public/assets/img/hero.png', 'webp'));
+    }
+
+    public function test_change_extension_normalizes_and_trims_the_new_extension(): void
+    {
+        $this->assertSame('photo.webp', $this->service->changeExtension('photo.jpg', '.WEBP'));
+    }
+
+    // ── autoConvertToWebpIfEligible() — politica nuovi upload (FASE 5) ──
+
+    public function test_auto_convert_replaces_a_jpg_upload_with_webp(): void
+    {
+        $source = $this->solidJpeg('photo.jpg', 300, 200);
+
+        $result = $this->service->autoConvertToWebpIfEligible($source, 'jpg', 82, 1600);
+
+        $this->assertTrue($result['webp_applied']);
+        $this->assertSame('webp', $result['ext']);
+        $this->assertSame('image/webp', $result['mime_type']);
+        $this->assertSame($this->tempDir.'/photo.webp', $result['full_path']);
+        $this->assertFileExists($result['full_path']);
+        $this->assertFileDoesNotExist($source, 'il JPG originale deve essere rimosso dopo la sostituzione con il WebP.');
+        $this->assertSame(IMAGETYPE_WEBP, exif_imagetype($result['full_path']));
+    }
+
+    public function test_auto_convert_replaces_a_png_upload_with_webp_preserving_transparency(): void
+    {
+        $source = $this->transparentPng('logo.png', 100, 100);
+
+        $result = $this->service->autoConvertToWebpIfEligible($source, 'png', 82, 1600);
+
+        $this->assertTrue($result['webp_applied']);
+        $this->assertFileDoesNotExist($source);
+
+        $decoded = imagecreatefromwebp($result['full_path']);
+        $this->assertNotFalse($decoded);
+        $rgba = imagecolorsforindex($decoded, imagecolorat($decoded, 0, 0));
+        $this->assertGreaterThan(0, $rgba['alpha'], 'la trasparenza deve sopravvivere alla conversione automatica.');
+        imagedestroy($decoded);
+    }
+
+    public function test_auto_convert_leaves_an_already_webp_upload_untouched(): void
+    {
+        $source = $this->solidWebp('already.webp', 100, 100);
+
+        $result = $this->service->autoConvertToWebpIfEligible($source, 'webp', 82, 1600);
+
+        $this->assertFalse($result['webp_applied']);
+        $this->assertSame($source, $result['full_path']);
+        $this->assertSame('webp', $result['ext']);
+        $this->assertFileExists($source, 'un upload gia\' WebP non deve mai essere toccato da questo metodo.');
+    }
+
+    public function test_auto_convert_leaves_a_gif_upload_untouched(): void
+    {
+        $path = $this->tempDir.'/anim.gif';
+        $image = imagecreatetruecolor(50, 50);
+        imagefill($image, 0, 0, imagecolorallocate($image, 10, 10, 10));
+        imagegif($image, $path);
+        imagedestroy($image);
+
+        $result = $this->service->autoConvertToWebpIfEligible($path, 'gif', 82, 1600);
+
+        $this->assertFalse($result['webp_applied']);
+        $this->assertSame($path, $result['full_path']);
+        $this->assertSame('image/gif', $result['mime_type']);
+        $this->assertFileExists($path, 'una GIF non deve mai essere convertita (perderebbe l\'animazione).');
+    }
+
+    public function test_auto_convert_falls_back_safely_when_the_source_is_corrupt(): void
+    {
+        $path = $this->tempDir.'/broken.jpg';
+        file_put_contents($path, 'non e\' davvero un JPEG');
+
+        $result = $this->service->autoConvertToWebpIfEligible($path, 'jpg', 82, 1600);
+
+        $this->assertFalse($result['webp_applied']);
+        $this->assertSame($path, $result['full_path']);
+        $this->assertSame('jpg', $result['ext']);
+        $this->assertFileExists($path, 'un fallimento di conversione non deve mai far sparire il file originale caricato.');
+    }
+
+    public function test_auto_convert_falls_back_safely_when_the_encoder_is_unavailable(): void
+    {
+        $service = new class extends ImageService
+        {
+            public function convertToWebp(string $sourcePath, string $destinationPath, int $quality = 82, ?int $maxWidth = null): string
+            {
+                throw new RuntimeException('Questo build di GD non supporta la scrittura di file WebP.');
+            }
+        };
+
+        $source = $this->solidJpeg('photo.jpg', 100, 100);
+
+        $result = $service->autoConvertToWebpIfEligible($source, 'jpg', 82, 1600);
+
+        $this->assertFalse($result['webp_applied']);
+        $this->assertFileExists($source);
+    }
+
+    public function test_auto_convert_falls_back_safely_when_removing_the_original_keeps_failing(): void
+    {
+        // Stesso pattern di sottoclasse gia' usato sopra per simulare un
+        // fallimento reale (qui removeFile(), non convertToWebp()): un
+        // unlink() che continua a fallire nonostante i retry deve essere
+        // trattato come un fallimento dell'intera conversione, non come
+        // un successo con effetto collaterale silenzioso (il sorgente
+        // resterebbe un orfano non tracciato mentre il chiamante registra
+        // solo il WebP).
+        $service = new class extends ImageService
+        {
+            protected function removeFile(string $path): bool
+            {
+                return false;
+            }
+        };
+
+        $source = $this->solidJpeg('photo.jpg', 100, 100);
+
+        $result = $service->autoConvertToWebpIfEligible($source, 'jpg', 82, 1600);
+
+        $this->assertFalse($result['webp_applied'], 'una rimozione del sorgente sempre fallita deve far ripiegare sull\'originale.');
+        $this->assertSame($source, $result['full_path']);
+        $this->assertSame('jpg', $result['ext']);
+        $this->assertFileExists($source, 'il file originale non deve mai sparire se non puo\' essere sostituito in modo pulito.');
+        $this->assertFileDoesNotExist(
+            $this->tempDir.'/photo.webp',
+            'il WebP generato ma orfano (sorgente non rimovibile) deve essere scartato, non lasciato accanto all\'originale.'
+        );
+    }
+
+    public function test_auto_convert_respects_the_configured_max_width(): void
+    {
+        $source = $this->solidJpeg('wide.jpg', 2000, 1000);
+
+        $result = $this->service->autoConvertToWebpIfEligible($source, 'jpg', 82, 800);
+
+        [$width, $height] = getimagesize($result['full_path']);
+        $this->assertSame(800, $width);
+        $this->assertSame(400, $height);
+    }
+
     // ── Orientamento EXIF (verificato geometricamente via reflection) ──
 
     /**

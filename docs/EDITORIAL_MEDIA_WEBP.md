@@ -11,6 +11,7 @@ dell'agosto 2026 (`docs/STORAGE_AUDIT.md`).
 1. [Architettura attuale](#1-architettura-attuale)
 2. [Audit — `media:webp-audit`](#2-audit--mediawebp-audit)
 3. [Riferimenti statici protetti](#3-riferimenti-statici-protetti)
+4. [Nuovi upload: conversione automatica in WebP](#4-nuovi-upload-conversione-automatica-in-webp)
 
 ---
 
@@ -20,17 +21,19 @@ dell'agosto 2026 (`docs/STORAGE_AUDIT.md`).
 
 | Flusso | Controller | Registra un `Media`? | Resize/ricompressione | Formato di destinazione |
 |---|---|---|---|---|
-| Copertina articolo (Admin) | `Admin\ArticleController` | Sì (`MediaService::register`) | Sì, 1600px, jpg82/png7/webp82 | Stesso del sorgente (mai conversione automatica) |
-| Copertina articolo (Redazione) | `Redazione\ArticleController` | Sì | **No** (nessuna chiamata a `resizeAndCompress()`) | Stesso del sorgente |
-| Libreria media | `Admin\MediaController` | Sì | Sì, 1600px, jpg82/png7/webp82, GIF ammesse | Stesso del sorgente |
-| Immagine categoria | `Admin\CategoryController` | Sì | Sì, 1200px, jpg84/png7/webp84 (parametri più deboli degli altri, vedi `docs/STORAGE_AUDIT.md` §7 P2) | Stesso del sorgente |
-| Foto profilo (Admin/Redazione) | `*\ProfileController` | Sì (Admin) / percorso Storage disk separato (Redazione, prefisso `photos/`) | Sì (Admin), 800px | Stesso del sorgente |
+| Copertina articolo (Admin) | `Admin\ArticleController` | Sì (`MediaService::register`) | Sì, 1600px, jpg82/png7/webp82 | **JPG/PNG→WebP automatico** (vedi §4); fallback stesso formato |
+| Copertina articolo (Redazione) | `Redazione\ArticleController` | Sì | Sì, 1600px, jpg82/png7/webp82 (store() **e** update(), stessi parametri di Admin) | **JPG/PNG→WebP automatico** (vedi §4); fallback stesso formato |
+| Libreria media | `Admin\MediaController` | Sì | Sì, 1600px, jpg82/png7/webp82, GIF ammesse | **JPG/PNG→WebP automatico** (vedi §4); GIF sempre invariata; fallback stesso formato |
+| Immagine categoria | `Admin\CategoryController` | Sì | Sì, 1200px, jpg84/png7/webp84 (parametri più deboli degli altri, vedi `docs/STORAGE_AUDIT.md` §7 P2) | Stesso del sorgente — **esclusa deliberatamente** dalla conversione automatica (vedi §4) |
+| Foto profilo (Admin/Redazione) | `*\ProfileController` | Sì (Admin) / percorso Storage disk separato (Redazione, prefisso `photos/`) | Sì (Admin), 800px | Stesso del sorgente — non toccata da questa missione |
 | Pagine speciali Turing | `Admin\TuringController` | **No** | **No** (upload salvato cosi' com'e', fino a 16 MB) | Invariato |
 | Pubblicità | `Admin\AdController` | — | — | Nessun upload: `banner_image` e' un `disk_name` inserito manualmente, referenzia un Media già caricato altrove |
 
-Confermato leggendo `ImageService::resizeAndCompress()` (non per deduzione):
-**oggi nessun flusso converte automaticamente JPG/PNG in WebP.** Ogni
-immagine resta nello stesso formato in cui è stata caricata.
+Fino alla missione WebP (agosto 2026) nessun flusso convertiva
+automaticamente JPG/PNG in WebP: ogni immagine restava nello stesso
+formato in cui era stata caricata. Da questa missione, tre flussi (Media
+Library + copertine articolo Admin/Redazione) lo fanno di default — vedi
+§4 per la policy esatta, cosa resta escluso e perché.
 
 ### 1.2 Classificazione dello storage immagini
 
@@ -133,3 +136,74 @@ del codice sorgente è prevista, né consigliata: aggiungerne una
 richiederebbe di analizzare Blade/PHP a ogni richiesta, un costo non
 giustificato per un evento raro come "introdurre un nuovo hardcoded
 path").
+
+## 4. Nuovi upload: conversione automatica in WebP
+
+FASE 5 della missione: prima di migrare l'archivio esistente (compito
+separato e deliberatamente successivo, vedi `media:webp-audit` sopra),
+si ferma la crescita futura — i nuovi upload editoriali smettono di
+aggiungere JPG/PNG allo storage quando possono diventare WebP da subito.
+
+### 4.1 Meccanismo
+
+`ImageService::autoConvertToWebpIfEligible($fullPath, $ext, $quality, $maxWidth)`
+è il punto unico di decisione, richiamato da ciascun controller subito
+dopo `ImageService::upload()`:
+
+- **JPG/PNG** → convertiti in WebP (stesso basename, estensione `.webp`),
+  l'originale caricato viene rimosso dopo la sostituzione;
+- **WebP/GIF** → mai toccati, restituiti invariati;
+- **qualunque fallimento di conversione** (encoder assente, contenuto
+  corrotto, scrittura fallita) → degrado sicuro: il file caricato resta
+  intatto e il controller ricade sul comportamento preesistente
+  (`resizeAndCompress()`, ottimizzazione nello stesso formato). Un
+  problema di conversione WebP non fa mai fallire un upload che sarebbe
+  altrimenti riuscito.
+
+La qualità e la larghezza massima usate sono le stesse dell'audit e
+della futura migrazione legacy (`config('media.webp_quality')` /
+`config('media.webp_max_width')`, default 82 / 1600px) — nessuna
+seconda policy di conversione inventata per i nuovi upload.
+
+### 4.2 Flussi inclusi (default: attivo)
+
+- **Libreria media** (`Admin\MediaController::store()`) — GIF ammesse e
+  sempre escluse dalla conversione, coerentemente con l'audit.
+- **Copertina articolo, Admin** (`Admin\ArticleController`).
+- **Copertina articolo, Redazione** (`Redazione\ArticleController::store()`
+  **e** `update()` — entrambi i percorsi, non solo la creazione).
+
+Questi tre flussi condividono lo stesso pattern (`safeExtension()` dal
+contenuto reale, non dal nome file → upload → conversione-o-fallback →
+`PublicMediaSyncService` → registrazione `Media`), gia' verificato in
+questa missione: e' la ragione per cui sono stati inclusi insieme nel
+primo rollout.
+
+### 4.3 Flussi esclusi deliberatamente (nessuna generalizzazione automatica)
+
+- **Immagine categoria** (`Admin\CategoryController`) — la missione
+  nomina esplicitamente le "categorie" tra i flussi da non estendere
+  automaticamente senza sicurezza dimostrata. Nessun problema tecnico
+  noto blocca l'estensione futura (le immagini categoria sono comunque
+  registrate come Media, e qui si tratta di un file appena creato, non
+  di riscrivere un riferimento esistente), ma resta una decisione
+  distinta e deliberata, non presa in questa missione.
+- **Foto profilo** (`*\ProfileController`) — fuori dallo scope di questa
+  missione (non e' mai stato nell'elenco dei flussi editoriali da
+  analizzare); il percorso Redazione usa inoltre un disco Storage
+  separato con caratteristiche diverse dagli altri flussi.
+- **Pagine speciali Turing** (`Admin\TuringController`) — nessun record
+  Media, upload salvato cosi' com'e': stessa esclusione categorica
+  spiegata in §1.3 per l'audit, valida anche qui.
+- **Pubblicità** — nessun upload proprio (`banner_image` referenzia un
+  Media già caricato altrove).
+
+### 4.4 Interruttore di sicurezza
+
+`config('media.auto_webp_on_upload')` (default `true`, env
+`MEDIA_AUTO_WEBP_ON_UPLOAD`) governa tutti e tre i flussi inclusi
+insieme. Impostare `MEDIA_AUTO_WEBP_ON_UPLOAD=false` in produzione
+disattiva istantaneamente la conversione automatica (i nuovi upload
+tornano al comportamento preesistente: stesso formato del sorgente,
+ottimizzato con `resizeAndCompress()`) **senza deploy**, utile come
+rollback immediato se emergesse un problema non previsto in produzione.

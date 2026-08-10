@@ -247,11 +247,7 @@ class MediaWebpAuditService
 
     private function withExtension(string $relativePath, string $newExtension): string
     {
-        $dir = dirname($relativePath);
-        $base = pathinfo($relativePath, PATHINFO_FILENAME);
-        $prefix = $dir === '.' ? '' : $dir.'/';
-
-        return $prefix.$base.'.'.$newExtension;
+        return $this->imageService->changeExtension($relativePath, $newExtension);
     }
 
     /**

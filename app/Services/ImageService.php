@@ -11,6 +11,18 @@ use RuntimeException;
 class ImageService
 {
     /**
+     * Numero di tentativi per la rimozione del sorgente originale dopo una
+     * conversione WebP riuscita (vedi autoConvertToWebpIfEligible()) e
+     * intervallo tra un tentativo e l'altro. Stessi valori usati da
+     * PublicMediaSyncService::removeFileWithRetry() per lo stesso motivo:
+     * su Windows un file appena scritto puo' restare brevemente bloccato
+     * da un handle non ancora rilasciato o da una scansione antivirus.
+     */
+    private const SOURCE_REMOVAL_RETRY_ATTEMPTS = 5;
+
+    private const SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS = 100_000;
+
+    /**
      * Determina l'estensione sicura a partire dal MIME type
      * rilevato dal server, senza fidarsi del nome originale.
      */
@@ -433,6 +445,153 @@ class ImageService
         }
 
         return $extension;
+    }
+
+    /**
+     * Restituisce $path con l'estensione sostituita, preservando
+     * directory e basename. Path-agnostico (funziona sia su path
+     * assoluti che su disk_name relativi): usato ovunque un nome file
+     * debba "diventare .webp" senza toccare il resto del percorso.
+     */
+    public function changeExtension(string $path, string $newExtension): string
+    {
+        $dir = dirname($path);
+        $base = pathinfo($path, PATHINFO_FILENAME);
+        $prefix = ($dir === '.' || $dir === '') ? '' : $dir.'/';
+
+        return $prefix.$base.'.'.ltrim(strtolower(trim($newExtension)), '.');
+    }
+
+    /**
+     * Politica per i NUOVI upload editoriali (FASE 5): se il formato lo
+     * consente (JPG/PNG, mai WebP-gia'-tale ne' GIF), converte il file
+     * appena caricato in WebP e sostituisce l'originale sullo stesso
+     * percorso (stesso basename, estensione .webp) — cosi' i nuovi
+     * upload smettono di crescere lo storage in formati piu' pesanti,
+     * senza toccare nulla del catalogo editoriale gia' esistente (quello
+     * resta compito della migrazione legacy separata).
+     *
+     * Degrado sicuro e deliberatamente conservativo: se la conversione
+     * fallisce per qualunque motivo (encoder assente, file corrotto,
+     * scrittura fallita), il file originale caricato resta intatto e
+     * invariato — il chiamante deve semplicemente procedere con
+     * l'ottimizzazione nello stesso formato (resizeAndCompress()) come
+     * faceva prima dell'introduzione di questo metodo. Non solleva mai
+     * un'eccezione: un problema di conversione WebP non deve mai far
+     * fallire un upload che altrimenti sarebbe riuscito.
+     *
+     * @return array{full_path: string, ext: string, mime_type: string, webp_applied: bool}
+     */
+    public function autoConvertToWebpIfEligible(
+        string $fullPath,
+        string $ext,
+        int $webpQuality,
+        int $webpMaxWidth,
+    ): array {
+        $ext = strtolower(trim($ext, '. '));
+        $mimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+        ];
+
+        $unchanged = [
+            'full_path' => $fullPath,
+            'ext' => $ext,
+            'mime_type' => $mimeTypes[$ext] ?? 'application/octet-stream',
+            'webp_applied' => false,
+        ];
+
+        if (! in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+            return $unchanged;
+        }
+
+        $webpPath = $this->changeExtension($fullPath, 'webp');
+
+        try {
+            $this->convertToWebp($fullPath, $webpPath, $webpQuality, $webpMaxWidth);
+        } catch (\Throwable $exception) {
+            Log::warning('ImageService: conversione automatica a WebP fallita, mantengo il formato originale.', [
+                'full_path' => $fullPath,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return $unchanged;
+        }
+
+        if (! $this->removeSourceWithRetry($fullPath)) {
+            // Rimozione del sorgente fallita anche dopo i tentativi: se
+            // registrassimo comunque webp_applied => true, il chiamante
+            // salverebbe solo il riferimento al WebP mentre l'originale
+            // JPG/PNG resterebbe sul filesystem come orfano non tracciato
+            // (esattamente la classe di bug gia' vista su Windows con
+            // PublicMediaSyncService). Trattiamo quindi la mancata
+            // rimozione come un fallimento dell'intera conversione: il
+            // WebP appena generato viene scartato e si ripiega
+            // sull'originale intatto, coerente con la degradazione sicura
+            // documentata sopra.
+            Log::warning('ImageService: WebP generato ma rimozione del sorgente originale fallita, mantengo il formato originale.', [
+                'full_path' => $fullPath,
+                'webp_path' => $webpPath,
+            ]);
+
+            @unlink($webpPath);
+
+            return $unchanged;
+        }
+
+        return [
+            'full_path' => $webpPath,
+            'ext' => 'webp',
+            'mime_type' => 'image/webp',
+            'webp_applied' => true,
+        ];
+    }
+
+    /**
+     * Ritenta la rimozione del sorgente originale un numero limitato di
+     * volte, con una breve attesa tra un tentativo e l'altro (stessa
+     * strategia di PublicMediaSyncService::removeFileWithRetry(), per lo
+     * stesso motivo: su Windows un file appena scritto puo' restare
+     * brevemente bloccato). Ricontrolla l'esistenza del file dopo ogni
+     * tentativo fallito cosi' da restare idempotente anche se un unlink()
+     * precedente e' in realta' riuscito nonostante un esito riportato come
+     * "false".
+     */
+    private function removeSourceWithRetry(string $path): bool
+    {
+        for ($attempt = 1; $attempt <= self::SOURCE_REMOVAL_RETRY_ATTEMPTS; $attempt++) {
+            if ($this->removeFile($path)) {
+                return true;
+            }
+
+            clearstatcache(true, $path);
+
+            if (! file_exists($path)) {
+                return true;
+            }
+
+            if ($attempt < self::SOURCE_REMOVAL_RETRY_ATTEMPTS) {
+                usleep(self::SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reso "protected" (da un `@unlink()` inline) esclusivamente per i
+     * test: un vero fallimento di unlink() su un file realmente presente
+     * non e' simulabile in modo affidabile in un processo che gira come
+     * root (i permessi vengono ignorati). Una sottoclasse di test che
+     * sovrascrive questo singolo metodo e' il modo meno invasivo per
+     * verificare il comportamento quando la rimozione fallisce davvero.
+     */
+    protected function removeFile(string $path): bool
+    {
+        return @unlink($path);
     }
 
     // ────────────────────────────────────────────────────────────────

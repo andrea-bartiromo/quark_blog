@@ -66,7 +66,11 @@ class AdminArticleImageUploadTest extends TestCase
         $this->assertSame($editor->id, $media->user_id);
         $this->assertSame('cover.jpg', $media->filename);
         $this->assertSame($article->cover_image, $media->disk_name);
-        $this->assertSame('image/jpeg', $media->mime_type);
+        // La copertina viene convertita automaticamente in WebP per i nuovi
+        // upload (FASE 5): il nome file originale resta 'cover.jpg' (solo
+        // un'etichetta), ma il disk_name/mime_type reali sono WebP.
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $article->cover_image);
         $this->assertSame(filesize($fullPath), $media->size);
     }
 
@@ -84,6 +88,24 @@ class AdminArticleImageUploadTest extends TestCase
 
         $this->assertSame(1600, $w);
         $this->assertSame(800, $h);
+    }
+
+    public function test_auto_webp_on_upload_can_be_disabled_via_config(): void
+    {
+        config(['media.auto_webp_on_upload' => false]);
+
+        $editor = $this->editor();
+        $cover = UploadedFile::fake()->image('cover.jpg', 800, 600);
+
+        $this->actingAs($editor)->post(route('admin.articles.store'), $this->articlePayload([
+            'cover_image_upload' => $cover,
+        ]));
+
+        $article = Article::where('title', 'Articolo con copertina')->firstOrFail();
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertStringEndsWith('.jpg', $article->cover_image);
+        $this->assertSame('image/jpeg', $media->mime_type);
     }
 
     public function test_cover_upload_is_optional(): void
