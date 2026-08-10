@@ -361,6 +361,20 @@ body.admin-body textarea {
     display: block;
   }
 
+  /* Con l'etichetta di ogni gruppo nascosta (regola sotto) e tutti i
+     gruppi forzati aperti in modalità compatta (vedi lo script inline
+     in layouts/admin.blade.php), le icone dei diversi gruppi
+     finirebbero altrimenti in un'unica colonna indistinguibile, senza
+     alcun modo di capire dove finisce "Contenuti" e inizia "Redazione".
+     Un separatore sottile tra un gruppo e il successivo resta minimo
+     (nessun testo, nessun redesign) ma rende comunque percepibile il
+     raggruppamento anche senza etichette. */
+  .admin-sidebar-compact .admin-nav__group {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 0.3rem;
+    padding-top: 0.3rem;
+  }
+
   /* Nascosto solo visivamente (mai display:none, stessa tecnica di
      .sr-only): resta annunciato dalle tecnologie assistive anche
      quando la sidebar mostra solo icone. */
