@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Exceptions\InvalidTaskDependencyException;
 use App\Models\Project;
 use App\Models\ProjectTask;
 use App\Models\User;
@@ -9,16 +10,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Caratterizzazione (PR tests-only, nessuna correzione): depends_on_task_id
- * è dormiente — esiste in schema/relazione/fillable ma non è raggiungibile
- * da alcuna UI/form/factory oggi (verificato via grep sull'intero
- * codebase). Questi test fissano cosa succede se il valore viene
- * impostato direttamente sul modello, come base per attivarlo in
- * sicurezza in futuro (vedi report missione notturna, Task D).
- *
- * Nessuna delle protezioni verificate qui come ASSENTI (self-dependency,
- * cicli diretti/transitivi, cross-project) esiste oggi: sono documentate
- * come limite noto, non introdotte né corrette in questa PR.
+ * depends_on_task_id resta dormiente (non raggiungibile da alcuna UI/form
+ * — verificato via StoreProjectTaskRequest/UpdateProjectTaskRequest), ma il
+ * grafo delle dipendenze è ora protetto a livello di modello: nessuna
+ * auto-dipendenza, nessun ciclo diretto o transitivo, nessuna dipendenza
+ * cross-project — vedi ProjectTask::guardAgainstInvalidDependency()
+ * (FASE 2, missione automazione dashboard v2). Prima di questa missione
+ * nessuna di queste protezioni esisteva (vedi git blame): questo file
+ * fissava allora la loro ASSENZA, ora fissa la loro PRESENZA.
  */
 class ProjectTaskDependsOnCharacterizationTest extends TestCase
 {
@@ -44,58 +43,53 @@ class ProjectTaskDependsOnCharacterizationTest extends TestCase
         $this->assertNull($dependent->fresh()->depends_on_task_id);
     }
 
-    // 2. Self-dependency (A -> A): NESSUNA protezione oggi, il DB la accetta.
-    public function test_a_task_can_currently_depend_on_itself_no_protection_exists(): void
+    // 2. Self-dependency (A -> A): rifiutata.
+    public function test_a_task_cannot_depend_on_itself(): void
     {
         $project = $this->project();
         $task = ProjectTask::factory()->for($project)->create();
 
-        $task->update(['depends_on_task_id' => $task->id]);
+        $this->expectException(InvalidTaskDependencyException::class);
 
-        $this->assertSame($task->id, $task->fresh()->depends_on_task_id);
+        $task->update(['depends_on_task_id' => $task->id]);
     }
 
-    // 3. Ciclo diretto A -> B -> A: NESSUNA protezione oggi.
-    public function test_a_direct_cycle_between_two_tasks_is_currently_allowed(): void
+    // 3. Ciclo diretto A -> B -> A: rifiutato.
+    public function test_a_direct_cycle_between_two_tasks_is_rejected(): void
     {
         $project = $this->project();
         $a = ProjectTask::factory()->for($project)->create();
         $b = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $a->id]);
 
-        $a->update(['depends_on_task_id' => $b->id]);
+        $this->expectException(InvalidTaskDependencyException::class);
 
-        $this->assertSame($b->id, $a->fresh()->depends_on_task_id);
-        $this->assertSame($a->id, $b->fresh()->depends_on_task_id);
+        $a->update(['depends_on_task_id' => $b->id]);
     }
 
-    // 4. Ciclo transitivo A -> B -> C -> A: NESSUNA protezione oggi.
-    public function test_a_transitive_cycle_across_three_tasks_is_currently_allowed(): void
+    // 4. Ciclo transitivo A -> B -> C -> A: rifiutato.
+    public function test_a_transitive_cycle_across_three_tasks_is_rejected(): void
     {
         $project = $this->project();
         $a = ProjectTask::factory()->for($project)->create();
         $b = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $a->id]);
         $c = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $b->id]);
 
-        $a->update(['depends_on_task_id' => $c->id]);
+        $this->expectException(InvalidTaskDependencyException::class);
 
-        $this->assertSame($c->id, $a->fresh()->depends_on_task_id);
-        $this->assertSame($a->id, $b->fresh()->depends_on_task_id);
-        $this->assertSame($b->id, $c->fresh()->depends_on_task_id);
+        $a->update(['depends_on_task_id' => $c->id]);
     }
 
-    // 5. Dipendenza cross-project: una task del Progetto X può dipendere da
-    // una task del Progetto Y. NESSUNA protezione oggi — la FK punta a
-    // project_tasks in generale, non è mai filtrata per project_id.
-    public function test_a_task_can_currently_depend_on_a_task_from_a_different_project(): void
+    // 5. Dipendenza cross-project: rifiutata (V1 — dipendenze sempre interne
+    // allo stesso progetto, nessuna decisione architetturale la ammette).
+    public function test_a_task_cannot_depend_on_a_task_from_a_different_project(): void
     {
         $projectX = $this->project(['title' => 'Progetto X']);
         $projectY = $this->project(['title' => 'Progetto Y']);
         $taskInY = ProjectTask::factory()->for($projectY)->create();
 
-        $taskInX = ProjectTask::factory()->for($projectX)->create(['depends_on_task_id' => $taskInY->id]);
+        $this->expectException(InvalidTaskDependencyException::class);
 
-        $this->assertSame($taskInY->id, $taskInX->fresh()->depends_on_task_id);
-        $this->assertTrue($taskInX->fresh()->dependsOn->project->is($projectY));
+        ProjectTask::factory()->for($projectX)->create(['depends_on_task_id' => $taskInY->id]);
     }
 
     // 6. depends_on_task_id non è raggiungibile dal form HTTP: anche
@@ -127,5 +121,43 @@ class ProjectTaskDependsOnCharacterizationTest extends TestCase
         $task = ProjectTask::factory()->for($project)->create();
 
         $this->assertNull($task->depends_on_task_id);
+    }
+
+    // 8. Una dipendenza valida (stesso progetto, nessun ciclo) resta
+    // ammessa: la guardia rifiuta solo i grafi non validi, non ogni uso.
+    public function test_a_valid_same_project_acyclic_dependency_is_still_allowed(): void
+    {
+        $project = $this->project();
+        $dependency = ProjectTask::factory()->for($project)->create();
+        $dependent = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $dependency->id]);
+
+        $this->assertSame($dependency->id, $dependent->fresh()->depends_on_task_id);
+    }
+
+    // 9. Rimuovere una dipendenza (tornare a null) non passa mai dalla
+    // guardia — nessuna eccezione, nessun ciclo possibile su null.
+    public function test_clearing_a_dependency_never_triggers_the_guard(): void
+    {
+        $project = $this->project();
+        $dependency = ProjectTask::factory()->for($project)->create();
+        $dependent = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $dependency->id]);
+
+        $dependent->update(['depends_on_task_id' => null]);
+
+        $this->assertNull($dependent->fresh()->depends_on_task_id);
+    }
+
+    // 10. Salvare una task senza toccare depends_on_task_id (già impostato
+    // in precedenza) non ri-attraversa la guardia: isDirty() la esclude.
+    public function test_resaving_a_task_without_changing_its_dependency_never_triggers_the_guard(): void
+    {
+        $project = $this->project();
+        $dependency = ProjectTask::factory()->for($project)->create();
+        $dependent = ProjectTask::factory()->for($project)->create(['depends_on_task_id' => $dependency->id]);
+
+        $dependent->update(['title' => 'Titolo aggiornato']);
+
+        $this->assertSame('Titolo aggiornato', $dependent->fresh()->title);
+        $this->assertSame($dependency->id, $dependent->fresh()->depends_on_task_id);
     }
 }

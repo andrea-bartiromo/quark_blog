@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\InvalidTaskDependencyException;
 use App\Services\ProjectProgressService;
 use App\Services\ProjectTaskGithubSyncService;
 use App\Services\ProjectTaskSyncService;
@@ -23,6 +24,12 @@ class ProjectTask extends Model
      */
     protected static function booted(): void
     {
+        static::saving(function (ProjectTask $task) {
+            if ($task->depends_on_task_id !== null && $task->isDirty('depends_on_task_id')) {
+                static::guardAgainstInvalidDependency($task);
+            }
+        });
+
         static::saved(function (ProjectTask $task) {
             if ($task->wasRecentlyCreated || $task->wasChanged(['type', 'article_id', 'manual_override'])) {
                 app(ProjectTaskSyncService::class)->syncTask($task);
@@ -195,6 +202,90 @@ class ProjectTask extends Model
             $q2->whereNull('depends_on_task_id')
                 ->orWhereHas('dependsOn', fn (Builder $dep) => $dep->where('manual_status', self::STATUS_COMPLETED));
         });
+    }
+
+    /**
+     * "Bloccata da dipendenza" è un fatto DERIVATO — questa task ha una
+     * dipendenza il cui manual_status non è (ancora) completed — mai
+     * confuso con lo stato editoriale esplicito STATUS_BLOCKED, che è
+     * sempre una decisione umana registrata in manual_status. Le due cose
+     * possono coesistere o essere del tutto indipendenti: una task può
+     * essere "Da fare" e bloccata da dipendenza, oppure "Bloccata"
+     * editorialmente senza avere alcuna dipendenza. Non scrive mai nulla:
+     * un'informazione calcolata al bisogno, non un campo persistito.
+     */
+    public function isBlockedByDependency(): bool
+    {
+        if ($this->depends_on_task_id === null) {
+            return false;
+        }
+
+        return $this->dependsOn?->manual_status !== self::STATUS_COMPLETED;
+    }
+
+    /**
+     * Impedisce che depends_on_task_id assuma un valore che renderebbe il
+     * grafo delle dipendenze non valido: mai un'auto-dipendenza, mai un
+     * ciclo (diretto o transitivo attraverso qualunque numero di task), e
+     * — per V1 — mai una dipendenza verso una task di un altro progetto
+     * (nessuna decisione architetturale esplicita la ammette oggi).
+     * Risale la catena a partire dal candidato: se la catena raggiunge di
+     * nuovo $task, l'assegnazione creerebbe un ciclo.
+     */
+    private static function guardAgainstInvalidDependency(ProjectTask $task): void
+    {
+        if ($task->depends_on_task_id === $task->id) {
+            throw new InvalidTaskDependencyException(
+                "Una task non può dipendere da se stessa (#{$task->id})."
+            );
+        }
+
+        $dependency = static::query()->find($task->depends_on_task_id);
+
+        if ($dependency === null) {
+            return;
+        }
+
+        if ($dependency->project_id !== $task->project_id) {
+            throw new InvalidTaskDependencyException(
+                "Una dipendenza deve appartenere allo stesso progetto (task #{$task->id} → #{$dependency->id})."
+            );
+        }
+
+        $current = $dependency;
+        $visited = [];
+
+        // Limite di sicurezza puramente difensivo: con questa guardia attiva
+        // fin dalla prima dipendenza mai impostata, un ciclo pre-esistente
+        // non dovrebbe mai poter esistere — ma un limite esplicito evita
+        // comunque un loop infinito nel caso (dati corrotti, bypass diretto
+        // del modello) invece di un errore silenzioso o un timeout opaco.
+        $guard = 0;
+        $maxIterations = 1000;
+
+        while ($current !== null) {
+            if ($current->id === $task->id) {
+                throw new InvalidTaskDependencyException(
+                    "Questa dipendenza creerebbe un ciclo tra le attività (task #{$task->id} → #{$dependency->id})."
+                );
+            }
+
+            if (in_array($current->id, $visited, true)) {
+                // Ciclo pre-esistente indipendente da questa assegnazione:
+                // non è la voce corrente a crearlo, quindi non è questo il
+                // punto giusto per bloccarla — ma non proseguire all'infinito.
+                break;
+            }
+
+            $visited[] = $current->id;
+            $current = $current->depends_on_task_id !== null
+                ? static::query()->find($current->depends_on_task_id)
+                : null;
+
+            if (++$guard > $maxIterations) {
+                break;
+            }
+        }
     }
 
     // ── Stato effettivo ───────────────────────────────────────
