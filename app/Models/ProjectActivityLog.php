@@ -11,6 +11,9 @@ class ProjectActivityLog extends Model
 
     public const SOURCE_SYSTEM = 'system';
 
+    /** Collegamento automatico origine sincronizzazione calendario editoriale (EditorialCalendarLinkingService). */
+    public const SOURCE_EDITORIAL_SYNC = 'editorial_sync';
+
     public $timestamps = false;
 
     protected $fillable = [

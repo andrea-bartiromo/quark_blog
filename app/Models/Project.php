@@ -166,6 +166,11 @@ class Project extends Model
         return $this->hasMany(ProjectDocument::class);
     }
 
+    public function editorialCalendarDocument(): ?ProjectDocument
+    {
+        return $this->documents()->editorialCalendar()->first();
+    }
+
     public function prompts(): HasMany
     {
         return $this->hasMany(ProjectPrompt::class);

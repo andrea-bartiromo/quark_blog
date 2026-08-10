@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,12 +30,34 @@ class ProjectDocument extends Model
 
     protected $fillable = [
         'project_id', 'title', 'content', 'media_id', 'type',
-        'version', 'status', 'created_by', 'updated_by',
+        'version', 'status', 'is_editorial_calendar', 'created_by', 'updated_by',
     ];
 
     protected $casts = [
         'version' => 'integer',
+        'is_editorial_calendar' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        // Al più un documento alla volta è "il" calendario editoriale del
+        // suo progetto — stessa rete di sicurezza applicativa già usata da
+        // Project::is_default_editorial (vedi quel modello): lo spegnimento
+        // degli altri avviene in saving(), prima della scrittura corrente,
+        // mai dopo, così non esiste una finestra in cui due righe dello
+        // stesso progetto risultano entrambe marcate. Scope per project_id,
+        // non globale: due progetti diversi possono avere ciascuno il
+        // proprio documento calendario.
+        static::saving(function (ProjectDocument $document) {
+            if ($document->is_editorial_calendar && $document->isDirty('is_editorial_calendar')) {
+                static::query()
+                    ->where('project_id', $document->project_id)
+                    ->where('id', '!=', $document->id ?? 0)
+                    ->where('is_editorial_calendar', true)
+                    ->update(['is_editorial_calendar' => false]);
+            }
+        });
+    }
 
     public function project(): BelongsTo
     {
@@ -49,6 +72,11 @@ class ProjectDocument extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scopeEditorialCalendar(Builder $q): Builder
+    {
+        return $q->where('is_editorial_calendar', true);
     }
 
     /**
