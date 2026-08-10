@@ -20,6 +20,7 @@ use App\Models\Article;
 use App\Models\Category;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\ImageService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
@@ -35,6 +36,7 @@ class ArticleController extends Controller
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
         private readonly ArticleLinkInsertionService $linkInsertionService,
+        private readonly EditorialQualityChecker $qualityChecker,
     ) {}
 
     public function index(Request $request)
@@ -123,6 +125,7 @@ class ArticleController extends Controller
             'article' => $article,
             'categories' => Category::options(),
             'linkSuggestions' => $article->proposedLinkSuggestions(),
+            'qualityReport' => $this->qualityChecker->check($article),
         ]);
     }
 
