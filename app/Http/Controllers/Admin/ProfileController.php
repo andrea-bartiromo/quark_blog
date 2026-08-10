@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AnalyticsExclusionService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
@@ -17,13 +18,16 @@ class ProfileController extends Controller
         private readonly MediaService $mediaService,
         private readonly ImageService $imageService,
         private readonly PublicMediaSyncService $publicMediaSync,
-        private readonly MediaRetirementService $mediaRetirement
+        private readonly MediaRetirementService $mediaRetirement,
+        private readonly AnalyticsExclusionService $analyticsExclusion
     ) {}
 
-    public function edit()
+    public function edit(Request $request)
     {
         return view('admin.profile', [
             'user' => auth()->user(),
+            'analyticsExcluded' => $this->analyticsExclusion->isExcluded($request),
+            'analyticsExcludedSince' => $this->analyticsExclusion->excludedSince($request),
         ]);
     }
 

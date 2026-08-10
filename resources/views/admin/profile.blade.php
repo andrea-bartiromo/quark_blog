@@ -178,6 +178,49 @@
       @endif
     </div>
 
+    {{-- Analytics Hygiene --}}
+    <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;">
+      <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;
+                  letter-spacing:.1em;border-bottom:2px solid var(--color-ink);padding-bottom:.5rem;margin-bottom:1rem;">
+        Analytics su questo browser
+      </div>
+
+      @if($analyticsExcluded)
+        <p style="font-size:.84rem;margin:0 0 .35rem;">
+          <strong style="color:var(--color-accent);">ESCLUSO</strong> — le tue visite da questo browser
+          non vengono conteggiate in Google Analytics.
+        </p>
+        @if($analyticsExcludedSince)
+          <p style="font-size:.72rem;color:var(--color-ink-muted);margin:0 0 1rem;">
+            Escluso dal {{ \Illuminate\Support\Carbon::parse($analyticsExcludedSince)->format('d/m/Y H:i') }}.
+          </p>
+        @endif
+        <form method="POST" action="{{ route('admin.analytics.reactivate') }}">
+          @csrf
+          <button type="submit" class="btn btn--outline"
+                  style="color:var(--color-ink);border-color:var(--color-border);font-size:.75rem;">
+            Riattiva tracciamento
+          </button>
+        </form>
+      @else
+        <p style="font-size:.84rem;margin:0 0 1rem;">
+          <strong>ATTIVO</strong> — questo browser viene conteggiato in Google Analytics come
+          qualunque altro visitatore.
+        </p>
+        <form method="POST" action="{{ route('admin.analytics.exclude') }}">
+          @csrf
+          <button type="submit" class="btn btn--primary" style="font-size:.75rem;">
+            Escludi questo browser dalle statistiche
+          </button>
+        </form>
+      @endif
+
+      <p style="font-size:.7rem;color:var(--color-ink-muted);margin:.85rem 0 0;">
+        Riguarda solo questo browser: attivalo su ogni dispositivo/browser che usi per amministrare
+        o testare il sito. Dettagli in <code>docs/ANALYTICS_HYGIENE.md</code>.
+      </p>
+    </div>
+
     {{-- Cambio password --}}
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;
