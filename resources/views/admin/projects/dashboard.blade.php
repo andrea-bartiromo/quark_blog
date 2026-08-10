@@ -28,6 +28,36 @@
 
 <div class="admin-grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr));">
 
+  {{-- FASE 3-4-6-7, missione Dashboard Automation V2: solo i progetti che
+       hanno davvero qualcosa da notare (ProjectHealthResolver), ordinati
+       per severità del suggerimento — mai un elenco di tutti i progetti,
+       mai un segnale inventato quando non c'è nulla da segnalare. --}}
+  <div class="admin-card">
+    <h3 style="margin-top:0;">Richiedono attenzione</h3>
+    @if(empty($attentionItems))
+      <p style="color:#9ca3af;">Nessun progetto richiede attenzione al momento.</p>
+    @else
+      @foreach($attentionItems as $item)
+        <div style="padding:.5rem 0;{{ ! $loop->last ? 'border-bottom:1px solid #f1f5f9;' : '' }}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+            <a href="{{ route('admin.progettazione.projects.show', $item['project']) }}" style="font-weight:600;text-decoration:none;color:#111827;">{{ $item['project']->title }}</a>
+            <span class="status status--priority-{{ ['urgent' => 'critical', 'attention' => 'high'][$item['suggestion']->severity] ?? 'low' }}">{{ $item['health']->label() }}</span>
+          </div>
+          <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">{{ $item['suggestion']->label }}</div>
+        </div>
+      @endforeach
+    @endif
+    @if($blockedByDependencyCount > 0)
+      <div style="font-size:.72rem;color:#9ca3af;margin-top:.75rem;padding-top:.5rem;border-top:1px solid #f1f5f9;">
+        @if($blockedByDependencyCount === 1)
+          1 attività è in attesa di una dipendenza non ancora completata (in tutti i progetti).
+        @else
+          {{ $blockedByDependencyCount }} attività sono in attesa di una dipendenza non ancora completata (in tutti i progetti).
+        @endif
+      </div>
+    @endif
+  </div>
+
   <div class="admin-card">
     <h3 style="margin-top:0;">Progetti attivi</h3>
     @if($activeProjects->isEmpty())

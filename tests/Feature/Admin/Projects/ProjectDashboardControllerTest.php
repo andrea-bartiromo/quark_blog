@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Project;
+use App\Models\ProjectTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,7 +65,11 @@ class ProjectDashboardControllerTest extends TestCase
 
         $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
 
-        $blockedSection = substr($response->getContent(), strpos($response->getContent(), 'Progetti bloccati'), 800);
+        // Ancorato all'intestazione della card (>...</h3>), non al testo
+        // generico "Progetti bloccati": anche l'etichetta della statistica
+        // in cima alla pagina lo contiene, e compare prima nel documento.
+        $content = $response->getContent();
+        $blockedSection = substr($content, strpos($content, '>Progetti bloccati</h3>'), 800);
         $this->assertStringContainsString('Bloccato', $blockedSection);
     }
 
@@ -73,5 +78,71 @@ class ProjectDashboardControllerTest extends TestCase
         $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
 
         $response->assertSee('admin-grid--stats', false);
+    }
+
+    // ── "Richiedono attenzione" (FASE 3-4-6-7, Dashboard Automation V2) ──
+
+    public function test_a_project_with_no_signal_never_appears_in_the_attention_section(): void
+    {
+        Project::factory()->create(['title' => 'Progetto tranquillo', 'operational_status' => Project::STATUS_IN_PROGRESS]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Nessun progetto richiede attenzione al momento.');
+    }
+
+    public function test_a_project_with_an_overdue_task_appears_in_the_attention_section(): void
+    {
+        $project = Project::factory()->create(['title' => 'Progetto in ritardo', 'operational_status' => Project::STATUS_IN_PROGRESS]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'due_date' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Progetto in ritardo');
+        $response->assertSeeText('Richiedono attenzione');
+    }
+
+    public function test_a_completed_project_never_appears_in_the_attention_section_even_if_overdue(): void
+    {
+        Project::factory()->create([
+            'title' => 'Progetto chiuso',
+            'operational_status' => Project::STATUS_COMPLETED,
+            'due_date' => now()->subDays(10),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertDontSeeText('Progetto chiuso');
+    }
+
+    public function test_pending_dependency_count_is_shown_when_greater_than_zero(): void
+    {
+        $project = Project::factory()->create(['operational_status' => Project::STATUS_IN_PROGRESS]);
+        $dependency = ProjectTask::factory()->for($project)->create(['manual_status' => ProjectTask::STATUS_IN_PROGRESS]);
+        ProjectTask::factory()->for($project)->create([
+            'manual_status' => ProjectTask::STATUS_TODO,
+            'depends_on_task_id' => $dependency->id,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('1 attività è in attesa di una dipendenza');
+    }
+
+    public function test_pending_dependency_note_is_absent_when_there_are_none(): void
+    {
+        Project::factory()->create(['operational_status' => Project::STATUS_IN_PROGRESS]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.progettazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertDontSeeText('in attesa di una dipendenza');
     }
 }
