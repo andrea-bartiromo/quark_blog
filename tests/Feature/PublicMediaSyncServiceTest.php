@@ -516,6 +516,41 @@ class PublicMediaSyncServiceTest extends TestCase
         );
     }
 
+    // Trovato in review (Codex): la riverifica post-successo confronta solo
+    // l'esistenza del path, non il contenuto — se un'altra richiesta
+    // concorrente scrive legittimamente un proprio file, diverso, allo
+    // stesso identico disk_name durante la breve attesa, quel file
+    // verrebbe scambiato per "il nostro" ricomparso e cancellato di nuovo.
+    // Qui simuliamo esattamente questo: removeFile() rimuove davvero il
+    // file originale e poi, al suo posto, un'altra scrittura (non
+    // correlata) deposita un contenuto diverso allo stesso path.
+    public function test_cleanup_after_failed_create_never_deletes_a_different_file_that_appears_at_the_same_path(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            protected function removeFile(string $path): bool
+            {
+                @unlink($path);
+                file_put_contents($path, 'contenuto-di-un-upload-concorrente-non-correlato');
+
+                return true;
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileExists($source);
+        $this->assertSame('contenuto-di-un-upload-concorrente-non-correlato', file_get_contents($source));
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['checkpoint'] === 'remove_file_with_retry:different_file_reappeared'
+                && $context['path'] === $source
+        );
+    }
+
     public function test_cleanup_after_failed_create_is_a_noop_when_there_is_nothing_to_remove(): void
     {
         // Nessuna eccezione attesa: puo' capitare se create() e' fallita

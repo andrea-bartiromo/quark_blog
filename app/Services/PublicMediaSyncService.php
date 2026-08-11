@@ -416,12 +416,24 @@ class PublicMediaSyncService
      * tentativi, resta il comportamento esistente: nessuna eccezione, solo
      * il warning già loggato dal chiamante — mai un fallimento permanente
      * mascherato da falso successo.
+     *
+     * La riverifica confronta il contenuto (digest SHA-256, stesso
+     * principio già usato da sameContent() altrove in questo servizio), non
+     * solo l'esistenza del path: durante la breve attesa un'altra richiesta
+     * concorrente potrebbe scrivere legittimamente un file diverso allo
+     * stesso identico disk_name (teoricamente possibile anche se il nome
+     * include già timestamp+suffisso casuale). Un file con contenuto
+     * diverso da quello appena rimosso non è "il nostro" file risorto: non
+     * va mai ri-cancellato, altrimenti questo cleanup best-effort
+     * distruggerebbe dati legittimi che non ha mai scritto lui stesso.
      */
     private function removeFileWithRetry(string $path): bool
     {
+        $originalContentHash = @hash_file('sha256', $path);
+
         for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
-                if ($this->confirmedGoneAfterSuccessfulRemoval($path, $attempt)) {
+                if ($this->confirmedGoneAfterSuccessfulRemoval($path, $attempt, $originalContentHash)) {
                     return true;
                 }
             } else {
@@ -460,9 +472,24 @@ class PublicMediaSyncService
      * con successo (removeFile() ha restituito true) non sia ricomparso
      * prima di dichiarare il tentativo davvero riuscito. Vedi il commento
      * di removeFileWithRetry() per l'evidenza reale che giustifica questo
-     * controllo.
+     * controllo e per il perche' del confronto per contenuto, non solo per
+     * path.
+     *
+     * @param  string|false  $originalContentHash  digest SHA-256 del file
+     *                                             PRIMA di questo tentativo
+     *                                             di rimozione, o false se
+     *                                             non leggibile: in quel
+     *                                             caso non c'e' un
+     *                                             riferimento affidabile
+     *                                             con cui confrontare
+     *                                             un'eventuale ricomparsa,
+     *                                             quindi si ricade sul
+     *                                             comportamento
+     *                                             conservativo esistente
+     *                                             (trattarla come il
+     *                                             nostro stesso file).
      */
-    private function confirmedGoneAfterSuccessfulRemoval(string $path, int $attempt): bool
+    private function confirmedGoneAfterSuccessfulRemoval(string $path, int $attempt, string|false $originalContentHash): bool
     {
         usleep(self::REAPPEARANCE_RECHECK_DELAY_MICROSECONDS);
         clearstatcache(true, $path);
@@ -476,28 +503,47 @@ class PublicMediaSyncService
             'reappeared' => $reappeared,
         ]);
 
-        if ($reappeared) {
-            // Livello debug, non warning: un singolo tentativo scartato per
-            // ricomparsa non e' di per se' un problema per chi gestisce
-            // l'ambiente, solo un dato diagnostico — il warning esistente
-            // in cleanupAfterFailedCreate() resta l'unico segnale
-            // "azionabile", riservato al caso in cui TUTTI i tentativi
-            // siano stati esauriti senza una rimozione confermata.
-            Log::debug('PublicMediaSyncService: diagnostica — il file rimosso con successo e\' ricomparso subito dopo: tentativo non considerato definitivo.', [
-                'checkpoint' => 'remove_file_with_retry:reappeared_after_success',
+        if (! $reappeared) {
+            Log::debug('PublicMediaSyncService: diagnostica — rimozione confermata.', [
+                'checkpoint' => 'remove_file_with_retry:success',
                 'attempt' => $attempt,
                 'path' => $path,
             ]);
 
-            return false;
+            return true;
         }
 
-        Log::debug('PublicMediaSyncService: diagnostica — rimozione confermata.', [
-            'checkpoint' => 'remove_file_with_retry:success',
+        $reappearedContentHash = @hash_file('sha256', $path);
+
+        if ($originalContentHash !== false && $reappearedContentHash !== false && $reappearedContentHash !== $originalContentHash) {
+            // Non e' il nostro file risorto: un contenuto diverso e'
+            // comparso allo stesso path (es. un'altra richiesta concorrente
+            // che ha scritto legittimamente un proprio file con lo stesso
+            // disk_name). Il nostro compito — rimuovere il file che
+            // QUESTO cleanup aveva scritto — resta comunque concluso:
+            // cancellare quello che c'e' ora cancellerebbe dati che questo
+            // servizio non ha mai scritto.
+            Log::warning('PublicMediaSyncService: un file diverso e\' comparso allo stesso path durante il cleanup: lasciato intatto (non e\' il file che questo cleanup doveva rimuovere).', [
+                'checkpoint' => 'remove_file_with_retry:different_file_reappeared',
+                'attempt' => $attempt,
+                'path' => $path,
+            ]);
+
+            return true;
+        }
+
+        // Livello debug, non warning: un singolo tentativo scartato per
+        // ricomparsa del NOSTRO stesso contenuto non e' di per se' un
+        // problema per chi gestisce l'ambiente, solo un dato diagnostico —
+        // il warning esistente in cleanupAfterFailedCreate() resta l'unico
+        // segnale "azionabile", riservato al caso in cui TUTTI i tentativi
+        // siano stati esauriti senza una rimozione confermata.
+        Log::debug('PublicMediaSyncService: diagnostica — il file rimosso con successo e\' ricomparso subito dopo con lo stesso contenuto: tentativo non considerato definitivo.', [
+            'checkpoint' => 'remove_file_with_retry:reappeared_after_success',
             'attempt' => $attempt,
             'path' => $path,
         ]);
 
-        return true;
+        return false;
     }
 }
