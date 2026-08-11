@@ -8,7 +8,8 @@
     </div>
     <form action="{{ route('newsletter.subscribe') }}" method="POST">
       @csrf
-      <input type="email" name="email" placeholder="La tua email" required>
+      <label class="sr-only" for="home-newsletter-email">La tua email</label>
+      <input id="home-newsletter-email" type="email" name="email" placeholder="La tua email" required autocomplete="email">
       <button type="submit">Iscriviti gratis</button>
     </form>
   </section>

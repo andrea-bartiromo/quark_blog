@@ -13,7 +13,7 @@
 @section('twitter_image', $article->metaTwitterImage())
 
 @section('head')
-<link rel="stylesheet" href="{{ asset('css/media-lightbox.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <meta property="article:published_time" content="{{ $article->published_at->toIso8601String() }}">
 <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
 <meta property="article:author" content="{{ $article->author->name }}">
@@ -117,7 +117,9 @@
             'items' => [],
         ];
 
-    $mainBodyWithTocIds = $toc['html'];
+    $mainBodyWithTocIds = $isHtml
+        ? app(\App\Services\ArticleBodyImageService::class)->applyLazyLoading($toc['html'])
+        : $toc['html'];
     $tocItems = $toc['items'];
 @endphp
 

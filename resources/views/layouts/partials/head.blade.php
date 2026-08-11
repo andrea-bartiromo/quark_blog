@@ -148,12 +148,18 @@ gtag('config', '{{ config('analytics.measurement_id') }}', {
     rel="stylesheet"
 >
 
-{{-- CSS --}}
-<link rel="stylesheet" href="{{ asset('css/style.css') }}">
-<link rel="stylesheet" href="{{ asset('css/home-premium.css') }}">
-<link rel="stylesheet" href="{{ asset('css/home-fix.css') }}">
-<link rel="stylesheet" href="{{ asset('css/public-premium.css') }}">
-<link rel="stylesheet" href="{{ asset('css/public-unified.css') }}">
-<link rel="stylesheet" href="{{ asset('css/premium-fixes.css') }}?v=10">
+{{--
+    CSS — versionato tramite mtime del file (App\Support\VersionedAsset),
+    non un contatore manuale come il precedente "?v=10" di
+    premium-fixes.css: quel numero andava incrementato a mano a ogni
+    modifica ed era già stato dimenticato per gli altri 5 file, che non
+    avevano alcun cache busting.
+--}}
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/style.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-premium.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-fix.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-premium.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-unified.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/premium-fixes.css') }}">
 
 @yield('head')

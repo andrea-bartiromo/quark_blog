@@ -14,11 +14,29 @@
     const dismissed = localStorage.getItem('newsletter_dismissed');
     const subscribed = localStorage.getItem('newsletter_subscribed');
 
+    // Elemento che aveva il focus prima dell'apertura (es. il pulsante
+    // "Newsletter" dell'header): il focus vi torna alla chiusura, cosi'
+    // che un utente da tastiera non lo perda "dentro" un dialog ormai
+    // nascosto — stesso principio gia' applicato in media-viewer.js per
+    // il lightbox.
+    let lastFocusedElement = null;
+
+    const openPopup = () => {
+      lastFocusedElement = document.activeElement;
+      popup.classList.add('visible');
+
+      const emailField = document.getElementById('newsletter-popup-email');
+
+      if (emailField) {
+        emailField.focus();
+      }
+    };
+
     if (!dismissed && !subscribed) {
-      setTimeout(() => {
-        popup.classList.add('visible');
-      }, 30000);
+      setTimeout(openPopup, 30000);
     }
+
+    window.kairusOpenNewsletterPopup = openPopup;
 
     const closePopup = () => {
       popup.classList.remove('visible');
@@ -26,6 +44,12 @@
       const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
 
       localStorage.setItem('newsletter_dismissed', expires);
+
+      if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+      }
+
+      lastFocusedElement = null;
     };
 
     if (closeButton) {
