@@ -559,6 +559,47 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertStringContainsString('href="'.$externalUrl.'"', $freshBody);
     }
 
+    // 2j. Codex (PR #165, P2 round 8): stesso principio del caso 2i, ma con un link
+    // INTERNO (stesso host, supera isSafeInternalHref()) verso una pagina diversa da
+    // /articolo/{slug} che contiene comunque quella sottostringa in query string — il
+    // path va confrontato per intero con la rotta articolo, non solo "contenere" lo slug.
+    public function test_admin_update_never_strips_an_internal_link_to_a_different_route_that_contains_the_slug_in_the_query_string(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $unrelatedUrl = '/ricerca?q=/articolo/'.$target->slug;
+        $linkedBody = '<p>Altri risultati: <a href="'.$unrelatedUrl.'">pannelli solari di nuova generazione</a> nella ricerca.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $target->update(['status' => 'draft', 'published_at' => null]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        // Il link verso /ricerca resta intatto: non è la rotta /articolo/{slug},
+        // solo un URL interno che ne contiene il testo in query string.
+        $freshBody = $source->fresh()->body;
+        $this->assertStringContainsString('href="'.$unrelatedUrl.'"', $freshBody);
+    }
+
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
     public function test_ignore_marks_the_suggestion_and_it_is_not_re_proposed(): void
     {

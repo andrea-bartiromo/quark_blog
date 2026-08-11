@@ -346,9 +346,20 @@ class ArticleLinkInsertionService
             /** @var DOMElement $anchor */
             $href = $anchor->getAttribute('href');
 
+            $path = $href === '' ? null : parse_url($href, PHP_URL_PATH);
+
+            // Codex, PR #165, P2 round 8: il path va estratto ed
+            // ancorato all'INTERA rotta /articolo/{slug} — non basta che
+            // "/articolo/{slug}" compaia da qualche parte nell'URL. Un
+            // link interno legittimo verso un'altra pagina che contiene
+            // per coincidenza quella sottostringa in query string (es.
+            // "/ricerca?q=/articolo/foo") supererebbe isSafeInternalHref()
+            // (stesso host) e un regex non ancorato lo scambierebbe per il
+            // collegamento Kairus da rimuovere.
             if ($href === ''
                 || ! $this->isSafeInternalHref($href)
-                || ! preg_match('~/articolo/([^/?#]+)~', $href, $m)
+                || $path === null
+                || ! preg_match('~^/articolo/([^/]+)/?$~', $path, $m)
                 || ! in_array($m[1], $slugs, true)
             ) {
                 continue;
