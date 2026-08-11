@@ -1286,9 +1286,23 @@ class ArticleLinkSuggestionService
             // suoi redirect storici, quindi qui ci si limita all'unico slug
             // noto dallo snapshot (i redirect storici del target sono a
             // loro volta scomparsi con l'articolo eliminato).
-            return $suggestion->target_slug !== null
-                ? $this->insertionService->removeLinksToSlugs($body, [$suggestion->target_slug])
-                : $body;
+            //
+            // Codex (PR #165, round 15): questo slug, esattamente come uno
+            // slug storico (vedi sotto), può nel frattempo essere stato
+            // reclamato da un ARTICOLO DIVERSO — stessa identica situazione,
+            // stessa identica regola (excludeSafelyReclaimedSlugs()): senza
+            // questo, un link ormai valido verso il nuovo proprietario
+            // sicuro veniva rimosso incondizionatamente al salvataggio
+            // successivo della source.
+            if ($suggestion->target_slug === null) {
+                return $body;
+            }
+
+            $slugsToStrip = $this->excludeSafelyReclaimedSlugs($article, collect([$suggestion->target_slug]));
+
+            return $slugsToStrip->isEmpty()
+                ? $body
+                : $this->insertionService->removeLinksToSlugs($body, $slugsToStrip->all());
         }
 
         // Codex, PR #165, P2 round 3: l'href già nel body può ancora
@@ -1313,20 +1327,40 @@ class ArticleLinkSuggestionService
         // storico (che punta ancora al VECCHIO target, non sicuro) lo
         // farebbe fallire ugualmente: lasciare lo slug nel body
         // produrrebbe lo stesso 404 che questa pulizia esiste per evitare.
-        if ($historicalSlugs->isNotEmpty()) {
-            $reclaimingArticles = Article::whereIn('slug', $historicalSlugs)
-                ->get(['slug', 'status', 'published_at']);
-
-            $safelyReclaimedSlugs = $reclaimingArticles
-                ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
-                ->pluck('slug');
-
-            $historicalSlugs = $historicalSlugs->diff($safelyReclaimedSlugs);
-        }
+        $historicalSlugs = $this->excludeSafelyReclaimedSlugs($article, $historicalSlugs);
 
         $targetSlugs = [$target->slug, ...$historicalSlugs->all()];
 
         return $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
+    }
+
+    /**
+     * Esclude da $slugs quelli il cui proprietario ATTUALE è un articolo
+     * diverso (uno slug si libera quando l'articolo che lo usava lo cambia
+     * o viene eliminato) e temporalmente sicuro per $article — condiviso
+     * tra i due rami di supersedeAndStripIfUnsafe() (round 15): stessa
+     * identica situazione — "questo slug non punta più al target originario
+     * di questo suggerimento, ma a un altro articolo che ora lo possiede
+     * legittimamente" — si presenta sia per gli slug storici di un target
+     * ancora esistente sia per lo snapshot di un target eliminato.
+     *
+     * @param  Collection<int, string>  $slugs
+     * @return Collection<int, string>
+     */
+    private function excludeSafelyReclaimedSlugs(Article $article, Collection $slugs): Collection
+    {
+        if ($slugs->isEmpty()) {
+            return $slugs;
+        }
+
+        $reclaimingArticles = Article::whereIn('slug', $slugs)
+            ->get(['slug', 'status', 'published_at']);
+
+        $safelyReclaimedSlugs = $reclaimingArticles
+            ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
+            ->pluck('slug');
+
+        return $slugs->diff($safelyReclaimedSlugs);
     }
 
     private function plainText(string $html): string

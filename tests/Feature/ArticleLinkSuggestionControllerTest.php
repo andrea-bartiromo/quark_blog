@@ -630,6 +630,99 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame($otherArticle->slug, $originalTargetSlug);
     }
 
+    // Codex (PR #165, round 15): stesso principio dei due test precedenti (slug storico
+    // reclamato), ma per il ramo "target eliminato" introdotto al round 12 — se un altro
+    // articolo, temporalmente sicuro, reclama nel frattempo lo slug del target ormai
+    // cancellato, il link nel body ora risolve legittimamente su quel nuovo articolo e non
+    // va rimosso incondizionatamente solo perché target_article_id è null.
+    public function test_admin_update_does_not_strip_a_link_whose_deleted_targets_slug_was_reclaimed_by_a_safe_article(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $originalTargetSlug = $target->slug;
+        $targetUrl = route('articolo', $originalTargetSlug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $originalTargetSlug,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        ]);
+
+        $target->delete();
+
+        // Un altro articolo, sicuro (pubblicato), reclama lo slug ormai libero:
+        // l'href già nel body ora risolve davvero su di lui.
+        $otherArticle = $this->article(['user_id' => $editor->id, 'title' => 'Un altro articolo', 'slug' => $originalTargetSlug]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        // Il link nel body NON va toccato: risolve legittimamente sull'altro articolo.
+        $freshBody = $source->fresh()->body;
+        $this->assertStringContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertSame($otherArticle->slug, $originalTargetSlug);
+    }
+
+    // Stesso scenario, ma il reclamante non è temporalmente sicuro (bozza) — l'href non
+    // risolve comunque a nulla di raggiungibile e va ripulito come prima del round 15.
+    public function test_admin_update_still_strips_a_link_whose_deleted_targets_slug_was_reclaimed_by_an_unsafe_article(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $originalTargetSlug = $target->slug;
+        $targetUrl = route('articolo', $originalTargetSlug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $originalTargetSlug,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        ]);
+
+        $target->delete();
+
+        $otherArticle = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Un altro articolo, ancora in bozza',
+            'slug' => $originalTargetSlug,
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+        $this->assertSame($otherArticle->slug, $originalTargetSlug);
+    }
+
     // 2i. Codex (PR #165, P2 round 7): un link ESTERNO il cui path contiene per pura
     // coincidenza "/articolo/{slug del target diventato non sicuro}" non va MAI confuso
     // con il collegamento interno Kairus da ripulire — a differenza dei conteggi di sola
