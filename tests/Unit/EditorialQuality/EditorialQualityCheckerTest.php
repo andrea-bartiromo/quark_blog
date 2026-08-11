@@ -186,6 +186,198 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame(R::STATUS_PASS, $result->status);
     }
 
+    // ── Placeholder — falso positivo reale (articoli #2 e #15 in produzione):
+    // "todo" e' una sottostringa letterale di "metodo"/"metodologia"/
+    // "metodologico", parole scientifiche legittime e comuni. Il marker
+    // deve continuare a essere riconosciuto quando e' davvero un
+    // segnaposto (parola a se stante, delimitata da spazi/punteggiatura),
+    // mai quando e' incorporato dentro una parola più lunga. ──
+
+    public function test_the_word_metodo_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il metodo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_the_word_metodologia_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('La metodologia sperimentale adottata e\' descritta di seguito. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_the_word_metodologico_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Un approccio metodologico rigoroso guida questa ricerca scientifica. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_a_word_that_accidentally_embeds_a_marker_substring_is_never_flagged(): void
+    {
+        // "fixme" non e' una sottostringa nota di alcuna parola italiana
+        // comune, ma il principio va comunque verificato in astratto: un
+        // marker incorporato in una parola più lunga, con lettere sui due
+        // lati, non deve mai far scattare il controllo.
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Un prefissoxxxxxxxxsuffisso non e\' mai un segnaposto reale. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_standalone_uppercase_todo_is_still_detected(): void
+    {
+        $article = $this->completeArticle(['body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO</p>']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_with_a_colon_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO: completare questa sezione</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_mid_sentence_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Testo provvisorio. TODO aggiungere fonte.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_wrapped_in_html_tags_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_inside_inline_formatting_tags_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p><strong>TODO:</strong> verificare questo dato</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_lowercase_todo_standalone_is_still_detected_case_insensitively(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>todo</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_the_word_fixme_style_markers_still_work_with_the_shared_boundary_rule(): void
+    {
+        $article = $this->completeArticle([
+            'excerpt' => 'FIXME: questo sommario e\' ancora da rivedere completamente',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_lorem_ipsum_phrase_boundary_still_works(): void
+    {
+        $article = $this->completeArticle(['body' => '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_bracket_prefixed_marker_still_works_at_a_natural_word_boundary(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Testo con [inserire qui il titolo definitivo].</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_da_completare_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Sezione da completare.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_titolo_articolo_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle(['title' => 'Titolo articolo']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_placeholder_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>[placeholder]</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_the_eight_x_placeholder_run_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>xxxxxxxx</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
     // ── Cover / alt ──
 
     public function test_no_cover_fails(): void

@@ -196,7 +196,7 @@ class EditorialQualityChecker
             $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $text) ?? ''), 'UTF-8');
 
             foreach (self::PLACEHOLDER_MARKERS as $marker) {
-                if ($normalized !== '' && str_contains($normalized, $marker)) {
+                if ($normalized !== '' && $this->containsWholeWordMarker($normalized, $marker)) {
                     return $this->fail(
                         'no_placeholder_markers',
                         'Contenuto segnaposto',
@@ -210,6 +210,69 @@ class EditorialQualityChecker
         }
 
         return $this->pass('no_placeholder_markers', 'Contenuto segnaposto', EditorialQualityCheckResult::CATEGORY_CONTENT, EditorialQualityCheckResult::IMPORTANCE_ESSENTIAL, 'Nessun segnaposto rilevato.');
+    }
+
+    /**
+     * Verifica se $marker compare in $haystack come unità "delimitata": non
+     * incorporato dentro una parola più lunga. Un carattere del testo è
+     * considerato di confine (spazio, punteggiatura, tag/entità HTML già
+     * spogliati a monte, inizio/fine stringa) oppure "di parola"
+     * (lettera/cifra Unicode, vedi isWordChar()). Il marker è considerato
+     * delimitato solo se, ai suoi due estremi, non si trova un carattere di
+     * parola adiacente sullo stesso lato — così "todo" non scatta dentro
+     * "metodo", ma resta rilevato quando è standalone o separato da spazi,
+     * punteggiatura o tag HTML. I marker che iniziano o finiscono già con un
+     * carattere non di parola (es. "[inserire") non necessitano di
+     * considerazioni speciali: la regola è simmetrica e si applica allo
+     * stesso modo a entrambi gli estremi.
+     */
+    private function containsWholeWordMarker(string $haystack, string $marker): bool
+    {
+        $offset = 0;
+        $markerLength = mb_strlen($marker, 'UTF-8');
+        $haystackLength = mb_strlen($haystack, 'UTF-8');
+
+        while ($offset <= $haystackLength - $markerLength) {
+            $position = mb_strpos($haystack, $marker, $offset, 'UTF-8');
+
+            if ($position === false) {
+                return false;
+            }
+
+            if ($this->markerMatchesAsWholeUnit($haystack, $marker, $position)) {
+                return true;
+            }
+
+            $offset = $position + 1;
+        }
+
+        return false;
+    }
+
+    private function markerMatchesAsWholeUnit(string $haystack, string $marker, int $position): bool
+    {
+        $markerLength = mb_strlen($marker, 'UTF-8');
+
+        $charBefore = $position > 0 ? mb_substr($haystack, $position - 1, 1, 'UTF-8') : '';
+        $firstMarkerChar = mb_substr($marker, 0, 1, 'UTF-8');
+
+        if ($this->isWordChar($firstMarkerChar) && $this->isWordChar($charBefore)) {
+            return false;
+        }
+
+        $charAfter = mb_substr($haystack, $position + $markerLength, 1, 'UTF-8');
+        $lastMarkerChar = mb_substr($marker, -1, 1, 'UTF-8');
+
+        if ($this->isWordChar($lastMarkerChar) && $this->isWordChar($charAfter)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function isWordChar(string $char): bool
+    {
+        return $char !== '' && preg_match('/[\p{L}\p{N}]/u', $char) === 1;
     }
 
     // ── MEDIA ────────────────────────────────────────────────────
