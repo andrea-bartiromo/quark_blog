@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\ProjectEditorialLinkService;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
@@ -171,6 +172,20 @@ class Article extends Model
      */
     public function proposedLinkSuggestions()
     {
+        // Codex (PR #165, P2 round 9): la riga resta 'proposed' in DB finché
+        // non parte una nuova "Analizza" (o "Inserisci"/il salvataggio la
+        // rivalutano) — ma tra quel momento e l'apertura di QUESTA pagina il
+        // target può essere diventato non più sicuro (riprogrammato dopo la
+        // source, o retrocesso). Senza questo filtro il form la mostrerebbe
+        // comunque con l'etichetta "sarà pubblico prima di questo articolo"
+        // (ArticleLinkSuggestionController::serializeSuggestions()) — una
+        // dichiarazione di sicurezza ormai falsa, prima ancora che la
+        // redazione clicchi qualunque cosa. Nessuna scrittura qui: è un
+        // filtro di sola lettura per il rendering, lo stato 'proposed' in DB
+        // resta quello che era finché un'azione esplicita (Analizza/
+        // Inserisci/Salva) non lo aggiorna davvero.
+        $temporalEligibility = app(InternalLinkTemporalEligibility::class);
+
         return $this->linkSuggestions()
             ->proposed()
             // status/published_at (V2.1): il pannello "Collegamenti interni
@@ -180,7 +195,9 @@ class Article extends Model
             ->with('targetArticle:id,title,slug,status,published_at')
             ->orderByDesc('confidence_score')
             ->limit(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
-            ->get();
+            ->get()
+            ->filter(fn (ArticleLinkSuggestion $s) => $s->targetArticle !== null && $temporalEligibility->isTargetSafeForSource($this, $s->targetArticle))
+            ->values();
     }
 
     // ── Scope ─────────────────────────────────────────────────

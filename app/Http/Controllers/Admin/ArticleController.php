@@ -25,6 +25,7 @@ use App\Services\ImageService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -146,13 +147,23 @@ class ArticleController extends Controller
                 ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
         }
 
-        $article->update($data);
+        // Codex (PR #165, P2 round 9): il salvataggio dell'articolo e la
+        // conseguente revalidazione/pulizia dei suggerimenti applicati
+        // (markAccepted() può a sua volta salvare di nuovo il body se un
+        // link non è più sicuro — vedi ArticleLinkSuggestionService)
+        // devono avvenire come un'unica unità: senza transazione, un
+        // fallimento tra i due update() lascerebbe l'articolo pubblicato
+        // con un link ormai non sicuro ancora nel testo, o un suggerimento
+        // già marcato superato senza che il body sia stato ripulito.
+        DB::transaction(function () use ($article, $data, $request) {
+            $article->update($data);
 
-        $this->linkSuggestionService->markAccepted(
-            $article,
-            (array) $request->input('applied_link_suggestions', []),
-            $request->user()->id
-        );
+            $this->linkSuggestionService->markAccepted(
+                $article,
+                (array) $request->input('applied_link_suggestions', []),
+                $request->user()->id
+            );
+        });
 
         return redirect()
             ->route('admin.articles')

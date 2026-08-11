@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Models\User;
+use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Tests\TestCase;
 
 class ArticleLinkSuggestionControllerTest extends TestCase
@@ -598,6 +600,82 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         // solo un URL interno che ne contiene il testo in query string.
         $freshBody = $source->fresh()->body;
         $this->assertStringContainsString('href="'.$unrelatedUrl.'"', $freshBody);
+    }
+
+    // 2k. Codex (PR #165, P2 round 9): il salvataggio dell'articolo e la revalidazione/
+    // pulizia dei suggerimenti applicati (markAccepted()) devono avvenire come un'unica
+    // transazione — se markAccepted() fallisce, anche le modifiche già scritte da
+    // $article->update($data) (es. il body con il link non più sicuro) devono annullarsi,
+    // non restare persistite a metà.
+    public function test_admin_update_rolls_back_the_article_update_if_mark_accepted_fails(): void
+    {
+        $editor = $this->editor();
+
+        $source = $this->article(['user_id' => $editor->id, 'title' => 'Titolo originale']);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        try {
+            $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+                'title' => 'Titolo che non deve mai essere salvato',
+                'body' => $source->body,
+                'category' => $source->category,
+                'status' => 'draft',
+            ]);
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertSame('Titolo originale', $source->fresh()->title);
+    }
+
+    // 2l. Codex (PR #165, P2 round 9): riaprire il form di modifica non deve mostrare un
+    // suggerimento 'proposed' il cui target è diventato non sicuro da quando fu proposto,
+    // senza che una nuova "Analizza"/"Inserisci" lo abbia già rivalutato — altrimenti il
+    // pannello mostrerebbe l'etichetta "sarà pubblico prima di questo articolo" quando non
+    // è più vero.
+    public function test_admin_edit_does_not_show_a_proposed_suggestion_whose_target_became_unsafe(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(5),
+        ]);
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(10),
+        ]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target viene riprogrammato DOPO la source (non più sicuro), ma
+        // nessuna "Analizza"/"Inserisci" ha ancora rivalutato il
+        // suggerimento: in DB resta 'proposed'.
+        $target->update(['published_at' => now()->addDays(20)]);
+        $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->fresh()->status);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $source));
+
+        $response->assertOk();
+        $linkSuggestions = $response->viewData('linkSuggestions');
+
+        $this->assertFalse(
+            $linkSuggestions->contains('id', $suggestion->id),
+            'Il pannello non deve mostrare un suggerimento il cui target non è più temporalmente sicuro, anche se lo stato in DB è ancora "proposed".'
+        );
     }
 
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
