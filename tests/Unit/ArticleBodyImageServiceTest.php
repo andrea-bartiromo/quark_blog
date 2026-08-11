@@ -62,4 +62,23 @@ class ArticleBodyImageServiceTest extends TestCase
         $this->assertStringContainsString('<h2>Titolo</h2>', $result);
         $this->assertStringContainsString('<strong>enfasi</strong>', $result);
     }
+
+    /**
+     * Trovato in review (Codex): un tag di chiusura senza apertura nel
+     * corpo salvato (tollerato dai browser, quindi realisticamente
+     * presente in articoli esistenti) veniva interpretato dal parser come
+     * chiusura anticipata del wrapper sintetico usato internamente — tutto
+     * cio' che seguiva, testo e immagini, spariva dal rendering. Deve
+     * restituire l'HTML originale invariato piuttosto che troncare
+     * l'articolo.
+     */
+    public function test_an_unmatched_closing_tag_never_truncates_the_article(): void
+    {
+        $html = '<p>Prima parte.</p></div><p>Seconda parte con <img src="/a.jpg" alt="A"></p>';
+
+        $result = $this->service()->applyLazyLoading($html);
+
+        $this->assertSame($html, $result);
+        $this->assertStringContainsString('Seconda parte', $result);
+    }
 }

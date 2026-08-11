@@ -38,7 +38,29 @@ class TableOfContentsService
         libxml_clear_errors();
 
         $xpath = new DOMXPath($dom);
-        $headings = $xpath->query('//h2 | //h3');
+        $root = $xpath->query('//div[@id="__toc_root__"]')->item(0);
+
+        // Trovato in review (Codex, su un servizio gemello che condivide
+        // esattamente questo pattern): un tag di chiusura senza apertura
+        // nel corpo salvato (es. un "</div>" residuo, tollerato dai
+        // browser al momento del salvataggio) puo' essere interpretato dal
+        // parser HTML come chiusura ANTICIPATA di questo wrapper
+        // sintetico — tutto cio' che segue nel frammento finisce fuori da
+        // $root, come fratello successivo nel documento, non piu' come suo
+        // discendente. innerHtml() lo perderebbe in silenzio, troncando
+        // l'articolo pubblicato (testo, heading successivi ED eventuali
+        // immagini). Riprodotto empiricamente: un "</div>" a meta' corpo
+        // faceva sparire tutto il testo successivo dal rendering. Se il
+        // wrapper non e' rimasto l'unico nodo di primo livello del
+        // documento sintetico, il parsing e' compromesso: meglio
+        // restituire l'HTML originale invariato (nessun id assegnato
+        // quella volta, TOC assente) che rischiare di troncare un
+        // articolo pubblicato.
+        if ($root === null || $root->nextSibling !== null) {
+            return ['html' => $html, 'items' => []];
+        }
+
+        $headings = $xpath->query('.//h2 | .//h3', $root);
 
         if ($headings === false || $headings->length === 0) {
             return ['html' => $html, 'items' => []];
@@ -73,7 +95,6 @@ class TableOfContentsService
             ];
         }
 
-        $root = $xpath->query('//div[@id="__toc_root__"]')->item(0);
         $renderedHtml = $this->innerHtml($dom, $root);
 
         return [

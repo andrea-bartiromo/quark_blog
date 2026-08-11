@@ -41,7 +41,26 @@ class ArticleBodyImageService
         libxml_clear_errors();
 
         $xpath = new DOMXPath($dom);
-        $images = $xpath->query('//img');
+        $root = $xpath->query('//div[@id="__abi_root__"]')->item(0);
+
+        // Trovato in review (Codex): un tag di chiusura senza apertura nel
+        // frammento originale (es. "...</div>..." — accettato quando
+        // l'articolo fu salvato, perche' i browser lo tollerano) puo'
+        // essere interpretato dal parser HTML come chiusura ANTICIPATA di
+        // questo wrapper sintetico: tutto cio' che segue nel frammento
+        // finisce fuori da $root, come fratello successivo nel documento,
+        // non piu' come suo discendente — innerHtml() lo perderebbe in
+        // silenzio, troncando l'articolo pubblicato (testo E immagini
+        // successive). Se il wrapper non e' rimasto l'unico nodo di primo
+        // livello del documento sintetico, il parsing e' compromesso:
+        // meglio restituire l'HTML originale invariato (nessun
+        // loading="lazy" aggiunto quella volta) che rischiare di troncare
+        // un articolo pubblicato.
+        if ($root === null || $root->nextSibling !== null) {
+            return $html;
+        }
+
+        $images = $xpath->query('.//img', $root);
 
         if ($images === false || $images->length === 0) {
             return $html;
@@ -57,8 +76,6 @@ class ArticleBodyImageService
                 $image->setAttribute('decoding', 'async');
             }
         }
-
-        $root = $xpath->query('//div[@id="__abi_root__"]')->item(0);
 
         return $this->innerHtml($dom, $root);
     }
