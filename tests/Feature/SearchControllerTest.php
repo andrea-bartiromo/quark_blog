@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -475,5 +476,48 @@ class SearchControllerTest extends TestCase
         $ids = $this->resultIds($response);
 
         $this->assertLessThan(array_search($older->id, $ids), array_search($newer->id, $ids));
+    }
+
+    /**
+     * Performance/N+1: la ricerca resta un numero FISSO di query
+     * (candidatura+ranking in un'unica SELECT, più COUNT per la
+     * paginazione, più l'eager load autore) indipendentemente dal numero
+     * di token nella query e dalla dimensione del corpus — nessuna query
+     * per candidato, nessuna query per token.
+     */
+    public function test_search_query_count_does_not_grow_with_corpus_size_or_token_count(): void
+    {
+        for ($i = 0; $i < 40; $i++) {
+            $this->article([
+                'title' => 'Articolo generico numero '.$i,
+                'body' => '<p>'.str_repeat('Testo neutro senza relazione. ', 10).'</p>',
+            ]);
+        }
+
+        DB::enableQueryLog();
+
+        $this->get(route('ricerca', ['q' => 'test turing chatgpt transformer stella albero buco nero']));
+
+        $countLarge = count(DB::getQueryLog());
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->article([
+                'title' => 'Altro articolo numero '.$i,
+            ]);
+        }
+
+        DB::enableQueryLog();
+        $this->get(route('ricerca', ['q' => 'test']));
+
+        $countSmall = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(
+            $countSmall,
+            $countLarge,
+            "Con una query a 8 token su un corpus più grande: {$countLarge} query. Con una query a 1 token su un corpus più piccolo: {$countSmall} query. Devono coincidere."
+        );
     }
 }
