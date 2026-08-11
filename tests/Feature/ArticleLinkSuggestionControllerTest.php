@@ -602,6 +602,68 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertStringContainsString('href="'.$unrelatedUrl.'"', $freshBody);
     }
 
+    // 2l-bis. Codex (PR #165, P1 round 10): un suggerimento GIA' 'accepted' (in un
+    // salvataggio precedente) va rivalutato a OGNI salvataggio successivo, non solo
+    // quelli appena applicati — altrimenti un target diventato non sicuro DOPO
+    // l'accettazione lascia un link ormai rotto nel body finché la source stessa non
+    // viene pubblicata dallo scheduler con quel link morto dentro.
+    public function test_admin_update_supersedes_and_strips_a_previously_accepted_link_whose_target_became_unsafe(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(5),
+        ]);
+
+        $targetUrl = route('articolo', $target->slug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(10),
+            'body' => $linkedBody,
+        ]);
+
+        // Il suggerimento è già 'accepted' da un salvataggio PRECEDENTE: il
+        // link è già fisicamente nel body, non arriva da applied_link_suggestions.
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+            'reviewed_at' => now(),
+            'reviewed_by' => $editor->id,
+        ]);
+
+        // Il target viene riprogrammato DOPO la source: non è più sicuro.
+        $target->update(['published_at' => now()->addDays(20)]);
+
+        // Un salvataggio successivo, anche senza applicare nessun nuovo
+        // suggerimento (nessun applied_link_suggestions in questa richiesta).
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'scheduled',
+            'published_date' => now()->addDays(10)->format('Y-m-d'),
+            'published_time' => now()->addDays(10)->format('H:i'),
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+    }
+
     // 2k. Codex (PR #165, P2 round 9): il salvataggio dell'articolo e la revalidazione/
     // pulizia dei suggerimenti applicati (markAccepted()) devono avvenire come un'unica
     // transazione — se markAccepted() fallisce, anche le modifiche già scritte da
@@ -675,6 +737,55 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertFalse(
             $linkSuggestions->contains('id', $suggestion->id),
             'Il pannello non deve mostrare un suggerimento il cui target non è più temporalmente sicuro, anche se lo stato in DB è ancora "proposed".'
+        );
+    }
+
+    // 2m. Codex (PR #165, P2 round 10): il filtro di sicurezza temporale va applicato
+    // PRIMA del limite MAX_PROPOSED_RESULTS, non dopo — altrimenti, se le righe con
+    // punteggio più alto sono proprio quelle diventate non sicure, il pannello risulta
+    // vuoto anche quando esistono altri suggerimenti sicuri appena sotto in classifica.
+    public function test_admin_edit_still_shows_safe_suggestions_below_the_display_limit(): void
+    {
+        $editor = $this->editor();
+
+        $source = $this->article(['user_id' => $editor->id]);
+
+        // I MAX_PROPOSED_RESULTS suggerimenti a punteggio più alto diventano
+        // tutti non sicuri (target retrocesso a bozza) DOPO essere stati proposti.
+        for ($i = 0; $i < ArticleLinkSuggestion::MAX_PROPOSED_RESULTS; $i++) {
+            $unsafeTarget = $this->article(['user_id' => $editor->id, 'title' => 'Target non sicuro '.$i]);
+
+            ArticleLinkSuggestion::create([
+                'source_article_id' => $source->id,
+                'target_article_id' => $unsafeTarget->id,
+                'anchor_text' => 'target non sicuro '.$i,
+                'reason' => 'motivo',
+                'confidence_score' => 90 - $i,
+            ]);
+
+            $unsafeTarget->update(['status' => 'draft', 'published_at' => null]);
+        }
+
+        // Un suggerimento a punteggio più basso, sotto i primi
+        // MAX_PROPOSED_RESULTS, ma il cui target è (ed è sempre stato) sicuro.
+        $safeTarget = $this->article(['user_id' => $editor->id, 'title' => 'Target sicuro']);
+
+        $safeSuggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $safeTarget->id,
+            'anchor_text' => 'target sicuro',
+            'reason' => 'motivo',
+            'confidence_score' => 40,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $source));
+
+        $response->assertOk();
+        $linkSuggestions = $response->viewData('linkSuggestions');
+
+        $this->assertTrue(
+            $linkSuggestions->contains('id', $safeSuggestion->id),
+            'Un suggerimento sicuro sotto i primi MAX_PROPOSED_RESULTS deve comunque comparire quando quelli a punteggio più alto sono stati esclusi perché non più sicuri.'
         );
     }
 

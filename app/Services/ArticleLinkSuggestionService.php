@@ -1165,99 +1165,139 @@ class ArticleLinkSuggestionService
      * 'superseded' — ma il link è comunque fisicamente presente nel body
      * appena inviato dal form (era stato inserito lato client prima). Va
      * quindi rivalutato e il link ripulito comunque, non saltato solo
-     * perché non è più 'proposed'. 'accepted'/'ignored' restano stati
-     * terminali e non vengono mai ririaperti qui.
+     * perché non è più 'proposed'.
+     *
+     * Codex, PR #165, P1 round 10: 'accepted' NON è più un vicolo cieco per
+     * la rivalidazione. Un suggerimento già accettato in un salvataggio
+     * PRECEDENTE (quindi non più tra $suggestionIds in QUESTO salvataggio)
+     * può comunque avere il proprio target diventato non sicuro nel
+     * frattempo (riprogrammato dopo la source, o retrocesso) — senza questo
+     * secondo passaggio, nulla lo avrebbe più rilevato: il loop di
+     * staleness in analyzeForSource() ignora le righe non 'actionable'
+     * (isActionable() è vero solo per 'proposed'), e questo salvataggio
+     * processa solo gli ID passati dal form corrente. Il link accettato
+     * sarebbe rimasto nel body fino alla pubblicazione della source con un
+     * 404 dentro. Ad OGNI salvataggio, quindi, si rivalutano anche tutte le
+     * righe 'accepted' di questa source, non solo quelle appena applicate —
+     * un salvataggio qualunque dell'articolo (anche per una modifica non
+     * correlata) diventa così un punto di controllo naturale, coerente con
+     * lo stesso principio già applicato ovunque in questa missione
+     * (rivalidare ad ogni touchpoint esistente, mai un trigger nuovo).
      *
      * @param  array<int, int|string>  $suggestionIds
      */
     public function markAccepted(Article $article, array $suggestionIds, int $reviewerId): void
     {
-        if (empty($suggestionIds)) {
-            return;
-        }
-
-        $suggestions = ArticleLinkSuggestion::where('source_article_id', $article->id)
-            ->whereIn('id', $suggestionIds)
-            ->whereIn('status', [ArticleLinkSuggestion::STATUS_PROPOSED, ArticleLinkSuggestion::STATUS_SUPERSEDED])
-            ->with('targetArticle')
-            ->get();
-
-        if ($suggestions->isEmpty()) {
-            return;
-        }
-
         $body = $article->body;
         $bodyChanged = false;
 
-        foreach ($suggestions as $suggestion) {
+        if (! empty($suggestionIds)) {
+            $suggestions = ArticleLinkSuggestion::where('source_article_id', $article->id)
+                ->whereIn('id', $suggestionIds)
+                ->whereIn('status', [ArticleLinkSuggestion::STATUS_PROPOSED, ArticleLinkSuggestion::STATUS_SUPERSEDED])
+                ->with('targetArticle')
+                ->get();
+
+            foreach ($suggestions as $suggestion) {
+                $target = $suggestion->targetArticle;
+
+                if ($target !== null && $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
+                    $suggestion->update([
+                        'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+                        'reviewed_at' => now(),
+                        'reviewed_by' => $reviewerId,
+                    ]);
+
+                    continue;
+                }
+
+                $newBody = $this->supersedeAndStripIfUnsafe($article, $suggestion, $target, $body);
+
+                if ($newBody !== $body) {
+                    $body = $newBody;
+                    $bodyChanged = true;
+                }
+            }
+        }
+
+        $previouslyAccepted = ArticleLinkSuggestion::where('source_article_id', $article->id)
+            ->where('status', ArticleLinkSuggestion::STATUS_ACCEPTED)
+            ->with('targetArticle')
+            ->get();
+
+        foreach ($previouslyAccepted as $suggestion) {
             $target = $suggestion->targetArticle;
 
-            if ($target === null || ! $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
-                if ($suggestion->status !== ArticleLinkSuggestion::STATUS_SUPERSEDED) {
-                    $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
-                }
-
-                if ($target !== null) {
-                    // Codex, PR #165, P2 round 3: l'href inviato dal client
-                    // può ancora puntare a un vecchio slug del target, se il
-                    // target è stato rinominato tra "Inserisci" e questo
-                    // salvataggio — cerca anche negli slug storici, non solo
-                    // in quello attuale.
-                    $historicalSlugs = ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug');
-
-                    // Codex, PR #165, P2 round 4 e round 5: un vecchio slug
-                    // del target può nel frattempo essere stato reclamato
-                    // come slug ATTUALE di un ARTICOLO DIVERSO (gli slug si
-                    // liberano quando l'articolo che li usava ne cambia) —
-                    // la rotta pubblica risolve sempre prima lo slug
-                    // corrente di un articolo (Article::published(), vedi
-                    // ArticleController::show()), quindi un simile href
-                    // punterebbe DAVVERO all'altro articolo, non più al
-                    // target di questo suggerimento. Va escluso dagli slug
-                    // storici "sicuri da ripulire" SOLO se il nuovo
-                    // proprietario è a sua volta temporalmente sicuro per
-                    // questa source (round 5): la semplice esistenza di un
-                    // reclamante non basta — Article::published() richiede
-                    // status=published, quindi un reclamante ancora
-                    // draft/review/scheduled non risolverebbe comunque
-                    // l'href ora, e il redirect storico (che punta ancora al
-                    // VECCHIO target, non sicuro) lo farebbe fallire
-                    // ugualmente: lasciare lo slug nel body produrrebbe lo
-                    // stesso 404 che questa pulizia esiste per evitare.
-                    if ($historicalSlugs->isNotEmpty()) {
-                        $reclaimingArticles = Article::whereIn('slug', $historicalSlugs)
-                            ->get(['slug', 'status', 'published_at']);
-
-                        $safelyReclaimedSlugs = $reclaimingArticles
-                            ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
-                            ->pluck('slug');
-
-                        $historicalSlugs = $historicalSlugs->diff($safelyReclaimedSlugs);
-                    }
-
-                    $targetSlugs = [$target->slug, ...$historicalSlugs->all()];
-
-                    $strippedBody = $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
-
-                    if ($strippedBody !== $body) {
-                        $body = $strippedBody;
-                        $bodyChanged = true;
-                    }
-                }
-
+            if ($target !== null && $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
                 continue;
             }
 
-            $suggestion->update([
-                'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
-                'reviewed_at' => now(),
-                'reviewed_by' => $reviewerId,
-            ]);
+            $newBody = $this->supersedeAndStripIfUnsafe($article, $suggestion, $target, $body);
+
+            if ($newBody !== $body) {
+                $body = $newBody;
+                $bodyChanged = true;
+            }
         }
 
         if ($bodyChanged) {
             $article->update(['body' => $body]);
         }
+    }
+
+    /**
+     * Marca $suggestion superata e toglie dal body ogni link verso lo slug
+     * attuale o storico del suo target — helper condiviso da entrambi i
+     * passaggi di markAccepted() (suggerimenti appena applicati e
+     * suggerimenti già accettati in precedenza). Il chiamante ha già
+     * verificato che il target NON è (più) temporalmente sicuro.
+     */
+    private function supersedeAndStripIfUnsafe(Article $article, ArticleLinkSuggestion $suggestion, ?Article $target, string $body): string
+    {
+        if ($suggestion->status !== ArticleLinkSuggestion::STATUS_SUPERSEDED) {
+            $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+        }
+
+        if ($target === null) {
+            return $body;
+        }
+
+        // Codex, PR #165, P2 round 3: l'href già nel body può ancora
+        // puntare a un vecchio slug del target, se è stato rinominato nel
+        // frattempo — cerca anche negli slug storici, non solo in quello
+        // attuale.
+        $historicalSlugs = ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug');
+
+        // Codex, PR #165, P2 round 4 e round 5: un vecchio slug del target
+        // può nel frattempo essere stato reclamato come slug ATTUALE di un
+        // ARTICOLO DIVERSO (gli slug si liberano quando l'articolo che li
+        // usava ne cambia) — la rotta pubblica risolve sempre prima lo slug
+        // corrente di un articolo (Article::published(), vedi
+        // ArticleController::show()), quindi un simile href punterebbe
+        // DAVVERO all'altro articolo, non più al target di questo
+        // suggerimento. Va escluso dagli slug storici "sicuri da ripulire"
+        // SOLO se il nuovo proprietario è a sua volta temporalmente sicuro
+        // per questa source (round 5): la semplice esistenza di un
+        // reclamante non basta — Article::published() richiede
+        // status=published, quindi un reclamante ancora draft/review/
+        // scheduled non risolverebbe comunque l'href ora, e il redirect
+        // storico (che punta ancora al VECCHIO target, non sicuro) lo
+        // farebbe fallire ugualmente: lasciare lo slug nel body
+        // produrrebbe lo stesso 404 che questa pulizia esiste per evitare.
+        if ($historicalSlugs->isNotEmpty()) {
+            $reclaimingArticles = Article::whereIn('slug', $historicalSlugs)
+                ->get(['slug', 'status', 'published_at']);
+
+            $safelyReclaimedSlugs = $reclaimingArticles
+                ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
+                ->pluck('slug');
+
+            $historicalSlugs = $historicalSlugs->diff($safelyReclaimedSlugs);
+        }
+
+        $targetSlugs = [$target->slug, ...$historicalSlugs->all()];
+
+        return $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
     }
 
     private function plainText(string $html): string

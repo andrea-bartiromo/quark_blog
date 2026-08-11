@@ -184,6 +184,18 @@ class Article extends Model
         // filtro di sola lettura per il rendering, lo stato 'proposed' in DB
         // resta quello che era finché un'azione esplicita (Analizza/
         // Inserisci/Salva) non lo aggiorna davvero.
+        //
+        // Codex, PR #165, P2 round 10: il filtro va applicato PRIMA del
+        // limite MAX_PROPOSED_RESULTS, non dopo. Se le righe con punteggio
+        // più alto sono proprio quelle diventate non sicure, un
+        // ->limit()->get()->filter() le include nella finestra del LIMIT e
+        // le scarta dopo — restituendo un pannello vuoto anche quando
+        // esistono altri suggerimenti sicuri appena sotto in classifica.
+        // Nessun limite SQL qui: il numero di righe 'proposed' per un
+        // singolo articolo è comunque piccolo (soglia di punteggio +
+        // MAX_PROPOSED_RESULTS già applicati da analyzeForSource()), il
+        // taglio ai primi MAX_PROPOSED_RESULTS avviene in PHP DOPO il
+        // filtro, sull'ordinamento per punteggio già applicato dalla query.
         $temporalEligibility = app(InternalLinkTemporalEligibility::class);
 
         return $this->linkSuggestions()
@@ -194,9 +206,9 @@ class Article extends Model
             // vedi ArticleLinkSuggestionController::serializeSuggestions()).
             ->with('targetArticle:id,title,slug,status,published_at')
             ->orderByDesc('confidence_score')
-            ->limit(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
             ->get()
             ->filter(fn (ArticleLinkSuggestion $s) => $s->targetArticle !== null && $temporalEligibility->isTargetSafeForSource($this, $s->targetArticle))
+            ->take(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
             ->values();
     }
 
