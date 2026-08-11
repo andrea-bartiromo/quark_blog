@@ -462,6 +462,79 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $this->assertSame(1, ArticleLinkSuggestion::where('target_article_id', $target->id)->count());
     }
 
+    /**
+     * Codex (PR #165, P1): un target temporalmente sicuro al momento della
+     * prima "Analizza" ma poi riprogrammato DOPO la source esce dal pool
+     * di Article::eligibleAsLinkTargetFor() — quindi il loop principale
+     * non lo incontra più affatto, a differenza del caso "punteggio non
+     * più sufficiente" sopra. Deve comunque essere marcato superato dalla
+     * ri-analisi, non lasciato "proposed" indefinitamente.
+     */
+    public function test_a_proposed_suggestion_is_superseded_once_its_scheduled_target_is_rescheduled_after_the_source(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli solari più efficienti sul mercato',
+            'category' => 'energia',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+            'category' => 'energia',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $first = $this->service->analyzeForSource($source);
+        $this->assertNotNull($first->firstWhere('target_article_id', $target->id));
+
+        // Il target viene riprogrammato DOPO la source: non più temporalmente sicuro.
+        $target->update(['published_at' => '2026-08-25 15:30:00']);
+
+        $second = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertFalse($second->contains('target_article_id', $target->id));
+        $this->assertSame(
+            ArticleLinkSuggestion::STATUS_SUPERSEDED,
+            ArticleLinkSuggestion::where('target_article_id', $target->id)->first()->status
+        );
+    }
+
+    public function test_a_proposed_suggestion_is_superseded_once_its_scheduled_target_is_demoted_to_draft(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli solari più efficienti sul mercato',
+            'category' => 'energia',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+            'category' => 'energia',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $first = $this->service->analyzeForSource($source);
+        $this->assertNotNull($first->firstWhere('target_article_id', $target->id));
+
+        $target->update(['status' => 'draft', 'published_at' => null]);
+
+        $second = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertFalse($second->contains('target_article_id', $target->id));
+        $this->assertSame(
+            ArticleLinkSuggestion::STATUS_SUPERSEDED,
+            ArticleLinkSuggestion::where('target_article_id', $target->id)->first()->status
+        );
+    }
+
     // 10. Se l'anchor migliore (titolo) attraversa un tag inline e non è inseribile, si ripiega su un termine condiviso che lo è davvero
     public function test_it_falls_back_to_an_insertable_shared_term_when_the_title_anchor_is_not_insertable(): void
     {

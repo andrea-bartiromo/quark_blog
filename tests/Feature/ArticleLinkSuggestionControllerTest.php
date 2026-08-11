@@ -99,6 +99,87 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertNull($suggestion->fresh()->reviewed_by);
     }
 
+    /**
+     * Codex (PR #165, P1): tra la creazione del suggerimento e il click su
+     * "Inserisci" il target può aver perso l'eleggibilità temporale
+     * (riprogrammato DOPO la source) — deve essere rifiutato, non inserito,
+     * e il suggerimento marcato superato (non lasciato "proposed" per un
+     * secondo tentativo che fallirebbe di nuovo allo stesso modo).
+     */
+    public function test_insert_rejects_a_suggestion_whose_target_was_rescheduled_after_the_source(): void
+    {
+        $editor = $this->editor();
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        // Al momento della proposta il target era scheduled 19/08 — DOPO la
+        // source (12/08): già non sarebbe stato eleggibile da subito, ma
+        // qui simuliamo il caso più subdolo, quello di un target che DIVENTA
+        // non sicuro tra "Analizza" e "Inserisci" (vedi test successivo per
+        // il caso "già non sicuro fin da subito" coperto allo stesso modo).
+        $target = $this->article(['user_id' => $editor->id, 'status' => 'scheduled', 'published_at' => '2026-08-19 15:30:00']);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'articolo di prova',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $response = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => (string) $source->body]
+        );
+
+        $response->assertStatus(409);
+        $this->assertSame($source->body, $source->fresh()->body);
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+    }
+
+    /**
+     * Stesso principio, ma il target viene retrocesso a bozza dopo la
+     * proposta (non più temporalmente sicuro in alcun modo, a prescindere
+     * dalla data).
+     */
+    public function test_insert_rejects_a_suggestion_whose_target_was_demoted_to_draft(): void
+    {
+        $editor = $this->editor();
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $target = $this->article(['user_id' => $editor->id, 'status' => 'scheduled', 'published_at' => '2026-08-12 15:30:00']);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'articolo di prova',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target era sicuro al momento della proposta; ora viene
+        // retrocesso a bozza prima che la redazione clicchi "Inserisci".
+        $target->update(['status' => 'draft', 'published_at' => null]);
+
+        $response = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => (string) $source->body]
+        );
+
+        $response->assertStatus(409);
+        $this->assertSame($source->body, $source->fresh()->body);
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+    }
+
     // 2b. Il salvataggio effettivo dell'articolo (Admin) marca accettati i suggerimenti applicati nel form
     public function test_admin_update_marks_applied_suggestions_as_accepted_on_save(): void
     {

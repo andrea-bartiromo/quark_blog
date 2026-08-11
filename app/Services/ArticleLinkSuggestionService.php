@@ -313,7 +313,35 @@ class ArticleLinkSuggestionService
         $documentFrequency = $this->buildDocumentFrequency($candidates);
         $corpusSize = $candidates->count();
 
-        $existing = ArticleLinkSuggestion::forSource($source->id)->get()->keyBy('target_article_id');
+        // targetArticle:id,status,published_at eager-caricato qui (non in
+        // un lazy load dentro il loop sotto, N+1): serve al controllo di
+        // staleness temporale subito dopo.
+        $existing = ArticleLinkSuggestion::forSource($source->id)
+            ->with('targetArticle:id,status,published_at')
+            ->get()
+            ->keyBy('target_article_id');
+
+        // Codex (PR #165, P1): un suggerimento 'proposed' il cui target ha
+        // perso l'eleggibilità temporale da quando fu proposto (riprogrammato
+        // DOPO $source, o retrocesso a bozza/revisione) non deve restare
+        // "proposed" indefinitamente in attesa che il loop sotto lo
+        // incontri — per costruzione non lo incontrerà mai più, perché
+        // Article::eligibleAsLinkTargetFor() lo esclude già a monte da
+        // $candidates. Senza questo passaggio esplicito resterebbe
+        // silenziosamente inseribile (ArticleLinkSuggestionController::
+        // insert() lo riverifica comunque, vedi lì, ma un suggerimento
+        // stantio non deve nemmeno restare visibile nel pannello).
+        foreach ($existing as $existingSuggestion) {
+            if (! $existingSuggestion->isActionable()) {
+                continue;
+            }
+
+            $target = $existingSuggestion->targetArticle;
+
+            if ($target === null || ! $this->temporalEligibility->isTargetSafeForSource($source, $target)) {
+                $this->supersedeIfActionable($existingSuggestion);
+            }
+        }
 
         $results = collect();
 

@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,7 @@ class ArticleLinkSuggestionController extends Controller
     public function __construct(
         private readonly ArticleLinkSuggestionService $suggestionService,
         private readonly ArticleLinkInsertionService $insertionService,
+        private readonly InternalLinkTemporalEligibility $temporalEligibility = new InternalLinkTemporalEligibility,
     ) {}
 
     /**
@@ -62,6 +64,24 @@ class ArticleLinkSuggestionController extends Controller
         if (! $suggestion->isActionable()) {
             return response()->json([
                 'message' => 'Questo suggerimento è già stato gestito.',
+            ], 409);
+        }
+
+        // Codex (PR #165, P1): tra il momento in cui il suggerimento fu
+        // calcolato (ultima "Analizza") e questo click su "Inserisci", il
+        // target potrebbe essere stato riprogrammato DOPO questo articolo o
+        // retrocesso a bozza/revisione — invariante non negoziabile della
+        // missione ("mai un link a un target che sarà ancora non pubblico
+        // quando la source uscirà"), quindi va riverificata qui, non solo
+        // al momento di "Analizza". Il suggerimento viene marcato superato
+        // (stesso stato usato altrove per un suggerimento non più valido),
+        // non lasciato "proposed" per un click successivo che fallirebbe
+        // di nuovo allo stesso modo.
+        if (! $this->temporalEligibility->isTargetSafeForSource($article, $suggestion->targetArticle)) {
+            $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+
+            return response()->json([
+                'message' => 'Questo collegamento non è più valido: la programmazione di pubblicazione è cambiata. Analizza di nuovo i collegamenti interni.',
             ], 409);
         }
 
