@@ -209,12 +209,11 @@ class EditorialQualityCheckerTest extends TestCase
      * Falso positivo segnalato in review: testo copiato da alcune fonti
      * (es. certi strumenti su macOS) può arrivare in forma Unicode
      * decomposta (NFD), dove una lettera accentata come "é" diventa due
-     * caratteri distinti — "e" + accento acuto combinante, non
-     * riconosciuto come carattere "di parola". In "método" (NFD) il
-     * marker "todo" segue subito il carattere combinante: senza
-     * normalizzazione a NFC quel punto sembrerebbe un confine di parola
-     * valido, facendo scattare erroneamente il marker dentro una parola
-     * legittima.
+     * caratteri distinti — "e" + accento acuto combinante (categoria
+     * Unicode \p{M}). In "método" (NFD) il marker "todo" segue subito il
+     * carattere combinante: senza riconoscere \p{M} come carattere "di
+     * parola" quel punto sembrerebbe un confine di parola valido, facendo
+     * scattare erroneamente il marker dentro una parola legittima.
      */
     public function test_the_word_metodo_in_decomposed_nfd_unicode_form_never_triggers_the_todo_marker(): void
     {
@@ -223,6 +222,33 @@ class EditorialQualityCheckerTest extends TestCase
 
         $article = $this->completeArticle([
             'body' => '<p>'.str_repeat('El '.$decomposed.' utilizado por los investigadores fue eficaz. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: non tutti i segni diacritici
+     * combinanti hanno un equivalente precomposto (a differenza
+     * dell'accento acuto del test precedente) — es. il macron sottoscritto
+     * U+0331, usato in alcune trascrizioni linguistiche/fonetiche, non si
+     * "ricompone" in un solo carattere nemmeno in forma NFC. Riconoscere
+     * \p{M} direttamente in isWordChar() copre anche questo caso, a
+     * differenza di una normalizzazione NFC da sola.
+     */
+    public function test_the_word_metodo_with_an_uncomposable_combining_mark_never_triggers_the_todo_marker(): void
+    {
+        $withCombiningMacronBelow = "me\u{0331}todo";
+        $this->assertNotSame(
+            Normalizer::normalize($withCombiningMacronBelow, Normalizer::FORM_C),
+            preg_replace('/\p{M}/u', '', $withCombiningMacronBelow),
+            'il segno combinante usato nel test deve restare non componibile anche dopo NFC, altrimenti il test non riproduce lo scenario'
+        );
+
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il '.$withCombiningMacronBelow.' utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
         ]);
 
         $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
