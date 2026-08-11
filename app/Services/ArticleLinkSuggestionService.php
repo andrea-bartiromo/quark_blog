@@ -170,16 +170,20 @@ class ArticleLinkSuggestionService
     private const MAX_CANDIDATES = 300;
 
     /**
-     * V2.1 (Codex, PR #165, P2 round 4 e round 5) — quota RISERVATA per i
-     * candidati scheduled temporalmente sicuri, indipendente dalla quota
-     * dei pubblicati: senza due quote separate, qualunque criterio unico di
+     * V2.1 (Codex, PR #165, P2 round 4, 5 e 6) — tetto MASSIMO per i
+     * candidati scheduled temporalmente sicuri, indipendente dalla quota dei
+     * pubblicati: senza un limite separato, qualunque criterio unico di
      * ordinamento/LIMIT condiviso permette a un gruppo abbastanza numeroso
      * di scalzare completamente l'altro dalla finestra di MAX_CANDIDATES
-     * (visto in entrambe le direzioni — vedi analyzeForSource()). Il resto
-     * della quota (MAX_CANDIDATES - questa) resta ai pubblicati. Il valore
-     * è deliberatamente più piccolo di MAX_CANDIDATES: un calendario
-     * editoriale realistico ha molti meno articoli scheduled-prima-di-questa-
-     * source che pubblicati in tutta la storia del sito.
+     * (visto in entrambe le direzioni — vedi analyzeForSource()). NON è una
+     * quota fissa sottratta sempre ai pubblicati (round 6): la query
+     * scheduled gira prima e i pubblicati ricevono dinamicamente tutta la
+     * capacità che resta (MAX_CANDIDATES - candidati scheduled REALMENTE
+     * trovati, mai più di questo tetto) — per la maggior parte delle source,
+     * non scheduled, questo tetto non sottrae nulla ai pubblicati. Il valore
+     * resta comunque più piccolo di MAX_CANDIDATES: un calendario editoriale
+     * realistico ha molti meno articoli scheduled-prima-di-questa-source che
+     * pubblicati in tutta la storia del sito.
      */
     private const MAX_SCHEDULED_SAFE_CANDIDATES = 50;
 
@@ -312,7 +316,7 @@ class ArticleLinkSuggestionService
         // query SQL essere scritta esattamente giusta, solo dalla policy
         // PHP (single source of truth), che l'audit usa allo stesso modo.
         //
-        // Codex (PR #165, P2 round 4 e round 5): una singola query con
+        // Codex (PR #165, P2 round 4, 5 e 6): una singola query con
         // ORDER BY + LIMIT condiviso tra pubblicati e scheduled sicuri non
         // può mai essere corretta in entrambe le direzioni contemporaneamente
         // — qualunque criterio di ordinamento fa sì che UN gruppo, se
@@ -321,14 +325,16 @@ class ArticleLinkSuggestionService
         // scheduled sicuri, sempre nel futuro, scalzavano i pubblicati;
         // round 5: dando priorità ai pubblicati, un corpus maturo con
         // >= MAX_CANDIDATES pubblicati scalzava a sua volta ogni scheduled
-        // sicuro). L'unica soluzione strutturalmente corretta è interrogare
-        // i due gruppi SEPARATAMENTE, ciascuno con una propria quota
-        // riservata indipendente dalla dimensione dell'altro gruppo.
-        $publishedCandidates = Article::published()
-            ->where('id', '!=', $source->id)
-            ->limit(self::MAX_CANDIDATES - self::MAX_SCHEDULED_SAFE_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
-
+        // sicuro). Due query separate risolvono questo, ma una quota FISSA
+        // per gli scheduled sicuri (round 5) sottrae inutilmente capacità ai
+        // pubblicati quando quella quota resta in parte o del tutto
+        // inutilizzata (round 6) — il caso comune, dato che la maggior parte
+        // delle source non è affatto scheduled. La query degli scheduled
+        // sicuri viene quindi eseguita PRIMA (comunque mai oltre
+        // MAX_SCHEDULED_SAFE_CANDIDATES) e la quota dei pubblicati usa
+        // dinamicamente tutta la capacità residua — mai un totale superiore
+        // a MAX_CANDIDATES, mai una quota fissa sprecata quando gli
+        // scheduled sicuri sono pochi o assenti.
         $scheduledSafeCandidates = collect();
 
         if ($source->isScheduled() && $source->published_at !== null) {
@@ -339,6 +345,11 @@ class ArticleLinkSuggestionService
                 ->limit(self::MAX_SCHEDULED_SAFE_CANDIDATES)
                 ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
         }
+
+        $publishedCandidates = Article::published()
+            ->where('id', '!=', $source->id)
+            ->limit(self::MAX_CANDIDATES - $scheduledSafeCandidates->count())
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
 
         $candidates = $publishedCandidates->concat($scheduledSafeCandidates)
             ->filter(fn (Article $candidate) => $this->temporalEligibility->isTargetSafeForSource($source, $candidate))

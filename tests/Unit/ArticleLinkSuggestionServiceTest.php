@@ -1040,4 +1040,61 @@ class ArticleLinkSuggestionServiceTest extends TestCase
             'Il target scheduled sicuro, chiaramente pertinente, non deve essere scalzato da un corpus maturo di pubblicati irrilevanti.'
         );
     }
+
+    /**
+     * Codex (PR #165, P2 round 6): il round 5 fissa la quota dei pubblicati
+     * a MAX_CANDIDATES - MAX_SCHEDULED_SAFE_CANDIDATES SEMPRE, anche quando
+     * la source non è affatto scheduled e la query degli scheduled sicuri
+     * non gira nemmeno — sottraendo inutilmente capacità ai pubblicati nel
+     * caso comune. Qui la source è pubblicata (non scheduled): un target
+     * pubblicato chiaramente pertinente, ma più vecchio di 255 riempimenti
+     * irrilevanti (posizione 256 nell'ordinamento per data), deve comunque
+     * comparire — con la vecchia quota fissa (250) sarebbe stato escluso.
+     */
+    public function test_a_non_scheduled_source_gets_the_full_candidate_quota_for_published_targets(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+
+        $publishedTarget = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Superconduttori ad alta temperatura',
+            'slug' => 'superconduttori-alta-temperatura-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>I superconduttori ad alta temperatura promettono applicazioni rivoluzionarie.</p>',
+            'category' => 'fisica',
+            'status' => 'published',
+            'published_at' => now()->subDays(300),
+        ]);
+
+        for ($i = 0; $i < 255; $i++) {
+            Article::create([
+                'user_id' => $author->id,
+                'title' => 'Articolo pubblicato di riempimento '.$i.'-'.uniqid('', true),
+                'slug' => 'crowd-nonsched-'.$i.'-'.uniqid('', true),
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>'.str_repeat('Testo generico senza alcuna relazione tematica. ', 15).'</p>',
+                'category' => 'energia',
+                'status' => 'published',
+                'published_at' => now()->subDays($i + 1),
+            ]);
+        }
+
+        $source = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Materiali del futuro per l\'elettronica',
+            'slug' => 'materiali-futuro-elettronica-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Tra i materiali più promettenti ci sono i Superconduttori ad alta temperatura, oggetto di ricerca intensa.</p>',
+            'category' => 'fisica',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertTrue(
+            $suggestions->contains('target_article_id', $publishedTarget->id),
+            'Una source non scheduled deve poter usare l\'intera quota MAX_CANDIDATES per i pubblicati, non una quota ridotta pensata per gli scheduled sicuri che qui non si applicano nemmeno.'
+        );
+    }
 }
