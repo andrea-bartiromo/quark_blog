@@ -208,4 +208,27 @@ class ArticleTableOfContentsTest extends TestCase
 
         $this->assertSame($rawBody, $article->fresh()->body);
     }
+
+    /**
+     * Trovato in review (Codex, missione Frontend Performance): un tag di
+     * chiusura senza apertura nel corpo salvato (tollerato dai browser al
+     * momento del salvataggio, quindi realisticamente presente in
+     * articoli esistenti) veniva interpretato dal parser HTML come
+     * chiusura anticipata del wrapper sintetico usato internamente da
+     * build() — tutto cio' che seguiva nel frammento spariva dal
+     * rendering pubblico, silenziosamente. Riprodotto empiricamente prima
+     * del fix. Deve continuare a mostrare l'intero corpo (senza TOC in
+     * questo caso, meglio che troncare l'articolo).
+     */
+    public function test_an_unmatched_closing_tag_in_the_body_never_truncates_the_article(): void
+    {
+        $article = $this->publishedArticle($this->author(), [
+            'body' => '<h2>Titolo</h2><p>Prima parte.</p></div><p>Seconda parte che non deve mai sparire.</p>',
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        $response->assertSee('Seconda parte che non deve mai sparire.');
+    }
 }
