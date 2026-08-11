@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Media;
+use App\Services\Concerns\DetectsAbsolutePaths;
 use App\Services\Concerns\WalksMediaDirectorySafely;
 
 /**
@@ -43,6 +44,7 @@ use App\Services\Concerns\WalksMediaDirectorySafely;
  */
 class MediaWebpCleanupService
 {
+    use DetectsAbsolutePaths;
     use WalksMediaDirectorySafely;
 
     private const SOURCE_SCAN_EXTENSIONS = ['blade.php', 'css', 'js'];
@@ -305,7 +307,7 @@ class MediaWebpCleanupService
         $matches = [];
 
         foreach ($this->sourceScanDirectories() as $directory) {
-            $absoluteDirectory = str_starts_with($directory, '/') ? $directory : base_path($directory);
+            $absoluteDirectory = $this->isAbsolutePath($directory) ? $directory : base_path($directory);
 
             if (! is_dir($absoluteDirectory)) {
                 continue;

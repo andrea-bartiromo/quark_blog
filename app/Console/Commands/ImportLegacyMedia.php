@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Media;
 use App\Models\User;
+use App\Services\Concerns\DetectsAbsolutePaths;
 use App\Services\MediaFolderService;
 use App\Services\MediaService;
 use Illuminate\Console\Command;
@@ -14,6 +15,8 @@ use Throwable;
 
 class ImportLegacyMedia extends Command
 {
+    use DetectsAbsolutePaths;
+
     protected $signature = 'media:import-legacy
         {--user= : ID o email dell\'utente proprietario}
         {--path=assets/img : Percorso relativo alla directory public}
@@ -260,13 +263,6 @@ class ImportLegacyMedia extends Command
         }
 
         return false;
-    }
-
-    private function isAbsolutePath(string $path): bool
-    {
-        return str_starts_with($path, '/')
-            || str_starts_with($path, '\\')
-            || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
     }
 
     private function isWithin(string $path, string $root): bool

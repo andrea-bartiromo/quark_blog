@@ -30,6 +30,12 @@ class PublicMediaSyncService
     private const REMOVE_RETRY_DELAY_MICROSECONDS = 100_000; // 100ms
 
     /**
+     * Attesa prima di riverificare che un file resti davvero rimosso dopo
+     * un unlink() che ha gia' riportato successo (vedi removeFileWithRetry()).
+     */
+    private const REAPPEARANCE_RECHECK_DELAY_MICROSECONDS = 100_000; // 100ms
+
+    /**
      * Copia un file gia' scritto in public/assets/img anche nella radice
      * pubblica secondaria, preservando le eventuali sottocartelle presenti
      * in $diskName.
@@ -389,33 +395,50 @@ class PublicMediaSyncService
      * una race sull'errore, ma che in realtà aveva avuto successo), il
      * cleanup è comunque idempotente e riporta successo senza un ulteriore
      * unlink().
+     *
+     * Un unlink() che riporta successo non è più trattato come la parola
+     * finale: un'indagine precedente su Windows reale (vedi git log di
+     * questo file per il percorso diagnostico completo — PublicMediaSyncService
+     * riceveva un path corretto, unlink() restituiva true al primo
+     * tentativo, error_get_last() era null, file_exists()/is_file() erano
+     * immediatamente false — eppure lo stesso file esisteva di nuovo al
+     * termine della richiesta HTTP) ha reso insufficiente il solo esito di
+     * removeFile(): un file può ricomparire poco dopo una rimozione
+     * riuscita (es. per un flush differito di un handle del framework di
+     * testing ancora aperto sullo stesso file — vedi UploadedFile::fake(),
+     * che scrive attraverso un handle tmpfile() che sopravvive a un
+     * successivo rename() verso questo stesso path). Dopo un unlink()
+     * riuscito, questo metodo attende una breve finestra fissa e riverifica
+     * l'esistenza del file prima di dichiarare vittoria: se è ricomparso,
+     * il tentativo NON conta come riuscito e il ciclo prosegue con gli
+     * stessi budget di tentativi/attesa già esistenti (nessun tentativo
+     * aggiuntivo introdotto). Se la ricomparsa persiste per tutti i
+     * tentativi, resta il comportamento esistente: nessuna eccezione, solo
+     * il warning già loggato dal chiamante — mai un fallimento permanente
+     * mascherato da falso successo.
      */
     private function removeFileWithRetry(string $path): bool
     {
         for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
-                Log::debug('PublicMediaSyncService: diagnostica — rimozione riuscita.', [
-                    'checkpoint' => 'remove_file_with_retry:success',
+                if ($this->confirmedGoneAfterSuccessfulRemoval($path, $attempt)) {
+                    return true;
+                }
+            } else {
+                clearstatcache(true, $path);
+
+                $stillExists = file_exists($path);
+
+                Log::debug('PublicMediaSyncService: diagnostica — ricontrollo dopo clearstatcache.', [
+                    'checkpoint' => 'remove_file_with_retry:recheck_after_clearstatcache',
                     'attempt' => $attempt,
                     'path' => $path,
+                    'file_exists' => $stillExists,
                 ]);
 
-                return true;
-            }
-
-            clearstatcache(true, $path);
-
-            $stillExists = file_exists($path);
-
-            Log::debug('PublicMediaSyncService: diagnostica — ricontrollo dopo clearstatcache.', [
-                'checkpoint' => 'remove_file_with_retry:recheck_after_clearstatcache',
-                'attempt' => $attempt,
-                'path' => $path,
-                'file_exists' => $stillExists,
-            ]);
-
-            if (! $stillExists) {
-                return true;
+                if (! $stillExists) {
+                    return true;
+                }
             }
 
             if ($attempt < self::REMOVE_RETRY_ATTEMPTS) {
@@ -430,5 +453,51 @@ class PublicMediaSyncService
         ]);
 
         return false;
+    }
+
+    /**
+     * Riverifica, dopo una breve attesa fissa, che un file appena rimosso
+     * con successo (removeFile() ha restituito true) non sia ricomparso
+     * prima di dichiarare il tentativo davvero riuscito. Vedi il commento
+     * di removeFileWithRetry() per l'evidenza reale che giustifica questo
+     * controllo.
+     */
+    private function confirmedGoneAfterSuccessfulRemoval(string $path, int $attempt): bool
+    {
+        usleep(self::REAPPEARANCE_RECHECK_DELAY_MICROSECONDS);
+        clearstatcache(true, $path);
+
+        $reappeared = file_exists($path);
+
+        Log::debug('PublicMediaSyncService: diagnostica — riverifica dopo unlink() riuscito.', [
+            'checkpoint' => 'remove_file_with_retry:recheck_after_success',
+            'attempt' => $attempt,
+            'path' => $path,
+            'reappeared' => $reappeared,
+        ]);
+
+        if ($reappeared) {
+            // Livello debug, non warning: un singolo tentativo scartato per
+            // ricomparsa non e' di per se' un problema per chi gestisce
+            // l'ambiente, solo un dato diagnostico — il warning esistente
+            // in cleanupAfterFailedCreate() resta l'unico segnale
+            // "azionabile", riservato al caso in cui TUTTI i tentativi
+            // siano stati esauriti senza una rimozione confermata.
+            Log::debug('PublicMediaSyncService: diagnostica — il file rimosso con successo e\' ricomparso subito dopo: tentativo non considerato definitivo.', [
+                'checkpoint' => 'remove_file_with_retry:reappeared_after_success',
+                'attempt' => $attempt,
+                'path' => $path,
+            ]);
+
+            return false;
+        }
+
+        Log::debug('PublicMediaSyncService: diagnostica — rimozione confermata.', [
+            'checkpoint' => 'remove_file_with_retry:success',
+            'attempt' => $attempt,
+            'path' => $path,
+        ]);
+
+        return true;
     }
 }

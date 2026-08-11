@@ -3,12 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Models\Media;
+use App\Services\Concerns\DetectsAbsolutePaths;
 use App\Services\MediaWebpMigrationResult;
 use App\Services\MediaWebpMigrationService;
 use Illuminate\Console\Command;
 
 class ConvertMediaToWebp extends Command
 {
+    use DetectsAbsolutePaths;
+
     protected $signature = 'media:convert-webp
         {--execute : Applica davvero le conversioni (default: sola analisi/dry-run, nessuna modifica)}
         {--media-id=* : Limita l\'operazione a uno o piu ID Media specifici}
@@ -271,7 +274,7 @@ class ConvertMediaToWebp extends Command
      */
     private function writeReport(string $path, array $results, string $mode): void
     {
-        $fullPath = str_starts_with($path, '/') ? $path : base_path($path);
+        $fullPath = $this->isAbsolutePath($path) ? $path : base_path($path);
         $directory = dirname($fullPath);
 
         if (! is_dir($directory)) {
