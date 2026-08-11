@@ -64,6 +64,131 @@ class InternalLinkAuditCommandTest extends TestCase
         $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
     }
 
+    // ── Internal Linking V2.1: eleggibilità temporale scheduled→scheduled ──
+
+    // 10. source scheduled -> target scheduled precedente => nessuna anomalia
+    public function test_a_scheduled_source_linking_an_earlier_scheduled_target_is_classified_as_scheduled_safe(): void
+    {
+        $target = $this->article(['slug' => 'target-scheduled-precedente', 'status' => Article::STATUS_SCHEDULED, 'published_at' => '2026-08-12 15:30:00']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-19 15:30:00',
+            'body' => '<p>Vedi <a href="/articolo/target-scheduled-precedente">questo</a>.</p>',
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('scheduled_safe', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(0, $report->unpublishedTargets);
+        $this->assertSame(1, $report->scheduledSafeLinks);
+    }
+
+    // 11. source scheduled -> target scheduled successivo => anomalia
+    public function test_a_scheduled_source_linking_a_later_scheduled_target_is_classified_as_unpublished(): void
+    {
+        $target = $this->article(['slug' => 'target-scheduled-successivo', 'status' => Article::STATUS_SCHEDULED, 'published_at' => '2026-08-19 15:30:00']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-12 15:30:00',
+            'body' => '<p>Vedi <a href="/articolo/target-scheduled-successivo">questo</a>.</p>',
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(1, $report->unpublishedTargets);
+        $this->assertSame(0, $report->scheduledSafeLinks);
+    }
+
+    /**
+     * 12. Un target inizialmente sicuro (precedente) ma poi riprogrammato
+     * DOPO la source: l'audit non è mai persistito (ricalcolato ad ogni
+     * esecuzione, vedi InternalLinkAuditRow), quindi la nuova esecuzione
+     * riflette automaticamente lo stato corrente senza bisogno di logica
+     * dedicata al caso "riprogrammazione".
+     */
+    public function test_a_previously_safe_scheduled_target_becomes_an_anomaly_once_rescheduled_after_the_source(): void
+    {
+        $target = $this->article(['slug' => 'target-riprogrammato', 'status' => Article::STATUS_SCHEDULED, 'published_at' => '2026-08-12 15:30:00']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-19 15:30:00',
+            'body' => '<p>Vedi <a href="/articolo/target-riprogrammato">questo</a>.</p>',
+        ]);
+
+        $reportBefore = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+        $this->assertSame('scheduled_safe', $reportBefore->rows[0]->outgoingLinks[0]['classification']);
+
+        $target->update(['published_at' => '2026-08-25 15:30:00']);
+
+        $reportAfter = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+        $this->assertSame('unpublished', $reportAfter->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(1, $reportAfter->unpublishedTargets);
+    }
+
+    /**
+     * CASO 4 della missione: il target sicuro viene retrocesso a bozza (non
+     * più 'scheduled') — deve diventare un'anomalia, stesso principio del
+     * test precedente (stato corrente, mai mascherato).
+     */
+    public function test_a_previously_safe_scheduled_target_becomes_an_anomaly_once_demoted_to_draft(): void
+    {
+        $target = $this->article(['slug' => 'target-retrocesso', 'status' => Article::STATUS_SCHEDULED, 'published_at' => '2026-08-12 15:30:00']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-19 15:30:00',
+            'body' => '<p>Vedi <a href="/articolo/target-retrocesso">questo</a>.</p>',
+        ]);
+
+        $target->update(['status' => Article::STATUS_DRAFT, 'published_at' => null]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
+    }
+
+    /**
+     * 13 / CASO 5: la source viene pubblicata manualmente in anticipo
+     * mentre il target è ancora scheduled — poiché la source è ORA
+     * pubblica, l'eccezione scheduled→scheduled non si applica più: il
+     * target non pubblico deve essere segnalato.
+     */
+    public function test_a_source_published_early_while_the_target_is_still_scheduled_is_classified_as_unpublished(): void
+    {
+        $target = $this->article(['slug' => 'target-ancora-scheduled', 'status' => Article::STATUS_SCHEDULED, 'published_at' => '2026-08-19 15:30:00']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => '2026-08-12 15:30:00',
+            'body' => '<p>Vedi <a href="/articolo/target-ancora-scheduled">questo</a>.</p>',
+        ]);
+
+        // La source era temporalmente sicura verso questo target finché
+        // era scheduled 12/08 -> scheduled 19/08 (12 < 19): ma qui viene
+        // pubblicata a mano prima del previsto.
+        $source->update(['status' => Article::STATUS_PUBLISHED]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('unpublished', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(1, $report->unpublishedTargets);
+    }
+
+    // 15. Nessuna regressione sui target già pubblicati, anche da una source scheduled
+    public function test_a_scheduled_source_linking_an_already_published_target_is_still_classified_as_valid(): void
+    {
+        $target = $this->article(['slug' => 'target-gia-pubblicato']);
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addWeek(),
+            'body' => '<p>Vedi <a href="/articolo/target-gia-pubblicato">questo</a>.</p>',
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame('valid', $report->rows[0]->outgoingLinks[0]['classification']);
+        $this->assertSame(0, $report->unpublishedTargets);
+    }
+
     public function test_a_self_link_is_classified_as_self(): void
     {
         $source = $this->article(['slug' => 'si-collega-da-solo']);

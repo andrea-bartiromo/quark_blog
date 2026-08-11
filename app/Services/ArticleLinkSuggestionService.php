@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Services\InternalLinking\ConceptCandidate;
+use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\InternalLinking\ScientificConceptMatcher;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -248,12 +249,21 @@ class ArticleLinkSuggestionService
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
         private readonly ScientificConceptMatcher $conceptMatcher = new ScientificConceptMatcher,
+        private readonly InternalLinkTemporalEligibility $temporalEligibility = new InternalLinkTemporalEligibility,
     ) {}
 
     /**
-     * Analizza $source contro tutti gli altri articoli pubblicati e
-     * persiste/aggiorna i suggerimenti 'proposed'. Non tocca mai righe già
-     * 'accepted' o 'ignored' (FASE 7: non riproporre continuamente).
+     * Analizza $source contro tutti gli altri articoli temporalmente
+     * eleggibili (vedi InternalLinkTemporalEligibility) e persiste/aggiorna
+     * i suggerimenti 'proposed'. Non tocca mai righe già 'accepted' o
+     * 'ignored' (FASE 7: non riproporre continuamente).
+     *
+     * Internal Linking V2.1 — i candidati non sono più solo gli articoli
+     * già pubblicati: se $source è essa stessa 'scheduled', anche un
+     * articolo 'scheduled' con published_at STRETTAMENTE precedente a
+     * quello di $source entra nel pool, perché sarà già pubblico quando
+     * $source lo diventerà (vedi InternalLinkTemporalEligibility per la
+     * regola completa e il ragionamento).
      *
      * @return Collection<int, ArticleLinkSuggestion>
      */
@@ -278,11 +288,22 @@ class ArticleLinkSuggestionService
 
         $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $source->body);
 
-        $candidates = Article::published()
+        // Article::eligibleAsLinkTargetFor() è un pre-filtro SQL (evita di
+        // caricare — e di far competere per lo slot nel LIMIT sotto —
+        // candidati che non potrebbero mai essere eleggibili). La riga
+        // subito dopo il fetch riapplica la STESSA regola
+        // (isTargetSafeForSource()) come garanzia definitiva sui modelli
+        // realmente caricati: la correttezza non dipende dalla query SQL
+        // essere scritta esattamente giusta, solo dalla policy PHP
+        // (single source of truth), che l'audit usa allo stesso modo.
+        $candidates = Article::query()
+            ->eligibleAsLinkTargetFor($source)
             ->where('id', '!=', $source->id)
             ->orderByDesc('published_at')
             ->limit(self::MAX_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body']);
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at'])
+            ->filter(fn (Article $candidate) => $this->temporalEligibility->isTargetSafeForSource($source, $candidate))
+            ->values();
 
         // V2 — un'unica passata sull'intero pool di candidati (stessa
         // Collection già caricata sopra, nessuna query aggiuntiva) per

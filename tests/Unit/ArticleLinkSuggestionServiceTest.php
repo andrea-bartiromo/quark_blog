@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ArticleLinkSuggestionServiceTest extends TestCase
@@ -50,6 +51,25 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $this->assertFalse($suggestions->contains('target_article_id', $source->id));
     }
 
+    /**
+     * 9. Self-link escluso a monte per identità (id/slug), non da una
+     * regola temporale — resta escluso anche per una source 'scheduled',
+     * il caso introdotto da questa missione (V2.1).
+     */
+    public function test_it_never_proposes_the_source_article_as_its_own_target_even_when_scheduled(): void
+    {
+        $source = $this->article([
+            'title' => 'Fotovoltaico in Italia',
+            'body' => '<p>Il fotovoltaico in Italia cresce ogni anno con nuovi impianti solari.</p>',
+            'status' => 'scheduled',
+            'published_at' => now()->addWeek(),
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $source->id));
+    }
+
     // 2. Non propone articoli draft o review come target
     public function test_it_does_not_propose_draft_or_review_articles_as_targets(): void
     {
@@ -76,6 +96,189 @@ class ArticleLinkSuggestionServiceTest extends TestCase
 
         $this->assertFalse($suggestions->contains('target_article_id', $draft->id));
         $this->assertFalse($suggestions->contains('target_article_id', $review->id));
+    }
+
+    // ── Internal Linking V2.1: eleggibilità temporale scheduled→scheduled ──
+
+    // 1. source scheduled 19/08, target scheduled 12/08 => eleggibile
+    public function test_a_scheduled_source_can_propose_an_earlier_scheduled_article(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertTrue($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 2. source scheduled 12/08, target scheduled 19/08 => escluso
+    public function test_a_scheduled_source_never_proposes_a_later_scheduled_article(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 3. stesso istante esatto => escluso
+    public function test_a_scheduled_source_never_proposes_a_target_scheduled_for_the_exact_same_instant(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 4. stesso giorno, orario realmente precedente => eleggibile
+    public function test_a_scheduled_source_can_propose_a_target_scheduled_earlier_the_same_day(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 14:00:00',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertTrue($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 5. source published, target scheduled => escluso
+    public function test_a_published_source_never_proposes_a_scheduled_article(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => now()->addWeek(),
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'published',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 6. source draft, target scheduled precedente => escluso
+    public function test_a_draft_source_never_proposes_a_scheduled_article(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'scheduled',
+            'published_at' => now()->addDay(),
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    // 7. target published => comportamento V2 invariato anche da una source scheduled
+    public function test_a_scheduled_source_still_proposes_an_already_published_article(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari galleggianti sui bacini idroelettrici',
+            'excerpt' => 'Una tecnologia emergente per il fotovoltaico',
+            'status' => 'published',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Il futuro del fotovoltaico in Italia',
+            'body' => '<p>Tra le novità più interessanti ci sono i pannelli solari galleggianti sui bacini idroelettrici, una soluzione promettente.</p>',
+            'status' => 'scheduled',
+            'published_at' => now()->addWeek(),
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+
+        $this->assertTrue($suggestions->contains('target_article_id', $target->id));
+    }
+
+    /**
+     * Caso reale della missione (#13/#14 "Test di Turing"), a livello di
+     * motore dei suggerimenti: #14 (fonte, 19/08) deve poter proporre #13
+     * (target, 12/08) come collegamento — usando factory/testo generico,
+     * non ID hardcoded.
+     */
+    public function test_the_real_world_turing_articles_scenario_is_proposed_as_a_suggestion(): void
+    {
+        $earlierArticle = $this->article([
+            'title' => 'Il Test di Turing spiegato davvero: può una macchina pensare?',
+            'excerpt' => 'Cos\'è il test di Turing e come funziona davvero',
+            'category' => 'intelligenza-artificiale',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-12 15:30:00',
+        ]);
+
+        $laterArticle = $this->article([
+            'title' => 'Il Test di Turing ha ancora senso nel 2026? Limiti, critiche e nuove prospettive.',
+            'body' => '<p>Abbiamo già raccontato il Test di Turing spiegato davvero: può una macchina pensare?, ma oggi vale la pena chiedersi se abbia ancora senso.</p>',
+            'category' => 'intelligenza-artificiale',
+            'status' => 'scheduled',
+            'published_at' => '2026-08-19 15:30:00',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($laterArticle);
+
+        $this->assertTrue($suggestions->contains('target_article_id', $earlierArticle->id));
     }
 
     // 3. Propone articoli davvero pertinenti (titolo del target presente nel testo sorgente)
@@ -572,5 +775,78 @@ class ArticleLinkSuggestionServiceTest extends TestCase
         $suggestions = $this->service->analyzeForSource($source);
 
         $this->assertFalse($suggestions->contains('target_article_id', $target->id));
+    }
+
+    /**
+     * Internal Linking V2.1 — FASE 7: allargare la candidate selection agli
+     * scheduled temporalmente sicuri non deve introdurre una query per
+     * candidato (N+1) né far crescere il costo con la dimensione del
+     * corpus: resta comunque una singola query (Article::
+     * eligibleAsLinkTargetFor(), pre-filtro SQL) più le query fisse già
+     * esistenti (suggerimenti già presenti per la source), indipendente dal
+     * numero di articoli pubblicati/scheduled nel pool.
+     */
+    public function test_analyzing_a_scheduled_source_does_not_grow_query_count_with_corpus_size(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+
+        $seed = function (int $publishedCount, int $scheduledCount) use ($author): Article {
+            for ($i = 0; $i < $publishedCount; $i++) {
+                Article::create([
+                    'user_id' => $author->id,
+                    'title' => 'Articolo pubblicato numero '.$i.'-'.uniqid('', true),
+                    'slug' => 'perf-pub-'.$i.'-'.uniqid('', true),
+                    'excerpt' => 'Sommario di prova.',
+                    'body' => '<p>'.str_repeat('Testo scientifico generico. ', 20).'</p>',
+                    'category' => 'energia',
+                    'status' => 'published',
+                    'published_at' => now()->subDays($publishedCount - $i),
+                ]);
+            }
+
+            for ($i = 0; $i < $scheduledCount; $i++) {
+                Article::create([
+                    'user_id' => $author->id,
+                    'title' => 'Articolo programmato numero '.$i.'-'.uniqid('', true),
+                    'slug' => 'perf-sched-'.$i.'-'.uniqid('', true),
+                    'excerpt' => 'Sommario di prova.',
+                    'body' => '<p>'.str_repeat('Testo scientifico generico. ', 20).'</p>',
+                    'category' => 'energia',
+                    'status' => 'scheduled',
+                    'published_at' => now()->addDays($i + 1),
+                ]);
+            }
+
+            return Article::create([
+                'user_id' => $author->id,
+                'title' => 'Sorgente programmata',
+                'slug' => 'perf-source-'.uniqid('', true),
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>'.str_repeat('Testo scientifico generico. ', 20).'</p>',
+                'category' => 'energia',
+                'status' => 'scheduled',
+                'published_at' => now()->addDays($publishedCount + $scheduledCount + 30),
+            ]);
+        };
+
+        $smallSource = $seed(15, 5);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->service->analyzeForSource($smallSource->fresh());
+        $countSmall = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $largeSource = $seed(60, 20);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->service->analyzeForSource($largeSource->fresh());
+        $countLarge = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(
+            $countSmall,
+            $countLarge,
+            "Con un corpus piccolo: {$countSmall} query. Con uno grande: {$countLarge} query. Devono coincidere — nessuna query per candidato."
+        );
     }
 }

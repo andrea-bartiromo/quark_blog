@@ -65,6 +65,8 @@ File principali:
 | `app/Models/ArticleLinkSuggestion.php` | Persistenza delle proposte (`proposed`/`accepted`/`ignored`/`superseded`) |
 | `app/Services/InternalLinking/InternalLinkAuditService.php` | **Nuovo (V2)** — audit read-only dell'intero corpus |
 | `app/Console/Commands/InternalLinkAuditCommand.php` | **Nuovo (V2)** — `content:internal-link-audit` |
+| `app/Services/InternalLinking/InternalLinkTemporalEligibility.php` | **Nuovo (V2.1)** — unica policy di eleggibilità temporale (`isTargetSafeForSource()`), condivisa da suggeritore e audit |
+| `Article::scopeEligibleAsLinkTargetFor()` (`app/Models/Article.php`) | **Nuovo (V2.1)** — pre-filtro SQL della stessa regola, per la candidate selection del suggeritore |
 | `resources/views/partials/article-link-suggestions.blade.php` | UI "Analizza / Inserisci / Ignora" nel form articolo |
 | `resources/views/admin/articles.blade.php` | Badge "🔗 N articoli" sugli articoli programmati |
 
@@ -187,16 +189,43 @@ sull'HTML intero:
 
 ## 8. Destinazioni valide
 
-Un candidato target viene analizzato solo se **pubblicato**
-(`Article::published()`). Bozze/revisione/programmati non entrano mai nel
-pool di candidati del suggeritore — non per una regola ad hoc, ma perché
-la query stessa (`Article::published()->...`) li esclude a monte.
+Un candidato target viene analizzato se **pubblicato**, oppure — dalla
+missione "Internal Linking V2.1", targeting temporale — se **programmato
+temporalmente sicuro**: `App\Services\InternalLinking\
+InternalLinkTemporalEligibility::isTargetSafeForSource()` è l'unica
+definizione di questa regola, condivisa dal suggeritore e dall'audit:
+
+- un target già **pubblicato** resta sempre eleggibile, qualunque sia lo
+  stato della sorgente (comportamento V2 preesistente, invariato);
+- altrimenti, eleggibile **solo se** la sorgente è essa stessa
+  `scheduled` (con `published_at` valorizzato) **e** il target è
+  `scheduled` (con `published_at` valorizzato) **e** il `published_at`
+  del target è **strettamente precedente** a quello della sorgente — mai
+  `<=`, per non dipendere dall'ordine di esecuzione dello scheduler
+  quando i due istanti coincidono (vedi `App\Console\Commands\
+  PublishScheduledArticles`, che pubblica gli articoli scheduled dovuti
+  in ordine di `published_at` crescente).
+
+Bozze/revisione non entrano mai nel pool, in nessun caso. Un articolo
+`scheduled` con `published_at` **successivo** a quello della sorgente (o
+una sorgente non `scheduled` — draft/review/già pubblicata) non entra
+nel pool: la query del suggeritore
+(`Article::eligibleAsLinkTargetFor($source)`, pre-filtro SQL) e la
+verifica finale in memoria (`isTargetSafeForSource()`, applicata di
+nuovo dopo il fetch come garanzia definitiva — la correttezza non
+dipende dalla query SQL, solo da questo metodo) le escludono entrambe a
+monte.
 
 L'**audit** (§10), a differenza del suggeritore, osserva anche i link
-*già presenti* nel body verso target non pubblicati (li classifica
-`unpublished`, non li impedisce) — casi che possono capitare per
-modifica manuale dell'editor HTML o per un target che è stato retrocesso
-a bozza dopo essere stato collegato.
+*già presenti* nel body: un target non pubblico e non temporalmente
+sicuro viene classificato `unpublished` (mai impediito, solo segnalato)
+— casi che possono capitare per modifica manuale dell'editor HTML, o per
+un target che era sicuro ed è stato poi riprogrammato/retrocesso, o per
+una sorgente pubblicata manualmente in anticipo mentre il target è
+ancora programmato. Un target non pubblico ma temporalmente sicuro viene
+invece classificato `scheduled_safe` — reso esplicito, non un sinonimo
+di `valid` (che significa "raggiungibile in questo momento"): vedi §10
+per la classificazione completa.
 
 ## 9. Admin — copertura link (badge)
 
@@ -226,9 +255,16 @@ costruisce contemporaneamente:
 
 1. **classificazione dei link uscenti** di ogni articolo:
    - `valid` — il target esiste ed è pubblicato;
-   - `unpublished` — il target esiste ma non è pubblico;
+   - `scheduled_safe` (V2.1) — il target non è ancora pubblico, ma la
+     sorgente è essa stessa `scheduled` e il target diventerà pubblico
+     PRIMA di lei (§8) — non un'anomalia, solo non ancora raggiungibile
+     in questo momento;
+   - `unpublished` — il target esiste ma non è pubblico né temporalmente
+     sicuro;
    - `redirected` — lo slug non esiste più, ma un `ArticleSlugRedirect`
-     storico lo risolve (funziona per il lettore, ma andrebbe aggiornato);
+     storico lo risolve (funziona per il lettore, o è temporalmente
+     sicuro come sopra — in entrambi i casi andrebbe comunque aggiornato
+     allo slug corrente);
    - `missing` — nessun articolo né redirect risolve lo slug: link rotto;
    - `self` — l'articolo collega se stesso;
 2. **incoming links**: per ogni articolo, quanti ALTRI articoli distinti

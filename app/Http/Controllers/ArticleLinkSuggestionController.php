@@ -127,21 +127,39 @@ class ArticleLinkSuggestionController extends Controller
         }
     }
 
+    /**
+     * V2.1: da quando il suggeritore può proporre anche un target ancora
+     * 'scheduled' (temporalmente sicuro, vedi
+     * ArticleLinkSuggestionService::analyzeForSource()), il pannello deve
+     * mostrarlo chiaramente come tale — mai come se fosse già pubblico
+     * senza contesto, per non confondere la redazione (FASE 5 della
+     * missione V2.1). L'URL resta comunque quello reale dell'articolo: non
+     * è raggiungibile pubblicamente finché non viene pubblicato, ma è lo
+     * stesso URL che il link inserito nel body userà.
+     */
     private function serializeSuggestions(Article $article): array
     {
         return $article->proposedLinkSuggestions()
-            ->map(fn (ArticleLinkSuggestion $s) => [
-                'id' => $s->id,
-                'anchor_text' => $s->anchor_text,
-                'context_excerpt' => $s->context_excerpt,
-                'reason' => $s->reason,
-                'confidence_score' => $s->confidence_score,
-                'target' => [
-                    'id' => $s->targetArticle->id,
-                    'title' => $s->targetArticle->title,
-                    'url' => route('articolo', $s->targetArticle->slug),
-                ],
-            ])
+            ->map(function (ArticleLinkSuggestion $s) {
+                $target = $s->targetArticle;
+                $isScheduled = $target->isScheduled() && $target->published_at !== null;
+
+                return [
+                    'id' => $s->id,
+                    'anchor_text' => $s->anchor_text,
+                    'context_excerpt' => $s->context_excerpt,
+                    'reason' => $s->reason,
+                    'confidence_score' => $s->confidence_score,
+                    'target' => [
+                        'id' => $target->id,
+                        'title' => $target->title,
+                        'url' => route('articolo', $target->slug),
+                        'scheduled_label' => $isScheduled
+                            ? 'Programmato per '.$target->publishedAtForEditors()->format('d/m/Y H:i').' — sarà pubblico prima di questo articolo'
+                            : null,
+                    ],
+                ];
+            })
             ->values()
             ->all();
     }
