@@ -817,24 +817,35 @@ class EditorialQualityChecker
     }
 
     /**
-     * Tag "inline"/di fraseggio (formattazione dentro una parola/frase,
-     * incl. gli span artefatto tipici degli incolla-da-Word/Docs in
-     * TinyMCE): il loro contenuto resta fuso con quello dei nodi
-     * adiacenti, perché non introducono mai una separazione visiva nel
-     * testo renderizzato (es. "<em>me</em>todo" o "me<wbr>todo" sono
-     * sempre "metodo" per un lettore). Qualunque altro elemento (blocco:
-     * <p>, <li>, <h2>, <br>, ...) inserisce invece uno spazio prima e
-     * dopo di sé: due elementi di blocco adiacenti nell'HTML salvato (es.
-     * "<p>testo</p><p>TODO</p>", tipico di un editor che non inserisce
-     * whitespace tra i tag) restano comunque due parole distinte. Elenco
-     * basato sul contenuto di fraseggio HTML5 standard, non solo sui tag
-     * di formattazione più comuni.
+     * Elenco esplicito dei tag "di blocco": solo questi inseriscono uno
+     * spazio prima e dopo di sé nel testo estratto, perché rappresentano
+     * sempre una separazione visiva reale nel rendering (es. due <p>
+     * adiacenti nell'HTML salvato, anche senza whitespace letterale tra i
+     * tag, restano comunque due parole distinte — "<p>testo</p><p>TODO</p>"
+     * non deve mai fondersi in "testoTODO").
+     *
+     * Qualunque altro tag — inclusi i formattatori comuni (em, strong,
+     * span, ...) ma anche qualunque elemento di fraseggio HTML5 meno
+     * comune (wbr, time, kbd, label, ...) — non inserisce alcuno spazio:
+     * il suo contenuto resta fuso con quello dei nodi adiacenti, perché
+     * nessun elemento "inline" introduce una separazione visiva nel testo
+     * renderizzato (es. "<em>me</em>todo" o "me<label>todo</label>" sono
+     * sempre "metodo" per un lettore).
+     *
+     * L'elenco dei tag di blocco HTML5 è piccolo, chiuso e stabile — al
+     * contrario del contenuto di fraseggio (decine di elementi, non tutti
+     * enumerabili con certezza) — quindi qui l'allowlist esplicita è
+     * quella di blocco: un tag sconosciuto o esotico non ancora previsto
+     * viene per default trattato come inline (nessuno spazio), non come
+     * blocco, evitando falsi positivi su parole spezzate da un tag raro.
      */
-    private const INLINE_TAGS = [
-        'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'del', 'dfn',
-        'em', 'i', 'ins', 'kbd', 'mark', 'output', 'q', 'rp', 'rt', 'ruby',
-        's', 'samp', 'small', 'span', 'strike', 'strong', 'sub', 'sup',
-        'time', 'u', 'var', 'wbr',
+    private const BLOCK_TAGS = [
+        'address', 'article', 'aside', 'blockquote', 'br', 'caption', 'col',
+        'colgroup', 'dd', 'details', 'div', 'dl', 'dt', 'fieldset',
+        'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4',
+        'h5', 'h6', 'header', 'hr', 'legend', 'li', 'main', 'nav', 'ol',
+        'p', 'pre', 'section', 'summary', 'table', 'tbody', 'td', 'tfoot',
+        'th', 'thead', 'tr', 'ul',
     ];
 
     /**
@@ -893,7 +904,7 @@ class EditorialQualityChecker
     private function insertBlockSeparators(DOMDocument $dom, DOMElement $scope): void
     {
         foreach (iterator_to_array($scope->getElementsByTagName('*')) as $element) {
-            if (in_array(mb_strtolower($element->nodeName), self::INLINE_TAGS, true)) {
+            if (! in_array(mb_strtolower($element->nodeName), self::BLOCK_TAGS, true)) {
                 continue;
             }
 

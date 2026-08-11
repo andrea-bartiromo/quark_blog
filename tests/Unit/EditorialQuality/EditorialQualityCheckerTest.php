@@ -360,6 +360,26 @@ class EditorialQualityCheckerTest extends TestCase
     }
 
     /**
+     * Falso positivo segnalato in review: <label> è un altro elemento di
+     * fraseggio non presente in una precedente allowlist di soli tag
+     * "inline" noti. Da qui la scelta architetturale definitiva:
+     * un'allowlist esplicita di tag di BLOCCO (piccola e chiusa) invece
+     * che di tag inline (elenco HTML5 troppo ampio per essere enumerato
+     * con certezza) — un tag sconosciuto o esotico come <label> resta
+     * "inline" per default, senza bisogno di elencarlo esplicitamente.
+     */
+    public function test_a_legitimate_word_split_by_a_label_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il me<label>todo</label> utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
      * Falso positivo segnalato in review: quando l'HTML salvato contiene
      * un tag di chiusura non bilanciato (stesso bug di troncamento già
      * noto altrove nel codice, vedi ArticleTableOfContentsTest), il
