@@ -76,9 +76,17 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
-      - name: Copy environment file
+      - name: Prepare test environment
         shell: pwsh
-        run: Copy-Item .env.example .env
+        run: |
+          Copy-Item .env.example .env
+          New-Item -ItemType Directory -Force database | Out-Null
+          New-Item -ItemType File -Force database/database.sqlite | Out-Null
+          Add-Content .env "DB_CONNECTION=sqlite"
+          Add-Content .env "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
+          Add-Content .env "CACHE_STORE=array"
+          Add-Content .env "SESSION_DRIVER=array"
+          Add-Content .env "QUEUE_CONNECTION=sync"
 
       - name: Generate app key
         run: php artisan key:generate
