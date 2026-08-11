@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('newsletter:send')
     ->weeklyOn(4, '09:00')
     ->timezone('Europe/Rome')
+    ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/newsletter.log'));
 
 // ── Automazione notizie ────────────────────────────────────────
