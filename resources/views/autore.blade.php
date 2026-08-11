@@ -6,7 +6,7 @@
     ? route('autore', ['user' => $author, 'page' => $articles->currentPage()])
     : route('autore', $author))
 
-@push('head')
+@section('head')
 @php
     $personSchema = [
         '@context' => 'https://schema.org',
@@ -24,7 +24,7 @@
     }
 @endphp
 <script type="application/ld+json">{!! json_encode($personSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
-@endpush
+@endsection
 
 @section('content')
 <div class="public-page public-page--author">
