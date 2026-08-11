@@ -306,6 +306,16 @@ class ArticleLinkInsertionService
      * l'HTML invariato se nessuno slug compare come href di alcun link:
      * nessuna modifica silenziosa "a vuoto".
      *
+     * A differenza di linkedArticleSlugsInBody()/internalArticleLinkOccurrences()
+     * (sola lettura, usate per conteggi/audit — un falso positivo lì è
+     * innocuo), qui l'href viene anche validato con isSafeInternalHref()
+     * PRIMA del match sullo slug (Codex, PR #165, P2 round 7): questo
+     * metodo MODIFICA il body, quindi un link ESTERNO il cui path
+     * contenesse per coincidenza "/articolo/{slug}" (es.
+     * https://esempio.com/articolo/foo) non deve mai essere scambiato per
+     * il collegamento interno Kairus e rimosso — sarebbe una perdita di
+     * contenuto legittimo, non solo un'imprecisione di conteggio.
+     *
      * @param  array<int, string>  $slugs
      */
     public function removeLinksToSlugs(string $bodyHtml, array $slugs): string
@@ -336,7 +346,11 @@ class ArticleLinkInsertionService
             /** @var DOMElement $anchor */
             $href = $anchor->getAttribute('href');
 
-            if ($href === '' || ! preg_match('~/articolo/([^/?#]+)~', $href, $m) || ! in_array($m[1], $slugs, true)) {
+            if ($href === ''
+                || ! $this->isSafeInternalHref($href)
+                || ! preg_match('~/articolo/([^/?#]+)~', $href, $m)
+                || ! in_array($m[1], $slugs, true)
+            ) {
                 continue;
             }
 

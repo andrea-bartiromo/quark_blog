@@ -515,6 +515,50 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame($otherArticle->slug, $originalTargetSlug);
     }
 
+    // 2i. Codex (PR #165, P2 round 7): un link ESTERNO il cui path contiene per pura
+    // coincidenza "/articolo/{slug del target diventato non sicuro}" non va MAI confuso
+    // con il collegamento interno Kairus da ripulire — a differenza dei conteggi di sola
+    // lettura, qui la rimozione modifica davvero il body: un falso positivo cancellerebbe
+    // contenuto legittimo ed estraneo.
+    public function test_admin_update_never_strips_an_external_link_that_coincidentally_matches_the_slug_path(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $externalUrl = 'https://esempio-esterno.test/articolo/'.$target->slug;
+        $linkedBody = '<p>Approfondimento esterno: <a href="'.$externalUrl.'">pannelli solari di nuova generazione</a>, fonte indipendente.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target diventa non sicuro (retrocesso a bozza): markAccepted()
+        // proverà a ripulire ogni link verso il suo slug.
+        $target->update(['status' => 'draft', 'published_at' => null]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        // Il link esterno resta intatto: non è un collegamento interno
+        // Kairus, solo un URL che ne condivide per coincidenza il path.
+        $freshBody = $source->fresh()->body;
+        $this->assertStringContainsString('href="'.$externalUrl.'"', $freshBody);
+    }
+
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
     public function test_ignore_marks_the_suggestion_and_it_is_not_re_proposed(): void
     {
