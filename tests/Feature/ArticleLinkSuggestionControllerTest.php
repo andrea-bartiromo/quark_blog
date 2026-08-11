@@ -664,6 +664,61 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
     }
 
+    // 2j-bis. Codex (PR #165, round 12): se il target viene eliminato tra il click su
+    // "Inserisci" (il link è già fisicamente nel body inviato dal form) e il salvataggio
+    // della source, target_article_id (nullOnDelete(), non più cascadeOnDelete()) lascia
+    // sopravvivere la riga del suggerimento — markAccepted() deve poter comunque ripulire
+    // il link dal body usando lo snapshot target_slug, non più la relazione targetArticle.
+    public function test_admin_update_strips_a_link_whose_target_was_deleted_before_save(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+        ]);
+
+        $targetUrl = route('articolo', $target->slug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+
+        $source = $this->article(['user_id' => $editor->id]);
+
+        // Simula lo stato dopo un click su "Inserisci": il suggerimento è
+        // 'proposed', con lo snapshot target_slug già valorizzato come lo
+        // popolerebbe ArticleLinkSuggestionService::analyzeForSource().
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $target->slug,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+            'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
+        ]);
+
+        $target->delete();
+
+        // La riga sopravvive (nullOnDelete), solo il riferimento è azzerato.
+        $this->assertNotNull($suggestion->fresh());
+        $this->assertNull($suggestion->fresh()->target_article_id);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'published',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+    }
+
     // 2k. Codex (PR #165, P2 round 9): il salvataggio dell'articolo e la revalidazione/
     // pulizia dei suggerimenti applicati (markAccepted()) devono avvenire come un'unica
     // transazione — se markAccepted() fallisce, anche le modifiche già scritte da

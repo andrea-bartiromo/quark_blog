@@ -427,6 +427,14 @@ class ArticleLinkSuggestionService
             }
 
             $attributes = [
+                // Codex (PR #165, round 12): snapshot dello slug al momento
+                // della proposta/aggiornamento — target_article_id passa a
+                // nullOnDelete() (vedi migrazione), quindi se il target
+                // viene eliminato dopo che la redazione ha già cliccato
+                // "Inserisci" ma prima di salvare la source,
+                // markAccepted() deve poter ripulire il link dal body anche
+                // senza più poter risalire allo slug tramite la relazione.
+                'target_slug' => $candidate->slug,
                 'anchor_text' => $match['anchor'],
                 'context_excerpt' => $match['context'],
                 'reason' => $match['reason'],
@@ -526,6 +534,9 @@ class ArticleLinkSuggestionService
             }
 
             $attributes = [
+                // Codex (PR #165, round 12): stesso snapshot di
+                // analyzeForSource() — vedi commento lì.
+                'target_slug' => $target->slug,
                 'anchor_text' => $match['anchor'],
                 'context_excerpt' => $match['context'],
                 'reason' => $match['reason'],
@@ -1264,7 +1275,20 @@ class ArticleLinkSuggestionService
         }
 
         if ($target === null) {
-            return $body;
+            // Codex (PR #165, round 12): target_article_id è ora
+            // nullOnDelete() (era cascadeOnDelete()) — un target eliminato
+            // lascia $target null ma la riga del suggerimento (e il suo
+            // snapshot target_slug, preso alla creazione/aggiornamento,
+            // vedi analyzeForSource()/analyzeForNewTarget()) sopravvive.
+            // Senza questo, un link già fisicamente presente nel body
+            // (inserito prima che il target venisse eliminato) non sarebbe
+            // mai stato ripulito: nessun Article da cui leggere lo slug o i
+            // suoi redirect storici, quindi qui ci si limita all'unico slug
+            // noto dallo snapshot (i redirect storici del target sono a
+            // loro volta scomparsi con l'articolo eliminato).
+            return $suggestion->target_slug !== null
+                ? $this->insertionService->removeLinksToSlugs($body, [$suggestion->target_slug])
+                : $body;
         }
 
         // Codex, PR #165, P2 round 3: l'href già nel body può ancora

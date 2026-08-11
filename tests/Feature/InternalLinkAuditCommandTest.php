@@ -475,6 +475,38 @@ class InternalLinkAuditCommandTest extends TestCase
         $this->assertSame([], $report->highConfidenceUnusedSuggestions);
     }
 
+    // Codex (PR #165, round 12): un suggerimento 'proposed' resta tale a
+    // database anche dopo che il target è stato riprogrammato DOPO la
+    // sorgente (l'unica revalidazione avviene al salvataggio della
+    // sorgente, mai qui) — l'audit non deve segnalarlo come opportunità
+    // reale, esattamente come l'editor di $source non lo mostra più (vedi
+    // Article::proposedLinkSuggestions()).
+    public function test_a_proposed_suggestion_whose_target_became_temporally_unsafe_never_appears_as_an_opportunity(): void
+    {
+        $source = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDays(2),
+        ]);
+
+        $target = $this->article([
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDays(5),
+        ]);
+
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'termine specifico',
+            'reason' => 'motivo',
+            'confidence_score' => 85,
+            'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
+        ]);
+
+        $report = app(InternalLinkAuditService::class)->audit();
+
+        $this->assertSame([], $report->highConfidenceUnusedSuggestions);
+    }
+
     // ── Comando: read-only, JSON, testo ──
 
     public function test_the_command_never_modifies_any_article(): void

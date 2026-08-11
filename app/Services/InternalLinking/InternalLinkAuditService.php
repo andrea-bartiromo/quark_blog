@@ -306,6 +306,19 @@ class InternalLinkAuditService
     }
 
     /**
+     * Codex (PR #165, round 12): un suggerimento 'proposed' ad alta
+     * confidenza il cui target è stato riprogrammato DOPO la sorgente (o
+     * comunque non è più temporalmente sicuro secondo
+     * InternalLinkTemporalEligibility) resta 'proposed' a livello di
+     * database — l'unica revalidazione avviene quando la sorgente viene di
+     * nuovo salvata (vedi ArticleLinkSuggestionService::markAccepted()),
+     * mai qui. Senza questo filtro, applicato PRIMA di ->take(), una simile
+     * riga stale poteva occupare uno dei MAX_TOP_OPPORTUNITIES slot al
+     * posto di un'opportunità realmente inseribile — stesso principio
+     * "mai limitare prima di filtrare" già corretto in questa stessa PR per
+     * Article::proposedLinkSuggestions() e
+     * ArticleLinkSuggestionService::analyzeForSource().
+     *
      * @param  Collection<int, Article>  $subjects
      * @return array<int, array{id:int,source:array{id:int,title:string},target:array{id:int,title:string},anchor_text:string,confidence_score:int}>
      */
@@ -314,10 +327,16 @@ class InternalLinkAuditService
         return ArticleLinkSuggestion::proposed()
             ->whereIn('source_article_id', $subjects->pluck('id'))
             ->where('confidence_score', '>=', self::HIGH_CONFIDENCE_THRESHOLD)
-            ->with(['sourceArticle:id,title', 'targetArticle:id,title'])
+            ->with([
+                'sourceArticle:id,title,status,published_at',
+                'targetArticle:id,title,status,published_at',
+            ])
             ->orderByDesc('confidence_score')
-            ->limit(self::MAX_TOP_OPPORTUNITIES)
             ->get()
+            ->filter(fn (ArticleLinkSuggestion $s) => $s->sourceArticle !== null
+                && $s->targetArticle !== null
+                && $this->temporalEligibility->isTargetSafeForSource($s->sourceArticle, $s->targetArticle))
+            ->take(self::MAX_TOP_OPPORTUNITIES)
             ->map(fn (ArticleLinkSuggestion $s) => [
                 'id' => $s->id,
                 'source' => ['id' => $s->sourceArticle->id, 'title' => $s->sourceArticle->title],
@@ -325,6 +344,7 @@ class InternalLinkAuditService
                 'anchor_text' => $s->anchor_text,
                 'confidence_score' => $s->confidence_score,
             ])
+            ->values()
             ->all();
     }
 }

@@ -70,8 +70,9 @@ class ArticleLinkSuggestionTest extends TestCase
         ]);
     }
 
-    // 3. Cancellare l'articolo sorgente o target cancella i suggerimenti collegati
-    public function test_deleting_either_article_cascades_to_the_suggestion(): void
+    // 3. Cancellare l'articolo sorgente cancella il suggerimento collegato
+    // (il body dell'articolo sorgente scompare con esso — nulla da ripulire).
+    public function test_deleting_the_source_article_cascades_to_the_suggestion(): void
     {
         $source = $this->article();
         $target = $this->article();
@@ -86,20 +87,33 @@ class ArticleLinkSuggestionTest extends TestCase
         $source->delete();
 
         $this->assertSame(0, ArticleLinkSuggestion::count());
+    }
 
-        $otherSource = $this->article();
-        $otherTarget = $this->article();
-        ArticleLinkSuggestion::create([
-            'source_article_id' => $otherSource->id,
-            'target_article_id' => $otherTarget->id,
+    // 3b. Codex (PR #165, round 12): cancellare l'articolo TARGET non cancella più
+    // il suggerimento (era cascadeOnDelete()) — la riga sopravvive con
+    // target_article_id azzerato (nullOnDelete()), cosi
+    // ArticleLinkSuggestionService::markAccepted() può ancora ripulire dal body
+    // della sorgente un link già fisicamente inserito prima della cancellazione,
+    // usando lo snapshot target_slug al posto della relazione ormai assente.
+    public function test_deleting_the_target_article_nulls_the_reference_instead_of_deleting_the_suggestion(): void
+    {
+        $source = $this->article();
+        $target = $this->article();
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $target->slug,
             'anchor_text' => 'termine',
             'reason' => 'motivo',
             'confidence_score' => 50,
         ]);
 
-        $otherTarget->delete();
+        $target->delete();
 
-        $this->assertSame(0, ArticleLinkSuggestion::count());
+        $this->assertSame(1, ArticleLinkSuggestion::count());
+        $this->assertNull($suggestion->fresh()->target_article_id);
+        $this->assertNull($suggestion->fresh()->targetArticle);
+        $this->assertSame($target->slug, $suggestion->fresh()->target_slug);
     }
 
     // 4. Scope "proposed" isola solo i suggerimenti ancora da rivedere
