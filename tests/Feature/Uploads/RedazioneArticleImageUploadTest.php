@@ -5,9 +5,11 @@ namespace Tests\Feature\Uploads;
 use App\Models\Article;
 use App\Models\Media;
 use App\Models\User;
+use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
 
@@ -199,6 +201,43 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $article->refresh();
         $this->assertSame($oldCover, $article->cover_image);
+    }
+
+    // Codex (PR #165, round 18): stesso principio del test analogo Admin — il caricamento
+    // della nuova copertina avviene PRIMA della transazione attorno a
+    // $article->update()+markAccepted(), quindi un suo fallimento non deve lasciare un
+    // file/riga Media orfani.
+    public function test_update_cleans_up_the_new_cover_if_the_transaction_rolls_back(): void
+    {
+        $author = $this->author();
+
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo redazione',
+            'slug' => 'articolo-redazione-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'review',
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        $newCover = UploadedFile::fake()->image('nuova.jpg', 800, 600);
+
+        try {
+            $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+                'cover_image_upload' => $newCover,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNull($article->fresh()->cover_image);
+        $this->assertSame(0, Media::where('filename', 'nuova.jpg')->count());
+        $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
     }
 
     public function test_the_article_stays_in_review_status_after_creation_and_update(): void
