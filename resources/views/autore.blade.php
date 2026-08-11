@@ -2,16 +2,15 @@
 
 @section('title', $author->name.' — Redattore — '.config('laboratorio.name'))
 @section('description', 'Articoli di '.$author->name.' su '.config('laboratorio.name').', rivista italiana di divulgazione scientifica.')
+@section('canonical', $articles->currentPage() > 1
+    ? route('autore', ['user' => $author, 'page' => $articles->currentPage()])
+    : route('autore', $author))
 
 @section('content')
 <div class="public-page public-page--author">
   <div class="container">
 
     <section class="author-premium-hero">
-      {{-- $author->photo (non "avatar", inesistente sul modello): stesso
-           campo e stessa risoluzione di percorso (assets/img/, dove
-           Admin\ProfileController e Redazione\ProfileController salvano
-           davvero il file caricato) già usate in admin/profile.blade.php. --}}
       <div class="author-premium-hero__avatar" aria-hidden="{{ $author->photo ? 'false' : 'true' }}">
         @if($author->photo)
           <img src="{{ asset('assets/img/'.$author->photo) }}" alt="{{ $author->name }}">
