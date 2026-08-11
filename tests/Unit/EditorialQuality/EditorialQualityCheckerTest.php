@@ -9,6 +9,7 @@ use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\EditorialQuality\EditorialQualityCheckResult as R;
 use App\Services\EditorialQuality\EditorialQualityReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Normalizer;
 use Tests\TestCase;
 
 class EditorialQualityCheckerTest extends TestCase
@@ -197,6 +198,31 @@ class EditorialQualityCheckerTest extends TestCase
     {
         $article = $this->completeArticle([
             'body' => '<p>'.str_repeat('Il metodo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: testo copiato da alcune fonti
+     * (es. certi strumenti su macOS) può arrivare in forma Unicode
+     * decomposta (NFD), dove una lettera accentata come "é" diventa due
+     * caratteri distinti — "e" + accento acuto combinante, non
+     * riconosciuto come carattere "di parola". In "método" (NFD) il
+     * marker "todo" segue subito il carattere combinante: senza
+     * normalizzazione a NFC quel punto sembrerebbe un confine di parola
+     * valido, facendo scattare erroneamente il marker dentro una parola
+     * legittima.
+     */
+    public function test_the_word_metodo_in_decomposed_nfd_unicode_form_never_triggers_the_todo_marker(): void
+    {
+        $decomposed = Normalizer::normalize('método', Normalizer::FORM_D);
+        $this->assertNotSame('método', $decomposed, 'la forma NFD deve differire byte per byte da quella composta, altrimenti il test non riproduce lo scenario');
+
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('El '.$decomposed.' utilizado por los investigadores fue eficaz. ', 10).'</p>',
         ]);
 
         $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');

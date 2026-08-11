@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Services\ArticleLinkInsertionService;
 use DOMDocument;
 use DOMElement;
+use Normalizer;
 
 /**
  * Editorial Quality Gate V1 — controlli deterministici, sola lettura, mai
@@ -193,7 +194,7 @@ class EditorialQualityChecker
         ];
 
         foreach ($haystacks as $field => $text) {
-            $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $text) ?? ''), 'UTF-8');
+            $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $this->normalizeUnicode($text)) ?? ''), 'UTF-8');
 
             foreach (self::PLACEHOLDER_MARKERS as $marker) {
                 if ($normalized !== '' && $this->containsWholeWordMarker($normalized, $marker)) {
@@ -273,6 +274,28 @@ class EditorialQualityChecker
     private function isWordChar(string $char): bool
     {
         return $char !== '' && preg_match('/[\p{L}\p{N}]/u', $char) === 1;
+    }
+
+    /**
+     * Porta il testo in forma composta (NFC) prima del confronto. Testo
+     * copiato da alcune fonti (es. certi strumenti su macOS) può arrivare
+     * in forma decomposta (NFD): una lettera accentata come "é" diventa
+     * due caratteri distinti, "e" + accento acuto combinante (categoria
+     * Unicode \p{M}, non riconosciuta da isWordChar()). In quel caso un
+     * marker che segue subito la lettera base (es. "método" scritto come
+     * "m,e,´,t,o,d,o") avrebbe il carattere combinante — non "di parola"
+     * per isWordChar() — immediatamente prima di "todo", facendo scattare
+     * erroneamente il confine come se "todo" fosse a inizio parola. La
+     * normalizzazione NFC ricompone "e"+accento in un unico carattere "é",
+     * eliminando il problema alla radice invece di rendere isWordChar()
+     * consapevole dei caratteri combinanti (che richiederebbe comunque
+     * gestire i cluster di grafemi in generale).
+     */
+    private function normalizeUnicode(string $text): string
+    {
+        $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
+
+        return $normalized === false ? $text : $normalized;
     }
 
     // ── MEDIA ────────────────────────────────────────────────────
