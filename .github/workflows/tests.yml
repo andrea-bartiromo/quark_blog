@@ -57,8 +57,22 @@ jobs:
       - name: Execute tests
         run: php artisan test
 
-      - name: Check PHP formatting
-        run: vendor/bin/pint --test
+      - name: Check Pint on compatibility-pack PHP
+        run: >-
+          vendor/bin/pint --test
+          tests/Unit/ArticleSchedulingTest.php
+          tests/Feature/Admin/ArticleSchedulingTest.php
+          tests/Feature/Console/PublishScheduledArticlesTest.php
+          tests/Feature/HttpsCanonicalizationTest.php
+          tests/Unit/ArticleLinkSuggestionServiceTest.php
+          tests/Feature/ArticleLinkSuggestionControllerTest.php
+          tests/Unit/MediaWebpMigrationServiceTest.php
+          tests/Unit/MediaWebpCleanupServiceTest.php
+          tests/Feature/Admin/MediaMoveControllerTest.php
+          tests/Feature/Admin/MediaUsageAndDeletionTest.php
+          tests/Feature/Admin/AdminNavigationTest.php
+          tests/Feature/AnalyticsHygieneTest.php
+          tests/Feature/Admin/Communication/NewsletterModuleRegressionTest.php
 
   mariadb-compatibility:
     runs-on: ubuntu-latest
