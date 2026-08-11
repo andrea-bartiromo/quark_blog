@@ -213,10 +213,15 @@ class ArticleController extends Controller
     ) {
         $data = $request->validated();
 
-        if (
-            $request->hasFile('cover_image_upload')
-            && $request->file('cover_image_upload')->isValid()
-        ) {
+        // Codex (PR #165, round 19): usato dal catch della transazione sotto per
+        // decidere se $data['cover_image'] sia davvero un disk_name appena generato da
+        // questa richiesta (sicuro da ritirare in caso di rollback) o un valore già
+        // esistente arrivato da $request->validated() (copertina invariata, o scelta
+        // dalla libreria media) — vedi commento sul catch.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
+        if ($newCoverWasUploaded) {
             $file = $request->file('cover_image_upload');
 
             $originalName = $file->getClientOriginalName();
@@ -345,7 +350,11 @@ class ArticleController extends Controller
             // Admin — il caricamento della nuova copertina (e la sua
             // registrazione Media) avviene PRIMA di questa transazione, e
             // un suo fallimento non annulla quei side effect già scritti.
-            if (array_key_exists('cover_image', $data)) {
+            //
+            // Codex (PR #165, round 19): $newCoverWasUploaded, non
+            // array_key_exists() da solo — vedi commento sulla sua
+            // definizione sopra.
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
                 $this->mediaRetirementService->retireIfUnused(
                     $data['cover_image'],
                     'article_update_transaction_rolled_back'

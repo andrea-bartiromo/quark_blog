@@ -136,6 +136,16 @@ class ArticleController extends Controller
         UpdateArticleRequest $request,
         Article $article
     ) {
+        // Codex (PR #165, round 19): calcolato PRIMA di applyBusinessRules()
+        // (che comunque non "consuma" il file — la stessa condizione resta
+        // verificabile in seguito) per sapere, con certezza, se $data['cover_image']
+        // sotto conterrà un disk_name APPENA generato da un nuovo upload, oppure un
+        // valore già esistente arrivato da $request->validated() (copertina invariata,
+        // o scelta dalla libreria media) — solo il primo caso è sicuro da ritirare in
+        // caso di rollback: il secondo può riferirsi a un file già in uso altrove.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
         try {
             $data = $this->applyBusinessRules(
                 $request,
@@ -177,11 +187,18 @@ class ArticleController extends Controller
             // già scritti su filesystem/DB. Senza questa pulizia
             // resterebbero un file orfano e una riga Media senza alcun
             // articolo che la referenzi. retireIfUnused() è già lo
-            // strumento esistente per questo esatto scenario (ritiro
-            // sicuro di un file media non più referenziato): appena
-            // caricato in questa stessa richiesta, non può essere
-            // referenziato altrove.
-            if (array_key_exists('cover_image', $data)) {
+            // strumento esistente per questo esatto scenario.
+            //
+            // Codex (PR #165, round 19): il ritiro va limitato al caso in
+            // cui QUESTA richiesta abbia davvero caricato un nuovo file
+            // ($newCoverWasUploaded, calcolato sopra) — array_key_exists()
+            // da solo non basta, perché $data['cover_image'] può contenere
+            // un valore già esistente arrivato da $request->validated()
+            // (copertina invariata, o un asset scelto dalla libreria media
+            // senza upload), che potrebbe non avere alcuna relazione con
+            // questa richiesta e non deve mai essere ritirato per un suo
+            // fallimento.
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
                 $this->mediaRetirementService->retireIfUnused(
                     $data['cover_image'],
                     'article_update_transaction_rolled_back'

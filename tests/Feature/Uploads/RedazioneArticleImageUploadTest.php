@@ -240,6 +240,50 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
     }
 
+    // Codex (PR #165, round 19): stesso principio del test analogo Admin — il ritiro sul
+    // rollback (round 18) deve limitarsi a un disk_name DAVVERO caricato in questa
+    // richiesta, mai a un cover_image già esistente arrivato da $request->validated()
+    // senza alcun cover_image_upload allegato.
+    public function test_update_never_retires_an_unrelated_existing_cover_image_on_rollback(): void
+    {
+        $author = $this->author();
+
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo redazione',
+            'slug' => 'articolo-redazione-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'review',
+        ]);
+
+        $libraryDiskName = 'libreria-esistente.webp';
+        file_put_contents(public_path('assets/img/'.$libraryDiskName), 'contenuto finto');
+        $libraryMedia = Media::create([
+            'user_id' => $author->id,
+            'filename' => 'libreria-esistente.webp',
+            'disk_name' => $libraryDiskName,
+            'mime_type' => 'image/webp',
+            'size' => 100,
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        try {
+            $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+                'cover_image' => $libraryDiskName,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNotNull(Media::find($libraryMedia->id));
+        $this->assertFileExists(public_path('assets/img/'.$libraryDiskName));
+    }
+
     public function test_the_article_stays_in_review_status_after_creation_and_update(): void
     {
         $author = $this->author();

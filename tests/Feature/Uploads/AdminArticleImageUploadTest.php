@@ -243,4 +243,52 @@ class AdminArticleImageUploadTest extends TestCase
         // file deve restare, orfano, dopo la pulizia.
         $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
     }
+
+    // Codex (PR #165, round 19): il ritiro sul rollback (round 18) deve limitarsi a un
+    // disk_name DAVVERO caricato in QUESTA richiesta — se l'admin invia invece un
+    // cover_image già esistente (es. un asset scelto dalla libreria media, non ancora
+    // riferito da alcun articolo, senza allegare cover_image_upload), quell'asset non ha
+    // alcuna relazione con questo fallimento e non deve mai essere ritirato.
+    public function test_update_never_retires_an_unrelated_existing_cover_image_on_rollback(): void
+    {
+        $editor = $this->editor();
+
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Titolo originale',
+            'slug' => 'titolo-originale-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'draft',
+        ]);
+
+        // Un asset già presente in libreria media, non riferito da alcun
+        // articolo — esattamente lo scenario del finding.
+        $libraryDiskName = 'libreria-esistente.webp';
+        file_put_contents(public_path('assets/img/'.$libraryDiskName), 'contenuto finto');
+        $libraryMedia = Media::create([
+            'user_id' => $editor->id,
+            'filename' => 'libreria-esistente.webp',
+            'disk_name' => $libraryDiskName,
+            'mime_type' => 'image/webp',
+            'size' => 100,
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        try {
+            $this->actingAs($editor)->put(route('admin.articles.update', $article), $this->articlePayload([
+                'title' => 'Titolo originale',
+                'cover_image' => $libraryDiskName,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNotNull(Media::find($libraryMedia->id));
+        $this->assertFileExists(public_path('assets/img/'.$libraryDiskName));
+    }
 }
