@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -18,16 +19,26 @@ class SendNewsletterJob implements ShouldQueue
 
     public Newsletter $subscriber;
 
-    public function __construct(Newsletter $subscriber)
+    public function __construct(Newsletter $subscriber, public ?string $deliveryKey = null)
     {
         $this->subscriber = $subscriber;
     }
 
     public function handle(): void
     {
+        $cacheKey = $this->deliveryKey ? 'newsletter:delivery:'.$this->deliveryKey : null;
+
+        if ($cacheKey && ! Cache::add($cacheKey, true, now()->addDays(14))) {
+            return;
+        }
+
         $articles = $this->getArticles();
 
         if ($articles->isEmpty()) {
+            if ($cacheKey) {
+                Cache::forget($cacheKey);
+            }
+
             return;
         }
 
@@ -58,6 +69,10 @@ class SendNewsletterJob implements ShouldQueue
                     ->html($fullHtml);
             });
         } catch (\Throwable $e) {
+            if ($cacheKey) {
+                Cache::forget($cacheKey);
+            }
+
             Log::error("Errore newsletter {$this->subscriber->email}: ".$e->getMessage());
 
             throw $e;
