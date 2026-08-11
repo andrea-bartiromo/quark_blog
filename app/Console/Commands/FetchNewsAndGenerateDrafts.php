@@ -66,7 +66,7 @@ class FetchNewsAndGenerateDrafts extends Command
         ],
         'ambiente' => [
             'https://www.greenreport.it/feed/',                            // GreenReport
-            'https://www.isprambiente.gov.it/it/rss/news.xml',             // ISPRA
+            'https://www.isprambiente.gov.it/it/rss/news.xml',            // ISPRA
         ],
     ];
 
