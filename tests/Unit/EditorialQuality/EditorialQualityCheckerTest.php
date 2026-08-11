@@ -303,6 +303,25 @@ class EditorialQualityCheckerTest extends TestCase
     }
 
     /**
+     * Falso positivo segnalato in review: un marker che compare solo
+     * dentro un attributo HTML tra virgolette (mai visibile a un lettore)
+     * non deve mai contare come segnaposto. Con un'estrazione basata su
+     * regex "[^>]*", il ">" dentro l'attributo tronca il tag in anticipo e
+     * fa trapelare il resto dell'attributo come testo — un parser DOM
+     * vero analizza correttamente gli attributi e non ha questo problema.
+     */
+    public function test_a_marker_inside_a_quoted_html_attribute_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p><span title="A &gt; TODO">testo</span></p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
      * Contropartita del test precedente: i tag "inline" (formattazione
      * dentro una parola, incl. gli span-artefatto tipici del copia-incolla
      * da Word/Docs in TinyMCE) non devono introdurre uno spazio artificiale

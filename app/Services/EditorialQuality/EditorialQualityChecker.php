@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Services\ArticleLinkInsertionService;
 use DOMDocument;
 use DOMElement;
+use DOMXPath;
 
 /**
  * Editorial Quality Gate V1 — controlli deterministici, sola lettura, mai
@@ -818,20 +819,79 @@ class EditorialQualityChecker
 
     /**
      * Tag "inline" (formattazione dentro una parola/frase, incl. gli span
-     * artefatto tipici degli incolla-da-Word/Docs in TinyMCE): rimossi
-     * senza inserire uno spazio, perché non introducono mai una
-     * separazione visiva nel testo renderizzato (es. "<em>me</em>todo" è
-     * sempre "metodo" per un lettore). Qualunque altro tag (blocco: <p>,
-     * <li>, <h2>, <br>, ...) viene invece sostituito con uno spazio: due
-     * elementi di blocco adiacenti nell'HTML salvato (es.
-     * "<p>testo</p><p>TODO</p>", tipico di un editor che non inserisce
-     * whitespace tra i tag) restano comunque due parole distinte.
+     * artefatto tipici degli incolla-da-Word/Docs in TinyMCE): il loro
+     * contenuto resta fuso con quello dei nodi adiacenti, perché non
+     * introducono mai una separazione visiva nel testo renderizzato (es.
+     * "<em>me</em>todo" è sempre "metodo" per un lettore). Qualunque altro
+     * elemento (blocco: <p>, <li>, <h2>, <br>, ...) inserisce invece uno
+     * spazio prima e dopo di sé: due elementi di blocco adiacenti
+     * nell'HTML salvato (es. "<p>testo</p><p>TODO</p>", tipico di un
+     * editor che non inserisce whitespace tra i tag) restano comunque due
+     * parole distinte.
      */
-    private const INLINE_TAGS = 'a|abbr|b|cite|code|del|em|i|ins|mark|q|s|small|span|strike|strong|sub|sup|u';
+    private const INLINE_TAGS = ['a', 'abbr', 'b', 'cite', 'code', 'del', 'em', 'i', 'ins', 'mark', 'q', 's', 'small', 'span', 'strike', 'strong', 'sub', 'sup', 'u'];
 
+    /**
+     * Estrazione testo via DOMDocument (stesso approccio del resto della
+     * classe, vedi parseElements()) invece che via regex: una regex che
+     * combacia i tag con "[^>]*" tronca in anticipo davanti a un ">"
+     * dentro un attributo tra virgolette (es. title="A > TODO"),
+     * facendo trapelare testo di attributi nel corpo analizzato — un
+     * parser HTML vero non ha questo problema.
+     */
     private function plainText(string $html): string
     {
-        $withoutInlineTags = (string) preg_replace('#</?(?:'.self::INLINE_TAGS.')(?:\s[^>]*)?>#i', '', $html);
+        $trimmed = trim($html);
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="__plain_text_root__">'.$trimmed.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $xpath = new DOMXPath($dom);
+        $root = $xpath->query('//div[@id="__plain_text_root__"]')->item(0);
+
+        // Stessa guardia già applicata in TableOfContentsService e
+        // ArticleBodyImageService: un tag di chiusura non bilanciato
+        // nell'HTML salvato può far chiudere in anticipo il div
+        // sintetico. In quel caso ripiega su un'estrazione più semplice
+        // ma comunque sicura, invece di perdere silenziosamente parte
+        // del testo analizzato.
+        if ($root === null || $root->nextSibling !== null) {
+            return $this->plainTextFallback($trimmed);
+        }
+
+        foreach (iterator_to_array($root->getElementsByTagName('*')) as $element) {
+            if (in_array(mb_strtolower($element->nodeName), self::INLINE_TAGS, true)) {
+                continue;
+            }
+
+            $element->parentNode?->insertBefore($dom->createTextNode(' '), $element);
+            $element->parentNode?->insertBefore($dom->createTextNode(' '), $element->nextSibling);
+        }
+
+        return preg_replace('/\s+/u', ' ', $root->textContent) ?? $root->textContent;
+    }
+
+    /**
+     * Fallback usato solo quando il parsing DOM non produce un albero
+     * affidabile (vedi guardia in plainText()): stessa distinzione
+     * blocco/inline, ma via regex invece che sull'albero DOM. Meno robusto
+     * su HTML con attributi contenenti ">", ma resta un ripiego
+     * accettabile per un caso limite già raro di suo.
+     */
+    private function plainTextFallback(string $html): string
+    {
+        $inlinePattern = implode('|', self::INLINE_TAGS);
+        $withoutInlineTags = (string) preg_replace('#</?(?:'.$inlinePattern.')(?:\s[^>]*)?>#i', '', $html);
         $withBlockSeparators = (string) preg_replace('/<[^>]*>/', ' ', $withoutInlineTags);
         $stripped = strip_tags($withBlockSeparators);
 
