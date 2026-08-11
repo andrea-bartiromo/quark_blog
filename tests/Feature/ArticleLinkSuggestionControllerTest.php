@@ -214,6 +214,87 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
     }
 
+    // Codex (PR #165, round 14): target_slug è lo snapshot preso all'ultima "Analizza" —
+    // se il target viene rinominato dopo, ma prima del click su "Inserisci", l'href
+    // costruito qui usa (correttamente) lo slug ATTUALE, ma senza questo fix lo snapshot
+    // sulla riga sarebbe rimasto il vecchio slug, disallineato da ciò che è realmente nel
+    // body. "Inserisci" deve riallineare lo snapshot allo slug appena usato per l'href.
+    public function test_insert_refreshes_the_target_slug_snapshot_to_the_slug_actually_used(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari', 'slug' => 'slug-vecchio']);
+        $sourceBody = '<p>Vedi anche pannelli solari, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id, 'body' => $sourceBody]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => 'slug-vecchio',
+            'anchor_text' => 'pannelli solari',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $target->update(['slug' => 'slug-nuovo']);
+
+        $response = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => $sourceBody]
+        );
+
+        $response->assertOk();
+        $this->assertStringContainsString(route('articolo', 'slug-nuovo'), $response->json('body'));
+        $this->assertSame('slug-nuovo', $suggestion->fresh()->target_slug);
+    }
+
+    // Stesso principio del test precedente, verificato end-to-end: il link realmente
+    // inserito (slug nuovo) deve poter essere ripulito dal body quando il target viene
+    // eliminato dopo, non solo lo slug ormai obsoleto dell'analisi originaria.
+    public function test_admin_update_strips_a_link_inserted_after_a_rename_when_the_target_is_later_deleted(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari', 'slug' => 'slug-vecchio']);
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => 'slug-vecchio',
+            'anchor_text' => 'pannelli solari',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $target->update(['slug' => 'slug-nuovo']);
+
+        $insertResponse = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => '<p>Vedi anche pannelli solari, molto richiesti.</p>']
+        );
+        $insertResponse->assertOk();
+        $linkedBody = $insertResponse->json('body');
+        $targetUrl = route('articolo', 'slug-nuovo');
+        $this->assertStringContainsString('href="'.$targetUrl.'"', $linkedBody);
+
+        $target->delete();
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'published',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari', $freshBody);
+    }
+
     // 2b. Il salvataggio effettivo dell'articolo (Admin) marca accettati i suggerimenti applicati nel form
     public function test_admin_update_marks_applied_suggestions_as_accepted_on_save(): void
     {

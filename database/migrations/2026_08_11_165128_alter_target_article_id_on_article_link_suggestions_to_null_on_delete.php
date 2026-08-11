@@ -27,6 +27,26 @@ return new class extends Migration
             $table->string('target_slug')->nullable()->after('target_article_id');
         });
 
+        // Codex (PR #165, round 14): il codice applicativo popola
+        // target_slug solo alla creazione/aggiornamento di una riga
+        // (analyzeForSource()/analyzeForNewTarget()) — le righe GIÀ
+        // esistenti su un'installazione in produzione al momento di questo
+        // deploy resterebbero con target_slug NULL per sempre (nessun
+        // evento le tocca finché non ridiventano 'proposed'). Se il loro
+        // target viene eliminato dopo questo deploy, sia target_article_id
+        // sia target_slug sarebbero null: supersedeAndStripIfUnsafe() non
+        // avrebbe alcuno slug da cui ripulire il link, lasciandolo rotto
+        // nel body per sempre. Sottoquery correlata (non un JOIN in
+        // UPDATE): stessa sintassi SQL standard, portabile identica su
+        // SQLite e MySQL.
+        DB::statement('
+            UPDATE article_link_suggestions
+            SET target_slug = (
+                SELECT slug FROM articles WHERE articles.id = article_link_suggestions.target_article_id
+            )
+            WHERE target_article_id IS NOT NULL
+        ');
+
         Schema::table('article_link_suggestions', function (Blueprint $table) {
             $table->dropForeign(['target_article_id']);
         });

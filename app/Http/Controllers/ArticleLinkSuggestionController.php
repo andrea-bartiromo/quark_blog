@@ -106,7 +106,23 @@ class ArticleLinkSuggestionController extends Controller
             'body' => ['required', 'string'],
         ]);
 
-        $targetUrl = route('articolo', $suggestion->targetArticle->slug);
+        $targetSlug = $suggestion->targetArticle->slug;
+
+        // Codex (PR #165, round 14): target_slug è lo snapshot preso
+        // all'ultima "Analizza" (vedi ArticleLinkSuggestionService) — se il
+        // target viene rinominato dopo, ma prima di questo click su
+        // "Inserisci", quello snapshot resta il vecchio slug mentre l'href
+        // qui sotto usa (correttamente) lo slug ATTUALE. Se il target
+        // venisse poi eliminato prima del salvataggio della source, la
+        // pulizia in supersedeAndStripIfUnsafe() cercherebbe di rimuovere
+        // il vecchio slug — non quello davvero scritto nel body — lasciando
+        // il link realmente inserito rotto. Lo snapshot va quindi
+        // riallineato ora, allo slug realmente usato per costruire l'href.
+        if ($suggestion->target_slug !== $targetSlug) {
+            $suggestion->update(['target_slug' => $targetSlug]);
+        }
+
+        $targetUrl = route('articolo', $targetSlug);
 
         $updatedBody = $this->insertionService->insert($validated['body'], $suggestion->anchor_text, $targetUrl);
 
