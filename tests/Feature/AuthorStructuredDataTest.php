@@ -19,17 +19,8 @@ class AuthorStructuredDataTest extends TestCase
         ]);
 
         $html = $this->get(route('autore', $author))->assertOk()->getContent();
+        $data = $this->personSchemaFrom($html);
 
-        $this->assertMatchesRegularExpression(
-            '#<script type="application/ld\+json">(.*?)</script>#s',
-            $html,
-            'Nessun blocco Person JSON-LD trovato sulla pagina autore.'
-        );
-
-        preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $matches);
-        $data = json_decode($matches[1], true);
-
-        $this->assertIsArray($data, 'Il blocco JSON-LD non è JSON valido: '.json_last_error_msg());
         $this->assertSame('https://schema.org', $data['@context']);
         $this->assertSame('Person', $data['@type']);
         $this->assertSame('Ada Rossi', $data['name']);
@@ -47,10 +38,24 @@ class AuthorStructuredDataTest extends TestCase
         ]);
 
         $html = $this->get(route('autore', $author))->assertOk()->getContent();
-        preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $html, $matches);
-        $data = json_decode($matches[1], true);
+        $data = $this->personSchemaFrom($html);
 
         $this->assertArrayNotHasKey('description', $data);
         $this->assertArrayNotHasKey('sameAs', $data);
+    }
+
+    private function personSchemaFrom(string $html): array
+    {
+        preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $html, $matches);
+
+        foreach ($matches[1] as $json) {
+            $data = json_decode($json, true);
+
+            if (is_array($data) && ($data['@type'] ?? null) === 'Person') {
+                return $data;
+            }
+        }
+
+        $this->fail('Nessun blocco Person JSON-LD valido trovato sulla pagina autore.');
     }
 }
