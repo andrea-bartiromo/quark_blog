@@ -339,7 +339,7 @@ class EditorialQualityCheckerTest extends TestCase
         $result = $this->resultFor($this->checker->check($article), 'sources_present');
 
         $this->assertSame(R::STATUS_PASS, $result->status);
-        $this->assertSame('body', $result->details['detected_in'] ?? null);
+        $this->assertSame('body_heading', $result->details['detected_in'] ?? null);
     }
 
     public function test_a_body_sources_heading_with_institutional_links_passes(): void
@@ -477,6 +477,72 @@ class EditorialQualityCheckerTest extends TestCase
         $result = $this->resultFor($this->checker->check($article), 'sources_present');
 
         $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    // ── Fonti dopo il delimitatore "---" (seconda convenzione documentata,
+    // trovata in review — Codex): le linee guida Redazione istruiscono
+    // esplicitamente "Separa le fonti con --- alla fine del testo", e il
+    // renderer pubblico (articolo.blade.php) tratta già il testo dopo il
+    // primo "---" come fonti a se stanti. Un articolo scritto secondo
+    // questa convenzione non ha necessariamente una heading Fonti nel
+    // corpo, quindi va rilevato indipendentemente dal rilevamento a heading. ──
+
+    public function test_sources_after_the_delimiter_pass_without_urls_when_multiline(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Alan M. Turing, Computing Machinery and Intelligence, Mind, Vol. 59 (1950).
+                Stanford Encyclopedia of Philosophy, The Turing Test.',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+        $this->assertSame('body_delimiter', $result->details['detected_in'] ?? null);
+    }
+
+    public function test_a_single_line_after_the_delimiter_with_a_url_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Fonte: https://www.acm.org/turing-award',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_a_single_narrative_line_after_the_delimiter_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Nessuna fonte disponibile per questo articolo.',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_an_empty_section_after_the_delimiter_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                   ',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
     }
 
     // ── Autore / categoria / pubblicazione ──

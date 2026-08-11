@@ -391,7 +391,18 @@ class EditorialQualityChecker
                 EditorialQualityCheckResult::CATEGORY_SOURCES,
                 EditorialQualityCheckResult::IMPORTANCE_RECOMMENDED,
                 'Fonti presenti nel corpo dell\'articolo (sezione strutturata rilevata).',
-                ['detected_in' => 'body']
+                ['detected_in' => 'body_heading']
+            );
+        }
+
+        if ($this->hasDelimitedSourcesSectionInBody((string) $article->body)) {
+            return $this->pass(
+                'sources_present',
+                'Fonti',
+                EditorialQualityCheckResult::CATEGORY_SOURCES,
+                EditorialQualityCheckResult::IMPORTANCE_RECOMMENDED,
+                'Fonti presenti nel corpo dell\'articolo (sezione dopo "---" rilevata).',
+                ['detected_in' => 'body_delimiter']
             );
         }
 
@@ -453,6 +464,65 @@ class EditorialQualityChecker
             }
 
             if ($this->nodeHasSubstantialSourceContent($node)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Seconda convenzione editoriale reale e documentata, distinta dalla
+     * heading strutturata: le linee guida della Redazione istruiscono
+     * esplicitamente a "Separare le fonti con --- alla fine del testo"
+     * (resources/views/redazione/article-form.blade.php), e il renderer
+     * pubblico (resources/views/articolo.blade.php) implementa già questa
+     * esatta divisione — explode('---', $body), la parte dopo il primo
+     * delimitatore è il testo libero delle fonti, mostrato sotto una
+     * propria heading "Fonti" (resources/views/articles/partials/body.blade.php).
+     * Trovato in review (Codex): il solo rilevamento basato su heading
+     * strutturata lasciava un falso negativo identico per QUALSIASI
+     * articolo scritto secondo questa convenzione ufficiale, dato che il
+     * testo dopo "---" è testo libero (nl2br), non necessariamente
+     * avvolto in una heading HTML riconosciuta.
+     *
+     * Stessa cautela della sezione a heading: una singola riga di prosa
+     * (es. "Nessuna fonte disponibile per questo articolo.") non deve mai
+     * bastare da sola — richiede un segnale forte (link/DOI/anno). Righe
+     * MULTIPLE non vuote sono già di per sé un segnale strutturale forte
+     * (un elenco di fonti scritto una per riga), quindi in quel caso la
+     * sola lunghezza minima per riga è sufficiente — stesso principio già
+     * applicato agli elementi <li> in elementIsSubstantialSource().
+     */
+    private function hasDelimitedSourcesSectionInBody(string $body): bool
+    {
+        $parts = explode('---', $body);
+
+        if (count($parts) < 2) {
+            return false;
+        }
+
+        $sourcesText = trim($this->plainText($parts[1]));
+
+        if ($sourcesText === '') {
+            return false;
+        }
+
+        $lines = array_values(array_filter(
+            array_map('trim', preg_split('/\r\n|\r|\n/', $sourcesText) ?: []),
+            fn (string $line) => $line !== ''
+        ));
+
+        if ($lines === []) {
+            return false;
+        }
+
+        if (count($lines) === 1) {
+            return $this->textLooksLikeIdentifiableCitation($lines[0]);
+        }
+
+        foreach ($lines as $line) {
+            if ($this->textLooksLikeIdentifiableCitation($line) || mb_strlen($line, 'UTF-8') >= self::MIN_SOURCE_LIST_ITEM_LENGTH) {
                 return true;
             }
         }
@@ -527,11 +597,7 @@ class EditorialQualityChecker
             return false;
         }
 
-        if (preg_match('/10\.\d{4,9}\/\S+/', $text) === 1) {
-            return true;
-        }
-
-        if (preg_match('/\(\d{4}[a-z]?\)/i', $text) === 1) {
+        if ($this->textLooksLikeIdentifiableCitation($text)) {
             return true;
         }
 
@@ -547,6 +613,28 @@ class EditorialQualityChecker
         }
 
         return preg_match('#^https?://#i', $href) === 1 || str_contains(mb_strtolower($href, 'UTF-8'), 'doi.org');
+    }
+
+    /**
+     * Segnali di citazione forti e indipendenti dalla lingua, condivisi
+     * tra il rilevamento a heading (per un paragrafo/voce di elenco) e
+     * quello a delimitatore "---" (per una singola riga di testo libero):
+     * un DOI, un anno di pubblicazione tra parentesi, oppure un URL
+     * assoluto presente come TESTO semplice (non necessariamente dentro
+     * un tag <a> — il testo dopo "---" non è mai HTML, solo testo con
+     * nl2br(), quindi un link lì compare sempre così).
+     */
+    private function textLooksLikeIdentifiableCitation(string $text): bool
+    {
+        if (preg_match('/10\.\d{4,9}\/\S+/', $text) === 1) {
+            return true;
+        }
+
+        if (preg_match('/\(\d{4}[a-z]?\)/i', $text) === 1) {
+            return true;
+        }
+
+        return preg_match('#https?://\S+#i', $text) === 1;
     }
 
     // ── DISCOVERY ────────────────────────────────────────────────
