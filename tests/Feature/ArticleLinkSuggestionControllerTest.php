@@ -248,6 +248,41 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame('slug-nuovo', $suggestion->fresh()->target_slug);
     }
 
+    // Codex (PR #165, round 17): se "Inserisci" FALLISCE (l'anchor non è più presente nel
+    // body perché già avvolta da un link precedente verso il vecchio slug), lo snapshot
+    // target_slug non deve comunque essere aggiornato al nuovo slug — il link realmente
+    // ancora presente nel body punta al vecchio slug, non al nuovo.
+    public function test_insert_never_updates_the_target_slug_snapshot_when_insertion_fails(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari', 'slug' => 'slug-vecchio']);
+        $alreadyLinkedBody = '<p>Vedi anche <a href="'.route('articolo', 'slug-vecchio').'">pannelli solari</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id, 'body' => $alreadyLinkedBody]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => 'slug-vecchio',
+            'anchor_text' => 'pannelli solari',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $target->update(['slug' => 'slug-nuovo']);
+
+        // Un secondo click su "Inserisci" con lo stesso body (già linkato lato
+        // client verso il vecchio slug): l'anchor è già dentro un <a>, non è più
+        // "testo libero" da avvolgere — insert() fallisce (422).
+        $response = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => $alreadyLinkedBody]
+        );
+
+        $response->assertStatus(422);
+        $this->assertSame('slug-vecchio', $suggestion->fresh()->target_slug);
+    }
+
     // Stesso principio del test precedente, verificato end-to-end: il link realmente
     // inserito (slug nuovo) deve poter essere ripulito dal body quando il target viene
     // eliminato dopo, non solo lo slug ormai obsoleto dell'analisi originaria.

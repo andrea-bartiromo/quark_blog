@@ -107,21 +107,6 @@ class ArticleLinkSuggestionController extends Controller
         ]);
 
         $targetSlug = $suggestion->targetArticle->slug;
-
-        // Codex (PR #165, round 14): target_slug è lo snapshot preso
-        // all'ultima "Analizza" (vedi ArticleLinkSuggestionService) — se il
-        // target viene rinominato dopo, ma prima di questo click su
-        // "Inserisci", quello snapshot resta il vecchio slug mentre l'href
-        // qui sotto usa (correttamente) lo slug ATTUALE. Se il target
-        // venisse poi eliminato prima del salvataggio della source, la
-        // pulizia in supersedeAndStripIfUnsafe() cercherebbe di rimuovere
-        // il vecchio slug — non quello davvero scritto nel body — lasciando
-        // il link realmente inserito rotto. Lo snapshot va quindi
-        // riallineato ora, allo slug realmente usato per costruire l'href.
-        if ($suggestion->target_slug !== $targetSlug) {
-            $suggestion->update(['target_slug' => $targetSlug]);
-        }
-
         $targetUrl = route('articolo', $targetSlug);
 
         $updatedBody = $this->insertionService->insert($validated['body'], $suggestion->anchor_text, $targetUrl);
@@ -130,6 +115,23 @@ class ArticleLinkSuggestionController extends Controller
             return response()->json([
                 'message' => 'La frase suggerita non è più presente nel testo (o si trova in un punto non modificabile, come un titolo o una citazione). Il testo potrebbe essere stato modificato: prova ad analizzare di nuovo i collegamenti.',
             ], 422);
+        }
+
+        // Codex (PR #165, round 14 e round 17): target_slug è lo snapshot
+        // preso all'ultima "Analizza" (vedi ArticleLinkSuggestionService) —
+        // se il target viene rinominato dopo, ma prima di questo click su
+        // "Inserisci", quello snapshot resta il vecchio slug mentre l'href
+        // appena costruito usa (correttamente) lo slug ATTUALE. Lo snapshot
+        // va riallineato allo slug realmente usato — ma SOLO ORA, dopo che
+        // insert() ha confermato di aver davvero inserito il link (round
+        // 17): se l'anchor non è più presente nel body (es. era già stato
+        // avvolto da un link precedente verso il vecchio slug, ancora
+        // presente), aggiornare lo snapshot PRIMA di questo controllo
+        // avrebbe disallineato target_slug da quel link precedente
+        // realmente ancora nel body, esattamente il problema che il round
+        // 14 doveva risolvere.
+        if ($suggestion->target_slug !== $targetSlug) {
+            $suggestion->update(['target_slug' => $targetSlug]);
         }
 
         return response()->json([
