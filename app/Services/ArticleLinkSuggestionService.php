@@ -297,9 +297,21 @@ class ArticleLinkSuggestionService
         // realmente caricati: la correttezza non dipende dalla query SQL
         // essere scritta esattamente giusta, solo dalla policy PHP
         // (single source of truth), che l'audit usa allo stesso modo.
+        //
+        // Codex (PR #165, P2 round 4): un candidato 'scheduled' sicuro ha
+        // per costruzione un published_at NEL FUTURO, quindi maggiore di
+        // qualunque published_at di un candidato già pubblicato (sempre nel
+        // passato). Un ORDER BY published_at DESC "puro" piazzerebbe quindi
+        // SEMPRE ogni scheduled sicuro prima di OGNI pubblicato — con
+        // abbastanza scheduled sicuri eleggibili (>= MAX_CANDIDATES) i
+        // pubblicati non entrerebbero mai nella finestra del LIMIT,
+        // regressione silenziosa per un calendario editoriale con molti
+        // articoli programmati. Il pubblicato viene quindi sempre prima
+        // (CASE WHEN), a parità di quello resta l'ordinamento originale.
         $candidates = Article::query()
             ->eligibleAsLinkTargetFor($source)
             ->where('id', '!=', $source->id)
+            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END ASC', [Article::STATUS_PUBLISHED])
             ->orderByDesc('published_at')
             ->limit(self::MAX_CANDIDATES)
             ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at'])
@@ -1154,10 +1166,25 @@ class ArticleLinkSuggestionService
                     // target è stato rinominato tra "Inserisci" e questo
                     // salvataggio — cerca anche negli slug storici, non solo
                     // in quello attuale.
-                    $targetSlugs = [
-                        $target->slug,
-                        ...ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug'),
-                    ];
+                    $historicalSlugs = ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug');
+
+                    // Codex, PR #165, P2 round 4: un vecchio slug del target
+                    // può nel frattempo essere stato reclamato come slug
+                    // ATTUALE di un ARTICOLO DIVERSO (gli slug si liberano
+                    // quando l'articolo che li usava ne cambia) — la rotta
+                    // pubblica risolve sempre prima lo slug corrente di un
+                    // articolo, prima di consultare i redirect (vedi
+                    // ArticleController::show()), quindi un simile href nel
+                    // body punterebbe DAVVERO all'altro articolo, non più al
+                    // target di questo suggerimento. Va escluso dagli slug
+                    // storici "sicuri da ripulire", altrimenti si
+                    // rimuoverebbe un link valido verso un articolo estraneo.
+                    if ($historicalSlugs->isNotEmpty()) {
+                        $claimedByAnotherArticle = Article::whereIn('slug', $historicalSlugs)->pluck('slug');
+                        $historicalSlugs = $historicalSlugs->diff($claimedByAnotherArticle);
+                    }
+
+                    $targetSlugs = [$target->slug, ...$historicalSlugs->all()];
 
                     $strippedBody = $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
 

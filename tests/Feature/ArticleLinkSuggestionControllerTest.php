@@ -396,6 +396,64 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
     }
 
+    // 2g. Codex (PR #165, P2 round 4): se il vecchio slug liberato dal target rinominato
+    // viene nel frattempo reclamato come slug ATTUALE di un ARTICOLO DIVERSO, quell'href
+    // nel body punta DAVVERO all'altro articolo (la rotta pubblica risolve sempre prima lo
+    // slug corrente — vedi ArticleController::show()) — non va tolto come se fosse ancora
+    // il target diventato non sicuro, altrimenti si romperebbe un link valido ed estraneo.
+    public function test_admin_update_does_not_strip_a_link_whose_old_slug_was_reclaimed_by_another_article(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $originalTargetSlug = $target->slug;
+        $oldTargetUrl = route('articolo', $originalTargetSlug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$oldTargetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target viene rinominato (libera il suo vecchio slug, registrato
+        // come ArticleSlugRedirect) e retrocesso a bozza — diventa non sicuro.
+        $target->update([
+            'title' => 'Pannelli fotovoltaici di ultima generazione',
+            'slug' => 'pannelli-fotovoltaici-ultima-generazione-'.uniqid(),
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+
+        // Un ALTRO articolo, del tutto estraneo a questo suggerimento,
+        // reclama nel frattempo il vecchio slug ormai libero: l'href già nel
+        // body ora punta davvero a questo articolo, non più al target.
+        $otherArticle = $this->article(['user_id' => $editor->id, 'title' => 'Un altro articolo', 'slug' => $originalTargetSlug]);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        // Il suggerimento resta comunque superato: il target originale non è
+        // più sicuro, indipendentemente da chi possiede oggi il vecchio slug.
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        // Ma il link nel body NON va toccato: risolve legittimamente
+        // sull'altro articolo, non sul target diventato non sicuro.
+        $freshBody = $source->fresh()->body;
+        $this->assertStringContainsString('href="'.$oldTargetUrl.'"', $freshBody);
+        $this->assertSame($otherArticle->slug, $originalTargetSlug);
+    }
+
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
     public function test_ignore_marks_the_suggestion_and_it_is_not_re_proposed(): void
     {
