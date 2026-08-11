@@ -195,20 +195,23 @@ class ArticleSearchService
             }
         }
 
-        $scoreParts[] = '(CASE WHEN LOWER('.$this->normalizedColumnSql('title').') = ? THEN '.self::EXACT_TITLE_MATCH_BONUS.' ELSE 0 END)';
-        $bindings[] = mb_strtolower($this->tokenizer->normalizeUnicodePunctuation($query), 'UTF-8');
+        $normalizedQuery = $this->tokenizer->normalizeUnicodePunctuation($query);
+
+        $scoreParts[] = '(CASE WHEN LOWER('.$this->columnSql('title', $normalizedQuery).') = ? THEN '.self::EXACT_TITLE_MATCH_BONUS.' ELSE 0 END)';
+        $bindings[] = mb_strtolower($normalizedQuery, 'UTF-8');
 
         // I bonus di frase intera hanno senso solo con almeno due token:
         // una "frase" di un solo termine è già coperta dal peso per
         // campo sopra, ripeterla come bonus separato non aggiungerebbe
         // alcun segnale distintivo.
         if (count($tokens) >= 2) {
-            $phrasePattern = $this->likePattern(implode(' ', $tokens));
+            $phraseValue = implode(' ', $tokens);
+            $phrasePattern = $this->likePattern($phraseValue);
 
-            $scoreParts[] = "(CASE WHEN {$this->normalizedColumnSql('title')} LIKE ? ESCAPE '\\' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN {$this->columnSql('title', $phraseValue)} LIKE ? ESCAPE '\\' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
 
-            $scoreParts[] = "(CASE WHEN ({$this->normalizedColumnSql('excerpt')} LIKE ? ESCAPE '\\' OR {$this->normalizedColumnSql('body')} LIKE ? ESCAPE '\\') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN ({$this->columnSql('excerpt', $phraseValue)} LIKE ? ESCAPE '\\' OR {$this->columnSql('body', $phraseValue)} LIKE ? ESCAPE '\\') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
             $bindings[] = $phrasePattern;
 
@@ -241,7 +244,7 @@ class ArticleSearchService
         $fragments = [];
 
         foreach (array_keys(self::FIELD_WEIGHTS) as $field) {
-            $columnSql = $this->normalizedColumnSql($field);
+            $columnSql = $this->columnSql($field, $token);
             $clauses = array_map(fn () => "{$columnSql} LIKE ? ESCAPE '\\'", $patterns);
 
             $fragments[$field] = [
@@ -259,6 +262,33 @@ class ArticleSearchService
     }
 
     /**
+     * Codex (PR #166, round 3): avvolgere SEMPRE il campo in REPLACE()
+     * annidate (una per ogni coppia di UNICODE_PUNCTUATION_TO_ASCII, quindi
+     * fino a 7 chiamate annidate) moltiplicato per token/variante/campo/
+     * predicato (candidatura + ranking) può produrre oltre un centinaio di
+     * espressioni di normalizzazione per riga esaminata su una query a più
+     * token — costoso soprattutto su body, il campo più lungo. La
+     * normalizzazione serve SOLO a far combaciare trattini/apici
+     * tipografici: se il valore confrontato ($comparisonValue: un token, la
+     * frase intera, o la query normalizzata per il bonus di corrispondenza
+     * esatta) non contiene alcun '-' o "'" — la stragrande maggioranza delle
+     * query reali — non può esistere alcuna variante tipografica da
+     * normalizzare da nessuna delle due parti, quindi il confronto resta
+     * sul campo grezzo, senza REPLACE() alcuno.
+     */
+    private function columnSql(string $field, string $comparisonValue): string
+    {
+        return $this->needsPunctuationNormalization($comparisonValue)
+            ? $this->normalizedColumnSql($field)
+            : $field;
+    }
+
+    private function needsPunctuationNormalization(string $value): bool
+    {
+        return str_contains($value, '-') || str_contains($value, "'");
+    }
+
+    /**
      * Espressione SQL che legge $field applicando la stessa normalizzazione
      * di UNICODE_PUNCTUATION_TO_ASCII prima del confronto — REPLACE()
      * annidate, una per coppia, così sia il lato colonna sia il lato query
@@ -266,7 +296,8 @@ class ArticleSearchService
      * canonica. $field è sempre uno dei nomi fissi in FIELD_WEIGHTS (mai
      * input utente): i caratteri sorgente/destinazione sono costanti
      * nostre, quindi interpolarli come literal SQL qui non introduce alcun
-     * rischio di injection.
+     * rischio di injection. Chiamata solo tramite columnSql() sopra, mai
+     * incondizionatamente (vedi il suo docblock).
      */
     private function normalizedColumnSql(string $field): string
     {

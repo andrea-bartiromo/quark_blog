@@ -586,4 +586,41 @@ class SearchControllerTest extends TestCase
         $response->assertOk();
         $this->assertContains($article->id, $this->resultIds($response));
     }
+
+    // Codex (PR #166, round 3): avvolgere ogni campo in REPLACE() annidate
+    // (una per punteggiatura tipografica normalizzata) su OGNI token/campo/
+    // predicato, indipendentemente dal contenuto della query, moltiplica il
+    // costo per riga — soprattutto su body. Una query di soli token
+    // alfanumerici (nessun trattino/apice, la stragrande maggioranza delle
+    // query reali) non ha alcuna variante tipografica da normalizzare da
+    // nessuna delle due parti: la query SQL generata non deve contenere
+    // alcun REPLACE(). Una query con un trattino deve invece continuare a
+    // usarlo (prova che l'ottimizzazione non ha eroso la correttezza del
+    // fix del round 2).
+    public function test_plain_alphanumeric_query_never_wraps_columns_in_replace(): void
+    {
+        $this->article(['title' => 'Il test di Turing spiegato']);
+
+        DB::enableQueryLog();
+        $this->get(route('ricerca', ['q' => 'test turing']));
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        foreach ($queries as $query) {
+            $this->assertStringNotContainsStringIgnoringCase('REPLACE(', $query['query']);
+        }
+    }
+
+    public function test_hyphenated_query_still_wraps_columns_in_replace(): void
+    {
+        $this->article(['title' => "Wi\u{2011}Fi domestico"]);
+
+        DB::enableQueryLog();
+        $this->get(route('ricerca', ['q' => 'Wi-Fi']));
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $hasReplace = collect($queries)->contains(fn (array $q) => str_contains(strtoupper($q['query']), 'REPLACE('));
+        $this->assertTrue($hasReplace, 'Una query con trattino deve continuare a normalizzare la colonna.');
+    }
 }
