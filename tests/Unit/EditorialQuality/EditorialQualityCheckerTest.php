@@ -302,6 +302,63 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame(R::STATUS_FAIL, $result->status);
     }
 
+    /**
+     * Falso negativo segnalato in review: varianti numerate di un
+     * segnaposto reale ("TODO1", "TODO2", "FIXME42", "placeholder2") sono
+     * una convenzione comune per distinguere più segnaposti nello stesso
+     * articolo. Una cifra subito dopo il marker non deve mai bloccare il
+     * riconoscimento, a differenza di una lettera.
+     */
+    public function test_numbered_todo_variants_are_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO1: prima sezione mancante. TODO2: seconda sezione mancante.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_a_numbered_fixme_variant_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'excerpt' => 'FIXME42: questo sommario e\' ancora da rivedere completamente',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_a_numbered_placeholder_variant_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>placeholder2</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Contropartita del test precedente: una cifra dopo un marker non
+     * deve mai "sbloccare" un falso positivo sul lato lettera — "metodo1"
+     * resta comunque una parola legittima, perché "todo" è preceduto
+     * dalla lettera "e", non da un confine.
+     */
+    public function test_the_word_metodo_followed_by_a_digit_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il metodo1 utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
     public function test_todo_with_a_colon_is_still_detected(): void
     {
         $article = $this->completeArticle([

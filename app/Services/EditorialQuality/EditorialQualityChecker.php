@@ -271,22 +271,30 @@ class EditorialQualityChecker
     }
 
     /**
-     * Include \p{M} (segni diacritici combinanti) oltre a lettere/cifre:
-     * un accento o altro segno combinante è sempre "attaccato" al
-     * carattere base che lo precede nel testo (es. l'accento in "é"
-     * scritta in forma Unicode decomposta NFD, "e" + accento combinante)
-     * e non deve mai essere considerato un confine di parola. Senza
-     * questo, un marker subito dopo un segno combinante (es. "todo" in
-     * "método" scritta come "m,e,´,t,o,d,o") sembrerebbe iniziare una
-     * nuova parola. Coprire \p{M} direttamente qui gestisce sia le
-     * sequenze componibili in un carattere precomposto (NFC) sia quelle
-     * che non hanno un precomposto (es. segni diacritici usati in
-     * trascrizioni fonetiche) — normalizzare a NFC da solo risolverebbe
-     * solo il primo caso.
+     * Un carattere "di parola", ai fini del confine di un marker, è una
+     * lettera (\p{L}) o un segno diacritico combinante (\p{M}) — MAI una
+     * cifra (\p{N}). Le cifre sono deliberatamente escluse:
+     *
+     * - Le lettere estendono sempre una parola: "todo" preceduto da "me"
+     *   (come in "metodo") resta incorporato in una parola legittima.
+     * - I segni combinanti sono sempre "attaccati" al carattere base che
+     *   li precede nel testo (es. l'accento in "é" scritta in forma
+     *   Unicode decomposta NFD, "e" + accento combinante) e non
+     *   rappresentano mai un confine — sia che la sequenza sia componibile
+     *   in un carattere precomposto (NFC) sia che non lo sia (es. segni
+     *   diacritici usati in trascrizioni fonetiche).
+     * - Le cifre invece NON devono bloccare il riconoscimento: varianti
+     *   numerate di un segnaposto reale ("TODO1", "TODO2", "FIXME42",
+     *   "placeholder2") sono una convenzione comune e vanno comunque
+     *   rilevate. Nessuna parola italiana legittima ha mai una cifra
+     *   incollata direttamente a un marker come "todo"/"fixme"/ecc., quindi
+     *   non trattare le cifre come "di parola" qui non introduce falsi
+     *   positivi realistici sul lato lettere (quel confine resta gestito
+     *   da \p{L}/\p{M}, invariato).
      */
     private function isWordChar(string $char): bool
     {
-        return $char !== '' && preg_match('/[\p{L}\p{N}\p{M}]/u', $char) === 1;
+        return $char !== '' && preg_match('/[\p{L}\p{M}]/u', $char) === 1;
     }
 
     // ── MEDIA ────────────────────────────────────────────────────
