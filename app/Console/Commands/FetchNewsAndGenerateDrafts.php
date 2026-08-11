@@ -14,6 +14,7 @@ namespace App\Console\Commands;
 
 use App\Models\NewsSuggestion;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -65,7 +66,7 @@ class FetchNewsAndGenerateDrafts extends Command
         ],
         'ambiente' => [
             'https://www.greenreport.it/feed/',                            // GreenReport
-            'https://www.isprambiente.gov.it/it/rss/news.xml',            // ISPRA
+            'https://www.isprambiente.gov.it/it/rss/news.xml',             // ISPRA
         ],
     ];
 
@@ -92,6 +93,7 @@ class FetchNewsAndGenerateDrafts extends Command
         $isDryRun = $this->option('dry-run');
         $totalSaved = 0;
         $totalSkipped = 0;
+        $hadFailures = false;
 
         $feeds = $categoryFilter
             ? [$categoryFilter => ($this->feeds[$categoryFilter] ?? [])]
@@ -126,8 +128,27 @@ class FetchNewsAndGenerateDrafts extends Command
 
                     $this->line('   ✓ Trovata: <fg=green>'.Str::limit($item['title'], 70).'</>');
 
-                    if (! $isDryRun) {
+                    if ($isDryRun) {
+                        continue;
+                    }
+
+                    $lock = Cache::lock('news:fetch:item:'.sha1($item['url']), 120);
+                    if (! $lock->get()) {
+                        continue;
+                    }
+
+                    try {
+                        if (NewsSuggestion::where('source_url', $item['url'])->exists()) {
+                            continue;
+                        }
+
                         $draft = $this->generateDraftWithAI($item, $category, $source);
+                        if (! $this->isValidDraft($draft)) {
+                            $hadFailures = true;
+                            $this->warn('   ⚠ Bozza non generata: nessun suggerimento salvato.');
+
+                            continue;
+                        }
 
                         NewsSuggestion::create([
                             'source_title' => $item['title'],
@@ -135,14 +156,16 @@ class FetchNewsAndGenerateDrafts extends Command
                             'source_name' => $source,
                             'source_excerpt' => $item['excerpt'] ?? null,
                             'category' => $category,
-                            'generated_title' => $draft['title'] ?? null,
-                            'generated_excerpt' => $draft['excerpt'] ?? null,
-                            'generated_body' => $draft['body'] ?? null,
+                            'generated_title' => $draft['title'],
+                            'generated_excerpt' => $draft['excerpt'],
+                            'generated_body' => $draft['body'],
                             'status' => 'pending',
                             'fetched_at' => now(),
                         ]);
 
                         $totalSaved++;
+                    } finally {
+                        $lock->release();
                     }
                 }
             }
@@ -171,7 +194,7 @@ class FetchNewsAndGenerateDrafts extends Command
             }
         }
 
-        return Command::SUCCESS;
+        return $hadFailures ? Command::FAILURE : Command::SUCCESS;
     }
 
     private function fetchRssFeed(string $url): array
@@ -237,6 +260,17 @@ class FetchNewsAndGenerateDrafts extends Command
         }
 
         return false;
+    }
+
+    private function isValidDraft(array $draft): bool
+    {
+        foreach (['title', 'excerpt', 'body'] as $field) {
+            if (! isset($draft[$field]) || ! is_string($draft[$field]) || trim($draft[$field]) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
