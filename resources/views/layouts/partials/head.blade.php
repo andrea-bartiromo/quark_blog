@@ -54,13 +54,13 @@
         : $__env->yieldContent('description') !!}"
 >
 
+@hasSection('canonical')
+<meta property="og:url" content="@yield('canonical')">
+@else
 <meta property="og:url" content="{{ url()->current() }}">
+@endif
 
 @php
-    // Fallback globale: la maggior parte delle pagine (home, categorie,
-    // ricerca, pagine statiche) non definisce og_image/twitter_image, quindi
-    // finora non emetteva affatto il tag. trim() copre anche il caso limite
-    // di una sezione definita ma vuota (es. @section('og_image', $maybeNull)).
     $ogImage = trim((string) ($__env->hasSection('og_image') ? $__env->yieldContent('og_image') : ''));
     $ogImage = $ogImage !== '' ? $ogImage : asset(config('laboratorio.default_share_image'));
 
@@ -90,17 +90,6 @@
 
 <meta name="twitter:image" content="{{ $twitterImage }}">
 
-{{--
-    Google Analytics — Analytics Hygiene (docs/ANALYTICS_HYGIENE.md).
-
-    Lo script gtag.js viene emesso SOLO quando
-    AnalyticsExclusionService::shouldLoadAnalytics() e' vero per QUESTA
-    richiesta: nessun Measurement ID configurato, ambiente diverso da
-    "production" (locale/testing/staging non esplicitamente abilitato), o
-    il cookie kairus_analytics_excluded presente sul browser bloccano il
-    caricamento a monte. Deliberato: preferire il non caricamento rispetto
-    a inviare eventi marcati male e filtrarli solo dopo.
---}}
 @php
     $shouldLoadAnalytics = app(\App\Services\AnalyticsExclusionService::class)->shouldLoadAnalytics(request());
 @endphp
@@ -130,34 +119,17 @@ gtag('config', '{{ config('analytics.measurement_id') }}', {
 </script>
 @endif
 
-{{-- Google AdSense --}}
-{{--
-<script
-    async
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-    crossorigin="anonymous">
-</script>
---}}
-
 {{-- Google Fonts --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
 <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap"
     rel="stylesheet"
 >
 
-{{--
-    CSS — versionato tramite mtime del file (App\Support\VersionedAsset),
-    non un contatore manuale come il precedente "?v=10" di
-    premium-fixes.css: quel numero andava incrementato a mano a ogni
-    modifica ed era già stato dimenticato per gli altri 5 file, che non
-    avevano alcun cache busting.
---}}
+{{-- CSS pubblico versionato tramite mtime. --}}
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/style.css') }}">
-<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-premium.css') }}">
-<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-fix.css') }}">
+@yield('home_css')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-premium.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-unified.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/premium-fixes.css') }}">
