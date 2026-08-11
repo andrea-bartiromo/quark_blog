@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -57,22 +59,17 @@ jobs:
       - name: Execute tests
         run: php artisan test
 
-      - name: Check Pint on compatibility-pack PHP
-        run: >-
-          vendor/bin/pint --test
-          tests/Unit/ArticleSchedulingTest.php
-          tests/Feature/Admin/ArticleSchedulingTest.php
-          tests/Feature/Console/PublishScheduledArticlesTest.php
-          tests/Feature/HttpsCanonicalizationTest.php
-          tests/Unit/ArticleLinkSuggestionServiceTest.php
-          tests/Feature/ArticleLinkSuggestionControllerTest.php
-          tests/Unit/MediaWebpMigrationServiceTest.php
-          tests/Unit/MediaWebpCleanupServiceTest.php
-          tests/Feature/Admin/MediaMoveControllerTest.php
-          tests/Feature/Admin/MediaUsageAndDeletionTest.php
-          tests/Feature/Admin/AdminNavigationTest.php
-          tests/Feature/AnalyticsHygieneTest.php
-          tests/Feature/Admin/Communication/NewsletterModuleRegressionTest.php
+      - name: Check Pint on changed PHP files
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          PHP_FILES="$(git diff --name-only "$BASE_SHA"...HEAD -- '*.php')"
+          if [ -z "$PHP_FILES" ]; then
+            echo "No PHP files changed in this PR; Pint is not applicable."
+            exit 0
+          fi
+          vendor/bin/pint --test $PHP_FILES
 
   mariadb-compatibility:
     runs-on: ubuntu-latest
