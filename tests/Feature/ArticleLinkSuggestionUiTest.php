@@ -135,4 +135,88 @@ class ArticleLinkSuggestionUiTest extends TestCase
         // Ma il contenuto (escapato in modo script-safe) deve comunque essere presente.
         $response->assertSee('Titolo malevolo', false);
     }
+
+    // ── UX: un link salvato nel corpo deve restare riconoscibile nell'editor ──
+    //
+    // Riproduce l'articolo #13 reale: "Inserisci" ha già scritto
+    // correttamente <a href="...">intelligenza artificiale</a> nel body
+    // salvato (il meccanismo di inserimento backend NON è toccato da questa
+    // missione, solo lo styling dell'editor) — ma in TinyMCE il colore/
+    // sottolineatura del link non erano distinguibili dal testo normale.
+    // Questi test verificano solo ciò che PHPUnit può verificare davvero:
+    // che l'HTML salvato raggiunga intatto il campo dell'editor, e che la
+    // regola CSS che rende il link riconoscibile sia presente nella pagina.
+    // L'aspetto visivo effettivo (colore reso, contrasto) non è verificabile
+    // in PHPUnit — vedi la verifica manuale nella descrizione della PR.
+
+    public function test_a_saved_internal_link_reaches_the_admin_editor_intact(): void
+    {
+        $editor = $this->editor();
+        $target = $this->article(['title' => 'Target linkato']);
+        $article = $this->article([
+            'user_id' => $editor->id,
+            'body' => '<p>Testo introduttivo.</p><p>Un testo su <a href="'.route('articolo', $target->slug).'">intelligenza artificiale</a> spiegato bene.</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        // Il campo #body e' un <textarea>: il markup del body vi compare
+        // correttamente HTML-escapato nella risposta grezza (altrimenti un
+        // "<a href=...>" letterale chiuderebbe il tag <textarea> a metà) —
+        // e' esattamente cosi' che il browser/TinyMCE lo ricevono intatto,
+        // per poi decodificarlo leggendo il valore del campo. Verificare la
+        // forma escapata e' la prova corretta che l'HTML salvato raggiunge
+        // l'editor senza essere alterato o rimosso lungo il tragitto.
+        $response->assertSee(e('<a href="'.route('articolo', $target->slug).'">intelligenza artificiale</a>'), false);
+    }
+
+    public function test_the_admin_editor_styles_body_links_as_visually_recognizable(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article(['user_id' => $editor->id]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        // TinyMCE content_style: prima di questo fix definiva regole per
+        // body/heading/img/blockquote/table ma nessuna per "a" — un link
+        // salvato correttamente ereditava il colore del testo normale ed
+        // era visivamente indistinguibile. Verifica minima ma diretta:
+        // la regola per "a" con colore e sottolineatura è davvero nel
+        // content_style inviato al browser.
+        $response->assertSee('a {', false);
+        $response->assertSee('color: #0d9488;', false);
+        $response->assertSee('text-decoration: underline;', false);
+    }
+
+    public function test_the_redazione_editor_styles_body_links_as_visually_recognizable(): void
+    {
+        $author = $this->author();
+        $article = $this->article(['user_id' => $author->id, 'status' => 'review', 'published_at' => null]);
+
+        $response = $this->actingAs($author)->get(route('redazione.articles.edit', $article));
+
+        $response->assertOk();
+        $response->assertSee('a { color:#0d9488; text-decoration:underline; }', false);
+    }
+
+    // "Inserisci" resta un'azione che modifica solo il contenuto
+    // dell'editor: mai un submit automatico del form (invariato da questa
+    // missione, che non tocca il meccanismo di inserimento).
+    public function test_the_insert_suggestion_button_is_never_a_submit_button(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article(['user_id' => $editor->id]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        // La stringa e' costruita lato client (JS), ma il template statico
+        // che la genera e' inline nella pagina: verifica che il pulsante
+        // "Inserisci" sia dichiarato type="button" nel sorgente del
+        // template JS stesso, non in un <button> reale gia' renderizzato
+        // lato server (il rendering effettivo avviene dopo "Analizza").
+        $response->assertSee('\'<button type="button" class="btn btn--primary" data-link-suggestion-action="insert"', false);
+    }
 }

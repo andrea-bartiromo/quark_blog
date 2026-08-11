@@ -313,6 +313,238 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame('nature.com', $result->details['recognized_domain'] ?? null);
     }
 
+    // ── Fonti strutturate nel corpo (falso negativo reale, articolo #13) ──
+
+    /**
+     * Riproduce esattamente l'articolo reale "Il Test di Turing spiegato
+     * davvero": una sezione Fonti nel corpo con un elenco bibliografico
+     * classico, senza alcun URL — il falso negativo osservato in
+     * produzione (primary_sources mai compilato, sources_present in
+     * warning nonostante le fonti fossero chiaramente presenti nel body).
+     */
+    public function test_a_body_sources_heading_with_a_classic_bibliography_list_passes_without_urls(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul>
+                    <li>Alan M. Turing, Computing Machinery and Intelligence, Mind, Vol. 59, n. 236 (1950).</li>
+                    <li>Stanford Encyclopedia of Philosophy, The Turing Test.</li>
+                    <li>Encyclopaedia Britannica, Turing Test.</li>
+                    <li>John R. Searle, Minds, Brains and Programs, Behavioral and Brain Sciences (1980).</li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+        $this->assertSame('body_heading', $result->details['detected_in'] ?? null);
+    }
+
+    public function test_a_body_sources_heading_with_institutional_links_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul>
+                    <li><a href="https://www.acm.org/">ACM</a></li>
+                    <li><a href="https://www.computerhistory.org/">Computer History Museum</a></li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_a_bibliografia_heading_with_citations_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h2>Bibliografia</h2>
+                <ul>
+                    <li>Rossi, M., Introduzione alla relatività, Zanichelli (2015).</li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_an_english_sources_heading_is_recognized(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Sources</h3>
+                <ul>
+                    <li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_an_empty_sources_heading_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_a_sources_heading_followed_by_a_negation_sentence_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <p>Nessuna fonte disponibile per questo articolo.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_the_word_fonti_inside_ordinary_body_text_never_triggers_a_pass(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <p>Le fonti di questa scoperta non sono ancora state verificate del tutto, ma la comunità scientifica è ottimista.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_an_article_with_no_sources_anywhere_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso senza alcuna fonte. ', 15).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_a_sources_heading_after_several_other_sections_still_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<h2>Introduzione</h2>
+                <p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h2>Approfondimento</h2>
+                <p>'.str_repeat('Ulteriore testo scientifico reale. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul>
+                    <li>Stanford Encyclopedia of Philosophy, The Turing Test.</li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_html_entities_and_inline_formatting_inside_sources_still_pass(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti&nbsp;</h3>
+                <ul>
+                    <li>Alan M. Turing, &laquo;<em>Computing Machinery and Intelligence</em>&raquo;, <strong>Mind</strong>, Vol.&nbsp;59 (1950).</li>
+                </ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    // ── Fonti dopo il delimitatore "---" (seconda convenzione documentata,
+    // trovata in review — Codex): le linee guida Redazione istruiscono
+    // esplicitamente "Separa le fonti con --- alla fine del testo", e il
+    // renderer pubblico (articolo.blade.php) tratta già il testo dopo il
+    // primo "---" come fonti a se stanti. Un articolo scritto secondo
+    // questa convenzione non ha necessariamente una heading Fonti nel
+    // corpo, quindi va rilevato indipendentemente dal rilevamento a heading. ──
+
+    public function test_sources_after_the_delimiter_pass_without_urls_when_multiline(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Alan M. Turing, Computing Machinery and Intelligence, Mind, Vol. 59 (1950).
+                Stanford Encyclopedia of Philosophy, The Turing Test.',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+        $this->assertSame('body_delimiter', $result->details['detected_in'] ?? null);
+    }
+
+    public function test_a_single_line_after_the_delimiter_with_a_url_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Fonte: https://www.acm.org/turing-award',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_a_single_narrative_line_after_the_delimiter_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                Nessuna fonte disponibile per questo articolo.',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
+    public function test_an_empty_section_after_the_delimiter_still_warns(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                ---
+                   ',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+    }
+
     // ── Autore / categoria / pubblicazione ──
 
     public function test_a_missing_category_fails(): void
