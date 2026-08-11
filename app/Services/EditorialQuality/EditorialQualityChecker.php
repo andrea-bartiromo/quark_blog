@@ -7,7 +7,6 @@ use App\Models\Category;
 use App\Services\ArticleLinkInsertionService;
 use DOMDocument;
 use DOMElement;
-use DOMXPath;
 
 /**
  * Editorial Quality Gate V1 — controlli deterministici, sola lettura, mai
@@ -818,18 +817,25 @@ class EditorialQualityChecker
     }
 
     /**
-     * Tag "inline" (formattazione dentro una parola/frase, incl. gli span
-     * artefatto tipici degli incolla-da-Word/Docs in TinyMCE): il loro
-     * contenuto resta fuso con quello dei nodi adiacenti, perché non
-     * introducono mai una separazione visiva nel testo renderizzato (es.
-     * "<em>me</em>todo" è sempre "metodo" per un lettore). Qualunque altro
-     * elemento (blocco: <p>, <li>, <h2>, <br>, ...) inserisce invece uno
-     * spazio prima e dopo di sé: due elementi di blocco adiacenti
-     * nell'HTML salvato (es. "<p>testo</p><p>TODO</p>", tipico di un
-     * editor che non inserisce whitespace tra i tag) restano comunque due
-     * parole distinte.
+     * Tag "inline"/di fraseggio (formattazione dentro una parola/frase,
+     * incl. gli span artefatto tipici degli incolla-da-Word/Docs in
+     * TinyMCE): il loro contenuto resta fuso con quello dei nodi
+     * adiacenti, perché non introducono mai una separazione visiva nel
+     * testo renderizzato (es. "<em>me</em>todo" o "me<wbr>todo" sono
+     * sempre "metodo" per un lettore). Qualunque altro elemento (blocco:
+     * <p>, <li>, <h2>, <br>, ...) inserisce invece uno spazio prima e
+     * dopo di sé: due elementi di blocco adiacenti nell'HTML salvato (es.
+     * "<p>testo</p><p>TODO</p>", tipico di un editor che non inserisce
+     * whitespace tra i tag) restano comunque due parole distinte. Elenco
+     * basato sul contenuto di fraseggio HTML5 standard, non solo sui tag
+     * di formattazione più comuni.
      */
-    private const INLINE_TAGS = ['a', 'abbr', 'b', 'cite', 'code', 'del', 'em', 'i', 'ins', 'mark', 'q', 's', 'small', 'span', 'strike', 'strong', 'sub', 'sup', 'u'];
+    private const INLINE_TAGS = [
+        'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'del', 'dfn',
+        'em', 'i', 'ins', 'kbd', 'mark', 'output', 'q', 'rp', 'rt', 'ruby',
+        's', 'samp', 'small', 'span', 'strike', 'strong', 'sub', 'sup',
+        'time', 'u', 'var', 'wbr',
+    ];
 
     /**
      * Estrazione testo via DOMDocument (stesso approccio del resto della
@@ -837,7 +843,19 @@ class EditorialQualityChecker
      * combacia i tag con "[^>]*" tronca in anticipo davanti a un ">"
      * dentro un attributo tra virgolette (es. title="A > TODO"),
      * facendo trapelare testo di attributi nel corpo analizzato — un
-     * parser HTML vero non ha questo problema.
+     * parser HTML vero non ha questo problema, in nessun caso limite.
+     *
+     * Normalmente il div sintetico resta l'unico nodo di primo livello.
+     * Un tag di chiusura non bilanciato nell'HTML salvato può però farlo
+     * chiudere in anticipo (stesso bug già noto in TableOfContentsService
+     * e ArticleBodyImageService), lasciando il resto del contenuto come
+     * fratelli dello stesso wrapper: a differenza di quei due servizi
+     * (che rinunciano e restituiscono l'HTML originale, perché operano
+     * per il rendering), qui la scelta di "arrendersi" produrrebbe un
+     * corpo vuoto/troncato e un falso FAIL su "corpo vuoto" — quindi si
+     * raccoglie il testo da ogni nodo di primo livello del documento
+     * (uno solo, nel caso normale), senza bisogno di un secondo percorso
+     * di estrazione via regex.
      */
     private function plainText(string $html): string
     {
@@ -856,20 +874,25 @@ class EditorialQualityChecker
         libxml_clear_errors();
         libxml_use_internal_errors($previousLibxmlState);
 
-        $xpath = new DOMXPath($dom);
-        $root = $xpath->query('//div[@id="__plain_text_root__"]')->item(0);
+        $parts = [];
 
-        // Stessa guardia già applicata in TableOfContentsService e
-        // ArticleBodyImageService: un tag di chiusura non bilanciato
-        // nell'HTML salvato può far chiudere in anticipo il div
-        // sintetico. In quel caso ripiega su un'estrazione più semplice
-        // ma comunque sicura, invece di perdere silenziosamente parte
-        // del testo analizzato.
-        if ($root === null || $root->nextSibling !== null) {
-            return $this->plainTextFallback($trimmed);
+        foreach ($dom->childNodes as $node) {
+            if (! $node instanceof DOMElement) {
+                continue;
+            }
+
+            $this->insertBlockSeparators($dom, $node);
+            $parts[] = $node->textContent;
         }
 
-        foreach (iterator_to_array($root->getElementsByTagName('*')) as $element) {
+        $text = implode(' ', $parts);
+
+        return preg_replace('/\s+/u', ' ', $text) ?? $text;
+    }
+
+    private function insertBlockSeparators(DOMDocument $dom, DOMElement $scope): void
+    {
+        foreach (iterator_to_array($scope->getElementsByTagName('*')) as $element) {
             if (in_array(mb_strtolower($element->nodeName), self::INLINE_TAGS, true)) {
                 continue;
             }
@@ -877,25 +900,6 @@ class EditorialQualityChecker
             $element->parentNode?->insertBefore($dom->createTextNode(' '), $element);
             $element->parentNode?->insertBefore($dom->createTextNode(' '), $element->nextSibling);
         }
-
-        return preg_replace('/\s+/u', ' ', $root->textContent) ?? $root->textContent;
-    }
-
-    /**
-     * Fallback usato solo quando il parsing DOM non produce un albero
-     * affidabile (vedi guardia in plainText()): stessa distinzione
-     * blocco/inline, ma via regex invece che sull'albero DOM. Meno robusto
-     * su HTML con attributi contenenti ">", ma resta un ripiego
-     * accettabile per un caso limite già raro di suo.
-     */
-    private function plainTextFallback(string $html): string
-    {
-        $inlinePattern = implode('|', self::INLINE_TAGS);
-        $withoutInlineTags = (string) preg_replace('#</?(?:'.$inlinePattern.')(?:\s[^>]*)?>#i', '', $html);
-        $withBlockSeparators = (string) preg_replace('/<[^>]*>/', ' ', $withoutInlineTags);
-        $stripped = strip_tags($withBlockSeparators);
-
-        return html_entity_decode(preg_replace('/\s+/u', ' ', $stripped) ?? $stripped, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     private function wordCount(string $plainText): int

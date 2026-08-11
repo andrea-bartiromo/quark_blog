@@ -341,6 +341,45 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame(R::STATUS_PASS, $result->status);
     }
 
+    /**
+     * Falso positivo segnalato in review: <wbr> (punto di interruzione di
+     * parola facoltativo) e altri elementi di fraseggio HTML5 non comuni
+     * (time, kbd, samp, var, ...) non introducono mai uno spazio visibile
+     * — "me<wbr>todo" resta "metodo" per un lettore, esattamente come per
+     * i tag di formattazione già coperti dal test precedente.
+     */
+    public function test_a_legitimate_word_split_by_a_word_break_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il me<wbr>todo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: quando l'HTML salvato contiene
+     * un tag di chiusura non bilanciato (stesso bug di troncamento già
+     * noto altrove nel codice, vedi ArticleTableOfContentsTest), il
+     * contenuto successivo può finire "fuori" dal wrapper sintetico usato
+     * per il parsing. Anche in quel caso limite un marker dentro un
+     * attributo tra virgolette (mai visibile a un lettore) non deve mai
+     * essere rilevato: l'estrazione resta interamente basata su DOM, mai
+     * su una regex che potrebbe troncare a un ">" tra virgolette.
+     */
+    public function test_a_marker_inside_a_quoted_attribute_after_an_unbalanced_closing_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p></div><p><span title="A &gt; TODO">visibile</span></p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
     public function test_todo_inside_inline_formatting_tags_is_still_detected(): void
     {
         $article = $this->completeArticle([
