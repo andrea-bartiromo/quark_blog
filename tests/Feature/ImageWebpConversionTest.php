@@ -25,7 +25,15 @@ class ImageWebpConversionTest extends TestCase
         parent::setUp();
 
         $this->service = new ImageService;
-        $this->tempDir = sys_get_temp_dir().'/kairus-webp-'.uniqid('', true);
+        // ImageService restituisce sempre path normalizzati a "/" (mai
+        // DIRECTORY_SEPARATOR nativo, vedi ImageService::normalizePath()):
+        // su Windows sys_get_temp_dir() puo' restituire un path a
+        // backslash, che renderebbe un confronto assertSame() con il
+        // valore di ritorno fragile per un motivo puramente di stile del
+        // separatore, non di contenuto. Normalizzato qui una sola volta,
+        // cosi' ogni path costruito da $this->tempDir nel resto della
+        // classe e' gia' coerente con quel contratto.
+        $this->tempDir = str_replace('\\', '/', sys_get_temp_dir()).'/kairus-webp-'.uniqid('', true);
         mkdir($this->tempDir, 0775, true);
     }
 
@@ -349,7 +357,14 @@ class ImageWebpConversionTest extends TestCase
         $this->assertSame($this->tempDir.'/photo.webp', $result['full_path']);
         $this->assertFileExists($result['full_path']);
         $this->assertFileDoesNotExist($source, 'il JPG originale deve essere rimosso dopo la sostituzione con il WebP.');
-        $this->assertSame(IMAGETYPE_WEBP, exif_imagetype($result['full_path']));
+        // getimagesize(), non exif_imagetype(): l'estensione EXIF e'
+        // opzionale in produzione (vedi ImageService::applyExifOrientation(),
+        // che degrada con grazia se function_exists('exif_read_data') e'
+        // falso) e non e' garantita su ogni ambiente Windows — verificare
+        // il tipo reale del file scritto non deve introdurre una
+        // dipendenza che il codice applicativo stesso non richiede.
+        [, , $writtenType] = getimagesize($result['full_path']);
+        $this->assertSame(IMAGETYPE_WEBP, $writtenType);
     }
 
     public function test_auto_convert_replaces_a_png_upload_with_webp_preserving_transparency(): void

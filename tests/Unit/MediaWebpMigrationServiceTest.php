@@ -135,7 +135,17 @@ class MediaWebpMigrationServiceTest extends TestCase
     {
         $this->putImage('real.jpg');
         $linkPath = $this->mediaDir().'/link.jpg';
-        symlink($this->mediaDir().'/real.jpg', $linkPath);
+
+        // symlink() richiede Developer Mode o privilegi elevati su Windows:
+        // un ambiente senza quel privilegio non e' un bug del servizio, e'
+        // un limite dell'ambiente stesso. "@" sopprime il warning nativo
+        // cosi' che PHPUnit non lo converta in un'eccezione che farebbe
+        // fallire il test per il motivo sbagliato — il comportamento reale
+        // del servizio (rifiutare un sorgente symlink) resta verificato
+        // ovunque symlink() sia effettivamente disponibile.
+        if (! @symlink($this->mediaDir().'/real.jpg', $linkPath)) {
+            $this->markTestSkipped('symlink() non disponibile in questo ambiente (su Windows richiede Developer Mode o privilegi elevati): impossibile verificare il rifiuto di un source symlink.');
+        }
 
         $media = $this->media('link.jpg');
 

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Media;
+use App\Services\Concerns\DetectsAbsolutePaths;
 use App\Services\MediaClassificationPlan;
 use App\Services\MediaClassificationResult;
 use App\Services\MediaClassificationService;
@@ -13,6 +14,8 @@ use Throwable;
 
 class ClassifyExistingMedia extends Command
 {
+    use DetectsAbsolutePaths;
+
     protected $signature = 'media:classify-existing
         {--apply : Applica gli spostamenti pianificati (default: sola analisi, nessuna modifica)}
         {--media-id=* : Limita l\'analisi a uno o piu ID Media specifici}
@@ -380,6 +383,6 @@ class ClassifyExistingMedia extends Command
 
     private function resolveReportPath(string $path): string
     {
-        return str_starts_with($path, '/') ? $path : base_path($path);
+        return $this->isAbsolutePath($path) ? $path : base_path($path);
     }
 }
