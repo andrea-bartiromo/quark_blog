@@ -25,7 +25,7 @@ class SearchController extends Controller
             $results = $this->searchService->search(
                 $query,
                 $category ?: null,
-                $authorId ? (int) $authorId : null,
+                $this->normalizeAuthorFilter($authorId),
                 $from ?: null,
                 $to ?: null
             );
@@ -35,5 +35,27 @@ class SearchController extends Controller
         $categories = config('laboratorio.categories');
 
         return view('ricerca', compact('query', 'results', 'category', 'authorId', 'from', 'to', 'authors', 'categories'));
+    }
+
+    /**
+     * Codex (PR #166, round 1): un cast diretto a (int) su un valore
+     * arbitrario in query string produce risultati silenziosamente
+     * sbagliati — "abc" diventa 0 (falsy, il filtro autore verrebbe
+     * saltato del tutto, mostrando TUTTI gli articoli invece di nessuno),
+     * "1abc" diventa 1 (un ID valido ma non quello digitato, filtro
+     * silenziosamente sbagliato). Un valore non composto solo da cifre
+     * diventa qui l'ID 0, che ArticleSearchService::search() applica
+     * comunque come vincolo esplicito (mai saltato solo perché "falsy") —
+     * nessun autore reale ha id 0 (autoincrement da 1), quindi produce
+     * correttamente zero risultati, come faceva il confronto letterale
+     * precedente.
+     */
+    private function normalizeAuthorFilter(string $authorId): ?int
+    {
+        if ($authorId === '') {
+            return null;
+        }
+
+        return ctype_digit($authorId) ? (int) $authorId : 0;
     }
 }

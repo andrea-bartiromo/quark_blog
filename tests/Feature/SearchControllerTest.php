@@ -329,6 +329,42 @@ class SearchControllerTest extends TestCase
         $this->assertNotContains($wrongAuthor->id, $ids);
     }
 
+    // 18b. Codex (PR #166, round 1): un valore "autore" malformato (non numerico) non deve
+    // essere silenziosamente scartato (mostrando TUTTI gli autori) né far coincidere un ID
+    // arbitrario diverso da quello digitato — deve produrre zero risultati, come un autore
+    // che non esiste.
+    public function test_malformed_author_filter_returns_zero_results_not_everyone(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $this->article(['user_id' => $author->id, 'title' => 'Turing e la crittografia']);
+        $this->article(['user_id' => $author->id, 'title' => 'Un altro articolo qualunque']);
+
+        $response = $this->get(route('ricerca', ['autore' => 'abc']));
+
+        $response->assertOk();
+        $results = $response->viewData('results');
+
+        $this->assertInstanceOf(LengthAwarePaginator::class, $results);
+        $this->assertSame(0, $results->total());
+    }
+
+    // 18c. Codex (PR #166, round 1): "1abc" non deve essere silenziosamente interpretato
+    // come l'autore con ID 1 — è un valore malformato, non l'ID digitato.
+    public function test_author_filter_with_trailing_garbage_does_not_match_the_leading_digits(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $article = $this->article(['user_id' => $author->id, 'title' => 'Turing e la crittografia']);
+
+        $response = $this->get(route('ricerca', ['autore' => $author->id.'abc']));
+
+        $response->assertOk();
+        $results = $response->viewData('results');
+
+        $this->assertInstanceOf(LengthAwarePaginator::class, $results);
+        $this->assertSame(0, $results->total());
+        $this->assertNotContains($article->id, $this->resultIds($response));
+    }
+
     // 19. Filtro date + testo insieme
     public function test_date_filters_combined_with_text_still_work(): void
     {

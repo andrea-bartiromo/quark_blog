@@ -170,6 +170,17 @@ dal numero di token nella query o dalla dimensione del catalogo (vedi
   HTML) — nessuna normalizzazione/indicizzazione separata introdotta.
 - Ranking euristico, non probabilistico; nessun machine learning,
   nessuna personalizzazione.
+- **Case-folding non Unicode-aware su SQLite.** `LIKE` in SQLite
+  ripiega maiuscole/minuscole solo per l'ASCII: una query `è` non trova
+  un titolo che inizia con la maiuscola accentata "È" (comune in
+  italiano a inizio frase). Su MySQL con collation `utf8mb4_*_ci`
+  (tipica configurazione di produzione) questo non è un problema — il
+  confronto è già case/accent-insensitive nativamente. Un fix
+  realmente portabile richiederebbe o l'estensione ICU di SQLite (non
+  garantita disponibile) o una funzione SQLite custom registrata via
+  PDO (nuova infrastruttura di connessione, non solo query) — rimandato
+  a Search V2. Non influisce sulla stragrande maggioranza delle query
+  (minuscole, ASCII, o termine non a inizio titolo).
 
 Questi limiti sono scelte deliberate di scope per una V1 lessicale
 locale, non bug.

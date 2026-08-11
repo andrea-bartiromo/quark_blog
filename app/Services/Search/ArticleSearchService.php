@@ -79,7 +79,13 @@ class ArticleSearchService
             $builder->where('category', $category);
         }
 
-        if ($authorId) {
+        // Codex (PR #166, round 1): !== null, non un controllo "truthy" —
+        // un ID 0 (sentinella per un valore malformato non risolvibile, vedi
+        // SearchController::normalizeAuthorFilter()) deve restare un vincolo
+        // applicato (nessun autore reale ha id 0, quindi produce zero
+        // risultati), non essere saltato come se nessun filtro fosse stato
+        // richiesto.
+        if ($authorId !== null) {
             $builder->where('user_id', $authorId);
         }
 
