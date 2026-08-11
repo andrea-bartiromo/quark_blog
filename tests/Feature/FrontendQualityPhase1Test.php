@@ -75,6 +75,20 @@ class FrontendQualityPhase1Test extends TestCase
         $this->assertStringContainsString('animation: none;', $css);
     }
 
+    public function test_google_fonts_are_loaded_once_from_the_document_head(): void
+    {
+        $response = $this->get(route('home'));
+        $response->assertOk();
+
+        $response->assertSee('<link rel="preconnect" href="https://fonts.googleapis.com">', false);
+        $response->assertSee('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>', false);
+        $response->assertSee('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans', false);
+
+        $css = file_get_contents(public_path('css/style.css'));
+
+        $this->assertStringNotContainsString('@import url(\'https://fonts.googleapis.com/', $css);
+    }
+
     public function test_homepage_styles_are_scoped_to_home_and_remain_versioned(): void
     {
         $home = $this->get(route('home'));
