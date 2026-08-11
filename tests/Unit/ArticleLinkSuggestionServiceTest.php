@@ -981,4 +981,63 @@ class ArticleLinkSuggestionServiceTest extends TestCase
             'Il target pubblicato, chiaramente pertinente, non deve essere scalzato da candidati scheduled irrilevanti che riempiono la finestra del LIMIT.'
         );
     }
+
+    /**
+     * Codex (PR #165, P2 round 5): il fix del round 4 (pubblicati sempre
+     * prima nell'ordinamento) risolve il caso "troppi scheduled sicuri" ma
+     * introduce il caso SIMMETRICO — un corpus maturo con >= MAX_CANDIDATES
+     * pubblicati riempirebbe da solo l'intera finestra del LIMIT, e
+     * analyzeForSource() non potrebbe MAI produrre un suggerimento
+     * scheduled->scheduled, l'intero scopo di questa missione. Le due quote
+     * (pubblicati e scheduled sicuri) sono ora riservate SEPARATAMENTE:
+     * qui il pool contiene più pubblicati di quanti la sola quota pubblicati
+     * ne possa contenere, più UNO scheduled sicuro chiaramente pertinente
+     * che deve comunque comparire.
+     */
+    public function test_published_candidates_do_not_crowd_out_an_eligible_scheduled_safe_target(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+
+        $scheduledSafeTarget = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Superconduttori ad alta temperatura',
+            'slug' => 'superconduttori-alta-temperatura-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>I superconduttori ad alta temperatura promettono applicazioni rivoluzionarie.</p>',
+            'category' => 'fisica',
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(5),
+        ]);
+
+        for ($i = 0; $i < 305; $i++) {
+            Article::create([
+                'user_id' => $author->id,
+                'title' => 'Articolo pubblicato di riempimento '.$i.'-'.uniqid('', true),
+                'slug' => 'crowd-pub-'.$i.'-'.uniqid('', true),
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>'.str_repeat('Testo generico senza alcuna relazione tematica. ', 15).'</p>',
+                'category' => 'energia',
+                'status' => 'published',
+                'published_at' => now()->subDays($i + 1),
+            ]);
+        }
+
+        $source = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Materiali del futuro per l\'elettronica',
+            'slug' => 'materiali-futuro-elettronica-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Tra i materiali più promettenti ci sono i Superconduttori ad alta temperatura, oggetto di ricerca intensa.</p>',
+            'category' => 'fisica',
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(10),
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertTrue(
+            $suggestions->contains('target_article_id', $scheduledSafeTarget->id),
+            'Il target scheduled sicuro, chiaramente pertinente, non deve essere scalzato da un corpus maturo di pubblicati irrilevanti.'
+        );
+    }
 }

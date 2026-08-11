@@ -169,6 +169,20 @@ class ArticleLinkSuggestionService
     /** Limite candidati per restare compatibile con FASE 8 (calcolo on-demand, mai su ogni keypress). */
     private const MAX_CANDIDATES = 300;
 
+    /**
+     * V2.1 (Codex, PR #165, P2 round 4 e round 5) — quota RISERVATA per i
+     * candidati scheduled temporalmente sicuri, indipendente dalla quota
+     * dei pubblicati: senza due quote separate, qualunque criterio unico di
+     * ordinamento/LIMIT condiviso permette a un gruppo abbastanza numeroso
+     * di scalzare completamente l'altro dalla finestra di MAX_CANDIDATES
+     * (visto in entrambe le direzioni — vedi analyzeForSource()). Il resto
+     * della quota (MAX_CANDIDATES - questa) resta ai pubblicati. Il valore
+     * è deliberatamente più piccolo di MAX_CANDIDATES: un calendario
+     * editoriale realistico ha molti meno articoli scheduled-prima-di-questa-
+     * source che pubblicati in tutta la storia del sito.
+     */
+    private const MAX_SCHEDULED_SAFE_CANDIDATES = 50;
+
     private const MAX_RETROACTIVE_SOURCE_CANDIDATES = 200;
 
     // Stopword italiane comuni: articoli, preposizioni, congiunzioni,
@@ -289,32 +303,44 @@ class ArticleLinkSuggestionService
 
         $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $source->body);
 
-        // Article::eligibleAsLinkTargetFor() è un pre-filtro SQL (evita di
-        // caricare — e di far competere per lo slot nel LIMIT sotto —
-        // candidati che non potrebbero mai essere eleggibili). La riga
-        // subito dopo il fetch riapplica la STESSA regola
-        // (isTargetSafeForSource()) come garanzia definitiva sui modelli
-        // realmente caricati: la correttezza non dipende dalla query SQL
-        // essere scritta esattamente giusta, solo dalla policy PHP
-        // (single source of truth), che l'audit usa allo stesso modo.
+        // Article::published()/scopeScheduledSafeAsLinkTargetFor() sono
+        // pre-filtri SQL (evitano di caricare — e di far competere per uno
+        // slot nel LIMIT sotto — candidati che non potrebbero mai essere
+        // eleggibili). Il filter() subito dopo il fetch riapplica la STESSA
+        // regola (isTargetSafeForSource()) come garanzia definitiva sui
+        // modelli realmente caricati: la correttezza non dipende dalla
+        // query SQL essere scritta esattamente giusta, solo dalla policy
+        // PHP (single source of truth), che l'audit usa allo stesso modo.
         //
-        // Codex (PR #165, P2 round 4): un candidato 'scheduled' sicuro ha
-        // per costruzione un published_at NEL FUTURO, quindi maggiore di
-        // qualunque published_at di un candidato già pubblicato (sempre nel
-        // passato). Un ORDER BY published_at DESC "puro" piazzerebbe quindi
-        // SEMPRE ogni scheduled sicuro prima di OGNI pubblicato — con
-        // abbastanza scheduled sicuri eleggibili (>= MAX_CANDIDATES) i
-        // pubblicati non entrerebbero mai nella finestra del LIMIT,
-        // regressione silenziosa per un calendario editoriale con molti
-        // articoli programmati. Il pubblicato viene quindi sempre prima
-        // (CASE WHEN), a parità di quello resta l'ordinamento originale.
-        $candidates = Article::query()
-            ->eligibleAsLinkTargetFor($source)
+        // Codex (PR #165, P2 round 4 e round 5): una singola query con
+        // ORDER BY + LIMIT condiviso tra pubblicati e scheduled sicuri non
+        // può mai essere corretta in entrambe le direzioni contemporaneamente
+        // — qualunque criterio di ordinamento fa sì che UN gruppo, se
+        // abbastanza numeroso, riempia da solo l'intera finestra del LIMIT
+        // ed escluda sistematicamente l'altro (round 4: senza priorità gli
+        // scheduled sicuri, sempre nel futuro, scalzavano i pubblicati;
+        // round 5: dando priorità ai pubblicati, un corpus maturo con
+        // >= MAX_CANDIDATES pubblicati scalzava a sua volta ogni scheduled
+        // sicuro). L'unica soluzione strutturalmente corretta è interrogare
+        // i due gruppi SEPARATAMENTE, ciascuno con una propria quota
+        // riservata indipendente dalla dimensione dell'altro gruppo.
+        $publishedCandidates = Article::published()
             ->where('id', '!=', $source->id)
-            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END ASC', [Article::STATUS_PUBLISHED])
-            ->orderByDesc('published_at')
-            ->limit(self::MAX_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at'])
+            ->limit(self::MAX_CANDIDATES - self::MAX_SCHEDULED_SAFE_CANDIDATES)
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
+
+        $scheduledSafeCandidates = collect();
+
+        if ($source->isScheduled() && $source->published_at !== null) {
+            $scheduledSafeCandidates = Article::query()
+                ->scheduledSafeAsLinkTargetFor($source)
+                ->where('id', '!=', $source->id)
+                ->orderByDesc('published_at')
+                ->limit(self::MAX_SCHEDULED_SAFE_CANDIDATES)
+                ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
+        }
+
+        $candidates = $publishedCandidates->concat($scheduledSafeCandidates)
             ->filter(fn (Article $candidate) => $this->temporalEligibility->isTargetSafeForSource($source, $candidate))
             ->values();
 
@@ -338,12 +364,12 @@ class ArticleLinkSuggestionService
         // perso l'eleggibilità temporale da quando fu proposto (riprogrammato
         // DOPO $source, o retrocesso a bozza/revisione) non deve restare
         // "proposed" indefinitamente in attesa che il loop sotto lo
-        // incontri — per costruzione non lo incontrerà mai più, perché
-        // Article::eligibleAsLinkTargetFor() lo esclude già a monte da
-        // $candidates. Senza questo passaggio esplicito resterebbe
-        // silenziosamente inseribile (ArticleLinkSuggestionController::
-        // insert() lo riverifica comunque, vedi lì, ma un suggerimento
-        // stantio non deve nemmeno restare visibile nel pannello).
+        // incontri — per costruzione non lo incontrerà mai più, perché il
+        // filter() sopra lo esclude già a monte da $candidates. Senza
+        // questo passaggio esplicito resterebbe silenziosamente inseribile
+        // (ArticleLinkSuggestionController::insert() lo riverifica comunque,
+        // vedi lì, ma un suggerimento stantio non deve nemmeno restare
+        // visibile nel pannello).
         foreach ($existing as $existingSuggestion) {
             if (! $existingSuggestion->isActionable()) {
                 continue;
@@ -1168,20 +1194,34 @@ class ArticleLinkSuggestionService
                     // in quello attuale.
                     $historicalSlugs = ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug');
 
-                    // Codex, PR #165, P2 round 4: un vecchio slug del target
-                    // può nel frattempo essere stato reclamato come slug
-                    // ATTUALE di un ARTICOLO DIVERSO (gli slug si liberano
-                    // quando l'articolo che li usava ne cambia) — la rotta
-                    // pubblica risolve sempre prima lo slug corrente di un
-                    // articolo, prima di consultare i redirect (vedi
-                    // ArticleController::show()), quindi un simile href nel
-                    // body punterebbe DAVVERO all'altro articolo, non più al
+                    // Codex, PR #165, P2 round 4 e round 5: un vecchio slug
+                    // del target può nel frattempo essere stato reclamato
+                    // come slug ATTUALE di un ARTICOLO DIVERSO (gli slug si
+                    // liberano quando l'articolo che li usava ne cambia) —
+                    // la rotta pubblica risolve sempre prima lo slug
+                    // corrente di un articolo (Article::published(), vedi
+                    // ArticleController::show()), quindi un simile href
+                    // punterebbe DAVVERO all'altro articolo, non più al
                     // target di questo suggerimento. Va escluso dagli slug
-                    // storici "sicuri da ripulire", altrimenti si
-                    // rimuoverebbe un link valido verso un articolo estraneo.
+                    // storici "sicuri da ripulire" SOLO se il nuovo
+                    // proprietario è a sua volta temporalmente sicuro per
+                    // questa source (round 5): la semplice esistenza di un
+                    // reclamante non basta — Article::published() richiede
+                    // status=published, quindi un reclamante ancora
+                    // draft/review/scheduled non risolverebbe comunque
+                    // l'href ora, e il redirect storico (che punta ancora al
+                    // VECCHIO target, non sicuro) lo farebbe fallire
+                    // ugualmente: lasciare lo slug nel body produrrebbe lo
+                    // stesso 404 che questa pulizia esiste per evitare.
                     if ($historicalSlugs->isNotEmpty()) {
-                        $claimedByAnotherArticle = Article::whereIn('slug', $historicalSlugs)->pluck('slug');
-                        $historicalSlugs = $historicalSlugs->diff($claimedByAnotherArticle);
+                        $reclaimingArticles = Article::whereIn('slug', $historicalSlugs)
+                            ->get(['slug', 'status', 'published_at']);
+
+                        $safelyReclaimedSlugs = $reclaimingArticles
+                            ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
+                            ->pluck('slug');
+
+                        $historicalSlugs = $historicalSlugs->diff($safelyReclaimedSlugs);
                     }
 
                     $targetSlugs = [$target->slug, ...$historicalSlugs->all()];

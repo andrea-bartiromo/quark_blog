@@ -66,7 +66,7 @@ File principali:
 | `app/Services/InternalLinking/InternalLinkAuditService.php` | **Nuovo (V2)** — audit read-only dell'intero corpus |
 | `app/Console/Commands/InternalLinkAuditCommand.php` | **Nuovo (V2)** — `content:internal-link-audit` |
 | `app/Services/InternalLinking/InternalLinkTemporalEligibility.php` | **Nuovo (V2.1)** — unica policy di eleggibilità temporale (`isTargetSafeForSource()`), condivisa da suggeritore e audit |
-| `Article::scopeEligibleAsLinkTargetFor()` (`app/Models/Article.php`) | **Nuovo (V2.1)** — pre-filtro SQL della stessa regola, per la candidate selection del suggeritore |
+| `Article::scopeScheduledSafeAsLinkTargetFor()` (`app/Models/Article.php`) | **Nuovo (V2.1)** — pre-filtro SQL del ramo scheduled sicuro, interrogato con quota propria separata dai pubblicati |
 | `resources/views/partials/article-link-suggestions.blade.php` | UI "Analizza / Inserisci / Ignora" nel form articolo |
 | `resources/views/admin/articles.blade.php` | Badge "🔗 N articoli" sugli articoli programmati |
 
@@ -209,12 +209,15 @@ definizione di questa regola, condivisa dal suggeritore e dall'audit:
 Bozze/revisione non entrano mai nel pool, in nessun caso. Un articolo
 `scheduled` con `published_at` **successivo** a quello della sorgente (o
 una sorgente non `scheduled` — draft/review/già pubblicata) non entra
-nel pool: la query del suggeritore
-(`Article::eligibleAsLinkTargetFor($source)`, pre-filtro SQL) e la
-verifica finale in memoria (`isTargetSafeForSource()`, applicata di
-nuovo dopo il fetch come garanzia definitiva — la correttezza non
-dipende dalla query SQL, solo da questo metodo) le escludono entrambe a
-monte.
+nel pool: le due query del suggeritore (`Article::published()` e
+`Article::scheduledSafeAsLinkTargetFor($source)`, interrogate
+SEPARATAMENTE con quote `LIMIT` indipendenti — un'unica query con
+ordinamento/limite condiviso tra pubblicati e scheduled sicuri non può
+restare corretta quando uno dei due gruppi è numeroso, vedi
+`ArticleLinkSuggestionService::analyzeForSource()`) e la verifica finale
+in memoria (`isTargetSafeForSource()`, applicata di nuovo dopo il fetch
+come garanzia definitiva — la correttezza non dipende dalle query SQL,
+solo da questo metodo) le escludono entrambe a monte.
 
 L'**audit** (§10), a differenza del suggeritore, osserva anche i link
 *già presenti* nel body: un target non pubblico e non temporalmente

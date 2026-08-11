@@ -209,44 +209,35 @@ class Article extends Model
     }
 
     /**
-     * Internal Linking V2.1 — pre-filtro SQL per la candidate selection del
-     * suggeritore (App\Services\ArticleLinkSuggestionService::
-     * analyzeForSource()): stessa regola di
-     * App\Services\InternalLinking\InternalLinkTemporalEligibility::
-     * isTargetSafeForSource(), qui a livello DB per due motivi — evitare di
-     * caricare in memoria candidati che non potrebbero mai essere eleggibili
-     * (draft/review, o scheduled con published_at nel futuro rispetto a
-     * $source), e soprattutto evitare che l'ORDER BY published_at DESC +
-     * LIMIT già in uso venga "affollato" da articoli scheduled con
-     * published_at futuro (che altrimenti si piazzerebbero PRIMA di ogni
-     * articolo pubblicato in un ordinamento decrescente), scalzando
-     * candidati pubblicati genuinamente eleggibili dalla finestra dei primi
-     * MAX_CANDIDATES risultati.
+     * Internal Linking V2.1 — pre-filtro SQL per SOLO il ramo "scheduled
+     * temporalmente sicuro" della candidate selection del suggeritore
+     * (App\Services\ArticleLinkSuggestionService::analyzeForSource()):
+     * stessa regola di App\Services\InternalLinking\
+     * InternalLinkTemporalEligibility::isTargetSafeForSource() ramo B, qui
+     * a livello DB per evitare di caricare in memoria candidati che non
+     * potrebbero mai essere eleggibili (draft/review, o scheduled con
+     * published_at non strettamente precedente a quello di $source).
      *
-     * Questo filtro SQL è deliberatamente scritto per rispecchiare
-     * ESATTAMENTE isTargetSafeForSource() (stessa regola, due
-     * implementazioni necessariamente distinte per il contesto in cui
-     * girano: qui a monte di una query, là su modelli già caricati in
-     * memoria dall'audit, che non esegue una query per ogni confronto) — la
-     * fonte di verità applicativa resta comunque
+     * Interrogato SEPARATAMENTE dai candidati pubblicati (scopePublished()),
+     * ciascuno con una propria quota LIMIT indipendente (Codex, PR #165, P2
+     * round 4 e round 5): un'unica query con ORDER BY/LIMIT condiviso tra i
+     * due gruppi non può restare corretta in entrambe le direzioni — un
+     * gruppo abbastanza numeroso scalza sempre l'altro dalla finestra dei
+     * candidati, qualunque sia il criterio di ordinamento scelto tra i due.
+     *
+     * Il chiamante invoca questo scope solo quando $source stessa è
+     * 'scheduled' con published_at valorizzato (altrimenti il ramo B non si
+     * applica mai — vedi isTargetSafeForSource()); lo scope non ripete qui
+     * quel controllo. La fonte di verità applicativa resta comunque
      * isTargetSafeForSource(), riapplicata subito dopo il fetch in
      * analyzeForSource() come garanzia definitiva indipendente da questa
      * query (vedi commento lì).
      */
-    public function scopeEligibleAsLinkTargetFor(Builder $q, self $source): Builder
+    public function scopeScheduledSafeAsLinkTargetFor(Builder $q, self $source): Builder
     {
-        return $q->where(function (Builder $eligible) use ($source) {
-            $eligible->where('status', self::STATUS_PUBLISHED)
-                ->where('published_at', '<=', now());
-
-            if ($source->isScheduled() && $source->published_at !== null) {
-                $eligible->orWhere(function (Builder $safeScheduled) use ($source) {
-                    $safeScheduled->where('status', self::STATUS_SCHEDULED)
-                        ->whereNotNull('published_at')
-                        ->where('published_at', '<', $source->published_at);
-                });
-            }
-        });
+        return $q->where('status', self::STATUS_SCHEDULED)
+            ->whereNotNull('published_at')
+            ->where('published_at', '<', $source->published_at);
     }
 
     // ── Stato ─────────────────────────────────────────────────
