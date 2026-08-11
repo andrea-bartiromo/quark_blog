@@ -55,6 +55,27 @@ class ArticleSearchService
     /** La frase intera compare in excerpt o body — bonus più piccolo del caso titolo (item F). */
     private const FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS = 15;
 
+    /**
+     * Stessa mappa di SearchTokenizer::normalizeUnicodePunctuation(),
+     * applicata qui al VALORE DI COLONNA via REPLACE() SQL annidate (Codex,
+     * PR #166 round 2): il tokenizer normalizza solo la query, quindi un
+     * titolo con punteggiatura tipografica reale come "Wi‑Fi" (trattino
+     * tipografico) non veniva mai trovato da una query digitata con il
+     * trattino ASCII "Wi-Fi" — solo un lato era normalizzato. REPLACE() è
+     * SQL standard, portabile su SQLite e MySQL. I caratteri sono costanti
+     * fisse definite da noi (non input utente): nessun rischio di
+     * injection nell'interpolarli come literal SQL in normalizedColumnSql().
+     */
+    private const UNICODE_PUNCTUATION_TO_ASCII = [
+        "\u{2010}" => '-',
+        "\u{2011}" => '-',
+        "\u{2012}" => '-',
+        "\u{2013}" => '-',
+        "\u{2014}" => '-',
+        "\u{2212}" => '-',
+        "\u{2019}" => "'",
+    ];
+
     public function __construct(private readonly SearchTokenizer $tokenizer = new SearchTokenizer) {}
 
     /**
@@ -174,8 +195,8 @@ class ArticleSearchService
             }
         }
 
-        $scoreParts[] = '(CASE WHEN LOWER(title) = ? THEN '.self::EXACT_TITLE_MATCH_BONUS.' ELSE 0 END)';
-        $bindings[] = mb_strtolower($query, 'UTF-8');
+        $scoreParts[] = '(CASE WHEN LOWER('.$this->normalizedColumnSql('title').') = ? THEN '.self::EXACT_TITLE_MATCH_BONUS.' ELSE 0 END)';
+        $bindings[] = mb_strtolower($this->tokenizer->normalizeUnicodePunctuation($query), 'UTF-8');
 
         // I bonus di frase intera hanno senso solo con almeno due token:
         // una "frase" di un solo termine è già coperta dal peso per
@@ -184,10 +205,10 @@ class ArticleSearchService
         if (count($tokens) >= 2) {
             $phrasePattern = $this->likePattern(implode(' ', $tokens));
 
-            $scoreParts[] = "(CASE WHEN title LIKE ? ESCAPE '\\' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN {$this->normalizedColumnSql('title')} LIKE ? ESCAPE '\\' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
 
-            $scoreParts[] = "(CASE WHEN (excerpt LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN ({$this->normalizedColumnSql('excerpt')} LIKE ? ESCAPE '\\' OR {$this->normalizedColumnSql('body')} LIKE ? ESCAPE '\\') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
             $bindings[] = $phrasePattern;
 
@@ -220,7 +241,8 @@ class ArticleSearchService
         $fragments = [];
 
         foreach (array_keys(self::FIELD_WEIGHTS) as $field) {
-            $clauses = array_map(fn () => "{$field} LIKE ? ESCAPE '\\'", $patterns);
+            $columnSql = $this->normalizedColumnSql($field);
+            $clauses = array_map(fn () => "{$columnSql} LIKE ? ESCAPE '\\'", $patterns);
 
             $fragments[$field] = [
                 'sql' => '('.implode(' OR ', $clauses).')',
@@ -234,6 +256,32 @@ class ArticleSearchService
     private function likePattern(string $value): string
     {
         return '%'.$this->escapeLikeValue($value).'%';
+    }
+
+    /**
+     * Espressione SQL che legge $field applicando la stessa normalizzazione
+     * di UNICODE_PUNCTUATION_TO_ASCII prima del confronto — REPLACE()
+     * annidate, una per coppia, così sia il lato colonna sia il lato query
+     * (già normalizzato da SearchTokenizer) finiscono nella stessa forma
+     * canonica. $field è sempre uno dei nomi fissi in FIELD_WEIGHTS (mai
+     * input utente): i caratteri sorgente/destinazione sono costanti
+     * nostre, quindi interpolarli come literal SQL qui non introduce alcun
+     * rischio di injection.
+     */
+    private function normalizedColumnSql(string $field): string
+    {
+        $sql = $field;
+
+        foreach (self::UNICODE_PUNCTUATION_TO_ASCII as $from => $to) {
+            $sql = 'REPLACE('.$sql.', '.$this->sqlStringLiteral($from).', '.$this->sqlStringLiteral($to).')';
+        }
+
+        return $sql;
+    }
+
+    private function sqlStringLiteral(string $value): string
+    {
+        return "'".str_replace("'", "''", $value)."'";
     }
 
     /**

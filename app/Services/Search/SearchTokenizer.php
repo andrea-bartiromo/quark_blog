@@ -159,8 +159,17 @@ class SearchTokenizer
      * varianti Unicode di trattino/apice tipografico normalizzate alle
      * forme ASCII prima della tokenizzazione, così "Wi‑Fi" (trattino
      * tipografico) e "Wi-Fi" producono lo stesso token.
+     *
+     * Pubblico (Codex, PR #166 round 2): ArticleSearchService lo riusa per
+     * normalizzare allo stesso modo sia il valore memorizzato in colonna
+     * (via REPLACE() SQL, stessa mappa — vedi
+     * ArticleSearchService::UNICODE_PUNCTUATION_TO_ASCII) sia la query
+     * intera usata per il bonus di corrispondenza esatta del titolo — senza
+     * questo, solo il lato query veniva normalizzato e un titolo con
+     * punteggiatura tipografica reale (es. "Wi‑Fi") non veniva mai trovato
+     * da una query digitata con il trattino ASCII.
      */
-    private function normalizeUnicodePunctuation(string $text): string
+    public function normalizeUnicodePunctuation(string $text): string
     {
         return strtr($text, [
             "\u{2010}" => '-',

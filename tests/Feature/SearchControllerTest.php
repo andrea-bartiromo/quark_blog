@@ -556,4 +556,34 @@ class SearchControllerTest extends TestCase
             "Con una query a 8 token su un corpus più grande: {$countLarge} query. Con una query a 1 token su un corpus più piccolo: {$countSmall} query. Devono coincidere."
         );
     }
+
+    // Codex (PR #166, round 2): un titolo con punteggiatura tipografica
+    // reale (qui il trattino tipografico U+2011 in "Wi‑Fi", lo stesso caso
+    // segnalato per "O'Connor" con l'apice tipografico U+2019) deve essere
+    // trovato da una query digitata con la punteggiatura ASCII comune —
+    // prima del fix normalizzava solo il lato query, mai il titolo
+    // memorizzato, quindi il confronto LIKE non trovava mai corrispondenza.
+    public function test_title_with_typographic_hyphen_is_found_by_an_ascii_hyphen_query(): void
+    {
+        $article = $this->article([
+            'title' => "Wi\u{2011}Fi: come funziona la connessione senza fili",
+        ]);
+
+        $response = $this->get(route('ricerca', ['q' => 'Wi-Fi']));
+
+        $response->assertOk();
+        $this->assertContains($article->id, $this->resultIds($response));
+    }
+
+    public function test_title_with_typographic_apostrophe_is_found_by_an_ascii_apostrophe_query(): void
+    {
+        $article = $this->article([
+            'title' => "L'esperimento di O\u{2019}Connor sulla luce",
+        ]);
+
+        $response = $this->get(route('ricerca', ['q' => "O'Connor"]));
+
+        $response->assertOk();
+        $this->assertContains($article->id, $this->resultIds($response));
+    }
 }
