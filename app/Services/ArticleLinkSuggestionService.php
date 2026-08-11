@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
+use App\Models\ArticleSlugRedirect;
 use App\Services\InternalLinking\ConceptCandidate;
 use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\InternalLinking\ScientificConceptMatcher;
@@ -1108,6 +1109,16 @@ class ArticleLinkSuggestionService
      * form — va tolto (non basta lasciarlo "non accettato": resterebbe
      * comunque un <a> reale verso un target ancora non pubblico).
      *
+     * NON filtra per stato 'proposed' in query (Codex, PR #165, P1 round 3):
+     * se tra "Inserisci" e questo salvataggio una nuova "Analizza" ha già
+     * superato il suggerimento (perché il target è nel frattempo diventato
+     * non sicuro per un'altra ragione), il suo stato in DB è già
+     * 'superseded' — ma il link è comunque fisicamente presente nel body
+     * appena inviato dal form (era stato inserito lato client prima). Va
+     * quindi rivalutato e il link ripulito comunque, non saltato solo
+     * perché non è più 'proposed'. 'accepted'/'ignored' restano stati
+     * terminali e non vengono mai ririaperti qui.
+     *
      * @param  array<int, int|string>  $suggestionIds
      */
     public function markAccepted(Article $article, array $suggestionIds, int $reviewerId): void
@@ -1118,7 +1129,7 @@ class ArticleLinkSuggestionService
 
         $suggestions = ArticleLinkSuggestion::where('source_article_id', $article->id)
             ->whereIn('id', $suggestionIds)
-            ->proposed()
+            ->whereIn('status', [ArticleLinkSuggestion::STATUS_PROPOSED, ArticleLinkSuggestion::STATUS_SUPERSEDED])
             ->with('targetArticle')
             ->get();
 
@@ -1133,10 +1144,22 @@ class ArticleLinkSuggestionService
             $target = $suggestion->targetArticle;
 
             if ($target === null || ! $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
-                $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+                if ($suggestion->status !== ArticleLinkSuggestion::STATUS_SUPERSEDED) {
+                    $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+                }
 
                 if ($target !== null) {
-                    $strippedBody = $this->insertionService->removeLinksToSlug($body, $target->slug);
+                    // Codex, PR #165, P2 round 3: l'href inviato dal client
+                    // può ancora puntare a un vecchio slug del target, se il
+                    // target è stato rinominato tra "Inserisci" e questo
+                    // salvataggio — cerca anche negli slug storici, non solo
+                    // in quello attuale.
+                    $targetSlugs = [
+                        $target->slug,
+                        ...ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug'),
+                    ];
+
+                    $strippedBody = $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
 
                     if ($strippedBody !== $body) {
                         $body = $strippedBody;

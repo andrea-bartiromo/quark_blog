@@ -290,19 +290,27 @@ class ArticleLinkInsertionService
 
     /**
      * Rimuove (unwrap, mantenendo il testo dell'anchor) ogni link interno
-     * presente nel body verso $slug. Usata da
+     * presente nel body verso uno qualunque degli slug in $slugs. Usata da
      * App\Services\ArticleLinkSuggestionService::markAccepted() quando un
      * collegamento già inserito nel testo (via "Inserisci", in una
      * richiesta precedente) risulta non più temporalmente sicuro nel
      * momento in cui l'articolo viene davvero salvato — es. la
      * programmazione della source è stata spostata, nella stessa modifica,
      * a una data che rende il target non più sicuro (Codex, PR #165, P1
-     * round 2). Restituisce l'HTML invariato se lo slug non compare come
-     * href di alcun link: nessuna modifica silenziosa "a vuoto".
+     * round 2). Accetta più slug, non solo quello attuale del target
+     * (Codex, PR #165, P2 round 3): se il target è stato rinominato tra
+     * "Inserisci" e il salvataggio, l'href già inviato dal client punta
+     * ancora al VECCHIO slug — cercare solo lo slug corrente lascerebbe il
+     * link non sicuro nel testo. Il chiamante passa lo slug corrente più
+     * ogni vecchio slug noto (App\Models\ArticleSlugRedirect). Restituisce
+     * l'HTML invariato se nessuno slug compare come href di alcun link:
+     * nessuna modifica silenziosa "a vuoto".
+     *
+     * @param  array<int, string>  $slugs
      */
-    public function removeLinksToSlug(string $bodyHtml, string $slug): string
+    public function removeLinksToSlugs(string $bodyHtml, array $slugs): string
     {
-        if (trim($bodyHtml) === '' || strip_tags($bodyHtml) === $bodyHtml) {
+        if ($slugs === [] || trim($bodyHtml) === '' || strip_tags($bodyHtml) === $bodyHtml) {
             return $bodyHtml;
         }
 
@@ -328,7 +336,7 @@ class ArticleLinkInsertionService
             /** @var DOMElement $anchor */
             $href = $anchor->getAttribute('href');
 
-            if ($href === '' || ! preg_match('~/articolo/([^/?#]+)~', $href, $m) || $m[1] !== $slug) {
+            if ($href === '' || ! preg_match('~/articolo/([^/?#]+)~', $href, $m) || ! in_array($m[1], $slugs, true)) {
                 continue;
             }
 

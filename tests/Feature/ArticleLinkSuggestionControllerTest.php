@@ -298,6 +298,104 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
     }
 
+    // 2e. Codex (PR #165, P1 round 3): un'"Analizza" intermedia (tra "Inserisci" e il
+    // salvataggio) può già aver marcato il suggerimento come superato — il link, già
+    // presente nel body inviato dal form, va comunque ripulito, non lasciato perché il
+    // suggerimento non è più 'proposed'.
+    public function test_admin_update_strips_link_even_if_an_intervening_analyze_already_superseded_the_suggestion(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $targetUrl = route('articolo', $target->slug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target viene retrocesso a bozza DOPO che "Inserisci" ha già
+        // messo il link nel body lato client, ma PRIMA del salvataggio.
+        $target->update(['status' => 'draft', 'published_at' => null]);
+
+        // Una "Analizza" intermedia (es. un refresh del pannello prima di
+        // salvare) supera già il suggerimento.
+        $this->actingAs($editor)->postJson(route('admin.articles.link-suggestions.analyze', $source));
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+    }
+
+    // 2f. Codex (PR #165, P2 round 3): se il target viene rinominato (nuovo slug) tra
+    // "Inserisci" e il salvataggio, l'href inviato dal form punta ancora al vecchio
+    // slug — la pulizia deve coprire anche gli slug storici (ArticleSlugRedirect), non
+    // solo quello attuale del target.
+    public function test_admin_update_strips_link_using_the_targets_old_slug_after_a_rename(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+        $oldTargetUrl = route('articolo', $target->slug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$oldTargetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+        $source = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Il target viene rinominato (nuovo slug, tramite ArticleSlugRedirect
+        // registrato da Article::booted()) E retrocesso a bozza DOPO che
+        // "Inserisci" ha già messo il link (con il VECCHIO slug) nel body
+        // lato client, ma PRIMA del salvataggio.
+        $target->update([
+            'title' => 'Pannelli fotovoltaici di ultima generazione',
+            'slug' => 'pannelli-fotovoltaici-ultima-generazione-'.uniqid(),
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+
+        $this->assertNotSame($oldTargetUrl, route('articolo', $target->slug));
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'draft',
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$oldTargetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+    }
+
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
     public function test_ignore_marks_the_suggestion_and_it_is_not_re_proposed(): void
     {
