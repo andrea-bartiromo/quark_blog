@@ -817,35 +817,47 @@ class EditorialQualityChecker
     }
 
     /**
-     * Elenco esplicito dei tag "di blocco": solo questi inseriscono uno
-     * spazio prima e dopo di sé nel testo estratto, perché rappresentano
-     * sempre una separazione visiva reale nel rendering (es. due <p>
-     * adiacenti nell'HTML salvato, anche senza whitespace letterale tra i
-     * tag, restano comunque due parole distinte — "<p>testo</p><p>TODO</p>"
-     * non deve mai fondersi in "testoTODO").
+     * Elenco esplicito dei tag che devono inserire uno spazio prima e
+     * dopo di sé nel testo estratto: gli elementi di blocco veri e propri
+     * (rappresentano sempre una separazione visiva reale nel rendering —
+     * due <p> adiacenti nell'HTML salvato, anche senza whitespace
+     * letterale tra i tag, restano comunque due parole distinte,
+     * "<p>testo</p><p>TODO</p>" non deve mai fondersi in "testoTODO") più
+     * gli elementi "replaced"/void (img, iframe, video, ...): pur essendo
+     * tecnicamente "di fraseggio" per lo spec HTML5, il loro textContent
+     * è sempre vuoto, quindi senza uno spazio esplicito farebbero da
+     * "collante" invisibile tra due nodi di testo altrimenti separati
+     * (es. "<p>testo<img src=\"x\">TODO</p>" → "testoTODO" senza questo
+     * accorgimento, con "testo" reso invisibile in mezzo dal caricamento
+     * dell'immagine ma comunque contiguo nel testo estratto).
      *
      * Qualunque altro tag — inclusi i formattatori comuni (em, strong,
      * span, ...) ma anche qualunque elemento di fraseggio HTML5 meno
      * comune (wbr, time, kbd, label, ...) — non inserisce alcuno spazio:
      * il suo contenuto resta fuso con quello dei nodi adiacenti, perché
-     * nessun elemento "inline" introduce una separazione visiva nel testo
-     * renderizzato (es. "<em>me</em>todo" o "me<label>todo</label>" sono
-     * sempre "metodo" per un lettore).
+     * nessun elemento "inline" con contenuto proprio introduce una
+     * separazione visiva nel testo renderizzato (es. "<em>me</em>todo" o
+     * "me<label>todo</label>" sono sempre "metodo" per un lettore).
      *
-     * L'elenco dei tag di blocco HTML5 è piccolo, chiuso e stabile — al
-     * contrario del contenuto di fraseggio (decine di elementi, non tutti
-     * enumerabili con certezza) — quindi qui l'allowlist esplicita è
-     * quella di blocco: un tag sconosciuto o esotico non ancora previsto
-     * viene per default trattato come inline (nessuno spazio), non come
-     * blocco, evitando falsi positivi su parole spezzate da un tag raro.
+     * L'elenco dei tag di blocco e "replaced" HTML5 è piccolo, chiuso e
+     * stabile — al contrario del contenuto di fraseggio con testo proprio
+     * (decine di elementi, non tutti enumerabili con certezza) — quindi
+     * qui l'allowlist esplicita è quella dei tag "separatori": un tag
+     * sconosciuto o esotico non ancora previsto viene per default
+     * trattato come inline (nessuno spazio), non come separatore,
+     * evitando falsi positivi su parole spezzate da un tag raro.
      */
-    private const BLOCK_TAGS = [
+    private const SEPARATOR_TAGS = [
+        // Blocco
         'address', 'article', 'aside', 'blockquote', 'br', 'caption', 'col',
         'colgroup', 'dd', 'details', 'div', 'dl', 'dt', 'fieldset',
         'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4',
         'h5', 'h6', 'header', 'hr', 'legend', 'li', 'main', 'nav', 'ol',
         'p', 'pre', 'section', 'summary', 'table', 'tbody', 'td', 'tfoot',
         'th', 'thead', 'tr', 'ul',
+        // Replaced/void (textContent sempre vuoto)
+        'area', 'audio', 'canvas', 'embed', 'iframe', 'img', 'input',
+        'object', 'picture', 'source', 'svg', 'track', 'video',
     ];
 
     /**
@@ -904,7 +916,7 @@ class EditorialQualityChecker
     private function insertBlockSeparators(DOMDocument $dom, DOMElement $scope): void
     {
         foreach (iterator_to_array($scope->getElementsByTagName('*')) as $element) {
-            if (! in_array(mb_strtolower($element->nodeName), self::BLOCK_TAGS, true)) {
+            if (! in_array(mb_strtolower($element->nodeName), self::SEPARATOR_TAGS, true)) {
                 continue;
             }
 

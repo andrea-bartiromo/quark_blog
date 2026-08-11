@@ -380,6 +380,25 @@ class EditorialQualityCheckerTest extends TestCase
     }
 
     /**
+     * Falso negativo segnalato in review: un elemento "replaced" come
+     * <img> non ha mai un textContent proprio, quindi senza uno spazio
+     * esplicito farebbe da collante invisibile tra due nodi di testo
+     * altrimenti separati — "<p>testo<img src=\"x\">TODO</p>" diventerebbe
+     * "testoTODO", mascherando un placeholder reale. Raggiungibile
+     * concretamente tramite il plugin immagini di TinyMCE nell'admin.
+     */
+    public function test_todo_immediately_after_an_inline_image_with_no_literal_whitespace_is_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'<img src="x">TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
      * Falso positivo segnalato in review: quando l'HTML salvato contiene
      * un tag di chiusura non bilanciato (stesso bug di troncamento già
      * noto altrove nel codice, vedi ArticleTableOfContentsTest), il
