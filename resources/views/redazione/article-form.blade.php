@@ -321,7 +321,9 @@ tinymce.init({
     h3 { font-size:1.1rem; color:#111827; margin:1rem 0 .4rem; }
     blockquote { border-left:3px solid #0d9488; margin:1rem 0;
                  padding:.75rem 1rem; background:#f0fdfa; font-style:italic; }
-    a { color:#0d9488; }
+    a { color:#0d9488; text-decoration:underline; }
+    a:hover { color:#0f766e; }
+    a:focus-visible { outline:2px solid #0f766e; outline-offset:1px; }
   `,
   setup: function(editor) {
     editor.on('change input', function() {
