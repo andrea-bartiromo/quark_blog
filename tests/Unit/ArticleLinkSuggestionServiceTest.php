@@ -1169,4 +1169,40 @@ class ArticleLinkSuggestionServiceTest extends TestCase
             'Un pool pieno di scheduled sicuri ma irrilevanti non deve ridurre la quota dei pubblicati: un pubblicato pertinente in posizione 256 deve comunque essere valutato.'
         );
     }
+
+    // Codex (PR #165, round 16): "Inserisci" scrive il link nel body solo lato client
+    // (mai persistito finché non si salva) — una seconda "Analizza" prima del salvataggio
+    // non vede quindi alcun link nel body persistito e ripropone di nuovo la stessa
+    // coppia. Se il target è stato rinominato nel frattempo, sovrascrivere qui lo
+    // snapshot target_slug col nuovo slug lo disallineerebbe dal link realmente ancora
+    // presente (slug vecchio) nel body non salvato del client — lo snapshot va
+    // preservato, mai risovrascritto da una ri-Analizza su una riga già esistente.
+    public function test_re_analyzing_does_not_overwrite_the_target_slug_snapshot_of_an_existing_suggestion(): void
+    {
+        $target = $this->article([
+            'title' => 'Pannelli solari di nuova generazione',
+            'slug' => 'slug-originale',
+        ]);
+
+        $source = $this->article([
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+        ]);
+
+        $this->service->analyzeForSource($source->fresh());
+
+        $suggestion = ArticleLinkSuggestion::where('source_article_id', $source->id)
+            ->where('target_article_id', $target->id)
+            ->firstOrFail();
+
+        $this->assertSame('slug-originale', $suggestion->target_slug);
+
+        $target->update(['slug' => 'slug-rinominato']);
+
+        // Ri-Analizza: il body persistito della source non è cambiato (nessun
+        // "Inserisci" è mai stato salvato), quindi la stessa coppia viene
+        // riproposta di nuovo tramite lo stesso updateOrCreate().
+        $this->service->analyzeForSource($source->fresh());
+
+        $this->assertSame('slug-originale', $suggestion->fresh()->target_slug);
+    }
 }

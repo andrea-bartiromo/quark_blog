@@ -427,20 +427,36 @@ class ArticleLinkSuggestionService
             }
 
             $attributes = [
-                // Codex (PR #165, round 12): snapshot dello slug al momento
-                // della proposta/aggiornamento — target_article_id passa a
-                // nullOnDelete() (vedi migrazione), quindi se il target
-                // viene eliminato dopo che la redazione ha già cliccato
-                // "Inserisci" ma prima di salvare la source,
-                // markAccepted() deve poter ripulire il link dal body anche
-                // senza più poter risalire allo slug tramite la relazione.
-                'target_slug' => $candidate->slug,
                 'anchor_text' => $match['anchor'],
                 'context_excerpt' => $match['context'],
                 'reason' => $match['reason'],
                 'confidence_score' => $match['score'],
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
+
+            // Codex (PR #165, round 12): snapshot dello slug al momento
+            // della proposta — target_article_id passa a nullOnDelete()
+            // (vedi migrazione), quindi se il target viene eliminato dopo
+            // che la redazione ha già cliccato "Inserisci" ma prima di
+            // salvare la source, markAccepted() deve poter ripulire il link
+            // dal body anche senza più poter risalire allo slug tramite la
+            // relazione.
+            //
+            // Codex (PR #165, round 16): valorizzato SOLO alla prima
+            // proposta di questa coppia (riga non ancora esistente), mai
+            // sovrascritto su una ri-Analizza successiva. "Inserisci" (vedi
+            // ArticleLinkSuggestionController) rimane l'unico punto che lo
+            // AGGIORNA deliberatamente, allineandolo allo slug realmente
+            // usato per l'href — se un'Analizza successiva lo sovrascrivesse
+            // col nuovo slug corrente del target (nel frattempo rinominato),
+            // lo snapshot si disallineerebbe dal link fisicamente ancora
+            // presente nel body non salvato del client. Se il link non è mai
+            // stato inserito, il valore non viene comunque mai consultato
+            // (letto solo da supersedeAndStripIfUnsafe() quando il target
+            // risulta eliminato).
+            if ($existingSuggestion === null || $existingSuggestion->target_slug === null) {
+                $attributes['target_slug'] = $candidate->slug;
+            }
 
             // updateOrCreate (non un controllo di esistenza seguito da un
             // create separato) resta corretto anche se due richieste
@@ -534,15 +550,18 @@ class ArticleLinkSuggestionService
             }
 
             $attributes = [
-                // Codex (PR #165, round 12): stesso snapshot di
-                // analyzeForSource() — vedi commento lì.
-                'target_slug' => $target->slug,
                 'anchor_text' => $match['anchor'],
                 'context_excerpt' => $match['context'],
                 'reason' => $match['reason'],
                 'confidence_score' => $match['score'],
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
+
+            // Codex (PR #165, round 12 e round 16): stesso snapshot di
+            // analyzeForSource() — vedi commento lì.
+            if ($existingSuggestion === null || $existingSuggestion->target_slug === null) {
+                $attributes['target_slug'] = $target->slug;
+            }
 
             // updateOrCreate: al sicuro anche in caso di richieste
             // concorrenti sulla stessa coppia (vincolo unique).
