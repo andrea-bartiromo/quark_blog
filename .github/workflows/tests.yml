@@ -62,11 +62,11 @@ jobs:
       - name: Check Pint on changed PHP files
         shell: bash
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           PHP_FILES="$(git diff --name-only "$BASE_SHA"...HEAD -- '*.php')"
           if [ -z "$PHP_FILES" ]; then
-            echo "No PHP files changed in this PR; Pint is not applicable."
+            echo "No PHP files changed; Pint is not applicable."
             exit 0
           fi
           vendor/bin/pint --test $PHP_FILES
