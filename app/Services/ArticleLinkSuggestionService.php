@@ -1093,6 +1093,21 @@ class ArticleLinkSuggestionService
      * invece di risultare "gestito" per sempre senza che il link sia mai
      * arrivato nell'articolo pubblicato.
      *
+     * Va chiamata DOPO $article->update($data) da parte del chiamante
+     * (Admin/Redazione ArticleController::update()): $article deve già
+     * riflettere lo stato/published_at appena salvati, non quelli
+     * precedenti. Questo è essenziale per la revalidazione qui sotto
+     * (Codex, PR #165, P1 round 2): "Inserisci" verifica l'eleggibilità
+     * temporale contro l'articolo COM'ERA PERSISTITO in quel momento, ma
+     * nella stessa modifica la redazione può spostare la programmazione
+     * della source stessa PRIMA di premere "Salva" — un target che era
+     * sicuro contro la vecchia data potrebbe non esserlo più contro quella
+     * appena salvata. Va quindi riverificato qui, con lo stato reale
+     * post-salvataggio: se non è più sicuro, il suggerimento non va
+     * accettato, e il link — già fisicamente presente nel body inviato dal
+     * form — va tolto (non basta lasciarlo "non accettato": resterebbe
+     * comunque un <a> reale verso un target ancora non pubblico).
+     *
      * @param  array<int, int|string>  $suggestionIds
      */
     public function markAccepted(Article $article, array $suggestionIds, int $reviewerId): void
@@ -1101,14 +1116,47 @@ class ArticleLinkSuggestionService
             return;
         }
 
-        ArticleLinkSuggestion::where('source_article_id', $article->id)
+        $suggestions = ArticleLinkSuggestion::where('source_article_id', $article->id)
             ->whereIn('id', $suggestionIds)
             ->proposed()
-            ->update([
+            ->with('targetArticle')
+            ->get();
+
+        if ($suggestions->isEmpty()) {
+            return;
+        }
+
+        $body = $article->body;
+        $bodyChanged = false;
+
+        foreach ($suggestions as $suggestion) {
+            $target = $suggestion->targetArticle;
+
+            if ($target === null || ! $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
+                $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+
+                if ($target !== null) {
+                    $strippedBody = $this->insertionService->removeLinksToSlug($body, $target->slug);
+
+                    if ($strippedBody !== $body) {
+                        $body = $strippedBody;
+                        $bodyChanged = true;
+                    }
+                }
+
+                continue;
+            }
+
+            $suggestion->update([
                 'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
                 'reviewed_at' => now(),
                 'reviewed_by' => $reviewerId,
             ]);
+        }
+
+        if ($bodyChanged) {
+            $article->update(['body' => $body]);
+        }
     }
 
     private function plainText(string $html): string

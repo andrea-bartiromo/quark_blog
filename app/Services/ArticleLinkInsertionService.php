@@ -289,6 +289,71 @@ class ArticleLinkInsertionService
     }
 
     /**
+     * Rimuove (unwrap, mantenendo il testo dell'anchor) ogni link interno
+     * presente nel body verso $slug. Usata da
+     * App\Services\ArticleLinkSuggestionService::markAccepted() quando un
+     * collegamento già inserito nel testo (via "Inserisci", in una
+     * richiesta precedente) risulta non più temporalmente sicuro nel
+     * momento in cui l'articolo viene davvero salvato — es. la
+     * programmazione della source è stata spostata, nella stessa modifica,
+     * a una data che rende il target non più sicuro (Codex, PR #165, P1
+     * round 2). Restituisce l'HTML invariato se lo slug non compare come
+     * href di alcun link: nessuna modifica silenziosa "a vuoto".
+     */
+    public function removeLinksToSlug(string $bodyHtml, string $slug): string
+    {
+        if (trim($bodyHtml) === '' || strip_tags($bodyHtml) === $bodyHtml) {
+            return $bodyHtml;
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="__link_remove_root__">'.$bodyHtml.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $xpath = new DOMXPath($dom);
+        $root = $xpath->query('//div[@id="__link_remove_root__"]')->item(0);
+
+        if ($root === null) {
+            return $bodyHtml;
+        }
+
+        $changed = false;
+
+        foreach (iterator_to_array($dom->getElementsByTagName('a')) as $anchor) {
+            /** @var DOMElement $anchor */
+            $href = $anchor->getAttribute('href');
+
+            if ($href === '' || ! preg_match('~/articolo/([^/?#]+)~', $href, $m) || $m[1] !== $slug) {
+                continue;
+            }
+
+            $parent = $anchor->parentNode;
+
+            if ($parent === null) {
+                continue;
+            }
+
+            foreach (iterator_to_array($anchor->childNodes) as $child) {
+                $parent->insertBefore($child, $anchor);
+            }
+
+            $parent->removeChild($anchor);
+            $changed = true;
+        }
+
+        if (! $changed) {
+            return $bodyHtml;
+        }
+
+        return $this->innerHtml($dom, $root);
+    }
+
+    /**
      * @return array{dom: DOMDocument, root: DOMNode, textNode: DOMText, position: int}|null
      */
     private function locateInsertionPoint(string $bodyHtml, string $anchorText): ?array

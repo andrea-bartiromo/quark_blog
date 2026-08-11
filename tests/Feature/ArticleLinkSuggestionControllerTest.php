@@ -238,6 +238,66 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->fresh()->status);
     }
 
+    // 2d. Codex (PR #165, P1 round 2): se nello stesso salvataggio la redazione
+    // sposta la programmazione della SOURCE a una data che rende il target
+    // (già scheduled, sicuro contro la vecchia data) non più sicuro, il
+    // suggerimento non va accettato e il link — già presente nel body inviato
+    // dal form — va tolto, non solo lasciato "non accettato".
+    public function test_admin_update_supersedes_and_strips_link_when_new_source_schedule_makes_target_unsafe(): void
+    {
+        $editor = $this->editor();
+
+        $targetAt = now()->addDays(20);
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+            'status' => 'scheduled',
+            'published_at' => $targetAt,
+        ]);
+
+        $targetUrl = route('articolo', $target->slug);
+        $linkedBody = '<p>Tra le soluzioni più diffuse ci sono i <a href="'.$targetUrl.'">pannelli solari di nuova generazione</a>, molto richiesti.</p>';
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(30),
+        ]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari di nuova generazione',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        // Al momento di "Inserisci" (in una richiesta precedente, non
+        // riprodotta qui) il target era sicuro: 30 giorni > 20 giorni. Ma
+        // nello stesso salvataggio la redazione riprogramma la source a 15
+        // giorni, PRIMA del target: il link appena inserito non è più
+        // temporalmente sicuro.
+        $newSourceAt = now()->addDays(15);
+
+        $response = $this->actingAs($editor)->put(route('admin.articles.update', $source), [
+            'title' => $source->title,
+            'body' => $linkedBody,
+            'category' => $source->category,
+            'status' => 'scheduled',
+            'published_date' => $newSourceAt->format('Y-m-d'),
+            'published_time' => $newSourceAt->format('H:i'),
+            'applied_link_suggestions' => [$suggestion->id],
+        ]);
+
+        $response->assertRedirect(route('admin.articles'));
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+
+        $freshBody = $source->fresh()->body;
+        $this->assertStringNotContainsString('href="'.$targetUrl.'"', $freshBody);
+        $this->assertStringContainsString('pannelli solari di nuova generazione', $freshBody);
+    }
+
     // 3. "Ignora" marca il suggerimento e una successiva analisi non lo ripropone
     public function test_ignore_marks_the_suggestion_and_it_is_not_re_proposed(): void
     {
