@@ -399,6 +399,27 @@ class EditorialQualityCheckerTest extends TestCase
     }
 
     /**
+     * Falso negativo segnalato in review: un tag non presente in una
+     * precedente allowlist di soli tag di blocco (es. <dialog>, digitabile
+     * tramite il plugin "code"/sorgente HTML di TinyMCE nell'admin) non
+     * inseriva alcuno spazio, fondendo il testo di due elementi
+     * visivamente distinti. Da qui la decisione architetturale finale:
+     * il default è "inserisci uno spazio" per qualunque tag non elencato
+     * esplicitamente come puro formattatore inline — un tag sconosciuto o
+     * esotico come <dialog> resta quindi sempre un separatore.
+     */
+    public function test_a_marker_separated_only_by_an_unlisted_exotic_tag_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><dialog open>testo</dialog><dialog open>TODO</dialog>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
      * Falso positivo segnalato in review: quando l'HTML salvato contiene
      * un tag di chiusura non bilanciato (stesso bug di troncamento già
      * noto altrove nel codice, vedi ArticleTableOfContentsTest), il

@@ -817,47 +817,40 @@ class EditorialQualityChecker
     }
 
     /**
-     * Elenco esplicito dei tag che devono inserire uno spazio prima e
-     * dopo di sé nel testo estratto: gli elementi di blocco veri e propri
-     * (rappresentano sempre una separazione visiva reale nel rendering —
-     * due <p> adiacenti nell'HTML salvato, anche senza whitespace
-     * letterale tra i tag, restano comunque due parole distinte,
-     * "<p>testo</p><p>TODO</p>" non deve mai fondersi in "testoTODO") più
-     * gli elementi "replaced"/void (img, iframe, video, ...): pur essendo
-     * tecnicamente "di fraseggio" per lo spec HTML5, il loro textContent
-     * è sempre vuoto, quindi senza uno spazio esplicito farebbero da
-     * "collante" invisibile tra due nodi di testo altrimenti separati
-     * (es. "<p>testo<img src=\"x\">TODO</p>" → "testoTODO" senza questo
-     * accorgimento, con "testo" reso invisibile in mezzo dal caricamento
-     * dell'immagine ma comunque contiguo nel testo estratto).
+     * DECISIONE ARCHITETTURALE (dopo due round di review): il corpo
+     * dell'articolo NON è HTML a vocabolario chiuso. Il plugin "code" di
+     * TinyMCE nell'editor admin (vedi resources/views/admin/article-form
+     * .blade.php, toolbar con "code") apre una vista sorgente dove
+     * un utente può scrivere qualunque tag HTML valido, non solo quelli
+     * raggiungibili dai pulsanti della toolbar. Di conseguenza NESSUNA
+     * allowlist di tag (né di "blocco", né "di fraseggio") può mai essere
+     * completa con certezza: due round di review hanno già trovato
+     * <label> e <dialog> mancanti da una precedente allowlist di soli tag
+     * di blocco/replaced, ciascuno un falso NEGATIVO (placeholder reale
+     * non rilevato perché fuso con testo adiacente da un tag non
+     * previsto) — l'esito peggiore per un controllo la cui missione è non
+     * lasciar passare inosservato un vero segnaposto.
      *
-     * Qualunque altro tag — inclusi i formattatori comuni (em, strong,
-     * span, ...) ma anche qualunque elemento di fraseggio HTML5 meno
-     * comune (wbr, time, kbd, label, ...) — non inserisce alcuno spazio:
-     * il suo contenuto resta fuso con quello dei nodi adiacenti, perché
-     * nessun elemento "inline" con contenuto proprio introduce una
-     * separazione visiva nel testo renderizzato (es. "<em>me</em>todo" o
-     * "me<label>todo</label>" sono sempre "metodo" per un lettore).
-     *
-     * L'elenco dei tag di blocco e "replaced" HTML5 è piccolo, chiuso e
-     * stabile — al contrario del contenuto di fraseggio con testo proprio
-     * (decine di elementi, non tutti enumerabili con certezza) — quindi
-     * qui l'allowlist esplicita è quella dei tag "separatori": un tag
-     * sconosciuto o esotico non ancora previsto viene per default
-     * trattato come inline (nessuno spazio), non come separatore,
-     * evitando falsi positivi su parole spezzate da un tag raro.
+     * La scelta finale è quindi asimmetrica e deliberata: il DEFAULT è
+     * "inserisci uno spazio" (separatore) per qualunque tag non elencato
+     * qui sotto, incluso qualunque tag esotico, sconosciuto o non ancora
+     * immaginato (<dialog>, elementi custom, ...) — un tag mancante da
+     * questa lista produce nella peggiore delle ipotesi un raro falso
+     * POSITIVO (una parola legittima spezzata da un tag non comune,
+     * verificabile a vista da chi rivede l'articolo), mai un falso
+     * negativo silenzioso. Sono elencati qui SOLO i tag di puro
+     * fraseggio/formattazione testuale per cui siamo certi che il
+     * contenuto non ha mai un confine visivo proprio nel rendering (es.
+     * "<em>me</em>todo" o "me<label>todo</label>" sono sempre "metodo"
+     * per un lettore) — un elenco piccolo e conservativo, non un
+     * tentativo di enumerare per completezza il contenuto di fraseggio
+     * HTML5.
      */
-    private const SEPARATOR_TAGS = [
-        // Blocco
-        'address', 'article', 'aside', 'blockquote', 'br', 'caption', 'col',
-        'colgroup', 'dd', 'details', 'div', 'dl', 'dt', 'fieldset',
-        'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4',
-        'h5', 'h6', 'header', 'hr', 'legend', 'li', 'main', 'nav', 'ol',
-        'p', 'pre', 'section', 'summary', 'table', 'tbody', 'td', 'tfoot',
-        'th', 'thead', 'tr', 'ul',
-        // Replaced/void (textContent sempre vuoto)
-        'area', 'audio', 'canvas', 'embed', 'iframe', 'img', 'input',
-        'object', 'picture', 'source', 'svg', 'track', 'video',
+    private const INLINE_MERGE_TAGS = [
+        'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'del', 'dfn',
+        'em', 'i', 'ins', 'kbd', 'label', 'mark', 'output', 'q', 'rp', 'rt',
+        'ruby', 's', 'samp', 'small', 'span', 'strike', 'strong', 'sub',
+        'sup', 'time', 'u', 'var', 'wbr',
     ];
 
     /**
@@ -904,7 +897,7 @@ class EditorialQualityChecker
                 continue;
             }
 
-            $this->insertBlockSeparators($dom, $node);
+            $this->insertSeparators($dom, $node);
             $parts[] = $node->textContent;
         }
 
@@ -913,10 +906,10 @@ class EditorialQualityChecker
         return preg_replace('/\s+/u', ' ', $text) ?? $text;
     }
 
-    private function insertBlockSeparators(DOMDocument $dom, DOMElement $scope): void
+    private function insertSeparators(DOMDocument $dom, DOMElement $scope): void
     {
         foreach (iterator_to_array($scope->getElementsByTagName('*')) as $element) {
-            if (! in_array(mb_strtolower($element->nodeName), self::SEPARATOR_TAGS, true)) {
+            if (in_array(mb_strtolower($element->nodeName), self::INLINE_MERGE_TAGS, true)) {
                 continue;
             }
 
