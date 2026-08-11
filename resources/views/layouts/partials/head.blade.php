@@ -54,7 +54,11 @@
         : $__env->yieldContent('description') !!}"
 >
 
+@hasSection('canonical')
+<meta property="og:url" content="@yield('canonical')">
+@else
 <meta property="og:url" content="{{ url()->current() }}">
+@endif
 
 @php
     // Fallback globale: la maggior parte delle pagine (home, categorie,
@@ -156,8 +160,8 @@ gtag('config', '{{ config('analytics.measurement_id') }}', {
     avevano alcun cache busting.
 --}}
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/style.css') }}">
-<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-premium.css') }}">
-<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-fix.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/frontend-hardening.css') }}">
+@yield('home_css')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-premium.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-unified.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/premium-fixes.css') }}">

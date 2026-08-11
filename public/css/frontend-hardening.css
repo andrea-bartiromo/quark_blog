@@ -1,0 +1,44 @@
+.ticker-viewport {
+  overflow: hidden;
+  flex: 1;
+}
+
+.ticker-track,
+.ticker-sequence {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ticker-track {
+  gap: 3rem;
+}
+
+.ticker-sequence {
+  gap: 3rem;
+  flex-shrink: 0;
+}
+
+.ticker-track:focus-within {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ticker-viewport {
+    overflow-x: auto;
+  }
+
+  .ticker-track {
+    animation: none;
+    transform: none;
+    padding-right: 2rem;
+  }
+
+  .ticker-sequence[aria-hidden="true"] {
+    display: none;
+  }
+}

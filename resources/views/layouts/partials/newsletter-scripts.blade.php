@@ -13,23 +13,34 @@
 
     const dismissed = localStorage.getItem('newsletter_dismissed');
     const subscribed = localStorage.getItem('newsletter_subscribed');
-
-    // Elemento che aveva il focus prima dell'apertura (es. il pulsante
-    // "Newsletter" dell'header): il focus vi torna alla chiusura, cosi'
-    // che un utente da tastiera non lo perda "dentro" un dialog ormai
-    // nascosto — stesso principio gia' applicato in media-viewer.js per
-    // il lightbox.
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     let lastFocusedElement = null;
+    let hideTimer = null;
 
     const openPopup = () => {
-      lastFocusedElement = document.activeElement;
-      popup.classList.add('visible');
-
-      const emailField = document.getElementById('newsletter-popup-email');
-
-      if (emailField) {
-        emailField.focus();
+      if (popup.classList.contains('visible')) {
+        return;
       }
+
+      lastFocusedElement = document.activeElement;
+
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+
+      popup.hidden = false;
+      popup.inert = false;
+
+      requestAnimationFrame(() => {
+        popup.classList.add('visible');
+
+        const emailField = document.getElementById('newsletter-popup-email');
+
+        if (emailField) {
+          emailField.focus();
+        }
+      });
     };
 
     if (!dismissed && !subscribed) {
@@ -39,10 +50,14 @@
     window.kairusOpenNewsletterPopup = openPopup;
 
     const closePopup = () => {
+      if (popup.hidden) {
+        return;
+      }
+
+      popup.inert = true;
       popup.classList.remove('visible');
 
       const expires = Date.now() + 7 * 24 * 60 * 60 * 1000;
-
       localStorage.setItem('newsletter_dismissed', expires);
 
       if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
@@ -50,6 +65,10 @@
       }
 
       lastFocusedElement = null;
+      hideTimer = setTimeout(() => {
+        popup.hidden = true;
+        hideTimer = null;
+      }, 200);
     };
 
     if (closeButton) {
@@ -61,8 +80,36 @@
     }
 
     document.addEventListener('keydown', event => {
+      if (popup.hidden || !popup.classList.contains('visible')) {
+        return;
+      }
+
       if (event.key === 'Escape') {
+        event.preventDefault();
         closePopup();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = Array.from(popup.querySelectorAll(focusableSelector));
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus();
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
       }
     });
 
