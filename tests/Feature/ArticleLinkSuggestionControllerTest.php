@@ -182,6 +182,38 @@ class ArticleLinkSuggestionControllerTest extends TestCase
         $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
     }
 
+    // Codex (PR #165, round 13): se il target viene eliminato tra il caricamento della
+    // pagina di modifica e il click su "Inserisci", target_article_id (nullOnDelete(),
+    // round 12) lascia il suggerimento 'proposed' con targetArticle null — deve restituire
+    // 409 come ogni altro suggerimento non più utilizzabile, non un errore 500.
+    public function test_insert_rejects_a_suggestion_whose_target_was_deleted(): void
+    {
+        $editor = $this->editor();
+
+        $source = $this->article(['user_id' => $editor->id]);
+        $target = $this->article(['user_id' => $editor->id]);
+
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $target->slug,
+            'anchor_text' => 'articolo di prova',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+        ]);
+
+        $target->delete();
+
+        $response = $this->actingAs($editor)->postJson(
+            route('admin.articles.link-suggestions.insert', [$source, $suggestion]),
+            ['body' => (string) $source->body]
+        );
+
+        $response->assertStatus(409);
+        $this->assertSame($source->body, $source->fresh()->body);
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->fresh()->status);
+    }
+
     // 2b. Il salvataggio effettivo dell'articolo (Admin) marca accettati i suggerimenti applicati nel form
     public function test_admin_update_marks_applied_suggestions_as_accepted_on_save(): void
     {

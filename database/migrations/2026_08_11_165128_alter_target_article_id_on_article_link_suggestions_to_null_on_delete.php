@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -49,6 +50,18 @@ return new class extends Migration
         Schema::table('article_link_suggestions', function (Blueprint $table) {
             $table->dropForeign(['target_article_id']);
         });
+
+        // Codex (PR #165, round 13): nullOnDelete() (questa migrazione,
+        // direzione up()) rende NULL target_article_id un vero stato
+        // raggiungibile in produzione (target eliminato dopo la
+        // creazione del suggerimento) — un rollback che trovi righe in
+        // quello stato farebbe fallire la conversione a nullable(false)
+        // sotto. Non c'è modo di recuperare a quale target puntassero
+        // (l'unico riferimento era la relazione ormai assente): la
+        // stessa riga sarebbe comunque scomparsa sotto il vecchio
+        // cascadeOnDelete(), quindi eliminarla qui riporta i dati allo
+        // stato equivalente che il vincolo precedente avrebbe prodotto.
+        DB::table('article_link_suggestions')->whereNull('target_article_id')->delete();
 
         Schema::table('article_link_suggestions', function (Blueprint $table) {
             $table->unsignedBigInteger('target_article_id')->nullable(false)->change();

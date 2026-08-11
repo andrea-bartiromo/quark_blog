@@ -67,6 +67,23 @@ class ArticleLinkSuggestionController extends Controller
             ], 409);
         }
 
+        // Codex (PR #165, round 13): target_article_id è nullOnDelete()
+        // (round 12) — se il target viene eliminato tra il caricamento
+        // della pagina di modifica e il click su "Inserisci", la riga resta
+        // 'proposed' (actionable) ma targetArticle è null. Questo controllo
+        // deve precedere isTargetSafeForSource() sotto: il suo parametro
+        // $target è tipizzato Article non-nullable, quindi passargli null
+        // produrrebbe comunque un TypeError/500 invece del 409 che questo
+        // stesso metodo già restituisce per ogni altro suggerimento non più
+        // utilizzabile.
+        if ($suggestion->targetArticle === null) {
+            $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+
+            return response()->json([
+                'message' => 'L\'articolo di destinazione di questo suggerimento non esiste più. Analizza di nuovo i collegamenti.',
+            ], 409);
+        }
+
         // Codex (PR #165, P1): tra il momento in cui il suggerimento fu
         // calcolato (ultima "Analizza") e questo click su "Inserisci", il
         // target potrebbe essere stato riprogrammato DOPO questo articolo o
