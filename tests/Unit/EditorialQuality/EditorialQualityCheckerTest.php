@@ -283,6 +283,45 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame(R::STATUS_FAIL, $result->status);
     }
 
+    /**
+     * Falso negativo segnalato in review: se il body salvato non ha alcuno
+     * spazio letterale tra due tag di blocco adiacenti (tipico di un
+     * editor che non inserisce whitespace tra i paragrafi), strip_tags()
+     * da solo fonderebbe "...sostanzioso.TODO" in un'unica "parola",
+     * mascherando un placeholder reale. Il confine tra tag di blocco deve
+     * sempre contare come separatore, anche senza whitespace nell'HTML.
+     */
+    public function test_todo_immediately_adjacent_to_a_block_tag_boundary_with_no_literal_whitespace_is_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso.', 15).'</p><p>TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Contropartita del test precedente: i tag "inline" (formattazione
+     * dentro una parola, incl. gli span-artefatto tipici del copia-incolla
+     * da Word/Docs in TinyMCE) non devono introdurre uno spazio artificiale
+     * che spezzerebbe una parola legittima in due token — altrimenti
+     * "<em>me</em>todo" (renderizzato come "metodo") verrebbe letto come
+     * "me" + "todo", reintroducendo esattamente il falso positivo che
+     * questa missione elimina.
+     */
+    public function test_a_legitimate_word_split_by_an_inline_formatting_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il <em>me</em>todo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
     public function test_todo_inside_inline_formatting_tags_is_still_detected(): void
     {
         $article = $this->completeArticle([

@@ -816,9 +816,24 @@ class EditorialQualityChecker
         return new EditorialQualityCheckResult($code, $label, EditorialQualityCheckResult::STATUS_NOT_APPLICABLE, $importance, $category, $message);
     }
 
+    /**
+     * Tag "inline" (formattazione dentro una parola/frase, incl. gli span
+     * artefatto tipici degli incolla-da-Word/Docs in TinyMCE): rimossi
+     * senza inserire uno spazio, perché non introducono mai una
+     * separazione visiva nel testo renderizzato (es. "<em>me</em>todo" è
+     * sempre "metodo" per un lettore). Qualunque altro tag (blocco: <p>,
+     * <li>, <h2>, <br>, ...) viene invece sostituito con uno spazio: due
+     * elementi di blocco adiacenti nell'HTML salvato (es.
+     * "<p>testo</p><p>TODO</p>", tipico di un editor che non inserisce
+     * whitespace tra i tag) restano comunque due parole distinte.
+     */
+    private const INLINE_TAGS = 'a|abbr|b|cite|code|del|em|i|ins|mark|q|s|small|span|strike|strong|sub|sup|u';
+
     private function plainText(string $html): string
     {
-        $stripped = strip_tags($html);
+        $withoutInlineTags = (string) preg_replace('#</?(?:'.self::INLINE_TAGS.')(?:\s[^>]*)?>#i', '', $html);
+        $withBlockSeparators = (string) preg_replace('/<[^>]*>/', ' ', $withoutInlineTags);
+        $stripped = strip_tags($withBlockSeparators);
 
         return html_entity_decode(preg_replace('/\s+/u', ' ', $stripped) ?? $stripped, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
