@@ -9,6 +9,7 @@ use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\EditorialQuality\EditorialQualityCheckResult as R;
 use App\Services\EditorialQuality\EditorialQualityReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Normalizer;
 use Tests\TestCase;
 
 class EditorialQualityCheckerTest extends TestCase
@@ -184,6 +185,463 @@ class EditorialQualityCheckerTest extends TestCase
         $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
 
         $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    // ── Placeholder — falso positivo reale (articoli #2 e #15 in produzione):
+    // "todo" e' una sottostringa letterale di "metodo"/"metodologia"/
+    // "metodologico", parole scientifiche legittime e comuni. Il marker
+    // deve continuare a essere riconosciuto quando e' davvero un
+    // segnaposto (parola a se stante, delimitata da spazi/punteggiatura),
+    // mai quando e' incorporato dentro una parola più lunga. ──
+
+    public function test_the_word_metodo_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il metodo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: testo copiato da alcune fonti
+     * (es. certi strumenti su macOS) può arrivare in forma Unicode
+     * decomposta (NFD), dove una lettera accentata come "é" diventa due
+     * caratteri distinti — "e" + accento acuto combinante (categoria
+     * Unicode \p{M}). In "método" (NFD) il marker "todo" segue subito il
+     * carattere combinante: senza riconoscere \p{M} come carattere "di
+     * parola" quel punto sembrerebbe un confine di parola valido, facendo
+     * scattare erroneamente il marker dentro una parola legittima.
+     */
+    public function test_the_word_metodo_in_decomposed_nfd_unicode_form_never_triggers_the_todo_marker(): void
+    {
+        $decomposed = Normalizer::normalize('método', Normalizer::FORM_D);
+        $this->assertNotSame('método', $decomposed, 'la forma NFD deve differire byte per byte da quella composta, altrimenti il test non riproduce lo scenario');
+
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('El '.$decomposed.' utilizado por los investigadores fue eficaz. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: non tutti i segni diacritici
+     * combinanti hanno un equivalente precomposto (a differenza
+     * dell'accento acuto del test precedente) — es. il macron sottoscritto
+     * U+0331, usato in alcune trascrizioni linguistiche/fonetiche, non si
+     * "ricompone" in un solo carattere nemmeno in forma NFC. Riconoscere
+     * \p{M} direttamente in isWordChar() copre anche questo caso, a
+     * differenza di una normalizzazione NFC da sola.
+     */
+    public function test_the_word_metodo_with_an_uncomposable_combining_mark_never_triggers_the_todo_marker(): void
+    {
+        $withCombiningMacronBelow = "me\u{0331}todo";
+        $this->assertNotSame(
+            Normalizer::normalize($withCombiningMacronBelow, Normalizer::FORM_C),
+            preg_replace('/\p{M}/u', '', $withCombiningMacronBelow),
+            'il segno combinante usato nel test deve restare non componibile anche dopo NFC, altrimenti il test non riproduce lo scenario'
+        );
+
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il '.$withCombiningMacronBelow.' utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_the_word_metodologia_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('La metodologia sperimentale adottata e\' descritta di seguito. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_the_word_metodologico_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Un approccio metodologico rigoroso guida questa ricerca scientifica. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_a_word_that_accidentally_embeds_a_marker_substring_is_never_flagged(): void
+    {
+        // "fixme" non e' una sottostringa nota di alcuna parola italiana
+        // comune, ma il principio va comunque verificato in astratto: un
+        // marker incorporato in una parola più lunga, con lettere sui due
+        // lati, non deve mai far scattare il controllo.
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Un prefissoxxxxxxxxsuffisso non e\' mai un segnaposto reale. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_standalone_uppercase_todo_is_still_detected(): void
+    {
+        $article = $this->completeArticle(['body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO</p>']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Falso negativo segnalato in review: varianti numerate di un
+     * segnaposto reale ("TODO1", "TODO2", "FIXME42", "placeholder2") sono
+     * una convenzione comune per distinguere più segnaposti nello stesso
+     * articolo. Una cifra subito dopo il marker non deve mai bloccare il
+     * riconoscimento, a differenza di una lettera.
+     */
+    public function test_numbered_todo_variants_are_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO1: prima sezione mancante. TODO2: seconda sezione mancante.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_a_numbered_fixme_variant_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'excerpt' => 'FIXME42: questo sommario e\' ancora da rivedere completamente',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_a_numbered_placeholder_variant_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>placeholder2</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Contropartita del test precedente: una cifra dopo un marker non
+     * deve mai "sbloccare" un falso positivo sul lato lettera — "metodo1"
+     * resta comunque una parola legittima, perché "todo" è preceduto
+     * dalla lettera "e", non da un confine.
+     */
+    public function test_the_word_metodo_followed_by_a_digit_never_triggers_the_todo_marker(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il metodo1 utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_todo_with_a_colon_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO: completare questa sezione</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_mid_sentence_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Testo provvisorio. TODO aggiungere fonte.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_todo_wrapped_in_html_tags_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Falso negativo segnalato in review: se il body salvato non ha alcuno
+     * spazio letterale tra due tag di blocco adiacenti (tipico di un
+     * editor che non inserisce whitespace tra i paragrafi), strip_tags()
+     * da solo fonderebbe "...sostanzioso.TODO" in un'unica "parola",
+     * mascherando un placeholder reale. Il confine tra tag di blocco deve
+     * sempre contare come separatore, anche senza whitespace nell'HTML.
+     */
+    public function test_todo_immediately_adjacent_to_a_block_tag_boundary_with_no_literal_whitespace_is_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso.', 15).'</p><p>TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: un marker che compare solo
+     * dentro un attributo HTML tra virgolette (mai visibile a un lettore)
+     * non deve mai contare come segnaposto. Con un'estrazione basata su
+     * regex "[^>]*", il ">" dentro l'attributo tronca il tag in anticipo e
+     * fa trapelare il resto dell'attributo come testo — un parser DOM
+     * vero analizza correttamente gli attributi e non ha questo problema.
+     */
+    public function test_a_marker_inside_a_quoted_html_attribute_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p><span title="A &gt; TODO">testo</span></p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Contropartita del test precedente: i tag "inline" (formattazione
+     * dentro una parola, incl. gli span-artefatto tipici del copia-incolla
+     * da Word/Docs in TinyMCE) non devono introdurre uno spazio artificiale
+     * che spezzerebbe una parola legittima in due token — altrimenti
+     * "<em>me</em>todo" (renderizzato come "metodo") verrebbe letto come
+     * "me" + "todo", reintroducendo esattamente il falso positivo che
+     * questa missione elimina.
+     */
+    public function test_a_legitimate_word_split_by_an_inline_formatting_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il <em>me</em>todo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: <wbr> (punto di interruzione di
+     * parola facoltativo) e altri elementi di fraseggio HTML5 non comuni
+     * (time, kbd, samp, var, ...) non introducono mai uno spazio visibile
+     * — "me<wbr>todo" resta "metodo" per un lettore, esattamente come per
+     * i tag di formattazione già coperti dal test precedente.
+     */
+    public function test_a_legitimate_word_split_by_a_word_break_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il me<wbr>todo utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: <label> è un altro elemento di
+     * fraseggio non presente in una precedente allowlist di soli tag
+     * "inline" noti. Da qui la scelta architetturale definitiva:
+     * un'allowlist esplicita di tag di BLOCCO (piccola e chiusa) invece
+     * che di tag inline (elenco HTML5 troppo ampio per essere enumerato
+     * con certezza) — un tag sconosciuto o esotico come <label> resta
+     * "inline" per default, senza bisogno di elencarlo esplicitamente.
+     */
+    public function test_a_legitimate_word_split_by_a_label_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Il me<label>todo</label> utilizzato dai ricercatori si e\' rivelato efficace. ', 10).'</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Falso negativo segnalato in review: un elemento "replaced" come
+     * <img> non ha mai un textContent proprio, quindi senza uno spazio
+     * esplicito farebbe da collante invisibile tra due nodi di testo
+     * altrimenti separati — "<p>testo<img src=\"x\">TODO</p>" diventerebbe
+     * "testoTODO", mascherando un placeholder reale. Raggiungibile
+     * concretamente tramite il plugin immagini di TinyMCE nell'admin.
+     */
+    public function test_todo_immediately_after_an_inline_image_with_no_literal_whitespace_is_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'<img src="x">TODO</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Falso negativo segnalato in review: un tag non presente in una
+     * precedente allowlist di soli tag di blocco (es. <dialog>, digitabile
+     * tramite il plugin "code"/sorgente HTML di TinyMCE nell'admin) non
+     * inseriva alcuno spazio, fondendo il testo di due elementi
+     * visivamente distinti. Da qui la decisione architetturale finale:
+     * il default è "inserisci uno spazio" per qualunque tag non elencato
+     * esplicitamente come puro formattatore inline — un tag sconosciuto o
+     * esotico come <dialog> resta quindi sempre un separatore.
+     */
+    public function test_a_marker_separated_only_by_an_unlisted_exotic_tag_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><dialog open>testo</dialog><dialog open>TODO</dialog>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    /**
+     * Falso positivo segnalato in review: quando l'HTML salvato contiene
+     * un tag di chiusura non bilanciato (stesso bug di troncamento già
+     * noto altrove nel codice, vedi ArticleTableOfContentsTest), il
+     * contenuto successivo può finire "fuori" dal wrapper sintetico usato
+     * per il parsing. Anche in quel caso limite un marker dentro un
+     * attributo tra virgolette (mai visibile a un lettore) non deve mai
+     * essere rilevato: l'estrazione resta interamente basata su DOM, mai
+     * su una regex che potrebbe troncare a un ">" tra virgolette.
+     */
+    public function test_a_marker_inside_a_quoted_attribute_after_an_unbalanced_closing_tag_is_never_flagged(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p></div><p><span title="A &gt; TODO">visibile</span></p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_todo_inside_inline_formatting_tags_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p><strong>TODO:</strong> verificare questo dato</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_lowercase_todo_standalone_is_still_detected_case_insensitively(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>todo</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_the_word_fixme_style_markers_still_work_with_the_shared_boundary_rule(): void
+    {
+        $article = $this->completeArticle([
+            'excerpt' => 'FIXME: questo sommario e\' ancora da rivedere completamente',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_lorem_ipsum_phrase_boundary_still_works(): void
+    {
+        $article = $this->completeArticle(['body' => '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_bracket_prefixed_marker_still_works_at_a_natural_word_boundary(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Testo con [inserire qui il titolo definitivo].</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_da_completare_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>Sezione da completare.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_titolo_articolo_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle(['title' => 'Titolo articolo']);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_placeholder_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>[placeholder]</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
+    }
+
+    public function test_the_eight_x_placeholder_run_standalone_is_still_detected(): void
+    {
+        $article = $this->completeArticle([
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p><p>xxxxxxxx</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'no_placeholder_markers');
+
+        $this->assertSame(R::STATUS_FAIL, $result->status);
     }
 
     // ── Cover / alt ──

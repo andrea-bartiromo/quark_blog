@@ -196,7 +196,7 @@ class EditorialQualityChecker
             $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $text) ?? ''), 'UTF-8');
 
             foreach (self::PLACEHOLDER_MARKERS as $marker) {
-                if ($normalized !== '' && str_contains($normalized, $marker)) {
+                if ($normalized !== '' && $this->containsWholeWordMarker($normalized, $marker)) {
                     return $this->fail(
                         'no_placeholder_markers',
                         'Contenuto segnaposto',
@@ -210,6 +210,91 @@ class EditorialQualityChecker
         }
 
         return $this->pass('no_placeholder_markers', 'Contenuto segnaposto', EditorialQualityCheckResult::CATEGORY_CONTENT, EditorialQualityCheckResult::IMPORTANCE_ESSENTIAL, 'Nessun segnaposto rilevato.');
+    }
+
+    /**
+     * Verifica se $marker compare in $haystack come unità "delimitata": non
+     * incorporato dentro una parola più lunga. Un carattere del testo è
+     * considerato di confine (spazio, punteggiatura, tag/entità HTML già
+     * spogliati a monte, inizio/fine stringa) oppure "di parola"
+     * (lettera/cifra Unicode, vedi isWordChar()). Il marker è considerato
+     * delimitato solo se, ai suoi due estremi, non si trova un carattere di
+     * parola adiacente sullo stesso lato — così "todo" non scatta dentro
+     * "metodo", ma resta rilevato quando è standalone o separato da spazi,
+     * punteggiatura o tag HTML. I marker che iniziano o finiscono già con un
+     * carattere non di parola (es. "[inserire") non necessitano di
+     * considerazioni speciali: la regola è simmetrica e si applica allo
+     * stesso modo a entrambi gli estremi.
+     */
+    private function containsWholeWordMarker(string $haystack, string $marker): bool
+    {
+        $offset = 0;
+        $markerLength = mb_strlen($marker, 'UTF-8');
+        $haystackLength = mb_strlen($haystack, 'UTF-8');
+
+        while ($offset <= $haystackLength - $markerLength) {
+            $position = mb_strpos($haystack, $marker, $offset, 'UTF-8');
+
+            if ($position === false) {
+                return false;
+            }
+
+            if ($this->markerMatchesAsWholeUnit($haystack, $marker, $position)) {
+                return true;
+            }
+
+            $offset = $position + 1;
+        }
+
+        return false;
+    }
+
+    private function markerMatchesAsWholeUnit(string $haystack, string $marker, int $position): bool
+    {
+        $markerLength = mb_strlen($marker, 'UTF-8');
+
+        $charBefore = $position > 0 ? mb_substr($haystack, $position - 1, 1, 'UTF-8') : '';
+        $firstMarkerChar = mb_substr($marker, 0, 1, 'UTF-8');
+
+        if ($this->isWordChar($firstMarkerChar) && $this->isWordChar($charBefore)) {
+            return false;
+        }
+
+        $charAfter = mb_substr($haystack, $position + $markerLength, 1, 'UTF-8');
+        $lastMarkerChar = mb_substr($marker, -1, 1, 'UTF-8');
+
+        if ($this->isWordChar($lastMarkerChar) && $this->isWordChar($charAfter)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Un carattere "di parola", ai fini del confine di un marker, è una
+     * lettera (\p{L}) o un segno diacritico combinante (\p{M}) — MAI una
+     * cifra (\p{N}). Le cifre sono deliberatamente escluse:
+     *
+     * - Le lettere estendono sempre una parola: "todo" preceduto da "me"
+     *   (come in "metodo") resta incorporato in una parola legittima.
+     * - I segni combinanti sono sempre "attaccati" al carattere base che
+     *   li precede nel testo (es. l'accento in "é" scritta in forma
+     *   Unicode decomposta NFD, "e" + accento combinante) e non
+     *   rappresentano mai un confine — sia che la sequenza sia componibile
+     *   in un carattere precomposto (NFC) sia che non lo sia (es. segni
+     *   diacritici usati in trascrizioni fonetiche).
+     * - Le cifre invece NON devono bloccare il riconoscimento: varianti
+     *   numerate di un segnaposto reale ("TODO1", "TODO2", "FIXME42",
+     *   "placeholder2") sono una convenzione comune e vanno comunque
+     *   rilevate. Nessuna parola italiana legittima ha mai una cifra
+     *   incollata direttamente a un marker come "todo"/"fixme"/ecc., quindi
+     *   non trattare le cifre come "di parola" qui non introduce falsi
+     *   positivi realistici sul lato lettere (quel confine resta gestito
+     *   da \p{L}/\p{M}, invariato).
+     */
+    private function isWordChar(string $char): bool
+    {
+        return $char !== '' && preg_match('/[\p{L}\p{M}]/u', $char) === 1;
     }
 
     // ── MEDIA ────────────────────────────────────────────────────
@@ -753,11 +838,106 @@ class EditorialQualityChecker
         return new EditorialQualityCheckResult($code, $label, EditorialQualityCheckResult::STATUS_NOT_APPLICABLE, $importance, $category, $message);
     }
 
+    /**
+     * DECISIONE ARCHITETTURALE (dopo due round di review): il corpo
+     * dell'articolo NON è HTML a vocabolario chiuso. Il plugin "code" di
+     * TinyMCE nell'editor admin (vedi resources/views/admin/article-form
+     * .blade.php, toolbar con "code") apre una vista sorgente dove
+     * un utente può scrivere qualunque tag HTML valido, non solo quelli
+     * raggiungibili dai pulsanti della toolbar. Di conseguenza NESSUNA
+     * allowlist di tag (né di "blocco", né "di fraseggio") può mai essere
+     * completa con certezza: due round di review hanno già trovato
+     * <label> e <dialog> mancanti da una precedente allowlist di soli tag
+     * di blocco/replaced, ciascuno un falso NEGATIVO (placeholder reale
+     * non rilevato perché fuso con testo adiacente da un tag non
+     * previsto) — l'esito peggiore per un controllo la cui missione è non
+     * lasciar passare inosservato un vero segnaposto.
+     *
+     * La scelta finale è quindi asimmetrica e deliberata: il DEFAULT è
+     * "inserisci uno spazio" (separatore) per qualunque tag non elencato
+     * qui sotto, incluso qualunque tag esotico, sconosciuto o non ancora
+     * immaginato (<dialog>, elementi custom, ...) — un tag mancante da
+     * questa lista produce nella peggiore delle ipotesi un raro falso
+     * POSITIVO (una parola legittima spezzata da un tag non comune,
+     * verificabile a vista da chi rivede l'articolo), mai un falso
+     * negativo silenzioso. Sono elencati qui SOLO i tag di puro
+     * fraseggio/formattazione testuale per cui siamo certi che il
+     * contenuto non ha mai un confine visivo proprio nel rendering (es.
+     * "<em>me</em>todo" o "me<label>todo</label>" sono sempre "metodo"
+     * per un lettore) — un elenco piccolo e conservativo, non un
+     * tentativo di enumerare per completezza il contenuto di fraseggio
+     * HTML5.
+     */
+    private const INLINE_MERGE_TAGS = [
+        'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'del', 'dfn',
+        'em', 'i', 'ins', 'kbd', 'label', 'mark', 'output', 'q', 'rp', 'rt',
+        'ruby', 's', 'samp', 'small', 'span', 'strike', 'strong', 'sub',
+        'sup', 'time', 'u', 'var', 'wbr',
+    ];
+
+    /**
+     * Estrazione testo via DOMDocument (stesso approccio del resto della
+     * classe, vedi parseElements()) invece che via regex: una regex che
+     * combacia i tag con "[^>]*" tronca in anticipo davanti a un ">"
+     * dentro un attributo tra virgolette (es. title="A > TODO"),
+     * facendo trapelare testo di attributi nel corpo analizzato — un
+     * parser HTML vero non ha questo problema, in nessun caso limite.
+     *
+     * Normalmente il div sintetico resta l'unico nodo di primo livello.
+     * Un tag di chiusura non bilanciato nell'HTML salvato può però farlo
+     * chiudere in anticipo (stesso bug già noto in TableOfContentsService
+     * e ArticleBodyImageService), lasciando il resto del contenuto come
+     * fratelli dello stesso wrapper: a differenza di quei due servizi
+     * (che rinunciano e restituiscono l'HTML originale, perché operano
+     * per il rendering), qui la scelta di "arrendersi" produrrebbe un
+     * corpo vuoto/troncato e un falso FAIL su "corpo vuoto" — quindi si
+     * raccoglie il testo da ogni nodo di primo livello del documento
+     * (uno solo, nel caso normale), senza bisogno di un secondo percorso
+     * di estrazione via regex.
+     */
     private function plainText(string $html): string
     {
-        $stripped = strip_tags($html);
+        $trimmed = trim($html);
 
-        return html_entity_decode(preg_replace('/\s+/u', ' ', $stripped) ?? $stripped, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML(
+            '<?xml encoding="UTF-8"><div id="__plain_text_root__">'.$trimmed.'</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $parts = [];
+
+        foreach ($dom->childNodes as $node) {
+            if (! $node instanceof DOMElement) {
+                continue;
+            }
+
+            $this->insertSeparators($dom, $node);
+            $parts[] = $node->textContent;
+        }
+
+        $text = implode(' ', $parts);
+
+        return preg_replace('/\s+/u', ' ', $text) ?? $text;
+    }
+
+    private function insertSeparators(DOMDocument $dom, DOMElement $scope): void
+    {
+        foreach (iterator_to_array($scope->getElementsByTagName('*')) as $element) {
+            if (in_array(mb_strtolower($element->nodeName), self::INLINE_MERGE_TAGS, true)) {
+                continue;
+            }
+
+            $element->parentNode?->insertBefore($dom->createTextNode(' '), $element);
+            $element->parentNode?->insertBefore($dom->createTextNode(' '), $element->nextSibling);
+        }
     }
 
     private function wordCount(string $plainText): int
