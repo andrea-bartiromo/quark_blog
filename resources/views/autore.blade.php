@@ -6,6 +6,26 @@
     ? route('autore', ['user' => $author, 'page' => $articles->currentPage()])
     : route('autore', $author))
 
+@push('head')
+@php
+    $personSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Person',
+        'name' => $author->name,
+        'url' => route('autore', $author),
+    ];
+
+    if ($author->bio) {
+        $personSchema['description'] = $author->bio;
+    }
+
+    if ($author->twitter) {
+        $personSchema['sameAs'] = ['https://twitter.com/'.ltrim($author->twitter, '@')];
+    }
+@endphp
+<script type="application/ld+json">{!! json_encode($personSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+@endpush
+
 @section('content')
 <div class="public-page public-page--author">
   <div class="container">
