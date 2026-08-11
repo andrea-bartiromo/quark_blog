@@ -1097,4 +1097,76 @@ class ArticleLinkSuggestionServiceTest extends TestCase
             'Una source non scheduled deve poter usare l\'intera quota MAX_CANDIDATES per i pubblicati, non una quota ridotta pensata per gli scheduled sicuri che qui non si applicano nemmeno.'
         );
     }
+
+    /**
+     * Codex (PR #165, P2 round 11): il round 6 rendeva la quota dei
+     * pubblicati dinamica in base al NUMERO di scheduled sicuri REALMENTE
+     * trovati — ma quel numero non dice nulla sulla loro RILEVANZA. Con 50
+     * scheduled sicuri tutti irrilevanti per questa query, la quota
+     * pubblicati si riduceva comunque a 250, scalzando un pubblicato
+     * genuinamente pertinente in posizione 251-300 ancora prima che venga
+     * mai valutato per lo scoring. Le due quote sono ora completamente
+     * indipendenti: i pubblicati mantengono sempre l'intera MAX_CANDIDATES.
+     */
+    public function test_irrelevant_scheduled_safe_candidates_do_not_shrink_the_published_quota(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+
+        // MAX_SCHEDULED_SAFE_CANDIDATES (privata): esattamente 50 scheduled
+        // sicuri, tanti quanti ne può contenere il tetto dedicato.
+        for ($i = 0; $i < 50; $i++) {
+            Article::create([
+                'user_id' => $author->id,
+                'title' => 'Articolo programmato di riempimento '.$i.'-'.uniqid('', true),
+                'slug' => 'irrelevant-sched-'.$i.'-'.uniqid('', true),
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>'.str_repeat('Testo generico senza alcuna relazione tematica. ', 15).'</p>',
+                'category' => 'energia',
+                'status' => 'scheduled',
+                'published_at' => now()->addDays($i + 1),
+            ]);
+        }
+
+        $publishedTarget = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Superconduttori ad alta temperatura',
+            'slug' => 'superconduttori-alta-temperatura-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>I superconduttori ad alta temperatura promettono applicazioni rivoluzionarie.</p>',
+            'category' => 'fisica',
+            'status' => 'published',
+            'published_at' => now()->subDays(256),
+        ]);
+
+        for ($i = 0; $i < 255; $i++) {
+            Article::create([
+                'user_id' => $author->id,
+                'title' => 'Articolo pubblicato di riempimento '.$i.'-'.uniqid('', true),
+                'slug' => 'irrelevant-pub-'.$i.'-'.uniqid('', true),
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>'.str_repeat('Testo generico senza alcuna relazione tematica. ', 15).'</p>',
+                'category' => 'energia',
+                'status' => 'published',
+                'published_at' => now()->subDays($i + 1),
+            ]);
+        }
+
+        $source = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Materiali del futuro per l\'elettronica',
+            'slug' => 'materiali-futuro-elettronica-'.uniqid('', true),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Tra i materiali più promettenti ci sono i Superconduttori ad alta temperatura, oggetto di ricerca intensa.</p>',
+            'category' => 'fisica',
+            'status' => 'scheduled',
+            'published_at' => now()->addDays(60),
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source->fresh());
+
+        $this->assertTrue(
+            $suggestions->contains('target_article_id', $publishedTarget->id),
+            'Un pool pieno di scheduled sicuri ma irrilevanti non deve ridurre la quota dei pubblicati: un pubblicato pertinente in posizione 256 deve comunque essere valutato.'
+        );
+    }
 }
