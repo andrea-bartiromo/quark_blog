@@ -75,7 +75,7 @@ async function gotoPublicPage(page, route) {
     expect(response.status(), `HTTP status for ${route}`).toBeLessThan(400);
     await expect(page.locator('body > main')).toBeVisible();
     await expect(page.getByRole('banner')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Navigazione principale' })).toBeAttached();
+    await expect(page.locator('nav[aria-label="Navigazione principale"]')).toBeAttached();
 
     return guards;
 }
@@ -106,7 +106,7 @@ test.describe('semantic public page contracts', () => {
         const guards = await gotoPublicPage(page, fixture.routes.search);
         await expect(page.getByRole('heading', { level: 1 })).toContainText('turing', { ignoreCase: true });
         await expect(page.getByRole('textbox', { name: 'Cerca nel sito' })).toHaveValue('turing');
-        await expect(page.getByRole('link', { name: new RegExp(fixture.title) })).toBeVisible();
+        await expect(page.getByRole('link', { name: fixture.title, exact: true })).toBeVisible();
         guards.assertClean();
     });
 
@@ -140,7 +140,7 @@ test.describe('semantic public page contracts', () => {
 
             for (const source of sources) {
                 expect(source, `empty image src on ${route}`).toBeTruthy();
-                expect(() => new URL(source, window.location.origin)).not.toThrow();
+                expect(() => new URL(source, page.url())).not.toThrow();
             }
 
             guards.assertClean();
@@ -152,9 +152,9 @@ test('newsletter modal traps keyboard focus and restores it without submitting',
     const guards = await gotoPublicPage(page, fixture.routes.home);
     const trigger = page.getByRole('button', { name: /Newsletter/ });
     const dialog = page.getByRole('dialog', { name: 'Resta aggiornato su Kairus' });
-    const email = page.getByRole('textbox', { name: 'Indirizzo email' });
-    const close = page.getByRole('button', { name: 'Chiudi' });
-    const submit = page.getByRole('button', { name: 'Iscriviti gratis' });
+    const email = dialog.getByRole('textbox', { name: 'Indirizzo email' });
+    const close = dialog.getByRole('button', { name: 'Chiudi' });
+    const submit = dialog.getByRole('button', { name: 'Iscriviti gratis' });
 
     await trigger.focus();
     await trigger.click();
