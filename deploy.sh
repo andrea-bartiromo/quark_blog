@@ -31,6 +31,9 @@ php -r "exit(version_compare(PHP_VERSION,'8.3','>=') ? 0 : 1);" || fail "PHP 8.3
 ACTUAL_SHA="$(git rev-parse HEAD)"
 [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || fail "Revision mismatch: expected $EXPECTED_SHA, found $ACTUAL_SHA."
 
+git diff --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
+git diff --cached --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
+
 APP_ENV_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); echo config("app.env");')"
 [ "$APP_ENV_VALUE" = "production" ] || fail "APP_ENV must resolve to production; got '$APP_ENV_VALUE'."
 
