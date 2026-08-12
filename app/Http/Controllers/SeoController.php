@@ -21,7 +21,7 @@ class SeoController extends Controller
 
     public function sitemap(): Response
     {
-        $articles = Article::published()->get(['slug', 'category', 'updated_at']);
+        $articles = Article::published()->get(['slug', 'category']);
         $categories = array_keys(Category::options());
 
         // url('/') (mai config('app.url') letto a mano) cosi' da rispettare
@@ -44,7 +44,11 @@ class SeoController extends Controller
         }
 
         foreach ($articles as $article) {
-            $xml .= "  <url><loc>{$base}/articolo/{$article->slug}</loc><lastmod>{$article->updated_at->toDateString()}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>".PHP_EOL;
+            // updated_at non è un lastmod editoriale affidabile: viene
+            // aggiornato anche dal contatore views durante una normale
+            // pageview. Meglio omettere lastmod che inviare ai crawler un
+            // falso segnale di modifica del contenuto.
+            $xml .= "  <url><loc>{$base}/articolo/{$article->slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>".PHP_EOL;
         }
 
         $xml .= '</urlset>';
