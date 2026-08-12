@@ -69,6 +69,15 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringContainsString('DB_CONNECTION=sqlite', $workflow);
     }
 
+    public function test_scheduled_sqlite_backup_is_guarded_outside_sqlite_environments(): void
+    {
+        $schedule = file_get_contents(base_path('routes/console.php'));
+
+        $this->assertIsString($schedule);
+        $this->assertStringContainsString("config('database.default') === 'sqlite'", $schedule);
+        $this->assertStringContainsString("Schedule::command('backup:database')", $schedule);
+    }
+
     private function deployScript(): string
     {
         $script = file_get_contents(base_path('deploy.sh'));
