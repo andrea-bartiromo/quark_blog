@@ -148,7 +148,7 @@ test.describe('semantic public page contracts', () => {
     });
 });
 
-test('newsletter modal traps keyboard focus and restores it without submitting', async ({ page }) => {
+test('newsletter modal traps keyboard focus and restores semantic closed state without submitting', async ({ page }) => {
     const guards = await gotoPublicPage(page, fixture.routes.home);
     const trigger = page.getByRole('button', { name: /Newsletter/ });
     const dialog = page.getByRole('dialog', { name: 'Resta aggiornato su Kairus' });
@@ -171,7 +171,7 @@ test('newsletter modal traps keyboard focus and restores it without submitting',
     await expect(close).toBeFocused();
 
     await page.keyboard.press('Escape');
-    await expect(dialog).not.toBeVisible();
+    await expect(dialog).toHaveAttribute('hidden', '');
     await expect(trigger).toBeFocused();
     await expect(dialog).toHaveAttribute('inert', '');
     await expect(email).not.toBeFocused();
