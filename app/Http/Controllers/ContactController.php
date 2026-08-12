@@ -19,7 +19,7 @@ class ContactController extends Controller
             'privacy' => 'accepted',
         ]);
 
-        $to = env('CONTACT_TO_ADDRESS', config('mail.from.address'));
+        $to = config('mail.contact_to');
 
         try {
             Mail::raw($this->messageBody($data), function ($message) use ($data, $to) {
