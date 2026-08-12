@@ -20,7 +20,7 @@
 <body>
   <div class="login-box">
     <div class="login-logo">
-      Il <em>Lab</em>oratorio<br>
+      Kairus.<br>
       <small style="font-family:var(--font-ui);font-size:.65rem;font-weight:400;text-transform:uppercase;letter-spacing:.12em;color:var(--color-ink-muted);">
         Pannello redazionale
       </small>
