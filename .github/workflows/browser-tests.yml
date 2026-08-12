@@ -67,20 +67,18 @@ jobs:
           node-version: '24'
           cache: npm
 
-      - name: Install Node dependencies
-        run: npm ci
+      - name: Regenerate dependency lock
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Execute browser tests
-        run: npm run test:browser
-
-      - name: Upload Playwright failure artifacts
-        if: failure()
+      - name: Upload regenerated dependency lock
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-failure-artifacts
-          path: test-results/playwright
-          if-no-files-found: ignore
-          retention-days: 7
+          name: regenerated-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Stop after lock regeneration
+        run: |
+          echo "Temporary lock-regeneration run complete. Import the npm-generated lockfile before browser execution."
+          exit 1
