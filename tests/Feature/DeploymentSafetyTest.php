@@ -17,6 +17,15 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringContainsString('date -u', $script);
     }
 
+    public function test_production_deploy_requires_tracked_release_files_to_match_expected_revision(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('git diff --quiet --ignore-submodules --', $script);
+        $this->assertStringContainsString('git diff --cached --quiet --ignore-submodules --', $script);
+        $this->assertStringContainsString('Tracked release files differ from the expected Git revision', $script);
+    }
+
     public function test_production_deploy_does_not_assume_sqlite_or_run_the_sqlite_only_backup_command(): void
     {
         $script = $this->deployScript();
