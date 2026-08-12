@@ -3,19 +3,63 @@ name: Browser Tests
 on:
   push:
     branches:
+      - main
       - test/frontend-playwright-harness
+  pull_request:
 
 permissions:
   contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    name: Chromium public regression
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, fileinfo, openssl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Force deterministic browser environment
+        run: |
+          echo "APP_URL=http://127.0.0.1:8000" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite" >> .env
+          echo "MAIL_MAILER=array" >> .env
+          echo "QUEUE_CONNECTION=sync" >> .env
+          echo "SESSION_DRIVER=file" >> .env
+
+      - name: Prepare SQLite database
+        run: |
+          mkdir -p database
+          touch database/database.sqlite
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Prepare deterministic browser data
+        run: |
+          php artisan migrate:fresh --force
+          php artisan db:seed --class=Database\\Seeders\\BrowserTestSeeder --force
+          php artisan optimize:clear
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -26,5 +70,17 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Execute browser contract
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Execute browser tests
         run: npm run test:browser
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: test-results/playwright
+          if-no-files-found: ignore
+          retention-days: 7
