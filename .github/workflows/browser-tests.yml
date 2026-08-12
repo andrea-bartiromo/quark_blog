@@ -1,0 +1,30 @@
+name: Browser Tests
+
+on:
+  push:
+    branches:
+      - test/frontend-playwright-harness
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Execute browser contract
+        run: npm run test:browser
