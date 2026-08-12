@@ -12,7 +12,7 @@ class OrganicGrowthSeoRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_pageview_does_not_change_article_sitemap_lastmod(): void
+    public function test_article_sitemap_omits_lastmod_when_only_available_timestamp_is_not_editorial(): void
     {
         $article = $this->publishedArticle();
         $oldUpdatedAt = now()->subDays(10)->startOfDay();
@@ -21,19 +21,15 @@ class OrganicGrowthSeoRegressionTest extends TestCase
             ->where('id', $article->id)
             ->update(['updated_at' => $oldUpdatedAt]);
 
-        $before = $this->get(route('sitemap'))->assertOk()->getContent();
-        $beforeLastmod = $this->articleLastmod($before, $article);
-
-        $this->assertSame($oldUpdatedAt->toDateString(), $beforeLastmod);
-
         $this->get(route('articolo', $article->slug))->assertOk();
 
-        $after = $this->get(route('sitemap'))->assertOk()->getContent();
+        $xml = $this->get(route('sitemap'))->assertOk()->getContent();
+        $entry = $this->articleSitemapEntry($xml, $article);
 
-        $this->assertSame(
-            $beforeLastmod,
-            $this->articleLastmod($after, $article),
-            'Una semplice pageview non deve segnalare ai crawler una modifica editoriale dell’articolo.'
+        $this->assertStringNotContainsString(
+            '<lastmod>',
+            $entry,
+            'updated_at cambia anche per una pageview: non è un lastmod editoriale affidabile.'
         );
     }
 
@@ -74,12 +70,14 @@ class OrganicGrowthSeoRegressionTest extends TestCase
         ], $overrides));
     }
 
-    private function articleLastmod(string $xml, Article $article): ?string
+    private function articleSitemapEntry(string $xml, Article $article): string
     {
         $url = preg_quote(route('articolo', $article->slug), '#');
-        preg_match('#<loc>'.$url.'</loc><lastmod>([^<]+)</lastmod>#', $xml, $matches);
+        preg_match('#<url><loc>'.$url.'</loc>.*?</url>#s', $xml, $matches);
 
-        return $matches[1] ?? null;
+        $this->assertNotEmpty($matches, 'Articolo pubblicato assente dalla sitemap.');
+
+        return $matches[0];
     }
 
     private function collectionPageSchemaFrom(string $html): array
