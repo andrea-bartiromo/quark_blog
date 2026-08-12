@@ -33,7 +33,7 @@ class ContactController extends Controller
             report($exception);
 
             return back()->withErrors([
-                'email' => 'Il messaggio non è stato inviato. Errore mail: '.$exception->getMessage(),
+                'email' => 'Il messaggio non è stato inviato. Riprova più tardi.',
             ])->withInput();
         }
     }
