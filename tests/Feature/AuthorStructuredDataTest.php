@@ -44,6 +44,24 @@ class AuthorStructuredDataTest extends TestCase
         $this->assertArrayNotHasKey('sameAs', $data);
     }
 
+    public function test_author_person_schema_hex_encodes_script_terminators_without_changing_profile_value(): void
+    {
+        $bio = 'Profilo </script><script>alert("x")</script> originale';
+        $author = User::factory()->create([
+            'name' => 'Ada Rossi',
+            'bio' => $bio,
+            'twitter' => '@adarossi',
+        ]);
+
+        $html = $this->get(route('autore', $author))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('</script><script>alert(\\"x\\")</script>', $html);
+
+        $data = $this->personSchemaFrom($html);
+
+        $this->assertSame($bio, $data['description']);
+    }
+
     private function personSchemaFrom(string $html): array
     {
         preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $html, $matches);
