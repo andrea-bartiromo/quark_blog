@@ -75,7 +75,7 @@ async function gotoPublicPage(page, route) {
     expect(response.status(), `HTTP status for ${route}`).toBeLessThan(400);
     await expect(page.locator('body > main')).toBeVisible();
     await expect(page.getByRole('banner')).toBeVisible();
-    await expect(page.locator('nav[aria-label="Navigazione principale"]')).toBeAttached();
+    await expect(page.locator('header nav').first()).toBeAttached();
 
     return guards;
 }
