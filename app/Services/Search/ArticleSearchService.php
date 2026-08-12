@@ -208,10 +208,10 @@ class ArticleSearchService
             $phraseValue = implode(' ', $tokens);
             $phrasePattern = $this->likePattern($phraseValue);
 
-            $scoreParts[] = "(CASE WHEN {$this->columnSql('title', $phraseValue)} LIKE ? ESCAPE '\\' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN {$this->columnSql('title', $phraseValue)} LIKE ? ESCAPE '!' THEN ".self::FULL_PHRASE_IN_TITLE_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
 
-            $scoreParts[] = "(CASE WHEN ({$this->columnSql('excerpt', $phraseValue)} LIKE ? ESCAPE '\\' OR {$this->columnSql('body', $phraseValue)} LIKE ? ESCAPE '\\') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
+            $scoreParts[] = "(CASE WHEN ({$this->columnSql('excerpt', $phraseValue)} LIKE ? ESCAPE '!' OR {$this->columnSql('body', $phraseValue)} LIKE ? ESCAPE '!') THEN ".self::FULL_PHRASE_IN_BODY_OR_EXCERPT_BONUS.' ELSE 0 END)';
             $bindings[] = $phrasePattern;
             $bindings[] = $phrasePattern;
 
@@ -245,7 +245,7 @@ class ArticleSearchService
 
         foreach (array_keys(self::FIELD_WEIGHTS) as $field) {
             $columnSql = $this->columnSql($field, $token);
-            $clauses = array_map(fn () => "{$columnSql} LIKE ? ESCAPE '\\'", $patterns);
+            $clauses = array_map(fn () => "{$columnSql} LIKE ? ESCAPE '!'", $patterns);
 
             $fragments[$field] = [
                 'sql' => '('.implode(' OR ', $clauses).')',
@@ -317,18 +317,18 @@ class ArticleSearchService
 
     /**
      * Neutralizza i caratteri speciali di LIKE ('%', '_') e il carattere
-     * di escape stesso ('\') PRIMA di racchiudere il valore tra '%...%' —
+     * di escape stesso ('!') PRIMA di racchiudere il valore tra '%...%' —
      * un utente che digita letteralmente '%' o '_' cerca quel carattere,
      * non attiva un wildcard SQL arbitrario (item G della missione). Ogni
-     * LIKE che consuma questo pattern dichiara sempre ESCAPE '\'', stesso
+     * LIKE che consuma questo pattern dichiara sempre ESCAPE '!', stesso
      * carattere di escape usato qui, esplicito e portabile (SQLite e MySQL
      * supportano entrambi la clausola ESCAPE con lo stesso carattere).
      */
     private function escapeLikeValue(string $value): string
     {
-        $escaped = str_replace('\\', '\\\\', $value);
-        $escaped = str_replace('%', '\\%', $escaped);
+        $escaped = str_replace('!', '!!', $value);
+        $escaped = str_replace('%', '!%', $escaped);
 
-        return str_replace('_', '\\_', $escaped);
+        return str_replace('_', '!_', $escaped);
     }
 }
