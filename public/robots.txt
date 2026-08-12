@@ -3,62 +3,19 @@
 #
 # Dominio ufficiale: https://kairus.it
 
-# ============================================================
-# MOTORI DI RICERCA TRADIZIONALI
-# ============================================================
-
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Slurp
-Allow: /
-
-# ============================================================
-# PRINCIPALI CRAWLER AI
-# ============================================================
-
-User-agent: GPTBot
-Allow: /
-
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-User-agent: anthropic-ai
-Allow: /
-
-User-agent: Claude-Web
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-# ============================================================
-# TUTTI GLI ALTRI CRAWLER
-# ============================================================
-
+# Tutti i crawler ricevono la stessa policy pubblica. robots.txt e' solo
+# crawler guidance: autenticazione e controlli di accesso restano separati.
 User-agent: *
 Allow: /
 
-# ============================================================
-# AREE RISERVATE
-# ============================================================
-
+# Aree riservate / superfici tecniche non pubbliche
 Disallow: /admin/
 Disallow: /redazione/
 Disallow: /storage/
 Disallow: /api/
 
-# Pagine di ricerca interna
-Disallow: /ricerca
+# /ricerca resta volutamente crawlable: la pagina dichiara noindex,follow
+# nel markup, quindi il crawler deve poterla leggere per osservare noindex.
 
-# ============================================================
-# SITEMAP
-# ============================================================
-
-Sitemap: https://kairus.it/sitemap.xml
+# Il sitemap index espone sia la sitemap standard sia la News sitemap.
+Sitemap: https://kairus.it/sitemap-index.xml
