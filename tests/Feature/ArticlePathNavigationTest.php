@@ -82,12 +82,12 @@ class ArticlePathNavigationTest extends TestCase
         $last = $this->article('Terzo pubblico');
 
         $cluster->articles()->attach([
-            $first->id => ['position' => 10],
-            $scheduled->id => ['position' => 20],
-            $draft->id => ['position' => 30],
+            $first->id => ['position' => 10, 'is_primary' => false],
+            $scheduled->id => ['position' => 20, 'is_primary' => false],
+            $draft->id => ['position' => 30, 'is_primary' => false],
             $current->id => ['position' => 40, 'is_primary' => true],
-            $review->id => ['position' => 50],
-            $last->id => ['position' => 60],
+            $review->id => ['position' => 50, 'is_primary' => false],
+            $last->id => ['position' => 60, 'is_primary' => false],
         ]);
 
         $response = $this->get(route('articolo', $current->slug));
@@ -109,7 +109,7 @@ class ArticlePathNavigationTest extends TestCase
         $last = $this->article('Ultimo');
         $cluster->articles()->attach([
             $first->id => ['position' => 10, 'is_primary' => true],
-            $last->id => ['position' => 20],
+            $last->id => ['position' => 20, 'is_primary' => false],
         ]);
 
         $this->get(route('articolo', $first->slug))
@@ -159,7 +159,7 @@ class ArticlePathNavigationTest extends TestCase
 
         foreach (range(1, 12) as $index) {
             $member = $this->article('Membro '.$index);
-            $cluster->articles()->attach($member->id, ['position' => ($index + 1) * 10]);
+            $cluster->articles()->attach($member->id, ['position' => ($index + 1) * 10, 'is_primary' => false]);
         }
 
         DB::flushQueryLog();
