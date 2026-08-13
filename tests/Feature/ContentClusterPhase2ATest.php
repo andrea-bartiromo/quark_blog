@@ -47,6 +47,53 @@ class ContentClusterPhase2ATest extends TestCase
         $this->assertSame(1, $health['scheduled_count']);
     }
 
+    public function test_non_public_pillar_is_an_explicit_unhealthy_finding(): void
+    {
+        $public = $this->article('Pubblico');
+        $draftPillar = $this->article('Pillar bozza', Article::STATUS_DRAFT);
+        $cluster = ContentCluster::factory()->create(['is_active' => true, 'pillar_article_id' => $draftPillar->id]);
+        $cluster->articles()->attach([
+            $public->id => ['position' => 10, 'is_primary' => true],
+            $draftPillar->id => ['position' => 20, 'is_primary' => true],
+        ]);
+
+        $health = app(ContentClusterHealth::class)->evaluate($cluster->load(['articles', 'pillarArticle']));
+
+        $this->assertFalse($health['pillar_public']);
+        $this->assertContains('PILLAR_NOT_PUBLIC', $health['findings']);
+        $this->assertSame('PILLAR_NOT_PUBLIC', $health['status']);
+    }
+
+    public function test_primary_coverage_counts_a_primary_membership_in_another_cluster(): void
+    {
+        $article = $this->article('Primary globale');
+        $secondaryCluster = ContentCluster::factory()->create(['pillar_article_id' => $article->id]);
+        $primaryCluster = ContentCluster::factory()->create();
+        $secondaryCluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => false]);
+        $primaryCluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $health = app(ContentClusterHealth::class)->evaluate($secondaryCluster->load(['articles', 'pillarArticle']));
+
+        $this->assertSame(100, $health['primary_coverage']);
+        $this->assertNotContains('PRIMARY_GAPS', $health['findings']);
+    }
+
+    public function test_orphan_counts_return_scalar_aggregates(): void
+    {
+        $this->article('Senza percorso');
+        $covered = $this->article('Coperto');
+        $cluster = ContentCluster::factory()->create(['is_active' => true]);
+        $cluster->articles()->attach($covered->id, ['position' => 10, 'is_primary' => true]);
+
+        $counts = app(ContentClusterHealth::class)->orphanCounts();
+
+        $this->assertSame(1, $counts['without_cluster']);
+        $this->assertSame(1, $counts['published_uncovered']);
+        $this->assertSame(0, $counts['without_primary']);
+        $this->assertSame(0, $counts['inactive_only']);
+        $this->assertSame(0, $counts['scheduled_uncovered']);
+    }
+
     public function test_dry_run_reports_plan_and_performs_zero_writes(): void
     {
         $article = $this->article('Mapped article');
