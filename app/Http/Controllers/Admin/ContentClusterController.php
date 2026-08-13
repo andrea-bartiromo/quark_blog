@@ -92,7 +92,7 @@ class ContentClusterController extends Controller
             'memberships.*.is_primary' => ['nullable', 'boolean'],
         ]);
 
-        $data['slug'] = Str::slug($data['slug'] ?: $data['name']);
+        $data['slug'] = Str::slug(($data['slug'] ?? '') ?: $data['name']);
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
 
