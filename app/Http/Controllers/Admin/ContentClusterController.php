@@ -18,11 +18,7 @@ class ContentClusterController extends Controller
     public function index()
     {
         return view('admin.content-clusters.index', [
-            'clusters' => ContentCluster::query()
-                ->ordered()
-                ->withCount('articles')
-                ->with('pillarArticle:id,title')
-                ->paginate(25),
+            'clusters' => ContentCluster::query()->ordered()->withCount('articles')->with('pillarArticle:id,title')->paginate(25),
         ]);
     }
 
@@ -37,7 +33,7 @@ class ContentClusterController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
-        $memberships = $data['memberships'] ?? [];
+        $memberships = $this->selectedMemberships($data['memberships'] ?? []);
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
         unset($data['memberships'], $data['pillar_article_id']);
 
@@ -64,7 +60,7 @@ class ContentClusterController extends Controller
     public function update(Request $request, ContentCluster $contentCluster)
     {
         $data = $this->validated($request, $contentCluster);
-        $memberships = $data['memberships'] ?? [];
+        $memberships = $this->selectedMemberships($data['memberships'] ?? []);
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
         unset($data['memberships'], $data['pillar_article_id']);
 
@@ -90,6 +86,7 @@ class ContentClusterController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'pillar_article_id' => ['nullable', 'integer', 'exists:articles,id'],
             'memberships' => ['nullable', 'array'],
+            'memberships.*.selected' => ['nullable', 'boolean'],
             'memberships.*.article_id' => ['required', 'integer', 'distinct', 'exists:articles,id'],
             'memberships.*.position' => ['nullable', 'integer', 'min:0'],
             'memberships.*.is_primary' => ['nullable', 'boolean'],
@@ -100,5 +97,19 @@ class ContentClusterController extends Controller
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
 
         return $data;
+    }
+
+    /** @param array<int, array<string, mixed>> $memberships */
+    private function selectedMemberships(array $memberships): array
+    {
+        return collect($memberships)
+            ->filter(fn (array $membership) => (bool) ($membership['selected'] ?? false))
+            ->map(fn (array $membership) => [
+                'article_id' => (int) $membership['article_id'],
+                'position' => isset($membership['position']) ? (int) $membership['position'] : null,
+                'is_primary' => (bool) ($membership['is_primary'] ?? false),
+            ])
+            ->values()
+            ->all();
     }
 }
