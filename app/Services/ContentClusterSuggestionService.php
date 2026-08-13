@@ -75,9 +75,9 @@ class ContentClusterSuggestionService
             if ($current->status === ContentClusterSuggestion::STATUS_REJECTED) {
                 throw ValidationException::withMessages(['suggestion' => 'Il suggerimento è stato rifiutato.']);
             }
-            if (! $current->contentCluster?->is_active) {
+            if (! $current->article || ! $current->contentCluster?->is_active) {
                 $current->update(['status' => ContentClusterSuggestion::STATUS_STALE]);
-                throw ValidationException::withMessages(['suggestion' => 'Il Percorso non è più attivo.']);
+                throw ValidationException::withMessages(['suggestion' => 'Articolo o Percorso non sono più disponibili per questa suggestion.']);
             }
 
             $alreadyMember = DB::table('article_content_cluster')
@@ -86,7 +86,7 @@ class ContentClusterSuggestionService
                 ->exists();
 
             if (! $alreadyMember) {
-                $evidence = $this->desired()->get($this->key($current->article_id, $current->content_cluster_id));
+                $evidence = $this->evidenceForPair($current->article, $current->contentCluster);
                 if ($evidence === null || ! hash_equals($current->evidence_hash, $evidence['evidence_hash'])) {
                     $current->update(['status' => ContentClusterSuggestion::STATUS_STALE]);
                     throw ValidationException::withMessages(['suggestion' => 'L’evidence è cambiata: rigenera i suggerimenti.']);
@@ -107,6 +107,40 @@ class ContentClusterSuggestionService
             }
             $current->update(['status' => ContentClusterSuggestion::STATUS_REJECTED, 'reviewed_by' => $editor->id, 'reviewed_at' => now()]);
         });
+    }
+
+    private function evidenceForPair(Article $article, ContentCluster $cluster): ?array
+    {
+        if (! $cluster->is_active || DB::table('article_content_cluster')->where('article_id', $article->id)->where('content_cluster_id', $cluster->id)->exists()) {
+            return null;
+        }
+
+        $desired = collect();
+        foreach (config('content-clusters-initial', []) as $definition) {
+            if (($definition['slug'] ?? null) !== $cluster->slug) {
+                continue;
+            }
+            foreach ($definition['articles'] ?? [] as $item) {
+                if (($item['slug'] ?? null) === $article->slug) {
+                    $this->addEvidence($desired, $article, $cluster, 100, 'Initial mapping versionato: match esatto sullo slug.', (bool) ($item['primary'] ?? false));
+                }
+            }
+        }
+
+        if ($article->category) {
+            $count = DB::table('article_content_cluster')
+                ->join('articles', 'articles.id', '=', 'article_content_cluster.article_id')
+                ->where('article_content_cluster.content_cluster_id', $cluster->id)
+                ->where('articles.category', $article->category)
+                ->count();
+            if ($count >= 2) {
+                $this->addEvidence($desired, $article, $cluster, min(85, 55 + min($count, 6) * 5), "Categoria {$article->category}: {$count} membership editoriali confermate.", false);
+            }
+        }
+
+        $evidence = $desired->get($this->key($article->id, $cluster->id));
+
+        return $evidence ? $this->finalizeEvidence($evidence) : null;
     }
 
     private function desired(): Collection
@@ -150,13 +184,16 @@ class ContentClusterSuggestionService
             }
         }
 
-        return $desired->map(function ($evidence) {
-            sort($evidence['reasons']);
-            $evidence['reasons'] = json_encode($evidence['reasons'], JSON_THROW_ON_ERROR);
-            $evidence['evidence_hash'] = hash('sha256', implode('|', [$evidence['article_id'], $evidence['content_cluster_id'], $evidence['confidence'], $evidence['reasons'], (int) $evidence['suggested_primary']]));
+        return $desired->map(fn ($evidence) => $this->finalizeEvidence($evidence));
+    }
 
-            return $evidence;
-        });
+    private function finalizeEvidence(array $evidence): array
+    {
+        sort($evidence['reasons']);
+        $evidence['reasons'] = json_encode($evidence['reasons'], JSON_THROW_ON_ERROR);
+        $evidence['evidence_hash'] = hash('sha256', implode('|', [$evidence['article_id'], $evidence['content_cluster_id'], $evidence['confidence'], $evidence['reasons'], (int) $evidence['suggested_primary']]));
+
+        return $evidence;
     }
 
     private function addEvidence(Collection $desired, Article $article, ContentCluster $cluster, int $confidence, string $reason, bool $primary): void
