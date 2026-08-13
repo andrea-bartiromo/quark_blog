@@ -33,6 +33,7 @@ class ContentCluster extends Model
     public function articles()
     {
         return $this->belongsToMany(Article::class, 'article_content_cluster')
+            ->using(ArticleContentCluster::class)
             ->withPivot(['position', 'is_primary'])
             ->withTimestamps()
             ->orderByPivot('position')
