@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ContentClusterHealth
 {
@@ -22,21 +23,11 @@ class ContentClusterHealth
         $pillarPublic = $pillar !== null && $pillar->status === Article::STATUS_PUBLISHED && $pillar->published_at?->lte($now);
 
         $findings = collect();
-        if ($articles->isEmpty()) {
-            $findings->push('EMPTY');
-        }
-        if ($pillar === null) {
-            $findings->push('NO_PILLAR');
-        }
-        if ($articles->isNotEmpty() && $published->isEmpty()) {
-            $findings->push('NO_PUBLIC_ARTICLES');
-        }
-        if ($articles->isNotEmpty() && $primaryCount < $articles->count()) {
-            $findings->push('PRIMARY_GAPS');
-        }
-        if (! $orderingValid) {
-            $findings->push('ORDERING_ISSUE');
-        }
+        if ($articles->isEmpty()) $findings->push('EMPTY');
+        if ($pillar === null) $findings->push('NO_PILLAR');
+        if ($articles->isNotEmpty() && $published->isEmpty()) $findings->push('NO_PUBLIC_ARTICLES');
+        if ($articles->isNotEmpty() && $primaryCount < $articles->count()) $findings->push('PRIMARY_GAPS');
+        if (! $orderingValid) $findings->push('ORDERING_ISSUE');
 
         return [
             'active' => (bool) $cluster->is_active,
@@ -55,36 +46,28 @@ class ContentClusterHealth
 
     public function status(Collection $findings): string
     {
-        if ($findings->contains('EMPTY')) {
-            return 'EMPTY';
-        }
-        if ($findings->contains('NO_PILLAR')) {
-            return 'NO_PILLAR';
-        }
-        if ($findings->contains('NO_PUBLIC_ARTICLES')) {
-            return 'NO_PUBLIC_ARTICLES';
-        }
-        if ($findings->contains('ORDERING_ISSUE')) {
-            return 'ORDERING_ISSUE';
-        }
-        if ($findings->contains('PRIMARY_GAPS')) {
-            return 'PRIMARY_GAPS';
+        foreach (['EMPTY', 'NO_PILLAR', 'NO_PUBLIC_ARTICLES', 'ORDERING_ISSUE', 'PRIMARY_GAPS'] as $status) {
+            if ($findings->contains($status)) return $status;
         }
 
         return $findings->isEmpty() ? 'HEALTHY' : 'INCOMPLETE';
     }
 
-    /** @return array<string, \Illuminate\Support\Collection<int, Article>> */
+    /** @return array<string, Collection<int, Article>> */
     public function orphans(): array
     {
-        $base = Article::query()->with(['contentClusters:id,is_active']);
+        $covered = DB::table('article_content_cluster')->distinct()->pluck('article_id');
+        $primary = DB::table('article_content_cluster')->where('is_primary', true)->distinct()->pluck('article_id');
+        $activeCovered = DB::table('article_content_cluster')
+            ->join('content_clusters', 'content_clusters.id', '=', 'article_content_cluster.content_cluster_id')
+            ->where('content_clusters.is_active', true)->distinct()->pluck('article_content_cluster.article_id');
 
         return [
-            'without_cluster' => (clone $base)->whereDoesntHave('contentClusters')->get(),
-            'without_primary' => (clone $base)->whereHas('contentClusters')->whereDoesntHave('contentClusters', fn ($q) => $q->where('article_content_cluster.is_primary', true))->get(),
-            'inactive_only' => (clone $base)->whereHas('contentClusters')->whereDoesntHave('contentClusters', fn ($q) => $q->where('content_clusters.is_active', true))->get(),
-            'published_uncovered' => (clone $base)->published()->whereDoesntHave('contentClusters', fn ($q) => $q->where('content_clusters.is_active', true))->get(),
-            'scheduled_uncovered' => (clone $base)->scheduled()->whereDoesntHave('contentClusters', fn ($q) => $q->where('content_clusters.is_active', true))->get(),
+            'without_cluster' => Article::query()->whereNotIn('id', $covered)->orderBy('title')->get(),
+            'without_primary' => Article::query()->whereIn('id', $covered)->whereNotIn('id', $primary)->orderBy('title')->get(),
+            'inactive_only' => Article::query()->whereIn('id', $covered)->whereNotIn('id', $activeCovered)->orderBy('title')->get(),
+            'published_uncovered' => Article::query()->published()->whereNotIn('id', $activeCovered)->get(),
+            'scheduled_uncovered' => Article::query()->scheduled()->whereNotIn('id', $activeCovered)->get(),
         ];
     }
 }
