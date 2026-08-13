@@ -45,61 +45,89 @@ class ContentClusterController extends Controller
 
     public function create()
     {
-        return view('admin.content-clusters.form', [
-            'cluster' => null,
-            'articles' => Article::query()->orderBy('title')->get(['id', 'title', 'status', 'published_at']),
-        ]);
+        return view('admin.content-clusters.form', ['cluster' => null]);
     }
 
     public function store(Request $request)
     {
-        $data = $this->validated($request);
-        $memberships = $this->selectedMemberships($data['membership_ids'] ?? [], $data['memberships'] ?? []);
-        $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['membership_ids'], $data['memberships'], $data['pillar_article_id']);
+        $data = $this->validatedCluster($request);
+        $hasMembershipPayload = $request->hasAny(['membership_ids', 'memberships', 'pillar_article_id']);
+        $membershipData = $hasMembershipPayload ? $this->validatedMemberships($request) : [];
+        $memberships = $hasMembershipPayload ? $this->selectedMemberships($membershipData['membership_ids'] ?? [], $membershipData['memberships'] ?? []) : [];
+        $pillar = $hasMembershipPayload && isset($membershipData['pillar_article_id']) ? (int) $membershipData['pillar_article_id'] : null;
 
-        $cluster = DB::transaction(function () use ($data, $memberships, $pillar) {
+        $cluster = DB::transaction(function () use ($data, $hasMembershipPayload, $memberships, $pillar) {
             $cluster = ContentCluster::create($data);
-            $this->memberships->sync($cluster, $memberships, $pillar);
+            if ($hasMembershipPayload) {
+                $this->memberships->sync($cluster, $memberships, $pillar);
+            }
 
             return $cluster;
         });
 
-        return redirect()->route('admin.content-clusters.edit', $cluster)->with('success', 'Percorso creato.');
+        return redirect()->route('admin.content-clusters.edit', $cluster)->with('success', 'Percorso creato. Ora puoi aggiungere gli articoli dal catalogo paginato.');
     }
 
-    public function edit(ContentCluster $contentCluster)
+    public function edit(Request $request, ContentCluster $contentCluster)
     {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::in(array_keys(Article::statusOptions()))],
+            'category' => ['nullable', 'string', 'max:120'],
+        ]);
         $contentCluster->load(['articles', 'pillarArticle']);
+        $selectedIds = $contentCluster->articles->pluck('id');
+
+        $catalog = Article::query()
+            ->select(['id', 'title', 'status', 'published_at', 'category'])
+            ->when($selectedIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $selectedIds))
+            ->when(! empty($filters['q']), fn ($query) => $query->where('title', 'like', '%'.$filters['q'].'%'))
+            ->when(! empty($filters['status']), fn ($query) => $query->where('status', $filters['status']))
+            ->when(! empty($filters['category']), fn ($query) => $query->where('category', $filters['category']))
+            ->orderBy('title')
+            ->paginate(30)
+            ->withQueryString();
 
         return view('admin.content-clusters.form', [
             'cluster' => $contentCluster,
-            'articles' => Article::query()->orderBy('title')->get(['id', 'title', 'status', 'published_at']),
+            'catalog' => $catalog,
+            'categories' => Article::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
             'health' => $this->health->evaluate($contentCluster),
         ]);
     }
 
     public function update(Request $request, ContentCluster $contentCluster)
     {
-        $data = $this->validated($request, $contentCluster);
-        $memberships = $this->selectedMemberships($data['membership_ids'] ?? [], $data['memberships'] ?? []);
-        $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['membership_ids'], $data['memberships'], $data['pillar_article_id']);
+        $contentCluster->update($this->validatedCluster($request, $contentCluster));
 
-        DB::transaction(function () use ($contentCluster, $data, $memberships, $pillar) {
-            $contentCluster->update($data);
-            $this->memberships->sync($contentCluster, $memberships, $pillar);
-        });
-
-        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Percorso aggiornato.');
+        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Metadati del Percorso aggiornati.');
     }
 
-    private function validated(Request $request, ?ContentCluster $cluster = null): array
+    public function updateMemberships(Request $request, ContentCluster $contentCluster)
     {
-        $request->merge([
-            'slug' => Str::slug((string) ($request->input('slug') ?: $request->input('name'))),
-        ]);
+        $data = $this->validatedMemberships($request);
+        $ids = collect($data['membership_ids'] ?? [])->map(fn ($id) => (int) $id);
+        if (isset($data['remove_article_id'])) {
+            $ids = $ids->reject(fn (int $id) => $id === (int) $data['remove_article_id']);
+        }
 
+        $memberships = $this->selectedMemberships($ids->values()->all(), $data['memberships'] ?? []);
+        $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
+        $this->memberships->sync($contentCluster, $memberships, $pillar);
+
+        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Membership del Percorso aggiornate.');
+    }
+
+    public function addMembership(ContentCluster $contentCluster, Article $article)
+    {
+        $this->memberships->addMembership($contentCluster, $article);
+
+        return back()->with('success', 'Articolo aggiunto al Percorso come membership secondaria.');
+    }
+
+    private function validatedCluster(Request $request, ?ContentCluster $cluster = null): array
+    {
+        $request->merge(['slug' => Str::slug((string) ($request->input('slug') ?: $request->input('name')))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
             'slug' => ['required', 'string', 'max:180', Rule::unique('content_clusters', 'slug')->ignore($cluster?->id)],
@@ -110,6 +138,16 @@ class ContentClusterController extends Controller
             'seo_description' => ['nullable', 'string', 'max:320'],
             'is_active' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $data['is_active'] = $request->boolean('is_active');
+        $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+
+        return $data;
+    }
+
+    private function validatedMemberships(Request $request): array
+    {
+        return $request->validate([
             'pillar_article_id' => ['nullable', 'integer', 'exists:articles,id'],
             'membership_ids' => ['nullable', 'array'],
             'membership_ids.*' => ['integer', 'distinct', 'exists:articles,id'],
@@ -117,12 +155,8 @@ class ContentClusterController extends Controller
             'memberships.*' => ['array'],
             'memberships.*.position' => ['nullable', 'integer', 'min:0'],
             'memberships.*.is_primary' => ['nullable', 'boolean'],
+            'remove_article_id' => ['nullable', 'integer', 'exists:articles,id'],
         ]);
-
-        $data['is_active'] = $request->boolean('is_active');
-        $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
-
-        return $data;
     }
 
     /**
