@@ -1,0 +1,168 @@
+name: Backup Restore
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/mariadb-backup-v2-core
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mariadb-dump-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    name: MariaDB 11.4 real dump restore
+
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: kairus_test
+          MARIADB_USER: kairus
+          MARIADB_PASSWORD: kairus_test_password
+          MARIADB_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: mariadb
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: kairus_test
+      DB_USERNAME: kairus
+      DB_PASSWORD: kairus_test_password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      DB_BACKUP_DIRECTORY: ${{ github.workspace }}/storage/framework/testing/real-mariadb-backup
+      DB_BACKUP_RETENTION: ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install MariaDB client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mariadb-client
+
+      - name: Discover MariaDB client tools
+        run: |
+          set -eu
+          command -v mariadb-dump
+          command -v mariadb
+          mariadb-dump --version
+          mariadb --version
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Clear Laravel caches
+        run: php artisan optimize:clear
+
+      - name: Fresh migration on source MariaDB
+        run: php artisan migrate:fresh --force
+
+      - name: Seed deterministic restore fixture
+        run: php artisan db:seed --class=Database\\Seeders\\BackupRestoreTestSeeder --force
+
+      - name: Verify source fixture
+        run: php artisan test tests/Feature/Console/BackupRestoreVerificationTest.php
+
+      - name: Execute real Backup V2 dump
+        run: php artisan backup:database-v2
+
+      - name: Validate published artifact and metadata
+        run: |
+          set -eu
+          artifact="$(find "$DB_BACKUP_DIRECTORY" -maxdepth 1 -type f -name 'mariadb-*.sql' -print -quit)"
+          test -n "$artifact"
+          test -s "$artifact"
+          test -s "$artifact.json"
+          test "$(stat -c '%a' "$artifact")" = "600"
+          test "$(stat -c '%a' "$artifact.json")" = "600"
+          php -r '$m=json_decode(file_get_contents($argv[1].".json"), true, 512, JSON_THROW_ON_ERROR); if (($m["sha256"] ?? "") !== hash_file("sha256", $argv[1]) || ($m["size_bytes"] ?? 0) !== filesize($argv[1])) { exit(1); }' "$artifact"
+          printf '%s\n' "$artifact" > /tmp/kairus-backup-artifact-path
+
+      - name: Create disposable restore database
+        run: |
+          set -eu
+          option_file="$(mktemp)"
+          chmod 600 "$option_file"
+          trap 'rm -f "$option_file"' EXIT
+          cat > "$option_file" <<'EOF'
+          [client]
+          host=127.0.0.1
+          port=3306
+          user=root
+          password=root_test_password
+          EOF
+          mariadb --defaults-extra-file="$option_file" -e 'DROP DATABASE IF EXISTS kairus_restore; CREATE DATABASE kairus_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
+
+      - name: Restore real dump into disposable database
+        run: |
+          set -eu
+          artifact="$(cat /tmp/kairus-backup-artifact-path)"
+          option_file="$(mktemp)"
+          chmod 600 "$option_file"
+          trap 'rm -f "$option_file"' EXIT
+          cat > "$option_file" <<'EOF'
+          [client]
+          host=127.0.0.1
+          port=3306
+          user=root
+          password=root_test_password
+          EOF
+          mariadb --defaults-extra-file="$option_file" kairus_restore < "$artifact"
+
+      - name: Verify restored schema data relationships and Unicode
+        env:
+          DB_DATABASE: kairus_restore
+          DB_USERNAME: root
+          DB_PASSWORD: root_test_password
+        run: |
+          php artisan optimize:clear
+          php artisan test tests/Feature/Console/BackupRestoreVerificationTest.php
+
+      - name: Cleanup disposable restore database and backup artifacts
+        if: always()
+        run: |
+          option_file="$(mktemp)"
+          chmod 600 "$option_file"
+          trap 'rm -f "$option_file"' EXIT
+          cat > "$option_file" <<'EOF'
+          [client]
+          host=127.0.0.1
+          port=3306
+          user=root
+          password=root_test_password
+          EOF
+          mariadb --defaults-extra-file="$option_file" -e 'DROP DATABASE IF EXISTS kairus_restore;' || true
+          rm -rf "$DB_BACKUP_DIRECTORY"
