@@ -68,17 +68,18 @@ class ContentClusterSuggestionService
 
     public function accept(ContentClusterSuggestion $suggestion, User $editor): void
     {
-        DB::transaction(function () use ($suggestion, $editor) {
+        $validationMessage = DB::transaction(function () use ($suggestion, $editor): ?string {
             $current = ContentClusterSuggestion::query()->with(['article', 'contentCluster'])->lockForUpdate()->findOrFail($suggestion->id);
             if ($current->status === ContentClusterSuggestion::STATUS_ACCEPTED) {
-                return;
+                return null;
             }
             if ($current->status === ContentClusterSuggestion::STATUS_REJECTED) {
-                throw ValidationException::withMessages(['suggestion' => 'Il suggerimento è stato rifiutato.']);
+                return 'Il suggerimento è stato rifiutato.';
             }
             if (! $current->article || ! $current->contentCluster?->is_active) {
                 $current->update(['status' => ContentClusterSuggestion::STATUS_STALE]);
-                throw ValidationException::withMessages(['suggestion' => 'Articolo o Percorso non sono più disponibili per questa suggestion.']);
+
+                return 'Articolo o Percorso non sono più disponibili per questa suggestion.';
             }
 
             $alreadyMember = DB::table('article_content_cluster')
@@ -90,13 +91,20 @@ class ContentClusterSuggestionService
                 $evidence = $this->evidenceForPair($current->article, $current->contentCluster);
                 if ($evidence === null || ! hash_equals($current->evidence_hash, $evidence['evidence_hash'])) {
                     $current->update(['status' => ContentClusterSuggestion::STATUS_STALE]);
-                    throw ValidationException::withMessages(['suggestion' => 'L’evidence è cambiata: rigenera i suggerimenti.']);
+
+                    return 'L’evidence è cambiata: rigenera i suggerimenti.';
                 }
                 $this->memberships->addMembership($current->contentCluster, $current->article, $current->suggested_primary);
             }
 
             $current->update(['status' => ContentClusterSuggestion::STATUS_ACCEPTED, 'reviewed_by' => $editor->id, 'reviewed_at' => now()]);
+
+            return null;
         });
+
+        if ($validationMessage !== null) {
+            throw ValidationException::withMessages(['suggestion' => $validationMessage]);
+        }
     }
 
     public function reject(ContentClusterSuggestion $suggestion, User $editor): void
