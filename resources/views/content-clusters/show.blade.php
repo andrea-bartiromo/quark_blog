@@ -8,8 +8,8 @@
 @section('twitter_title', $cluster->seo_title ?: $cluster->name)
 @section('twitter_description', $description)
 @if($cluster->cover_image)
-  @section('og_image', asset(ltrim($cluster->cover_image, '/')))
-  @section('twitter_image', asset(ltrim($cluster->cover_image, '/')))
+  @section('og_image', asset('assets/img/'.ltrim($cluster->cover_image, '/')))
+  @section('twitter_image', asset('assets/img/'.ltrim($cluster->cover_image, '/')))
 @endif
 
 @section('head')
