@@ -23,11 +23,21 @@ class ContentClusterHealth
         $pillarPublic = $pillar !== null && $pillar->status === Article::STATUS_PUBLISHED && $pillar->published_at?->lte($now);
 
         $findings = collect();
-        if ($articles->isEmpty()) $findings->push('EMPTY');
-        if ($pillar === null) $findings->push('NO_PILLAR');
-        if ($articles->isNotEmpty() && $published->isEmpty()) $findings->push('NO_PUBLIC_ARTICLES');
-        if ($articles->isNotEmpty() && $primaryCount < $articles->count()) $findings->push('PRIMARY_GAPS');
-        if (! $orderingValid) $findings->push('ORDERING_ISSUE');
+        if ($articles->isEmpty()) {
+            $findings->push('EMPTY');
+        }
+        if ($pillar === null) {
+            $findings->push('NO_PILLAR');
+        }
+        if ($articles->isNotEmpty() && $published->isEmpty()) {
+            $findings->push('NO_PUBLIC_ARTICLES');
+        }
+        if ($articles->isNotEmpty() && $primaryCount < $articles->count()) {
+            $findings->push('PRIMARY_GAPS');
+        }
+        if (! $orderingValid) {
+            $findings->push('ORDERING_ISSUE');
+        }
 
         return [
             'active' => (bool) $cluster->is_active,
@@ -47,7 +57,9 @@ class ContentClusterHealth
     public function status(Collection $findings): string
     {
         foreach (['EMPTY', 'NO_PILLAR', 'NO_PUBLIC_ARTICLES', 'ORDERING_ISSUE', 'PRIMARY_GAPS'] as $status) {
-            if ($findings->contains($status)) return $status;
+            if ($findings->contains($status)) {
+                return $status;
+            }
         }
 
         return $findings->isEmpty() ? 'HEALTHY' : 'INCOMPLETE';
@@ -60,7 +72,9 @@ class ContentClusterHealth
         $primary = DB::table('article_content_cluster')->where('is_primary', true)->distinct()->pluck('article_id');
         $activeCovered = DB::table('article_content_cluster')
             ->join('content_clusters', 'content_clusters.id', '=', 'article_content_cluster.content_cluster_id')
-            ->where('content_clusters.is_active', true)->distinct()->pluck('article_content_cluster.article_id');
+            ->where('content_clusters.is_active', true)
+            ->distinct()
+            ->pluck('article_content_cluster.article_id');
 
         return [
             'without_cluster' => Article::query()->whereNotIn('id', $covered)->orderBy('title')->get(),
