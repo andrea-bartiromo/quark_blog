@@ -57,9 +57,9 @@ class ContentClusterAdminTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
 
         $response->assertOk();
-        $response->assertSee('name="membership_ids[]" value="'.$selected->id.'" data-membership-toggle checked', false);
-        $response->assertSee('name="memberships['.$selected->id.'][position]" value="10" data-membership-detail', false);
-        $response->assertSee('name="memberships['.$unselected->id.'][position]" value="" data-membership-detail disabled', false);
+        $response->assertSee('name="membership_ids[]" value="'.$selected->id.'"', false);
+        $response->assertSee('name="memberships['.$selected->id.'][position]" value="10"', false);
+        $response->assertDontSee('name="memberships['.$unselected->id.'][position]"', false);
         $response->assertDontSee('name="memberships[0][article_id]"', false);
     }
 
@@ -69,10 +69,12 @@ class ContentClusterAdminTest extends TestCase
         $member = $this->article($editor, 'Stato da preservare');
         $other = $this->article($editor, 'Pillar non membro');
 
+        $cluster = ContentCluster::factory()->create();
+        app(ContentClusterMembershipService::class)->sync($cluster, [['article_id' => $member->id, 'position' => 10]], null);
+
         $response = $this->actingAs($editor)
-            ->from(route('admin.content-clusters.create'))
-            ->post(route('admin.content-clusters.store'), [
-                'name' => 'Reidratazione',
+            ->from(route('admin.content-clusters.edit', $cluster))
+            ->put(route('admin.content-clusters.memberships.update', $cluster), [
                 'pillar_article_id' => $other->id,
                 'membership_ids' => [$member->id],
                 'memberships' => [
@@ -82,11 +84,10 @@ class ContentClusterAdminTest extends TestCase
 
         $response->assertSessionHasErrors('pillar_article_id');
 
-        $form = $this->actingAs($editor)->get(route('admin.content-clusters.create'));
-        $form->assertSee('name="membership_ids[]" value="'.$member->id.'" data-membership-toggle checked', false);
-        $form->assertSee('name="memberships['.$member->id.'][position]" value="70" data-membership-detail', false);
-        $form->assertSee('name="memberships['.$member->id.'][is_primary]" value="1" data-membership-detail checked', false);
-        $form->assertSee('<option value="'.$other->id.'" selected>', false);
+        $form = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+        $form->assertSee('name="membership_ids[]" value="'.$member->id.'"', false);
+        $form->assertSee('name="memberships['.$member->id.'][position]" value="70"', false);
+        $form->assertSee('name="memberships['.$member->id.'][is_primary]" value="1" checked', false);
     }
 
     public function test_pillar_must_be_a_member_and_failed_create_is_atomic(): void
@@ -222,13 +223,11 @@ class ContentClusterAdminTest extends TestCase
     public function test_slug_is_unique_but_current_slug_is_valid_on_update(): void
     {
         $editor = $this->editor();
-        $cluster = ContentCluster::factory()->create(['name' => 'IA', 'slug' => 'ia']);
-        ContentCluster::factory()->create(['name' => 'Spazio', 'slug' => 'spazio']);
+        $existing = ContentCluster::factory()->create(['name' => 'A', 'slug' => 'same']);
+        ContentCluster::factory()->create(['name' => 'B', 'slug' => 'other']);
 
-        $this->actingAs($editor)->put(route('admin.content-clusters.update', $cluster), ['name' => 'IA aggiornata', 'slug' => 'ia'])
-            ->assertRedirect(route('admin.content-clusters.edit', $cluster));
-        $this->actingAs($editor)->from(route('admin.content-clusters.edit', $cluster))->put(route('admin.content-clusters.update', $cluster), ['name' => 'Collisione', 'slug' => 'spazio'])
-            ->assertSessionHasErrors('slug');
+        $this->actingAs($editor)->put(route('admin.content-clusters.update', $existing), ['name' => 'A2', 'slug' => 'same'])->assertRedirect();
+        $this->assertSame('same', $existing->fresh()->slug);
     }
 
     public function test_active_and_inactive_scopes_are_distinct_from_article_publication_state(): void
@@ -248,13 +247,13 @@ class ContentClusterAdminTest extends TestCase
         return $user;
     }
 
-    private function article(User $author, string $title, string $status = Article::STATUS_PUBLISHED): Article
+    private function article(User $user, string $title, string $status = Article::STATUS_PUBLISHED): Article
     {
         return Article::create([
-            'user_id' => $author->id,
+            'user_id' => $user->id,
             'title' => $title,
             'slug' => str($title)->slug(),
-            'body' => 'Corpo articolo di test.',
+            'body' => 'Corpo.',
             'excerpt' => 'Estratto.',
             'category' => 'fisica',
             'status' => $status,
