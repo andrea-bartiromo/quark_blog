@@ -13,9 +13,7 @@
 </div>
 @endif
 
-@php
-  $existing = $cluster?->articles?->keyBy('id') ?? collect();
-@endphp
+@php $existing = $cluster?->articles?->keyBy('id') ?? collect(); @endphp
 
 <form method="POST" action="{{ $cluster ? route('admin.content-clusters.update', $cluster) : route('admin.content-clusters.store') }}">
   @csrf
@@ -42,7 +40,10 @@
           @foreach($articles as $i => $article)
             @php $membership = $existing->get($article->id); @endphp
             <tr>
-              <td><input aria-label="Includi {{ $article->title }}" type="checkbox" name="memberships[{{ $i }}][article_id]" value="{{ $article->id }}" {{ $membership ? 'checked' : '' }}></td>
+              <td>
+                <input type="hidden" name="memberships[{{ $i }}][article_id]" value="{{ $article->id }}">
+                <input aria-label="Includi {{ $article->title }}" type="checkbox" name="memberships[{{ $i }}][selected]" value="1" {{ $membership ? 'checked' : '' }}>
+              </td>
               <td>{{ $article->title }}</td>
               <td>{{ $article->status }}</td>
               <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $i }}][position]" value="{{ $membership?->pivot?->position }}"></td>
