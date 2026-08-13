@@ -87,7 +87,7 @@ class ContentClusterSuggestionService
                 ->exists();
 
             if (! $alreadyMember) {
-                $evidence = $this->desired()->get($this->key($current->article_id, $current->content_cluster_id));
+                $evidence = $this->evidenceForPair($current->article, $current->contentCluster);
                 if ($evidence === null || ! hash_equals($current->evidence_hash, $evidence['evidence_hash'])) {
                     $current->update(['status' => ContentClusterSuggestion::STATUS_STALE]);
                     throw ValidationException::withMessages(['suggestion' => 'L’evidence è cambiata: rigenera i suggerimenti.']);
@@ -152,6 +152,72 @@ class ContentClusterSuggestionService
         }
 
         return $desired->map(fn ($evidence) => $this->finalizeEvidence($evidence));
+    }
+
+    private function evidenceForPair(Article $article, ContentCluster $cluster): ?array
+    {
+        if (! $cluster->is_active) {
+            return null;
+        }
+
+        $alreadyMember = DB::table('article_content_cluster')
+            ->where('article_id', $article->id)
+            ->where('content_cluster_id', $cluster->id)
+            ->exists();
+
+        if ($alreadyMember) {
+            return null;
+        }
+
+        $desired = collect();
+
+        foreach (config('content-clusters-initial', []) as $definition) {
+            if ((string) ($definition['slug'] ?? '') !== (string) $cluster->slug) {
+                continue;
+            }
+
+            foreach ($definition['articles'] ?? [] as $item) {
+                if ((string) ($item['slug'] ?? '') !== (string) $article->slug) {
+                    continue;
+                }
+
+                $this->addEvidence(
+                    $desired,
+                    $article,
+                    $cluster,
+                    100,
+                    'Initial mapping versionato: match esatto sullo slug.',
+                    (bool) ($item['primary'] ?? false)
+                );
+            }
+        }
+
+        if ($article->category !== null) {
+            $categoryCount = DB::table('article_content_cluster')
+                ->join('content_clusters', 'content_clusters.id', '=', 'article_content_cluster.content_cluster_id')
+                ->join('articles', 'articles.id', '=', 'article_content_cluster.article_id')
+                ->where('content_clusters.is_active', true)
+                ->where('article_content_cluster.content_cluster_id', $cluster->id)
+                ->where('articles.category', $article->category)
+                ->count();
+
+            if ($categoryCount >= 2) {
+                $this->addEvidence(
+                    $desired,
+                    $article,
+                    $cluster,
+                    min(85, 55 + min($categoryCount, 6) * 5),
+                    "Categoria {$article->category}: {$categoryCount} membership editoriali confermate.",
+                    false
+                );
+            }
+        }
+
+        $evidence = $desired->get($this->key($article->id, $cluster->id));
+
+        return $evidence === null
+            ? null
+            : $this->finalizeEvidence($evidence);
     }
 
     private function finalizeEvidence(array $evidence): array
