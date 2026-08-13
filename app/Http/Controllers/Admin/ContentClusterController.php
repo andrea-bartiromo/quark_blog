@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -38,10 +39,14 @@ class ContentClusterController extends Controller
         $data = $this->validated($request);
         $memberships = $data['memberships'] ?? [];
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['memberships']);
+        unset($data['memberships'], $data['pillar_article_id']);
 
-        $cluster = ContentCluster::create($data);
-        $this->memberships->sync($cluster, $memberships, $pillar);
+        $cluster = DB::transaction(function () use ($data, $memberships, $pillar) {
+            $cluster = ContentCluster::create($data);
+            $this->memberships->sync($cluster, $memberships, $pillar);
+
+            return $cluster;
+        });
 
         return redirect()->route('admin.content-clusters.edit', $cluster)->with('success', 'Percorso creato.');
     }
@@ -61,10 +66,12 @@ class ContentClusterController extends Controller
         $data = $this->validated($request, $contentCluster);
         $memberships = $data['memberships'] ?? [];
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['memberships']);
+        unset($data['memberships'], $data['pillar_article_id']);
 
-        $contentCluster->update($data);
-        $this->memberships->sync($contentCluster, $memberships, $pillar);
+        DB::transaction(function () use ($contentCluster, $data, $memberships, $pillar) {
+            $contentCluster->update($data);
+            $this->memberships->sync($contentCluster, $memberships, $pillar);
+        });
 
         return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Percorso aggiornato.');
     }
