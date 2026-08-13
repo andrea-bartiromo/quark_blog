@@ -7,6 +7,7 @@ use App\Models\ContentCluster;
 use App\Models\User;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ContentClusterAdminTest extends TestCase
@@ -71,7 +72,7 @@ class ContentClusterAdminTest extends TestCase
 
         $this->assertDatabaseHas('article_content_cluster', ['article_id' => $article->id, 'content_cluster_id' => $a->id, 'is_primary' => false]);
         $this->assertDatabaseHas('article_content_cluster', ['article_id' => $article->id, 'content_cluster_id' => $b->id, 'is_primary' => true]);
-        $this->assertSame(1, \DB::table('article_content_cluster')->where('article_id', $article->id)->where('is_primary', true)->count());
+        $this->assertSame(1, DB::table('article_content_cluster')->where('article_id', $article->id)->where('is_primary', true)->count());
     }
 
     public function test_deleting_article_cascades_membership_and_nulls_pillar(): void
@@ -93,8 +94,10 @@ class ContentClusterAdminTest extends TestCase
         $cluster = ContentCluster::factory()->create(['name' => 'IA', 'slug' => 'ia']);
         ContentCluster::factory()->create(['name' => 'Spazio', 'slug' => 'spazio']);
 
-        $this->actingAs($editor)->put(route('admin.content-clusters.update', $cluster), ['name' => 'IA aggiornata', 'slug' => 'ia'])->assertSessionHasNoErrors();
-        $this->actingAs($editor)->from(route('admin.content-clusters.edit', $cluster))->put(route('admin.content-clusters.update', $cluster), ['name' => 'Collisione', 'slug' => 'spazio'])->assertSessionHasErrors('slug');
+        $this->actingAs($editor)->put(route('admin.content-clusters.update', $cluster), ['name' => 'IA aggiornata', 'slug' => 'ia'])
+            ->assertRedirect(route('admin.content-clusters.edit', $cluster));
+        $this->actingAs($editor)->from(route('admin.content-clusters.edit', $cluster))->put(route('admin.content-clusters.update', $cluster), ['name' => 'Collisione', 'slug' => 'spazio'])
+            ->assertSessionHasErrors('slug');
     }
 
     public function test_active_and_inactive_scopes_are_distinct_from_article_publication_state(): void
