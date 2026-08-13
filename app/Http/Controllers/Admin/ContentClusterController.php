@@ -26,13 +26,20 @@ class ContentClusterController extends Controller
             ->with(['articles:id,title,status,published_at', 'pillarArticle:id,title,status,published_at'])
             ->paginate(25);
 
-        $clusters->getCollection()->each(function (ContentCluster $cluster) {
-            $cluster->setAttribute('health', $this->health->evaluate($cluster));
+        $pageArticleIds = $clusters->getCollection()
+            ->flatMap(fn (ContentCluster $cluster) => $cluster->articles->pluck('id'))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $globallyPrimaryArticleIds = $this->health->primaryArticleIds($pageArticleIds);
+
+        $clusters->getCollection()->each(function (ContentCluster $cluster) use ($globallyPrimaryArticleIds) {
+            $cluster->setAttribute('health', $this->health->evaluate($cluster, $globallyPrimaryArticleIds));
         });
 
         return view('admin.content-clusters.index', [
             'clusters' => $clusters,
-            'orphans' => collect($this->health->orphans())->map->count(),
+            'orphans' => $this->health->orphanCounts(),
         ]);
     }
 
