@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     name: MariaDB 11.4 real dump restore
-
     services:
       mariadb:
         image: mariadb:11.4
@@ -33,7 +32,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-
     env:
       APP_ENV: testing
       APP_DEBUG: false
@@ -49,26 +47,35 @@ jobs:
       MAIL_MAILER: array
       DB_BACKUP_DIRECTORY: ${{ github.workspace }}/storage/framework/testing/real-mariadb-backup
       DB_BACKUP_RETENTION: ''
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl
           coverage: none
-
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
-
+      - name: Pint changed Backup V2 PHP
+        run: >-
+          vendor/bin/pint --test
+          app/Contracts/DatabaseDumpRunner.php
+          app/Services/Backup/ProcessDatabaseDumpRunner.php
+          app/Services/Backup/MariaDbBackupService.php
+          app/Console/Commands/BackupDatabaseV2.php
+          app/Providers/AppServiceProvider.php
+          config/backup.php
+          database/seeders/BackupRestoreTestSeeder.php
+          tests/Feature/Console/BackupDatabaseV2Test.php
+          tests/Feature/Console/BackupRestoreVerificationTest.php
+      - name: Git diff check
+        run: git diff --check origin/main...HEAD
       - name: Install MariaDB client tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends mariadb-client
-
       - name: Discover MariaDB client tools
         run: |
           set -eu
@@ -76,25 +83,18 @@ jobs:
           command -v mariadb
           mariadb-dump --version
           mariadb --version
-
       - name: Copy environment file
         run: cp .env.example .env
-
       - name: Generate app key
         run: php artisan key:generate
-
       - name: Clear Laravel caches
         run: php artisan optimize:clear
-
       - name: Fresh migration on source MariaDB
         run: php artisan migrate:fresh --force
-
       - name: Seed deterministic restore fixture
         run: php artisan db:seed --class=Database\\Seeders\\BackupRestoreTestSeeder --force
-
       - name: Verify source fixture
         run: php artisan test tests/Feature/Console/BackupRestoreVerificationTest.php
-
       - name: Verify overlap lock across separate PHP processes
         run: |
           set -eu
@@ -113,10 +113,8 @@ jobs:
           fi
           wait "$holder"
           test -z "$(find "$DB_BACKUP_DIRECTORY" -maxdepth 1 -type f -name 'mariadb-*.sql' -print -quit 2>/dev/null || true)"
-
       - name: Execute real Backup V2 dump
         run: php artisan backup:database-v2
-
       - name: Validate published artifact and metadata
         run: |
           set -eu
@@ -128,7 +126,6 @@ jobs:
           test "$(stat -c '%a' "$artifact.json")" = "600"
           php -r '$m=json_decode(file_get_contents($argv[1].".json"), true, 512, JSON_THROW_ON_ERROR); if (($m["sha256"] ?? "") !== hash_file("sha256", $argv[1]) || ($m["size_bytes"] ?? 0) !== filesize($argv[1])) { exit(1); }' "$artifact"
           printf '%s\n' "$artifact" > /tmp/kairus-backup-artifact-path
-
       - name: Create disposable restore database
         run: |
           set -eu
@@ -143,7 +140,6 @@ jobs:
           password=root_test_password
           EOF
           mariadb --defaults-extra-file="$option_file" -e 'DROP DATABASE IF EXISTS kairus_restore; CREATE DATABASE kairus_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
-
       - name: Restore real dump into disposable database
         run: |
           set -eu
@@ -159,7 +155,6 @@ jobs:
           password=root_test_password
           EOF
           mariadb --defaults-extra-file="$option_file" kairus_restore < "$artifact"
-
       - name: Verify restored schema data relationships and Unicode
         env:
           DB_DATABASE: kairus_restore
@@ -168,7 +163,6 @@ jobs:
         run: |
           php artisan optimize:clear
           php artisan test tests/Feature/Console/BackupRestoreVerificationTest.php
-
       - name: Cleanup disposable restore database and backup artifacts
         if: always()
         run: |
