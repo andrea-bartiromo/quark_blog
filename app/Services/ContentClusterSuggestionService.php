@@ -74,19 +74,14 @@ class ContentClusterSuggestionService
             ->where('article_id', $article->id)
             ->get()
             ->keyBy('content_cluster_id');
-        $desiredClusterIds = collect();
+        $desired = $this->evidenceForArticle($article, $clusters);
 
         foreach ($clusters as $cluster) {
-            $evidence = $this->evidenceForPair($article, $cluster);
-            if ($evidence !== null) {
-                $desiredClusterIds->push($cluster->id);
-            }
-
-            $this->applyPairState($article, $cluster, $evidence, $existing->get($cluster->id));
+            $this->applyPairState($article, $cluster, $desired->get($cluster->id), $existing->get($cluster->id));
         }
 
         $staleIds = $existing
-            ->reject(fn ($suggestion) => $desiredClusterIds->contains($suggestion->content_cluster_id))
+            ->reject(fn ($suggestion) => $desired->has($suggestion->content_cluster_id))
             ->filter(fn ($suggestion) => in_array($suggestion->status, [ContentClusterSuggestion::STATUS_PENDING, ContentClusterSuggestion::STATUS_REJECTED], true))
             ->pluck('id');
 
@@ -100,23 +95,44 @@ class ContentClusterSuggestionService
 
     public function refreshForClusterCategory(ContentCluster $cluster, string $category): void
     {
+        $categoryCount = $cluster->is_active
+            ? DB::table('article_content_cluster')
+                ->join('articles', 'articles.id', '=', 'article_content_cluster.article_id')
+                ->where('article_content_cluster.content_cluster_id', $cluster->id)
+                ->where('articles.category', $category)
+                ->count()
+            : 0;
+
         Article::query()
             ->where('category', $category)
             ->select(['id', 'slug', 'category', 'status', 'published_at'])
             ->orderBy('id')
-            ->chunkById(100, function ($articles) use ($cluster) {
-                foreach ($articles as $article) {
-                    $current = ContentClusterSuggestion::query()
-                        ->where('article_id', $article->id)
-                        ->where('content_cluster_id', $cluster->id)
-                        ->first();
+            ->chunkById(100, function ($articles) use ($cluster, $categoryCount) {
+                $articleIds = $articles->pluck('id');
+                $memberIds = DB::table('article_content_cluster')
+                    ->where('content_cluster_id', $cluster->id)
+                    ->whereIn('article_id', $articleIds)
+                    ->pluck('article_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->flip();
+                $existing = ContentClusterSuggestion::query()
+                    ->where('content_cluster_id', $cluster->id)
+                    ->whereIn('article_id', $articleIds)
+                    ->get()
+                    ->keyBy('article_id');
 
-                    $this->applyPairState(
-                        $article,
-                        $cluster,
-                        $this->evidenceForPair($article, $cluster),
-                        $current
-                    );
+                foreach ($articles as $article) {
+                    $evidence = null;
+                    if ($cluster->is_active && ! $memberIds->has($article->id)) {
+                        $evidence = $this->buildEvidence(
+                            $article,
+                            $cluster,
+                            $this->mappingsForArticleAndCluster($article, $cluster),
+                            $categoryCount
+                        );
+                    }
+
+                    $this->applyPairState($article, $cluster, $evidence, $existing->get($article->id));
                 }
             });
     }
@@ -242,6 +258,47 @@ class ContentClusterSuggestionService
         return $desired;
     }
 
+    private function evidenceForArticle(Article $article, Collection $clusters): Collection
+    {
+        $members = DB::table('article_content_cluster')
+            ->where('article_id', $article->id)
+            ->pluck('content_cluster_id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+        $categoryCounts = collect();
+
+        if ($article->category !== null && $article->category !== '' && $clusters->isNotEmpty()) {
+            $categoryCounts = DB::table('article_content_cluster')
+                ->join('articles', 'articles.id', '=', 'article_content_cluster.article_id')
+                ->whereIn('article_content_cluster.content_cluster_id', $clusters->pluck('id'))
+                ->where('articles.category', $article->category)
+                ->select('article_content_cluster.content_cluster_id', DB::raw('COUNT(*) AS member_count'))
+                ->groupBy('article_content_cluster.content_cluster_id')
+                ->get()
+                ->mapWithKeys(fn ($row) => [(int) $row->content_cluster_id => (int) $row->member_count]);
+        }
+
+        $desired = collect();
+        foreach ($clusters as $cluster) {
+            if ($members->has($cluster->id)) {
+                continue;
+            }
+
+            $evidence = $this->buildEvidence(
+                $article,
+                $cluster,
+                $this->mappingsForArticleAndCluster($article, $cluster),
+                (int) $categoryCounts->get($cluster->id, 0)
+            );
+
+            if ($evidence !== null) {
+                $desired->put($cluster->id, $evidence);
+            }
+        }
+
+        return $desired;
+    }
+
     private function evidenceForPair(Article $article, ContentCluster $cluster): ?array
     {
         if (! $cluster->is_active) {
@@ -257,20 +314,7 @@ class ContentClusterSuggestionService
             return null;
         }
 
-        $mappings = [];
-        foreach (config('content-clusters-initial', []) as $definition) {
-            if ((string) ($definition['slug'] ?? '') !== (string) $cluster->slug) {
-                continue;
-            }
-
-            foreach ($definition['articles'] ?? [] as $item) {
-                if ((string) ($item['slug'] ?? '') === (string) $article->slug) {
-                    $mappings[] = [
-                        'primary' => (bool) ($item['primary'] ?? false),
-                    ];
-                }
-            }
-        }
+        $mappings = $this->mappingsForArticleAndCluster($article, $cluster);
 
         $categoryCount = 0;
         if ($article->category !== null && $article->category !== '') {
@@ -282,6 +326,25 @@ class ContentClusterSuggestionService
         }
 
         return $this->buildEvidence($article, $cluster, $mappings, $categoryCount);
+    }
+
+    private function mappingsForArticleAndCluster(Article $article, ContentCluster $cluster): array
+    {
+        $mappings = [];
+
+        foreach (config('content-clusters-initial', []) as $definition) {
+            if ((string) ($definition['slug'] ?? '') !== (string) $cluster->slug) {
+                continue;
+            }
+
+            foreach ($definition['articles'] ?? [] as $item) {
+                if ((string) ($item['slug'] ?? '') === (string) $article->slug) {
+                    $mappings[] = ['primary' => (bool) ($item['primary'] ?? false)];
+                }
+            }
+        }
+
+        return $mappings;
     }
 
     private function buildEvidence(Article $article, ContentCluster $cluster, array $mappings, int $categoryCount): ?array
