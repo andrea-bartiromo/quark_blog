@@ -9,7 +9,10 @@ class BackupRestoreVerificationTest extends TestCase
 {
     public function test_restored_mariadb_contains_representative_schema_and_data(): void
     {
-        $this->assertSame('mariadb', config('database.default'));
+        if (config('database.default') !== 'mariadb') {
+            $this->markTestSkipped('Dedicated Backup Restore CI runs this assertion against MariaDB.');
+        }
+
         $this->assertTrue(DB::getSchemaBuilder()->hasTable('users'));
         $this->assertTrue(DB::getSchemaBuilder()->hasTable('articles'));
         $this->assertTrue(DB::getSchemaBuilder()->hasTable('article_link_suggestions'));
