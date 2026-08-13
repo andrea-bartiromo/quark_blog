@@ -88,17 +88,19 @@ class BackupDatabaseV2Test extends TestCase
 
     public function test_dump_failure_preserves_previous_valid_backup_and_redacts_secret_even_from_exception(): void
     {
-        mkdir($this->directory, 0700, true);
-        $previous = $this->directory.'/mariadb-previous.sql';
-        file_put_contents($previous, "-- MariaDB dump\nCREATE TABLE previous (id INT);");
-        $this->app->instance(DatabaseDumpRunner::class, new ThrowingDumpRunner('dump failed with super-secret-test-password'));
+        $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner($this->validDump()));
+        $this->artisan('backup:database-v2')->assertSuccessful();
+        $previous = (glob($this->directory.'/mariadb-*.sql') ?: [])[0];
+        $this->assertFileExists($previous.'.json');
 
+        $this->app->instance(DatabaseDumpRunner::class, new ThrowingDumpRunner('dump failed with super-secret-test-password'));
         $this->artisan('backup:database-v2')
             ->expectsOutputToContain('Database dump process failed.')
             ->doesntExpectOutputToContain('super-secret-test-password')
             ->assertFailed();
 
         $this->assertFileExists($previous);
+        $this->assertFileExists($previous.'.json');
     }
 
     public function test_success_atomically_publishes_dump_and_metadata_without_secret(): void
