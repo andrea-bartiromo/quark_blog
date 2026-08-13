@@ -29,6 +29,7 @@ class ContentClusterSuggestionService
             }
             if ($current?->status === ContentClusterSuggestion::STATUS_REJECTED && hash_equals($current->evidence_hash, $evidence['evidence_hash'])) {
                 $keptRejected++;
+
                 continue;
             }
 
