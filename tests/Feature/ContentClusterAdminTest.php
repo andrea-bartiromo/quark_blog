@@ -31,9 +31,10 @@ class ContentClusterAdminTest extends TestCase
             'is_active' => '1',
             'sort_order' => 2,
             'pillar_article_id' => $first->id,
+            'membership_ids' => [$second->id, $first->id],
             'memberships' => [
-                ['selected' => '1', 'article_id' => $second->id, 'position' => 50],
-                ['selected' => '1', 'article_id' => $first->id, 'position' => 10, 'is_primary' => '1'],
+                $second->id => ['position' => 50],
+                $first->id => ['position' => 10, 'is_primary' => '1'],
             ],
         ]);
 
@@ -45,6 +46,49 @@ class ContentClusterAdminTest extends TestCase
         $this->assertDatabaseHas('article_content_cluster', ['content_cluster_id' => $cluster->id, 'article_id' => $second->id, 'position' => 20]);
     }
 
+    public function test_form_submits_metadata_only_for_selected_memberships(): void
+    {
+        $editor = $this->editor();
+        $selected = $this->article($editor, 'Selezionato');
+        $unselected = $this->article($editor, 'Non selezionato');
+        $cluster = ContentCluster::factory()->create();
+        app(ContentClusterMembershipService::class)->sync($cluster, [['article_id' => $selected->id, 'position' => 10]], null);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk();
+        $response->assertSee('name="membership_ids[]" value="'.$selected->id.'" data-membership-toggle checked', false);
+        $response->assertSee('name="memberships['.$selected->id.'][position]" value="10" data-membership-detail', false);
+        $response->assertSee('name="memberships['.$unselected->id.'][position]" value="" data-membership-detail disabled', false);
+        $response->assertDontSee('name="memberships[0][article_id]"', false);
+    }
+
+    public function test_failed_validation_rehydrates_membership_primary_ordering_and_pillar(): void
+    {
+        $editor = $this->editor();
+        $member = $this->article($editor, 'Stato da preservare');
+        $other = $this->article($editor, 'Pillar non membro');
+
+        $response = $this->actingAs($editor)
+            ->from(route('admin.content-clusters.create'))
+            ->post(route('admin.content-clusters.store'), [
+                'name' => 'Reidratazione',
+                'pillar_article_id' => $other->id,
+                'membership_ids' => [$member->id],
+                'memberships' => [
+                    $member->id => ['position' => 70, 'is_primary' => '1'],
+                ],
+            ]);
+
+        $response->assertSessionHasErrors('pillar_article_id');
+
+        $form = $this->actingAs($editor)->get(route('admin.content-clusters.create'));
+        $form->assertSee('name="membership_ids[]" value="'.$member->id.'" data-membership-toggle checked', false);
+        $form->assertSee('name="memberships['.$member->id.'][position]" value="70" data-membership-detail', false);
+        $form->assertSee('name="memberships['.$member->id.'][is_primary]" value="1" data-membership-detail checked', false);
+        $form->assertSee('<option value="'.$other->id.'" selected>', false);
+    }
+
     public function test_pillar_must_be_a_member_and_failed_create_is_atomic(): void
     {
         $editor = $this->editor();
@@ -53,7 +97,7 @@ class ContentClusterAdminTest extends TestCase
         $this->actingAs($editor)->from(route('admin.content-clusters.create'))->post(route('admin.content-clusters.store'), [
             'name' => 'Spazio',
             'pillar_article_id' => $pillar->id,
-            'memberships' => [],
+            'membership_ids' => [],
         ])->assertSessionHasErrors('pillar_article_id');
 
         $this->assertDatabaseMissing('content_clusters', ['slug' => 'spazio']);
@@ -72,7 +116,7 @@ class ContentClusterAdminTest extends TestCase
                 'name' => 'Nome che non deve restare',
                 'slug' => 'originale',
                 'pillar_article_id' => $pillar->id,
-                'memberships' => [],
+                'membership_ids' => [],
             ])
             ->assertSessionHasErrors('pillar_article_id');
 
