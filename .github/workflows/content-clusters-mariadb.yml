@@ -66,10 +66,33 @@ jobs:
         run: git diff --check origin/main...HEAD
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
       - name: Fresh MariaDB migration and focused tests
+        shell: bash
         run: |
           php artisan db:show --database=mariadb
           php artisan migrate:fresh --force
-          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ArticlePathNavigationTest.php
+          set +e
+          vendor/bin/phpunit tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ArticlePathNavigationTest.php --log-junit storage/logs/content-clusters-junit.xml
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            php -r '
+              $path = "storage/logs/content-clusters-junit.xml";
+              if (!is_file($path)) { fwrite(STDERR, "::error::Focused PHPUnit failed without JUnit output\n"); exit(0); }
+              $xml = simplexml_load_file($path);
+              foreach (($xml->xpath("//testcase[failure or error]") ?: []) as $case) {
+                $failure = isset($case->failure) ? $case->failure : $case->error;
+                $class = (string) $case["class"];
+                $name = (string) $case["name"];
+                $file = (string) $case["file"];
+                $line = (string) $case["line"];
+                $message = trim((string) $failure["message"] ?: (string) $failure);
+                $message = str_replace(["\r", "\n"], ["", "%0A"], $message);
+                $location = $file !== "" ? " file={$file}" : "";
+                $linePart = $line !== "" ? ",line={$line}" : "";
+                fwrite(STDERR, "::error{$location}{$linePart}::{$class}::{$name} — {$message}\n");
+              }
+            '
+          fi
+          exit "$status"
       - name: Incremental migration from populated pre-Phase-1A schema
         run: |
           php artisan migrate:fresh --force
