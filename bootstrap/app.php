@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function () {
             require base_path('routes/content-clusters-admin.php');
+            require base_path('routes/content-clusters-public.php');
         },
     )
     ->withCommands([
