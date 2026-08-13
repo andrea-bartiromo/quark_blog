@@ -3,9 +3,11 @@ name: Content Clusters MariaDB
 on:
   pull_request:
     paths:
-      - 'app/Models/ContentCluster.php'
-      - 'app/Services/ContentClusterMembershipService.php'
-      - 'database/migrations/*content_cluster*'
+      - 'app/**'
+      - 'bootstrap/app.php'
+      - 'database/**'
+      - 'resources/views/admin/content-clusters/**'
+      - 'routes/content-clusters-admin.php'
       - 'tests/Feature/ContentClusterAdminTest.php'
       - '.github/workflows/content-clusters-mariadb.yml'
 
@@ -47,12 +49,18 @@ jobs:
       MAIL_MAILER: array
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl, gd, exif
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Pint
+        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Services/ContentClusterMembershipService.php app/Http/Controllers/Admin/ContentClusterController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php
+      - name: Diff check
+        run: git diff --check origin/main...HEAD
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
       - name: Fresh MariaDB migration and focused tests
         run: |
@@ -63,6 +71,6 @@ jobs:
         run: |
           php artisan migrate:fresh --force
           php artisan migrate:rollback --force --step=3
-          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test'),'role'=>'editor']); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]);"
+          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]);"
           php artisan migrate --force
           php artisan tinker --execute="if (!App\\Models\\Article::query()->where('slug','existing-article')->exists() || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster')) { throw new RuntimeException('Incremental migration verification failed'); }"
