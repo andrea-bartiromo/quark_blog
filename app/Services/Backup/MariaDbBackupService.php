@@ -105,7 +105,7 @@ class MariaDbBackupService
                 throw new RuntimeException('Unable to prepare backup metadata.');
             }
             $this->setPrivatePermissions($metadataTemporary, 'backup metadata temporary artifact');
-            if (!@rename($metadataTemporary, $metadataPath)) {
+            if (! @rename($metadataTemporary, $metadataPath)) {
                 throw new RuntimeException('Unable to publish backup metadata atomically.');
             }
             $metadataPublished = true;
@@ -131,7 +131,7 @@ class MariaDbBackupService
 
     private function writeOptionFile(string $path, array $db): void
     {
-        if (!@chmod($path, 0600)) {
+        if (! @chmod($path, 0600)) {
             throw new RuntimeException('Unable to secure temporary database credential file.');
         }
         $socket = trim((string) ($db['unix_socket'] ?? ''));
@@ -172,20 +172,20 @@ class MariaDbBackupService
         if ($directory === '') {
             throw new RuntimeException('Backup destination is not configured.');
         }
-        if (! is_dir($directory) && !@mkdir($directory, 0700, true) && ! is_dir($directory)) {
+        if (! is_dir($directory) && ! @mkdir($directory, 0700, true) && ! is_dir($directory)) {
             throw new RuntimeException('Backup destination cannot be created.');
         }
         if (! is_writable($directory)) {
             throw new RuntimeException('Backup destination is not writable.');
         }
-        if (PHP_OS_FAMILY !== 'Windows' && !@chmod($directory, 0700)) {
+        if (PHP_OS_FAMILY !== 'Windows' && ! @chmod($directory, 0700)) {
             throw new RuntimeException('Backup destination permissions cannot be restricted.');
         }
     }
 
     protected function promoteValidatedBackup(string $temporary, string $final): void
     {
-        if (!@rename($temporary, $final)) {
+        if (! @rename($temporary, $final)) {
             throw new RuntimeException('Unable to atomically promote validated database backup.');
         }
     }
@@ -224,7 +224,7 @@ class MariaDbBackupService
     protected function deleteRetentionPair(string $artifact): bool
     {
         $metadata = $artifact.'.json';
-        if (!@unlink($artifact)) {
+        if (! @unlink($artifact)) {
             return false;
         }
 
@@ -330,7 +330,7 @@ class MariaDbBackupService
 
     private function setPrivatePermissions(string $path, string $label): void
     {
-        if (!@chmod($path, 0600)) {
+        if (! @chmod($path, 0600)) {
             throw new RuntimeException("Unable to restrict {$label} permissions.");
         }
         if (PHP_OS_FAMILY !== 'Windows') {
