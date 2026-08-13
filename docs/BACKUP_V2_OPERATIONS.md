@@ -42,7 +42,11 @@ Optional pre-migration mode:
 
 `php artisan backup:database-v2 --mode=pre-migration --release-sha=<40-character-sha>`
 
-The command accepts only the configured `mysql`/`mariadb` connection, uses a per-database overlap lock, writes credentials to a temporary `0600` client option file, writes the dump to a private temporary artifact, performs basic SQL structure validation, atomically promotes the dump, publishes checksum/size metadata, and only then considers opt-in retention.
+The command accepts only the configured `mysql`/`mariadb` connection, writes credentials to a temporary `0600` client option file, writes the dump to a private temporary artifact, performs basic SQL structure validation, atomically promotes the dump, publishes checksum/size metadata, and only then considers opt-in retention.
+
+Backup identity is a non-secret hash of connection/endpoint/database identity. It scopes artifact names, retention, and overlap locks without publishing a password or full DSN. Retention is isolated by both database identity and backup mode, so periodic cleanup cannot evict pre-migration artifacts or another database's artifacts.
+
+Overlap uses the dedicated `DB_BACKUP_LOCK_STORE`, defaulting to Laravel's cross-process `file` store rather than inheriting the application default. Process-local `array`/`null` stores are rejected before a dump starts. `DB_BACKUP_LOCK_SECONDS` must be a positive integer. Multi-host production must explicitly confirm that the chosen lock store is shared by every host capable of launching Backup V2.
 
 If `DB_BACKUP_BINARY` is empty, compatible client discovery prefers `mariadb-dump` and falls back to `mysqldump`. Production must still explicitly approve the actual binary and version before enablement.
 
