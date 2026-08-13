@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ContentCluster;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ContentClusterMembershipService
 {
@@ -14,7 +15,13 @@ class ContentClusterMembershipService
      */
     public function sync(ContentCluster $cluster, array $memberships, ?int $pillarArticleId): void
     {
-        DB::transaction(function () use ($cluster, $memberships, $pillarArticleId) {
+        $changedCategories = DB::transaction(function () use ($cluster, $memberships, $pillarArticleId): array {
+            $beforeIds = DB::table('article_content_cluster')
+                ->where('content_cluster_id', $cluster->id)
+                ->pluck('article_id')
+                ->map(fn ($id) => (int) $id)
+                ->values();
+
             $articleIds = collect($memberships)->pluck('article_id')->map(fn ($id) => (int) $id)->unique()->values();
 
             if ($pillarArticleId !== null && ! $articleIds->contains($pillarArticleId)) {
@@ -54,12 +61,33 @@ class ContentClusterMembershipService
 
             $cluster->articles()->sync($sync);
             $cluster->update(['pillar_article_id' => $pillarArticleId]);
+
+            $changedIds = $beforeIds
+                ->diff($articleIds)
+                ->merge($articleIds->diff($beforeIds))
+                ->unique()
+                ->values();
+
+            if ($changedIds->isEmpty()) {
+                return [];
+            }
+
+            return Article::query()
+                ->whereIn('id', $changedIds)
+                ->whereNotNull('category')
+                ->pluck('category')
+                ->filter(fn ($category) => $category !== '')
+                ->unique()
+                ->values()
+                ->all();
         });
+
+        $this->scheduleCategoryRefresh($cluster->id, $changedCategories);
     }
 
     public function addMembership(ContentCluster $cluster, Article $article, bool $primary = false): void
     {
-        DB::transaction(function () use ($cluster, $article, $primary) {
+        $membershipAdded = DB::transaction(function () use ($cluster, $article, $primary): bool {
             Article::query()->whereKey($article->id)->lockForUpdate()->firstOrFail();
 
             $existing = DB::table('article_content_cluster')
@@ -89,7 +117,7 @@ class ContentClusterMembershipService
                         ->update(['is_primary' => true, 'updated_at' => now()]);
                 }
 
-                return;
+                return false;
             }
 
             $nextPosition = ((int) DB::table('article_content_cluster')
@@ -102,7 +130,13 @@ class ContentClusterMembershipService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            return true;
         });
+
+        if ($membershipAdded) {
+            $this->scheduleCategoryRefresh($cluster->id, [$article->category]);
+        }
     }
 
     /**
@@ -113,7 +147,13 @@ class ContentClusterMembershipService
      */
     public function applyMapped(ContentCluster $cluster, array $memberships, ?int $pillarArticleId): void
     {
-        DB::transaction(function () use ($cluster, $memberships, $pillarArticleId) {
+        $changedCategories = DB::transaction(function () use ($cluster, $memberships, $pillarArticleId): array {
+            $beforeIds = DB::table('article_content_cluster')
+                ->where('content_cluster_id', $cluster->id)
+                ->pluck('article_id')
+                ->map(fn ($id) => (int) $id)
+                ->flip();
+
             $articleIds = collect($memberships)->pluck('article_id')->map(fn ($id) => (int) $id)->unique()->values();
 
             if ($articleIds->isNotEmpty()) {
@@ -157,6 +197,60 @@ class ContentClusterMembershipService
                 }
 
                 $cluster->update(['pillar_article_id' => $pillarArticleId]);
+            }
+
+            $addedIds = DB::table('article_content_cluster')
+                ->where('content_cluster_id', $cluster->id)
+                ->pluck('article_id')
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn ($id) => $beforeIds->has($id))
+                ->values();
+
+            if ($addedIds->isEmpty()) {
+                return [];
+            }
+
+            return Article::query()
+                ->whereIn('id', $addedIds)
+                ->whereNotNull('category')
+                ->pluck('category')
+                ->filter(fn ($category) => $category !== '')
+                ->unique()
+                ->values()
+                ->all();
+        });
+
+        $this->scheduleCategoryRefresh($cluster->id, $changedCategories);
+    }
+
+    /**
+     * @param  array<int, string|null>  $categories
+     */
+    private function scheduleCategoryRefresh(int $clusterId, array $categories): void
+    {
+        $categories = collect($categories)
+            ->filter(fn ($category) => is_string($category) && $category !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($categories === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($clusterId, $categories): void {
+            try {
+                $cluster = ContentCluster::query()->find($clusterId);
+
+                if ($cluster === null) {
+                    return;
+                }
+
+                foreach ($categories as $category) {
+                    app(ContentClusterSuggestionService::class)->refreshForClusterCategory($cluster, $category);
+                }
+            } catch (Throwable $exception) {
+                report($exception);
             }
         });
     }
