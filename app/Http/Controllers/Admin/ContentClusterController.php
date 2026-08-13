@@ -98,9 +98,20 @@ class ContentClusterController extends Controller
 
     public function update(Request $request, ContentCluster $contentCluster)
     {
-        $contentCluster->update($this->validatedCluster($request, $contentCluster));
+        $data = $this->validatedCluster($request, $contentCluster);
+        $hasMembershipPayload = $request->hasAny(['membership_ids', 'memberships', 'pillar_article_id']);
 
-        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Metadati del Percorso aggiornati.');
+        DB::transaction(function () use ($request, $contentCluster, $data, $hasMembershipPayload) {
+            $contentCluster->update($data);
+            if ($hasMembershipPayload) {
+                $membershipData = $this->validatedMemberships($request);
+                $memberships = $this->selectedMemberships($membershipData['membership_ids'] ?? [], $membershipData['memberships'] ?? []);
+                $pillar = isset($membershipData['pillar_article_id']) ? (int) $membershipData['pillar_article_id'] : null;
+                $this->memberships->sync($contentCluster, $memberships, $pillar);
+            }
+        });
+
+        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', $hasMembershipPayload ? 'Percorso aggiornato.' : 'Metadati del Percorso aggiornati.');
     }
 
     public function updateMemberships(Request $request, ContentCluster $contentCluster)
