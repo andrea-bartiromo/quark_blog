@@ -13,6 +13,7 @@ on:
       - 'tests/Feature/ContentClusterAdminTest.php'
       - 'tests/Feature/ContentClusterPublicTest.php'
       - 'tests/Feature/ContentClusterPhase2ATest.php'
+      - 'tests/Feature/ContentClusterPhase2BTest.php'
       - 'tests/Feature/ArticlePathNavigationTest.php'
       - '.github/workflows/content-clusters-mariadb.yml'
 
@@ -63,7 +64,7 @@ jobs:
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Pint
-        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Services/ContentClusterMembershipService.php app/Services/ContentClusterHealth.php app/Services/ArticlePathNavigation.php app/Http/Controllers/Admin/ContentClusterController.php app/Http/Controllers/ArticleController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ArticlePathNavigationTest.php
+        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Models/ContentClusterSuggestion.php app/Services/ContentClusterMembershipService.php app/Services/ContentClusterHealth.php app/Services/ContentClusterSuggestionService.php app/Services/ArticlePathNavigation.php app/Http/Controllers/Admin/ContentClusterController.php app/Http/Controllers/Admin/ContentClusterSuggestionController.php app/Http/Controllers/ArticleController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
       - name: Diff check
         run: git diff --check origin/main...HEAD
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
@@ -71,11 +72,11 @@ jobs:
         run: |
           php artisan db:show --database=mariadb
           php artisan migrate:fresh --force
-          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ArticlePathNavigationTest.php
+          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
       - name: Incremental migration from populated pre-Phase-1A schema
         run: |
           php artisan migrate:fresh --force
-          php artisan migrate:rollback --force --step=3
+          php artisan migrate:rollback --force --step=4
           php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]);"
           php artisan migrate --force
-          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists()) { throw new RuntimeException('Incremental migration verification failed'); }"
+          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_suggestions') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists() || Illuminate\\Support\\Facades\\DB::table('content_cluster_suggestions')->exists()) { throw new RuntimeException('Incremental migration verification failed'); }"
