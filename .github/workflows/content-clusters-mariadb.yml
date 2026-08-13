@@ -6,9 +6,12 @@ on:
       - 'app/**'
       - 'bootstrap/app.php'
       - 'database/**'
-      - 'resources/views/admin/content-clusters/**'
-      - 'routes/content-clusters-admin.php'
+      - 'resources/views/**content-clusters**'
+      - 'resources/views/articles/partials/path-continuation.blade.php'
+      - 'routes/content-clusters-*.php'
       - 'tests/Feature/ContentClusterAdminTest.php'
+      - 'tests/Feature/ContentClusterPublicTest.php'
+      - 'tests/Feature/ArticlePathNavigationTest.php'
       - '.github/workflows/content-clusters-mariadb.yml'
 
 permissions:
@@ -58,7 +61,7 @@ jobs:
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Pint
-        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Services/ContentClusterMembershipService.php app/Http/Controllers/Admin/ContentClusterController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php
+        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Services/ContentClusterMembershipService.php app/Services/ArticlePathNavigation.php app/Http/Controllers/Admin/ContentClusterController.php app/Http/Controllers/ArticleController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ArticlePathNavigationTest.php
       - name: Diff check
         run: git diff --check origin/main...HEAD
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
@@ -66,7 +69,7 @@ jobs:
         run: |
           php artisan db:show --database=mariadb
           php artisan migrate:fresh --force
-          php artisan test tests/Feature/ContentClusterAdminTest.php
+          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ArticlePathNavigationTest.php
       - name: Incremental migration from populated pre-Phase-1A schema
         run: |
           php artisan migrate:fresh --force
