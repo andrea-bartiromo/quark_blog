@@ -57,6 +57,54 @@ class ContentClusterMembershipService
         });
     }
 
+    public function addMembership(ContentCluster $cluster, Article $article, bool $primary = false): void
+    {
+        DB::transaction(function () use ($cluster, $article, $primary) {
+            Article::query()->whereKey($article->id)->lockForUpdate()->firstOrFail();
+
+            $existing = DB::table('article_content_cluster')
+                ->where('content_cluster_id', $cluster->id)
+                ->where('article_id', $article->id)
+                ->first();
+
+            if ($primary) {
+                $otherPrimaryExists = DB::table('article_content_cluster')
+                    ->where('article_id', $article->id)
+                    ->where('content_cluster_id', '!=', $cluster->id)
+                    ->where('is_primary', true)
+                    ->exists();
+
+                if ($otherPrimaryExists) {
+                    throw ValidationException::withMessages([
+                        'suggestion' => 'L’articolo ha già un altro Percorso primary. Nessuna modifica applicata.',
+                    ]);
+                }
+            }
+
+            if ($existing !== null) {
+                if ($primary && ! (bool) $existing->is_primary) {
+                    DB::table('article_content_cluster')
+                        ->where('content_cluster_id', $cluster->id)
+                        ->where('article_id', $article->id)
+                        ->update(['is_primary' => true, 'updated_at' => now()]);
+                }
+
+                return;
+            }
+
+            $nextPosition = ((int) DB::table('article_content_cluster')
+                ->where('content_cluster_id', $cluster->id)
+                ->max('position')) + 10;
+
+            $cluster->articles()->attach($article->id, [
+                'position' => max(10, $nextPosition),
+                'is_primary' => $primary,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+    }
+
     /**
      * Apply a versioned mapping without deleting editorial data outside it.
      * Primary conflicts are fail-safe: conflicting rows are skipped by caller.
