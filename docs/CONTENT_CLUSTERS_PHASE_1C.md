@@ -41,6 +41,14 @@ A future analytics implementation should measure the sequence `article A -> path
 
 The box uses ordinary crawlable anchor links. It does not alter the article canonical, title, description, Article structured data or legacy `rel=prev/next` metadata. No new structured-data relationship between Article and Content Cluster is emitted in Phase 1C.
 
+## Phase roadmap
+
+- Phase 1A — data model, invariants, selected-only admin membership submission.
+- Phase 1B — public `/percorsi` surfaces, SEO and publication isolation.
+- Phase 1C — article continuation and deterministic path navigation.
+- Phase 2A — implemented on the stacked repository-only branch; health, orphan reporting, versioned initial mapping and dry-run-first activation tooling are specified in `docs/CONTENT_CLUSTERS_PHASE_2A.md`.
+- Phase 2B — design-only analytics and editor-confirmed membership suggestions.
+
 ## Phase 2 technical plan
 
 Phase 2 remains repository/design work until separately authorized. Priorities:
