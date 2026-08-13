@@ -14,6 +14,7 @@
 
 @section('head')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <meta property="article:published_time" content="{{ $article->published_at->toIso8601String() }}">
 <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
 <meta property="article:author" content="{{ $article->author->name }}">
@@ -138,6 +139,8 @@
                 ])
 
                 @include('articles.partials.body')
+
+                @include('articles.partials.path-continuation')
 
                 @include('articles.partials.newsletter-band')
 
