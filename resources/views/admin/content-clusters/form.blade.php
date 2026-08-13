@@ -13,7 +13,10 @@
 </div>
 @endif
 
-@php $existing = $cluster?->articles?->keyBy('id') ?? collect(); @endphp
+@php
+  $existing = $cluster?->articles?->keyBy('id') ?? collect();
+  $selectedMembershipIds = collect(old('membership_ids', $existing->keys()->all()))->map(fn ($id) => (string) $id);
+@endphp
 
 <form method="POST" action="{{ $cluster ? route('admin.content-clusters.update', $cluster) : route('admin.content-clusters.store') }}">
   @csrf
@@ -32,22 +35,27 @@
 
     <fieldset style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem;">
       <legend style="font-weight:700;padding:0 .4rem;">Articoli nel percorso</legend>
-      <p style="font-size:.82rem;color:#6b7280;">Gli articoli scheduled possono essere associati: Phase 1A non crea alcuna route pubblica. Le posizioni vengono normalizzate a 10, 20, 30… al salvataggio.</p>
+      <p style="font-size:.82rem;color:#6b7280;">Solo gli articoli selezionati vengono inviati al backend. Gli articoli scheduled possono essere associati; le posizioni vengono normalizzate a 10, 20, 30… al salvataggio.</p>
+      <noscript><p class="admin-alert admin-alert--danger">Per modificare posizione e primary dei nuovi membri è necessario JavaScript; la selezione semplice resta salvabile.</p></noscript>
       <div style="overflow-x:auto;">
         <table class="admin-table">
           <thead><tr><th>Includi</th><th>Articolo</th><th>Stato</th><th>Posizione</th><th>Primary</th></tr></thead>
           <tbody>
-          @foreach($articles as $i => $article)
-            @php $membership = $existing->get($article->id); @endphp
-            <tr>
+          @foreach($articles as $article)
+            @php
+              $membership = $existing->get($article->id);
+              $selected = $selectedMembershipIds->contains((string) $article->id);
+              $position = old("memberships.{$article->id}.position", $membership?->pivot?->position);
+              $primary = old("memberships.{$article->id}.is_primary", $membership?->pivot?->is_primary ?? false);
+            @endphp
+            <tr data-membership-row>
               <td>
-                <input type="hidden" name="memberships[{{ $i }}][article_id]" value="{{ $article->id }}">
-                <input aria-label="Includi {{ $article->title }}" type="checkbox" name="memberships[{{ $i }}][selected]" value="1" {{ $membership ? 'checked' : '' }}>
+                <input aria-label="Includi {{ $article->title }}" type="checkbox" name="membership_ids[]" value="{{ $article->id }}" data-membership-toggle {{ $selected ? 'checked' : '' }}>
               </td>
               <td>{{ $article->title }}</td>
               <td>{{ $article->status }}</td>
-              <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $i }}][position]" value="{{ $membership?->pivot?->position }}"></td>
-              <td><input aria-label="Primary {{ $article->title }}" type="checkbox" name="memberships[{{ $i }}][is_primary]" value="1" {{ $membership?->pivot?->is_primary ? 'checked' : '' }}></td>
+              <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $article->id }}][position]" value="{{ $position }}" data-membership-detail {{ $selected ? '' : 'disabled' }}></td>
+              <td><input aria-label="Primary {{ $article->title }}" type="checkbox" name="memberships[{{ $article->id }}][is_primary]" value="1" data-membership-detail {{ $primary ? 'checked' : '' }} {{ $selected ? '' : 'disabled' }}></td>
             </tr>
           @endforeach
           </tbody>
@@ -69,4 +77,20 @@
     <button class="btn btn--primary" type="submit">{{ $cluster ? 'Salva percorso' : 'Crea percorso' }}</button>
   </div>
 </form>
+
+<script>
+document.querySelectorAll('[data-membership-row]').forEach((row) => {
+  const toggle = row.querySelector('[data-membership-toggle]');
+  const details = row.querySelectorAll('[data-membership-detail]');
+
+  function syncMembershipInputs() {
+    details.forEach((input) => {
+      input.disabled = !toggle.checked;
+    });
+  }
+
+  toggle.addEventListener('change', syncMembershipInputs);
+  syncMembershipInputs();
+});
+</script>
 @endsection
