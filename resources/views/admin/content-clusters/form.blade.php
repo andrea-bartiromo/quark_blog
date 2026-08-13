@@ -13,6 +13,16 @@
 </div>
 @endif
 
+@if($cluster && !empty($health['findings']))
+<section class="admin-alert" aria-labelledby="cluster-health-warnings" role="status">
+  <h2 id="cluster-health-warnings" style="font-size:1rem;margin:0 0 .5rem;">Stato editoriale del percorso</h2>
+  <p style="margin:0;">{{ implode(' · ', $health['findings']) }}</p>
+  @if(!$health['pillar_public'] && $health['pillar_present'])<p>Pillar non pubblico.</p>@endif
+  @if($health['scheduled_count'] > 0 && $health['article_count_published'] === 0)<p>Il percorso contiene solo contenuti non ancora pubblici.</p>@endif
+  <small>Warning informativi: non bloccano il salvataggio.</small>
+</section>
+@endif
+
 @php
   $existing = $cluster?->articles?->keyBy('id') ?? collect();
   $selectedMembershipIds = collect(old('membership_ids', $existing->keys()->all()))->map(fn ($id) => (string) $id);
@@ -49,9 +59,7 @@
               $primary = old("memberships.{$article->id}.is_primary", $membership?->pivot?->is_primary ?? false);
             @endphp
             <tr data-membership-row>
-              <td>
-                <input aria-label="Includi {{ $article->title }}" type="checkbox" name="membership_ids[]" value="{{ $article->id }}" data-membership-toggle {{ $selected ? 'checked' : '' }}>
-              </td>
+              <td><input aria-label="Includi {{ $article->title }}" type="checkbox" name="membership_ids[]" value="{{ $article->id }}" data-membership-toggle {{ $selected ? 'checked' : '' }}></td>
               <td>{{ $article->title }}</td>
               <td>{{ $article->status }}</td>
               <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $article->id }}][position]" value="{{ $position }}" data-membership-detail {{ $selected ? '' : 'disabled' }}></td>
