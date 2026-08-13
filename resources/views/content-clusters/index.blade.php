@@ -21,8 +21,8 @@
       @forelse($clusters as $cluster)
         <article class="article-card">
           @if($cluster->cover_image)
-            <a href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
-              <img src="{{ asset(ltrim($cluster->cover_image, '/')) }}" alt="" loading="lazy">
+            <a class="article-card__thumb" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
+              <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" loading="lazy">
             </a>
           @endif
           <div class="article-card__body">
