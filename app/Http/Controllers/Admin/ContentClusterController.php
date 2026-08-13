@@ -33,9 +33,9 @@ class ContentClusterController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
-        $memberships = $this->selectedMemberships($data['memberships'] ?? []);
+        $memberships = $this->selectedMemberships($data['membership_ids'] ?? [], $data['memberships'] ?? []);
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['memberships'], $data['pillar_article_id']);
+        unset($data['membership_ids'], $data['memberships'], $data['pillar_article_id']);
 
         $cluster = DB::transaction(function () use ($data, $memberships, $pillar) {
             $cluster = ContentCluster::create($data);
@@ -60,9 +60,9 @@ class ContentClusterController extends Controller
     public function update(Request $request, ContentCluster $contentCluster)
     {
         $data = $this->validated($request, $contentCluster);
-        $memberships = $this->selectedMemberships($data['memberships'] ?? []);
+        $memberships = $this->selectedMemberships($data['membership_ids'] ?? [], $data['memberships'] ?? []);
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
-        unset($data['memberships'], $data['pillar_article_id']);
+        unset($data['membership_ids'], $data['memberships'], $data['pillar_article_id']);
 
         DB::transaction(function () use ($contentCluster, $data, $memberships, $pillar) {
             $contentCluster->update($data);
@@ -89,9 +89,10 @@ class ContentClusterController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'pillar_article_id' => ['nullable', 'integer', 'exists:articles,id'],
+            'membership_ids' => ['nullable', 'array'],
+            'membership_ids.*' => ['integer', 'distinct', 'exists:articles,id'],
             'memberships' => ['nullable', 'array'],
-            'memberships.*.selected' => ['nullable', 'boolean'],
-            'memberships.*.article_id' => ['required', 'integer', 'distinct', 'exists:articles,id'],
+            'memberships.*' => ['array'],
             'memberships.*.position' => ['nullable', 'integer', 'min:0'],
             'memberships.*.is_primary' => ['nullable', 'boolean'],
         ]);
@@ -102,16 +103,23 @@ class ContentClusterController extends Controller
         return $data;
     }
 
-    /** @param array<int, array<string, mixed>> $memberships */
-    private function selectedMemberships(array $memberships): array
+    /**
+     * @param  array<int, int|string>  $membershipIds
+     * @param  array<int|string, array<string, mixed>>  $membershipMetadata
+     */
+    private function selectedMemberships(array $membershipIds, array $membershipMetadata): array
     {
-        return collect($memberships)
-            ->filter(fn (array $membership) => (bool) ($membership['selected'] ?? false))
-            ->map(fn (array $membership) => [
-                'article_id' => (int) $membership['article_id'],
-                'position' => isset($membership['position']) ? (int) $membership['position'] : null,
-                'is_primary' => (bool) ($membership['is_primary'] ?? false),
-            ])
+        return collect($membershipIds)
+            ->map(function ($articleId) use ($membershipMetadata): array {
+                $articleId = (int) $articleId;
+                $metadata = $membershipMetadata[$articleId] ?? $membershipMetadata[(string) $articleId] ?? [];
+
+                return [
+                    'article_id' => $articleId,
+                    'position' => isset($metadata['position']) && $metadata['position'] !== '' ? (int) $metadata['position'] : null,
+                    'is_primary' => (bool) ($metadata['is_primary'] ?? false),
+                ];
+            })
             ->values()
             ->all();
     }
