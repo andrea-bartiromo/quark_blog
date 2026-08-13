@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 class ContentClusterSuggestion extends Model
@@ -28,10 +29,17 @@ class ContentClusterSuggestion extends Model
 
     protected $casts = [
         'confidence' => 'integer',
-        'reasons' => 'array',
         'suggested_primary' => 'boolean',
         'reviewed_at' => 'datetime',
     ];
+
+    protected function reasons(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value === null ? [] : json_decode($value, true, 512, JSON_THROW_ON_ERROR),
+            set: fn ($value) => is_string($value) ? $value : json_encode($value ?? [], JSON_THROW_ON_ERROR),
+        );
+    }
 
     public function article()
     {
