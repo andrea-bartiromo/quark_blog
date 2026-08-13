@@ -3,7 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Article;
+use App\Models\ArticleContentCluster;
 use App\Models\ContentCluster;
+use App\Observers\ArticleContentClusterObserver;
+use App\Observers\ContentClusterSuggestionObserver;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
@@ -21,13 +24,18 @@ class AppServiceProvider extends ServiceProvider
         // Imposta la locale italiana per le date
         Carbon::setLocale('it');
 
+        Article::observe(ContentClusterSuggestionObserver::class);
+        ArticleContentCluster::observe(ArticleContentClusterObserver::class);
+
         Article::resolveRelationUsing('contentClusters', fn (Article $article) => $article
             ->belongsToMany(ContentCluster::class, 'article_content_cluster')
+            ->using(ArticleContentCluster::class)
             ->withPivot(['position', 'is_primary'])
             ->withTimestamps());
 
         Article::resolveRelationUsing('primaryContentCluster', fn (Article $article) => $article
             ->belongsToMany(ContentCluster::class, 'article_content_cluster')
+            ->using(ArticleContentCluster::class)
             ->withPivot(['position', 'is_primary'])
             ->wherePivot('is_primary', true)
             ->limit(1));
