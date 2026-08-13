@@ -17,7 +17,7 @@
 @endsection
 
 @section('content')
-<section class="section" aria-labelledby="percorso-title">
+<section class="section" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
     <nav aria-label="Breadcrumb">
       <a href="{{ route('home') }}">Home</a> / <a href="{{ route('percorsi.index') }}">Percorsi</a> / <span aria-current="page">{{ $cluster->name }}</span>
@@ -56,3 +56,7 @@
   </div>
 </section>
 @endsection
+
+@push('scripts')
+  @include('partials.content-clusters-analytics')
+@endpush
