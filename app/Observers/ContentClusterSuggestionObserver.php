@@ -10,8 +10,6 @@ use Throwable;
 
 class ContentClusterSuggestionObserver
 {
-    private array $deletingClusterIds = [];
-
     public function created(Article $article): void
     {
         $this->scheduleArticleRefresh($article->id);
@@ -41,17 +39,18 @@ class ContentClusterSuggestionObserver
 
     public function deleting(Article $article): void
     {
-        $this->deletingClusterIds[$article->id] = DB::table('article_content_cluster')
-            ->where('article_id', $article->id)
-            ->pluck('content_cluster_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
+        $article->setRelation(
+            'contentClusterSuggestionRefreshIds',
+            DB::table('article_content_cluster')
+                ->where('article_id', $article->id)
+                ->pluck('content_cluster_id')
+                ->map(fn ($id) => (int) $id)
+        );
     }
 
     public function deleted(Article $article): void
     {
-        $clusterIds = $this->deletingClusterIds[$article->id] ?? [];
-        unset($this->deletingClusterIds[$article->id]);
+        $clusterIds = $article->getRelation('contentClusterSuggestionRefreshIds')?->all() ?? [];
 
         $this->scheduleClusterCategoryRefresh($clusterIds, [$article->category]);
     }
