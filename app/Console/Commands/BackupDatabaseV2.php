@@ -20,9 +20,13 @@ class BackupDatabaseV2 extends Command
             $this->line('SHA-256: '.$result['sha256']);
             $this->line('Size: '.$result['size_bytes'].' bytes');
 
+            foreach ($result['warnings'] ?? [] as $warning) {
+                $this->warn($warning);
+            }
+
             return self::SUCCESS;
         } catch (Throwable $e) {
-            // Service exceptions are intentionally sanitized and never contain credentials/process argv.
+            // Public service exceptions are intentionally sanitized and never include credentials/process argv.
             $this->error('Backup V2 failed: '.$e->getMessage());
 
             return self::FAILURE;
