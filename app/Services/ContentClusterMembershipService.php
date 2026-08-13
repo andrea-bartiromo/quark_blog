@@ -23,8 +23,6 @@ class ContentClusterMembershipService
                 ]);
             }
 
-            // Lock delle righe Article in ordine stabile: due editor che cambiano
-            // contemporaneamente il primary dello stesso articolo vengono serializzati.
             if ($articleIds->isNotEmpty()) {
                 Article::query()->whereIn('id', $articleIds)->orderBy('id')->lockForUpdate()->get(['id']);
             }
@@ -56,6 +54,62 @@ class ContentClusterMembershipService
 
             $cluster->articles()->sync($sync);
             $cluster->update(['pillar_article_id' => $pillarArticleId]);
+        });
+    }
+
+    /**
+     * Apply a versioned mapping without deleting editorial data outside it.
+     * Primary conflicts are fail-safe: conflicting rows are skipped by caller.
+     *
+     * @param  array<int, array{article_id:int, position:int, is_primary:bool}>  $memberships
+     */
+    public function applyMapped(ContentCluster $cluster, array $memberships, ?int $pillarArticleId): void
+    {
+        DB::transaction(function () use ($cluster, $memberships, $pillarArticleId) {
+            $articleIds = collect($memberships)->pluck('article_id')->map(fn ($id) => (int) $id)->unique()->values();
+
+            if ($articleIds->isNotEmpty()) {
+                Article::query()->whereIn('id', $articleIds)->orderBy('id')->lockForUpdate()->get(['id']);
+            }
+
+            foreach ($memberships as $membership) {
+                $articleId = (int) $membership['article_id'];
+                $isPrimary = (bool) $membership['is_primary'];
+
+                if ($isPrimary) {
+                    $hasOtherPrimary = DB::table('article_content_cluster')
+                        ->where('article_id', $articleId)
+                        ->where('content_cluster_id', '!=', $cluster->id)
+                        ->where('is_primary', true)
+                        ->exists();
+
+                    if ($hasOtherPrimary) {
+                        continue;
+                    }
+                }
+
+                $cluster->articles()->syncWithoutDetaching([
+                    $articleId => [
+                        'position' => (int) $membership['position'],
+                        'is_primary' => $isPrimary,
+                    ],
+                ]);
+            }
+
+            if ($pillarArticleId !== null) {
+                $isMember = DB::table('article_content_cluster')
+                    ->where('content_cluster_id', $cluster->id)
+                    ->where('article_id', $pillarArticleId)
+                    ->exists();
+
+                if (! $isMember) {
+                    throw ValidationException::withMessages([
+                        'pillar_article_id' => 'Il pillar deve appartenere al Percorso.',
+                    ]);
+                }
+
+                $cluster->update(['pillar_article_id' => $pillarArticleId]);
+            }
         });
     }
 }
