@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Article;
 use App\Models\ContentCluster;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +21,12 @@ class ContentClusterMembershipService
                 throw ValidationException::withMessages([
                     'pillar_article_id' => 'Il pillar deve appartenere al Percorso.',
                 ]);
+            }
+
+            // Lock delle righe Article in ordine stabile: due editor che cambiano
+            // contemporaneamente il primary dello stesso articolo vengono serializzati.
+            if ($articleIds->isNotEmpty()) {
+                Article::query()->whereIn('id', $articleIds)->orderBy('id')->lockForUpdate()->get(['id']);
             }
 
             $normalized = collect($memberships)
