@@ -121,7 +121,7 @@ class MariaDbBackupService
             $metadataPublished = true;
             $this->setPrivatePermissions($metadataPath, 'backup metadata');
 
-            $warnings = $this->applyRetention($directory, $final, $retention);
+            $warnings = $this->applyRetention($directory, $final, $mode, $retention);
 
             return ['artifact' => $final, 'metadata' => $metadataPath, 'warnings' => $warnings] + $metadata;
         } catch (Throwable $e) {
@@ -210,14 +210,14 @@ class MariaDbBackupService
     }
 
     /** @return array<int, string> */
-    protected function applyRetention(string $directory, string $current, ?int $retention): array
+    protected function applyRetention(string $directory, string $current, string $mode, ?int $retention): array
     {
         if ($retention === null) {
             return [];
         }
 
         $knownGood = array_values(array_filter(
-            glob($directory.'/mariadb-*.sql') ?: [],
+            glob($directory.'/mariadb-*-'.$mode.'-*.sql') ?: [],
             fn (string $artifact): bool => $this->isKnownGoodPair($artifact)
         ));
 
