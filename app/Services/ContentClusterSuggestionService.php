@@ -433,6 +433,6 @@ class ContentClusterSuggestionService
 
     private function key(int $articleId, int $clusterId): string
     {
-        return $articleId . ':' . $clusterId;
+        return $articleId.':'.$clusterId;
     }
 }
