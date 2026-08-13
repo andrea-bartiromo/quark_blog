@@ -59,6 +59,32 @@ class ContentClusterAdminTest extends TestCase
         $this->assertDatabaseMissing('content_clusters', ['slug' => 'spazio']);
     }
 
+    public function test_update_cannot_remove_the_current_pillar_membership_and_is_atomic(): void
+    {
+        $editor = $this->editor();
+        $pillar = $this->article($editor, 'Pillar stabile');
+        $cluster = ContentCluster::factory()->create(['name' => 'Originale', 'slug' => 'originale']);
+        app(ContentClusterMembershipService::class)->sync($cluster, [['article_id' => $pillar->id]], $pillar->id);
+
+        $this->actingAs($editor)
+            ->from(route('admin.content-clusters.edit', $cluster))
+            ->put(route('admin.content-clusters.update', $cluster), [
+                'name' => 'Nome che non deve restare',
+                'slug' => 'originale',
+                'pillar_article_id' => $pillar->id,
+                'memberships' => [],
+            ])
+            ->assertSessionHasErrors('pillar_article_id');
+
+        $cluster->refresh();
+        $this->assertSame('Originale', $cluster->name);
+        $this->assertSame($pillar->id, $cluster->pillar_article_id);
+        $this->assertDatabaseHas('article_content_cluster', [
+            'content_cluster_id' => $cluster->id,
+            'article_id' => $pillar->id,
+        ]);
+    }
+
     public function test_primary_cluster_is_unique_per_article_and_moves_transactionally(): void
     {
         $editor = $this->editor();
@@ -73,6 +99,67 @@ class ContentClusterAdminTest extends TestCase
         $this->assertDatabaseHas('article_content_cluster', ['article_id' => $article->id, 'content_cluster_id' => $a->id, 'is_primary' => false]);
         $this->assertDatabaseHas('article_content_cluster', ['article_id' => $article->id, 'content_cluster_id' => $b->id, 'is_primary' => true]);
         $this->assertSame(1, DB::table('article_content_cluster')->where('article_id', $article->id)->where('is_primary', true)->count());
+    }
+
+    public function test_removing_primary_membership_leaves_no_primary_for_that_article(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article($editor, 'Primary rimovibile');
+        $cluster = ContentCluster::factory()->create();
+        $service = app(ContentClusterMembershipService::class);
+
+        $service->sync($cluster, [['article_id' => $article->id, 'is_primary' => true]], null);
+        $service->sync($cluster, [], null);
+
+        $this->assertDatabaseMissing('article_content_cluster', [
+            'article_id' => $article->id,
+            'content_cluster_id' => $cluster->id,
+        ]);
+        $this->assertSame(0, DB::table('article_content_cluster')->where('article_id', $article->id)->where('is_primary', true)->count());
+    }
+
+    public function test_ordering_is_deterministic_for_duplicate_missing_and_removed_positions(): void
+    {
+        $editor = $this->editor();
+        $first = $this->article($editor, 'Ordine A');
+        $second = $this->article($editor, 'Ordine B', Article::STATUS_SCHEDULED);
+        $third = $this->article($editor, 'Ordine C');
+        $cluster = ContentCluster::factory()->create();
+        $service = app(ContentClusterMembershipService::class);
+
+        $service->sync($cluster, [
+            ['article_id' => $second->id, 'position' => 5],
+            ['article_id' => $first->id, 'position' => 5],
+            ['article_id' => $third->id],
+        ], null);
+
+        $this->assertSame([
+            $first->id => 10,
+            $second->id => 20,
+            $third->id => 30,
+        ], DB::table('article_content_cluster')
+            ->where('content_cluster_id', $cluster->id)
+            ->orderBy('position')
+            ->pluck('position', 'article_id')
+            ->all());
+
+        $service->sync($cluster, [
+            ['article_id' => $third->id, 'position' => 1],
+            ['article_id' => $first->id, 'position' => 2],
+        ], null);
+
+        $this->assertDatabaseMissing('article_content_cluster', [
+            'content_cluster_id' => $cluster->id,
+            'article_id' => $second->id,
+        ]);
+        $this->assertSame([
+            $third->id => 10,
+            $first->id => 20,
+        ], DB::table('article_content_cluster')
+            ->where('content_cluster_id', $cluster->id)
+            ->orderBy('position')
+            ->pluck('position', 'article_id')
+            ->all());
     }
 
     public function test_deleting_article_cascades_membership_and_nulls_pillar(): void
