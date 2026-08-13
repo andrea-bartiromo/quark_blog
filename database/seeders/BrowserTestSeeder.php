@@ -47,7 +47,7 @@ class BrowserTestSeeder extends Seeder
             'featured' => true,
             'read_minutes' => 2,
             'views' => 0,
-            'published_at' => $now->copy()->subDay(),
+            'published_at' => $now->copy()->subDays(2),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -65,6 +65,23 @@ class BrowserTestSeeder extends Seeder
             'read_minutes' => 1,
             'views' => 0,
             'published_at' => $now->copy()->addDay(),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $lastPublishedArticleId = DB::table('articles')->insertGetId([
+            'user_id' => $authorId,
+            'title' => 'Dalle macchine ai modelli moderni',
+            'slug' => 'browser-path-last-article',
+            'excerpt' => 'Seconda tappa pubblica del percorso browser.',
+            'body' => '<h2>Una seconda lettura</h2><p>La navigazione salta il contenuto programmato e arriva qui.</p>',
+            'category' => 'intelligenza-artificiale',
+            'cover_image' => null,
+            'status' => 'published',
+            'featured' => false,
+            'read_minutes' => 2,
+            'views' => 0,
+            'published_at' => $now->copy()->subDay(),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -97,6 +114,14 @@ class BrowserTestSeeder extends Seeder
                 'content_cluster_id' => $clusterId,
                 'position' => 20,
                 'is_primary' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'article_id' => $lastPublishedArticleId,
+                'content_cluster_id' => $clusterId,
+                'position' => 30,
+                'is_primary' => true,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
