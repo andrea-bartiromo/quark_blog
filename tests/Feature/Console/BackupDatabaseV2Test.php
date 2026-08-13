@@ -15,7 +15,6 @@ class BackupDatabaseV2Test extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
         $this->directory = storage_path('framework/testing/backup-v2-'.bin2hex(random_bytes(4)));
         config()->set('backup.v2.directory', $this->directory);
         config()->set('backup.v2.binary', PHP_BINARY);
@@ -38,7 +37,6 @@ class BackupDatabaseV2Test extends TestCase
             }
             @rmdir($this->directory);
         }
-
         parent::tearDown();
     }
 
@@ -47,7 +45,6 @@ class BackupDatabaseV2Test extends TestCase
         config()->set('database.default', 'sqlite');
         $runner = new RecordingDumpRunner;
         $this->app->instance(DatabaseDumpRunner::class, $runner);
-
         $this->artisan('backup:database-v2')->assertFailed();
         $this->assertSame(0, $runner->calls);
     }
@@ -55,7 +52,6 @@ class BackupDatabaseV2Test extends TestCase
     public function test_rejects_missing_dump_binary(): void
     {
         config()->set('backup.v2.binary', '/definitely/missing/mariadb-dump');
-
         $this->artisan('backup:database-v2')->assertFailed();
     }
 
@@ -64,7 +60,6 @@ class BackupDatabaseV2Test extends TestCase
         config()->set('backup.v2.retention', '-1');
         $runner = new RecordingDumpRunner;
         $this->app->instance(DatabaseDumpRunner::class, $runner);
-
         $this->artisan('backup:database-v2')->assertFailed();
         $this->assertSame(0, $runner->calls);
     }
@@ -73,7 +68,6 @@ class BackupDatabaseV2Test extends TestCase
     {
         $runner = new RecordingDumpRunner('');
         $this->app->instance(DatabaseDumpRunner::class, $runner);
-
         $this->artisan('backup:database-v2')->assertFailed();
         $this->assertSame([], glob($this->directory.'/*') ?: []);
     }
@@ -81,7 +75,6 @@ class BackupDatabaseV2Test extends TestCase
     public function test_rejects_invalid_dump_structure(): void
     {
         $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner('<html>upstream error</html>'));
-
         $this->artisan('backup:database-v2')->assertFailed();
         $this->assertSame([], glob($this->directory.'/mariadb-*.sql') ?: []);
     }
@@ -107,7 +100,6 @@ class BackupDatabaseV2Test extends TestCase
     {
         $runner = new RecordingDumpRunner($this->validDump());
         $this->app->instance(DatabaseDumpRunner::class, $runner);
-
         $this->artisan('backup:database-v2')->assertSuccessful();
 
         $artifacts = glob($this->directory.'/mariadb-*.sql') ?: [];
@@ -138,9 +130,7 @@ class BackupDatabaseV2Test extends TestCase
         config()->set('database.connections.mariadb.port', null);
         $runner = new RecordingDumpRunner($this->validDump());
         $this->app->instance(DatabaseDumpRunner::class, $runner);
-
         $this->artisan('backup:database-v2')->assertSuccessful();
-
         $this->assertStringContainsString('socket="/tmp/mariadb.sock"', $runner->optionContents);
         $this->assertStringNotContainsString('host=', $runner->optionContents);
         $this->assertStringNotContainsString('port=', $runner->optionContents);
@@ -149,7 +139,6 @@ class BackupDatabaseV2Test extends TestCase
     public function test_pre_migration_mode_requires_exact_release_sha(): void
     {
         $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner($this->validDump()));
-
         $this->artisan('backup:database-v2', ['--mode' => 'pre-migration', '--release-sha' => 'short'])->assertFailed();
     }
 
@@ -157,11 +146,9 @@ class BackupDatabaseV2Test extends TestCase
     {
         $sha = str_repeat('a', 40);
         $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner($this->validDump()));
-
         $this->artisan('backup:database-v2', ['--mode' => 'pre-migration', '--release-sha' => $sha])->assertSuccessful();
         $artifact = (glob($this->directory.'/mariadb-*.sql') ?: [])[0];
         $metadata = json_decode((string) file_get_contents($artifact.'.json'), true, flags: JSON_THROW_ON_ERROR);
-
         $this->assertSame($sha, $metadata['application_revision']);
     }
 
@@ -170,7 +157,6 @@ class BackupDatabaseV2Test extends TestCase
         $key = 'backup:v2:'.sha1('mariadb|127.0.0.1|3306|kairus_test');
         $lock = Cache::lock($key, 900);
         $this->assertTrue($lock->get());
-
         try {
             $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner($this->validDump()));
             $this->artisan('backup:database-v2')->assertFailed();
@@ -179,18 +165,16 @@ class BackupDatabaseV2Test extends TestCase
         }
     }
 
-    public function test_destination_failure_happens_before_dump_and_preserves_previous_files(): void
+    public function test_destination_failure_happens_before_dump(): void
     {
         $runner = new RecordingDumpRunner($this->validDump());
         $service = new DestinationFailureBackupService($runner);
-
         try {
             $service->create();
             $this->fail('Expected destination failure.');
         } catch (RuntimeException $e) {
             $this->assertSame('Backup destination is not writable.', $e->getMessage());
         }
-
         $this->assertSame(0, $runner->calls);
     }
 
@@ -198,14 +182,12 @@ class BackupDatabaseV2Test extends TestCase
     {
         $runner = new RecordingDumpRunner($this->validDump());
         $service = new PromotionFailureBackupService($runner);
-
         try {
             $service->create();
             $this->fail('Expected promotion failure.');
         } catch (RuntimeException $e) {
             $this->assertSame('Forced atomic promotion failure.', $e->getMessage());
         }
-
         $this->assertFalse($service->retentionCalled);
         $this->assertSame([], glob($this->directory.'/.mariadb-*.tmp') ?: []);
         $this->assertSame([], glob($this->directory.'/mariadb-*.sql') ?: []);
@@ -218,11 +200,9 @@ class BackupDatabaseV2Test extends TestCase
         $runner = new RecordingDumpRunner($this->validDump());
         $service = new RetentionFailureBackupService($runner);
         $this->app->instance(MariaDbBackupService::class, $service);
-
         $this->artisan('backup:database-v2')
             ->expectsOutputToContain('Backup retention cleanup could not remove one older validated backup pair.')
             ->assertSuccessful();
-
         $artifacts = glob($this->directory.'/mariadb-*.sql') ?: [];
         $this->assertCount(1, $artifacts);
         $this->assertFileExists($artifacts[0].'.json');
@@ -237,9 +217,7 @@ class BackupDatabaseV2Test extends TestCase
         file_put_contents($legacy, 'legacy');
         file_put_contents($unpaired, $this->validDump());
         $this->app->instance(DatabaseDumpRunner::class, new RecordingDumpRunner($this->validDump()));
-
         $this->artisan('backup:database-v2')->assertSuccessful();
-
         $this->assertFileExists($legacy);
         $this->assertFileExists($unpaired);
     }
@@ -296,17 +274,16 @@ class PromotionFailureBackupService extends MariaDbBackupService
         throw new RuntimeException('Forced atomic promotion failure.');
     }
 
-    protected function applyRetention(string $directory, string $current, ?int $retention): array
+    protected function applyRetention(string $directory, string $current, string $mode, ?int $retention): array
     {
         $this->retentionCalled = true;
-
         return [];
     }
 }
 
 class RetentionFailureBackupService extends MariaDbBackupService
 {
-    protected function applyRetention(string $directory, string $current, ?int $retention): array
+    protected function applyRetention(string $directory, string $current, string $mode, ?int $retention): array
     {
         return ['Backup retention cleanup could not remove one older validated backup pair.'];
     }
