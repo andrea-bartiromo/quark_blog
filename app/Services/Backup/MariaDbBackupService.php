@@ -105,12 +105,13 @@ class MariaDbBackupService
                 throw new RuntimeException('Unable to prepare backup metadata.');
             }
             $this->setPrivatePermissions($metadataTemporary, 'backup metadata temporary artifact');
-            if (! @rename($metadataTemporary, $metadataPath)) {
+            if (!@rename($metadataTemporary, $metadataPath)) {
                 throw new RuntimeException('Unable to publish backup metadata atomically.');
             }
             $metadataPublished = true;
             $this->setPrivatePermissions($metadataPath, 'backup metadata');
             $warnings = $this->applyRetention($directory, $final, $identityHash, $mode, $retention);
+
             return ['artifact' => $final, 'metadata' => $metadataPath, 'warnings' => $warnings] + $metadata;
         } catch (Throwable $e) {
             @unlink($temporary);
@@ -130,7 +131,7 @@ class MariaDbBackupService
 
     private function writeOptionFile(string $path, array $db): void
     {
-        if (! @chmod($path, 0600)) {
+        if (!@chmod($path, 0600)) {
             throw new RuntimeException('Unable to secure temporary database credential file.');
         }
         $socket = trim((string) ($db['unix_socket'] ?? ''));
@@ -144,7 +145,7 @@ class MariaDbBackupService
         }
         $contents = "[client]\n";
         foreach ($values as $key => $value) {
-            $escaped = addcslashes((string) $value, "\\\"");
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $value);
             $contents .= $key.'="'.$escaped."\"\n";
         }
         if (file_put_contents($path, $contents, LOCK_EX) === false) {
@@ -171,20 +172,20 @@ class MariaDbBackupService
         if ($directory === '') {
             throw new RuntimeException('Backup destination is not configured.');
         }
-        if (! is_dir($directory) && ! @mkdir($directory, 0700, true) && ! is_dir($directory)) {
+        if (! is_dir($directory) && !@mkdir($directory, 0700, true) && ! is_dir($directory)) {
             throw new RuntimeException('Backup destination cannot be created.');
         }
         if (! is_writable($directory)) {
             throw new RuntimeException('Backup destination is not writable.');
         }
-        if (PHP_OS_FAMILY !== 'Windows' && ! @chmod($directory, 0700)) {
+        if (PHP_OS_FAMILY !== 'Windows' && !@chmod($directory, 0700)) {
             throw new RuntimeException('Backup destination permissions cannot be restricted.');
         }
     }
 
     protected function promoteValidatedBackup(string $temporary, string $final): void
     {
-        if (! @rename($temporary, $final)) {
+        if (!@rename($temporary, $final)) {
             throw new RuntimeException('Unable to atomically promote validated database backup.');
         }
     }
@@ -200,6 +201,7 @@ class MariaDbBackupService
         ));
         usort($knownGood, function (string $a, string $b): int {
             $mtime = filemtime($b) <=> filemtime($a);
+
             return $mtime !== 0 ? $mtime : strcmp(basename($b), basename($a));
         });
         $keep = array_slice($knownGood, 0, $retention);
@@ -215,15 +217,17 @@ class MariaDbBackupService
                 $warnings[] = 'Backup retention cleanup could not remove one older validated backup pair.';
             }
         }
+
         return array_values(array_unique($warnings));
     }
 
     protected function deleteRetentionPair(string $artifact): bool
     {
         $metadata = $artifact.'.json';
-        if (! @unlink($artifact)) {
+        if (!@unlink($artifact)) {
             return false;
         }
+
         return ! is_file($metadata) || @unlink($metadata);
     }
 
@@ -239,6 +243,7 @@ class MariaDbBackupService
         }
         $size = filesize($artifact);
         $hash = hash_file('sha256', $artifact);
+
         return is_int($size) && $size > 0
             && (int) $decoded['size_bytes'] === $size
             && is_string($hash)
@@ -254,6 +259,7 @@ class MariaDbBackupService
         if (! ctype_digit((string) $retention) || (int) $retention < 1) {
             throw new RuntimeException('Backup V2 retention must be a positive integer when configured.');
         }
+
         return (int) $retention;
     }
 
@@ -267,6 +273,7 @@ class MariaDbBackupService
         if ($seconds < 1) {
             throw new RuntimeException('Backup V2 lock duration must be a positive integer.');
         }
+
         return $seconds;
     }
 
@@ -277,6 +284,7 @@ class MariaDbBackupService
         if ($store === '' || ! is_string($driver) || in_array($driver, ['array', 'null'], true)) {
             throw new RuntimeException('Backup V2 requires a configured cross-process cache lock store.');
         }
+
         return $store;
     }
 
@@ -287,6 +295,7 @@ class MariaDbBackupService
             if (! $this->binaryAvailable($configured)) {
                 throw new RuntimeException('Configured database dump binary is not available.');
             }
+
             return $configured;
         }
         foreach (['mariadb-dump', 'mysqldump'] as $candidate) {
@@ -294,6 +303,7 @@ class MariaDbBackupService
                 return $candidate;
             }
         }
+
         throw new RuntimeException('No compatible MariaDB/MySQL dump binary is available.');
     }
 
@@ -314,12 +324,13 @@ class MariaDbBackupService
                 }
             }
         }
+
         return false;
     }
 
     private function setPrivatePermissions(string $path, string $label): void
     {
-        if (! @chmod($path, 0600)) {
+        if (!@chmod($path, 0600)) {
             throw new RuntimeException("Unable to restrict {$label} permissions.");
         }
         if (PHP_OS_FAMILY !== 'Windows') {
@@ -343,6 +354,7 @@ class MariaDbBackupService
                 return $revision;
             }
         }
+
         return null;
     }
 }
