@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,12 +14,25 @@ use Illuminate\Validation\Rule;
 
 class ContentClusterController extends Controller
 {
-    public function __construct(private readonly ContentClusterMembershipService $memberships) {}
+    public function __construct(
+        private readonly ContentClusterMembershipService $memberships,
+        private readonly ContentClusterHealth $health,
+    ) {}
 
     public function index()
     {
+        $clusters = ContentCluster::query()
+            ->ordered()
+            ->with(['articles:id,title,status,published_at', 'pillarArticle:id,title,status,published_at'])
+            ->paginate(25);
+
+        $clusters->getCollection()->each(function (ContentCluster $cluster) {
+            $cluster->setAttribute('health', $this->health->evaluate($cluster));
+        });
+
         return view('admin.content-clusters.index', [
-            'clusters' => ContentCluster::query()->ordered()->withCount('articles')->with('pillarArticle:id,title')->paginate(25),
+            'clusters' => $clusters,
+            'orphans' => collect($this->health->orphans())->map->count(),
         ]);
     }
 
@@ -49,11 +63,12 @@ class ContentClusterController extends Controller
 
     public function edit(ContentCluster $contentCluster)
     {
-        $contentCluster->load('articles');
+        $contentCluster->load(['articles', 'pillarArticle']);
 
         return view('admin.content-clusters.form', [
             'cluster' => $contentCluster,
             'articles' => Article::query()->orderBy('title')->get(['id', 'title', 'status', 'published_at']),
+            'health' => $this->health->evaluate($contentCluster),
         ]);
     }
 
