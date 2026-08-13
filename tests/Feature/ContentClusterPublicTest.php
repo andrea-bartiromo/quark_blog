@@ -53,6 +53,30 @@ class ContentClusterPublicTest extends TestCase
             ->assertDontSee('Bozza segreta');
     }
 
+    public function test_cluster_cover_uses_public_media_root_thumbnail_class_and_social_metadata(): void
+    {
+        $cluster = ContentCluster::factory()->create([
+            'name' => 'Percorso con cover',
+            'slug' => 'percorso-cover',
+            'cover_image' => 'articles/covers/percorso.webp',
+            'is_active' => true,
+        ]);
+        $cluster->articles()->attach($this->article('Articolo cover', Article::STATUS_PUBLISHED, now()->subHour())->id, ['position' => 10]);
+
+        $expected = asset('assets/img/articles/covers/percorso.webp');
+
+        $this->get(route('percorsi.index'))
+            ->assertOk()
+            ->assertSee('class="article-card__thumb"', false)
+            ->assertSee('src="'.$expected.'"', false)
+            ->assertDontSee('src="'.asset('articles/covers/percorso.webp').'"', false);
+
+        $this->get(route('percorsi.show', $cluster->slug))
+            ->assertOk()
+            ->assertSee('property="og:image" content="'.$expected.'"', false)
+            ->assertSee('name="twitter:image" content="'.$expected.'"', false);
+    }
+
     public function test_detail_filters_non_public_articles_preserves_manual_order_and_hides_non_public_pillar(): void
     {
         $cluster = ContentCluster::factory()->create([
