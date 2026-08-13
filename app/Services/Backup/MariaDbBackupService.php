@@ -20,7 +20,6 @@ class MariaDbBackupService
         if ($mode === 'pre-migration' && ! preg_match('/^[0-9a-f]{40}$/i', (string) $releaseSha)) {
             throw new RuntimeException('Pre-migration backup requires an exact 40-character release SHA.');
         }
-
         $connection = (string) config('database.default');
         if (! in_array($connection, ['mysql', 'mariadb'], true)) {
             throw new RuntimeException('Backup V2 supports only mysql or mariadb connections.');
@@ -34,7 +33,6 @@ class MariaDbBackupService
                 throw new RuntimeException("Database backup configuration is missing {$required}.");
             }
         }
-
         $socket = trim((string) ($db['unix_socket'] ?? ''));
         if ($socket === '') {
             foreach (['host', 'port'] as $required) {
@@ -43,14 +41,12 @@ class MariaDbBackupService
                 }
             }
         }
-
         $retention = $this->retentionLimit();
         $lockSeconds = $this->lockSeconds();
         $lockStore = $this->lockStore();
         $binary = $this->resolveDumpBinary();
         $directory = (string) config('backup.v2.directory');
         $this->prepareDirectory($directory);
-
         $identity = $connection.'|'.($socket !== '' ? 'socket:'.$socket : ($db['host'].'|'.$db['port'])).'|'.$db['database'];
         $identityHash = substr(hash('sha256', $identity), 0, 16);
         $lock = Cache::store($lockStore)->lock('backup:v2:'.$identityHash, $lockSeconds);
@@ -75,7 +71,6 @@ class MariaDbBackupService
         $optionFile = tempnam(sys_get_temp_dir(), 'kairus-db-');
         $artifactPromoted = false;
         $metadataPublished = false;
-
         if ($optionFile === false) {
             throw new RuntimeException('Unable to create temporary database credential file.');
         }
@@ -87,13 +82,11 @@ class MariaDbBackupService
             } catch (Throwable $e) {
                 throw new RuntimeException('Database dump process failed.', 0, $e);
             }
-
             $this->validateDump($temporary);
             $this->setPrivatePermissions($temporary, 'database backup temporary artifact');
             $this->promoteValidatedBackup($temporary, $final);
             $artifactPromoted = true;
             $this->setPrivatePermissions($final, 'database backup artifact');
-
             $metadata = [
                 'created_at_utc' => now('UTC')->toIso8601String(),
                 'engine' => (string) config('database.default'),
@@ -107,7 +100,6 @@ class MariaDbBackupService
             if (! is_string($metadata['sha256']) || ! is_int($metadata['size_bytes']) || $metadata['size_bytes'] < 1) {
                 throw new RuntimeException('Unable to calculate published backup metadata.');
             }
-
             $encoded = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR).PHP_EOL;
             if (file_put_contents($metadataTemporary, $encoded, LOCK_EX) === false) {
                 throw new RuntimeException('Unable to prepare backup metadata.');
@@ -118,9 +110,7 @@ class MariaDbBackupService
             }
             $metadataPublished = true;
             $this->setPrivatePermissions($metadataPath, 'backup metadata');
-
             $warnings = $this->applyRetention($directory, $final, $identityHash, $mode, $retention);
-
             return ['artifact' => $final, 'metadata' => $metadataPath, 'warnings' => $warnings] + $metadata;
         } catch (Throwable $e) {
             @unlink($temporary);
@@ -134,6 +124,7 @@ class MariaDbBackupService
             throw $e;
         } finally {
             @unlink($optionFile);
+            clearstatcache(true, $optionFile);
         }
     }
 
@@ -198,7 +189,6 @@ class MariaDbBackupService
         }
     }
 
-    /** @return array<int, string> */
     protected function applyRetention(string $directory, string $current, string $identityHash, string $mode, ?int $retention): array
     {
         if ($retention === null) {
