@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use Illuminate\Http\Response;
 
 class SeoController extends Controller
@@ -23,6 +24,11 @@ class SeoController extends Controller
     {
         $articles = Article::published()->get(['slug', 'category']);
         $categories = array_keys(Category::options());
+        $contentClusters = ContentCluster::query()
+            ->active()
+            ->whereHas('articles', fn ($query) => $query->published())
+            ->ordered()
+            ->get(['slug']);
 
         // url('/') (mai config('app.url') letto a mano) cosi' da rispettare
         // URL::forceScheme('https') impostato dal middleware
@@ -41,6 +47,10 @@ class SeoController extends Controller
 
         foreach ($categories as $slug) {
             $xml .= "  <url><loc>{$base}/categoria/{$slug}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>".PHP_EOL;
+        }
+
+        foreach ($contentClusters as $cluster) {
+            $xml .= "  <url><loc>{$base}/percorsi/{$cluster->slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>".PHP_EOL;
         }
 
         foreach ($articles as $article) {
@@ -137,6 +147,7 @@ class SeoController extends Controller
         $pages = [
             ['/', '1.0', 'daily'],
             ['/notizie', '0.9', 'daily'],
+            ['/percorsi', '0.8', 'weekly'],
             ['/la-redazione', '0.6', 'monthly'],
             ['/chi-siamo', '0.5', 'monthly'],
             ['/pubblicita', '0.4', 'monthly'],
