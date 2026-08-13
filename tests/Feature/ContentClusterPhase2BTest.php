@@ -88,6 +88,97 @@ class ContentClusterPhase2BTest extends TestCase
         $this->assertSame(ContentClusterSuggestion::STATUS_ACCEPTED, $suggestion->fresh()->status);
     }
 
+    public function test_category_only_suggestion_can_be_accepted_with_matching_pair_evidence(): void
+    {
+        $cluster = ContentCluster::factory()->create(['slug' => 'category-path', 'is_active' => true]);
+        $firstMember = $this->article('Category member one', 'fisica');
+        $secondMember = $this->article('Category member two', 'fisica');
+        $candidate = $this->article('Category candidate', 'fisica');
+        $editor = $this->editor();
+
+        $cluster->articles()->attach($firstMember->id, [
+            'position' => 10,
+            'is_primary' => false,
+        ]);
+        $cluster->articles()->attach($secondMember->id, [
+            'position' => 20,
+            'is_primary' => false,
+        ]);
+
+        config()->set('content-clusters-initial', []);
+
+        $service = app(ContentClusterSuggestionService::class);
+        $service->regenerate();
+
+        $suggestion = ContentClusterSuggestion::query()
+            ->where('article_id', $candidate->id)
+            ->where('content_cluster_id', $cluster->id)
+            ->firstOrFail();
+
+        $this->assertContains(
+            'Categoria fisica: 2 membership editoriali confermate.',
+            $suggestion->reasons
+        );
+
+        $service->accept($suggestion, $editor);
+
+        $this->assertDatabaseHas('article_content_cluster', [
+            'article_id' => $candidate->id,
+            'content_cluster_id' => $cluster->id,
+            'is_primary' => false,
+        ]);
+
+        $this->assertSame(
+            ContentClusterSuggestion::STATUS_ACCEPTED,
+            $suggestion->fresh()->status
+        );
+    }
+
+    public function test_changed_category_evidence_marks_pending_suggestion_stale_on_acceptance(): void
+    {
+        $cluster = ContentCluster::factory()->create(['slug' => 'category-stale', 'is_active' => true]);
+        $firstMember = $this->article('Stale member one', 'fisica');
+        $secondMember = $this->article('Stale member two', 'fisica');
+        $candidate = $this->article('Stale candidate', 'fisica');
+        $editor = $this->editor();
+
+        $cluster->articles()->attach($firstMember->id, [
+            'position' => 10,
+            'is_primary' => false,
+        ]);
+        $cluster->articles()->attach($secondMember->id, [
+            'position' => 20,
+            'is_primary' => false,
+        ]);
+
+        config()->set('content-clusters-initial', []);
+
+        $service = app(ContentClusterSuggestionService::class);
+        $service->regenerate();
+
+        $suggestion = ContentClusterSuggestion::query()
+            ->where('article_id', $candidate->id)
+            ->where('content_cluster_id', $cluster->id)
+            ->firstOrFail();
+
+        $secondMember->update(['category' => 'chimica']);
+
+        try {
+            $service->accept($suggestion, $editor);
+            $this->fail('Expected changed evidence to mark suggestion stale.');
+        } catch (ValidationException) {
+            $this->assertSame(
+                ContentClusterSuggestion::STATUS_STALE,
+                $suggestion->fresh()->status
+            );
+
+            $this->assertDatabaseMissing('article_content_cluster', [
+                'article_id' => $candidate->id,
+                'content_cluster_id' => $cluster->id,
+            ]);
+        }
+    }
+
     public function test_primary_conflict_is_fail_safe_and_never_overwrites_existing_primary(): void
     {
         $existing = ContentCluster::factory()->create(['slug' => 'existing', 'is_active' => true]);
