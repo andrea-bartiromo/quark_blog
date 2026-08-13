@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Contracts\DatabaseDumpRunner;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
 
@@ -24,7 +25,7 @@ class MariaDbBackupService
         if (! in_array($connection, ['mysql', 'mariadb'], true)) {
             throw new RuntimeException('Backup V2 supports only mysql or mariadb connections.');
         }
-        $db = config("database.connections.{$connection}");
+        $db = DB::connection($connection)->getConfig();
         if (! is_array($db)) {
             throw new RuntimeException('Database backup connection configuration is missing.');
         }
