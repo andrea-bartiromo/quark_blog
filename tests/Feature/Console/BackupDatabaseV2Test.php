@@ -275,6 +275,7 @@ class BackupDatabaseV2Test extends TestCase
             'sha256' => hash_file('sha256', $artifact),
             'size_bytes' => filesize($artifact),
         ], JSON_THROW_ON_ERROR));
+
         return $artifact;
     }
 
@@ -287,8 +288,11 @@ class BackupDatabaseV2Test extends TestCase
 class RecordingDumpRunner implements DatabaseDumpRunner
 {
     public int $calls = 0;
+
     public string $optionContents = '';
+
     public string $optionPath = '';
+
     public int $optionMode = 0;
 
     public function __construct(private readonly string $dump = "-- MariaDB dump\nCREATE TABLE example (id INT);") {}
@@ -306,6 +310,7 @@ class RecordingDumpRunner implements DatabaseDumpRunner
 class ThrowingDumpRunner implements DatabaseDumpRunner
 {
     public function __construct(private readonly string $message = 'Database dump process failed.') {}
+
     public function dump(string $binary, string $optionFile, string $database, string $outputPath): void
     {
         throw new RuntimeException($this->message);
@@ -323,13 +328,16 @@ class DestinationFailureBackupService extends MariaDbBackupService
 class PromotionFailureBackupService extends MariaDbBackupService
 {
     public bool $retentionCalled = false;
+
     protected function promoteValidatedBackup(string $temporary, string $final): void
     {
         throw new RuntimeException('Forced atomic promotion failure.');
     }
+
     protected function applyRetention(string $directory, string $current, string $identityHash, string $mode, ?int $retention): array
     {
         $this->retentionCalled = true;
+
         return [];
     }
 }
