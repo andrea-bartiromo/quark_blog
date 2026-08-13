@@ -74,9 +74,13 @@ class ContentClusterController extends Controller
 
     private function validated(Request $request, ?ContentCluster $cluster = null): array
     {
+        $request->merge([
+            'slug' => Str::slug((string) ($request->input('slug') ?: $request->input('name'))),
+        ]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'slug' => ['nullable', 'string', 'max:180', Rule::unique('content_clusters', 'slug')->ignore($cluster?->id)],
+            'slug' => ['required', 'string', 'max:180', Rule::unique('content_clusters', 'slug')->ignore($cluster?->id)],
             'short_description' => ['nullable', 'string', 'max:320'],
             'description' => ['nullable', 'string'],
             'cover_image' => ['nullable', 'string', 'max:2048'],
@@ -92,7 +96,6 @@ class ContentClusterController extends Controller
             'memberships.*.is_primary' => ['nullable', 'boolean'],
         ]);
 
-        $data['slug'] = Str::slug(($data['slug'] ?? '') ?: $data['name']);
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
 
