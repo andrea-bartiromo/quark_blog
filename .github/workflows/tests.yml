@@ -54,5 +54,32 @@ jobs:
       - name: Clear Laravel caches
         run: php artisan optimize:clear
 
-      - name: Execute tests
-        run: php artisan test
+      - name: Execute tests with diagnostics
+        shell: bash
+        run: |
+          set +e
+          vendor/bin/phpunit --log-junit storage/logs/phpunit-junit.xml
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            php -r '
+              $path = "storage/logs/phpunit-junit.xml";
+              if (!is_file($path)) { fwrite(STDERR, "::error::PHPUnit failed and JUnit output was not created\n"); exit(0); }
+              $xml = simplexml_load_file($path);
+              if ($xml === false) { fwrite(STDERR, "::error::Unable to parse PHPUnit JUnit output\n"); exit(0); }
+              $nodes = $xml->xpath("//testcase[failure or error]") ?: [];
+              foreach ($nodes as $case) {
+                $failure = isset($case->failure) ? $case->failure : $case->error;
+                $class = (string) $case["class"];
+                $name = (string) $case["name"];
+                $file = (string) $case["file"];
+                $line = (string) $case["line"];
+                $message = trim((string) $failure["message"] ?: (string) $failure);
+                $message = str_replace(["\r", "\n"], ["", "%0A"], $message);
+                $location = $file !== "" ? " file={$file}" : "";
+                $linePart = $line !== "" ? ",line={$line}" : "";
+                fwrite(STDERR, "::error{$location}{$linePart}::{$class}::{$name} — {$message}\n");
+                fwrite(STDOUT, "FAILURE_SUMMARY {$class}::{$name} | {$file}:{$line} | {$message}\n");
+              }
+            '
+          fi
+          exit "$status"
