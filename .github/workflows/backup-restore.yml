@@ -16,7 +16,6 @@ jobs:
   mariadb-dump-restore:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     name: MariaDB 11.4 real dump restore
 
     services:
@@ -95,6 +94,25 @@ jobs:
 
       - name: Verify source fixture
         run: php artisan test tests/Feature/Console/BackupRestoreVerificationTest.php
+
+      - name: Verify overlap lock across separate PHP processes
+        run: |
+          set -eu
+          rm -f /tmp/kairus-backup-lock-ready
+          php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); $identity="mariadb|127.0.0.1|3306|kairus_test"; $key="backup:v2:".substr(hash("sha256", $identity), 0, 16); $lock=Illuminate\Support\Facades\Cache::store("file")->lock($key, 30); if (! $lock->get()) { exit(2); } file_put_contents("/tmp/kairus-backup-lock-ready", "ready"); sleep(5); $lock->release();' &
+          holder=$!
+          for i in $(seq 1 20); do
+            test -f /tmp/kairus-backup-lock-ready && break
+            sleep 0.25
+          done
+          test -f /tmp/kairus-backup-lock-ready
+          if php artisan backup:database-v2; then
+            echo 'Backup unexpectedly acquired an already-held cross-process lock.' >&2
+            kill "$holder" || true
+            exit 1
+          fi
+          wait "$holder"
+          test -z "$(find "$DB_BACKUP_DIRECTORY" -maxdepth 1 -type f -name 'mariadb-*.sql' -print -quit 2>/dev/null || true)"
 
       - name: Execute real Backup V2 dump
         run: php artisan backup:database-v2
