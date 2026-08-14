@@ -43,13 +43,14 @@ for (const width of viewportWidths) {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
                     steps: steps.getBoundingClientRect().width,
+                    viewport: document.documentElement.clientWidth,
                 };
             });
 
             expect(detailLayout).not.toBeNull();
-            expect(detailLayout.shell).toBeGreaterThan(1100);
-            expect(detailLayout.hero).toBeGreaterThan(1100);
-            expect(detailLayout.steps).toBeGreaterThan(950);
+            expect(detailLayout.shell).toBeGreaterThanOrEqual(detailLayout.viewport - 40);
+            expect(detailLayout.hero).toBeGreaterThanOrEqual(detailLayout.viewport - 40);
+            expect(detailLayout.steps).toBeGreaterThan(1120);
         }
 
         expect(errors).toEqual([]);
