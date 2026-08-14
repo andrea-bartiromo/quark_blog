@@ -9,6 +9,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ArticleLinkSuggestionTest extends TestCase
@@ -129,12 +130,17 @@ class ArticleLinkSuggestionTest extends TestCase
     {
         $source = $this->article();
         $target = $this->article();
+        $targetMigration = '2026_08_11_165128_alter_target_article_id_on_article_link_suggestions_to_null_on_delete';
+        $targetMigrationId = DB::table('migrations')->where('migration', $targetMigration)->value('id');
 
-        // Rollback della sola ultima migrazione (questa) per tornare allo schema
-        // "pre-round-12": niente colonna target_slug, target_article_id ancora
-        // cascadeOnDelete() — esattamente lo stato di un'installazione che non ha
-        // ancora ricevuto questo deploy.
-        Artisan::call('migrate:rollback', ['--step' => 1]);
+        $this->assertNotNull($targetMigrationId);
+
+        // Roll back this migration and every migration that was added after it.
+        // Using the actual migration position instead of --step=1 keeps this
+        // regression test valid when unrelated newer migrations are introduced.
+        $rollbackSteps = DB::table('migrations')->where('id', '>=', $targetMigrationId)->count();
+        Artisan::call('migrate:rollback', ['--step' => $rollbackSteps]);
+        $this->assertFalse(Schema::hasColumn('article_link_suggestions', 'target_slug'));
 
         $suggestionId = DB::table('article_link_suggestions')->insertGetId([
             'source_article_id' => $source->id,

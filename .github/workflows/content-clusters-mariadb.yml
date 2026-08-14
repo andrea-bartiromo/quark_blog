@@ -1,0 +1,82 @@
+name: Content Clusters MariaDB
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'bootstrap/app.php'
+      - 'config/content-clusters-*.php'
+      - 'database/**'
+      - 'resources/views/**content-clusters**'
+      - 'resources/views/articles/partials/path-continuation.blade.php'
+      - 'routes/content-clusters-*.php'
+      - 'tests/Feature/ContentClusterAdminTest.php'
+      - 'tests/Feature/ContentClusterPublicTest.php'
+      - 'tests/Feature/ContentClusterPhase2ATest.php'
+      - 'tests/Feature/ContentClusterPhase2BTest.php'
+      - 'tests/Feature/ArticlePathNavigationTest.php'
+      - '.github/workflows/content-clusters-mariadb.yml'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mariadb-content-clusters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: kairus_test
+          MARIADB_USER: kairus
+          MARIADB_PASSWORD: kairus_test_password
+          MARIADB_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: mariadb
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: kairus_test
+      DB_USERNAME: kairus
+      DB_PASSWORD: kairus_test_password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl, gd, exif
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Pint
+        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Models/ContentClusterSuggestion.php app/Services/ContentClusterMembershipService.php app/Services/ContentClusterHealth.php app/Services/ContentClusterSuggestionService.php app/Services/ArticlePathNavigation.php app/Http/Controllers/Admin/ContentClusterController.php app/Http/Controllers/Admin/ContentClusterSuggestionController.php app/Http/Controllers/ArticleController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
+      - name: Diff check
+        run: git diff --check origin/main...HEAD
+      - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
+      - name: Fresh MariaDB migration and focused tests
+        run: |
+          php artisan db:show --database=mariadb
+          php artisan migrate:fresh --force
+          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
+      - name: Incremental migration from populated pre-Phase-1A schema
+        run: |
+          php artisan migrate:fresh --force
+          php artisan migrate:rollback --force --step=4
+          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]);"
+          php artisan migrate --force
+          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_suggestions') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists() || Illuminate\\Support\\Facades\\DB::table('content_cluster_suggestions')->exists()) { throw new RuntimeException('Incremental migration verification failed'); }"
