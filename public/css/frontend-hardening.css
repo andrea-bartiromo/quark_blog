@@ -18,9 +18,10 @@
   min-width: max-content;
   gap: 3rem;
   padding-left: 0;
-  animation: ticker-scroll 40s linear infinite;
+  animation: ticker-scroll 30s linear infinite;
   animation-play-state: running;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* Normal-motion ticker never pauses because of pointer/focus state. */
@@ -35,8 +36,8 @@
 }
 
 @keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 1.5rem)); }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(calc(-50% - 1.5rem), 0, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
