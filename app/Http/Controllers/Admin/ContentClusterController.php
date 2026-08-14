@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Http\Request;
@@ -66,6 +67,41 @@ class ContentClusterController extends Controller
         });
 
         return redirect()->route('admin.content-clusters.edit', $cluster)->with('success', 'Percorso creato. Ora puoi aggiungere gli articoli dal catalogo paginato.');
+    }
+
+    public function mediaPicker(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $search = trim((string) ($validated['q'] ?? ''));
+
+        $media = Media::query()
+            ->images()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($builder) use ($search) {
+                    $builder
+                        ->where('filename', 'like', '%'.$search.'%')
+                        ->orWhere('disk_name', 'like', '%'.$search.'%')
+                        ->orWhere('alt_text', 'like', '%'.$search.'%');
+                });
+            })
+            ->latest()
+            ->paginate(24);
+
+        return response()->json([
+            'data' => $media->getCollection()->map(fn (Media $item) => [
+                'id' => $item->id,
+                'filename' => $item->filename,
+                'disk_name' => $item->disk_name,
+                'url' => $item->url,
+                'alt_text' => $item->alt_text,
+            ])->values(),
+            'current_page' => $media->currentPage(),
+            'last_page' => $media->lastPage(),
+            'total' => $media->total(),
+        ]);
     }
 
     public function edit(Request $request, ContentCluster $contentCluster)
