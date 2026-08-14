@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Models\User;
+use App\Services\MediaUsageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class ContentClusterCoverPickerTest extends TestCase
@@ -32,6 +34,22 @@ class ContentClusterCoverPickerTest extends TestCase
         $edit->assertOk()
             ->assertSee('value="percorsi/esistente.webp"', false)
             ->assertSee(asset('assets/img/percorsi/esistente.webp'), false);
+    }
+
+    public function test_percorso_can_be_created_without_cover(): void
+    {
+        $editor = $this->editor();
+
+        $this->actingAs($editor)->post(route('admin.content-clusters.store'), [
+            'name' => 'Percorso senza cover',
+            'slug' => 'percorso-senza-cover',
+            'cover_image' => '',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('content_clusters', [
+            'slug' => 'percorso-senza-cover',
+            'cover_image' => null,
+        ]);
     }
 
     public function test_media_picker_returns_only_images_and_supports_search(): void
@@ -97,6 +115,41 @@ class ContentClusterCoverPickerTest extends TestCase
         $response->assertRedirect(route('admin.content-clusters.create'))
             ->assertSessionHasErrors('name')
             ->assertSessionHasInput('cover_image', 'uploads/preserved.webp');
+    }
+
+    public function test_invalid_direct_upload_uses_canonical_media_validation_and_does_not_create_media(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->postJson(route('admin.media.upload'), [
+            'image' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
+        ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('image');
+        $this->assertDatabaseCount('media', 0);
+    }
+
+    public function test_media_usage_service_marks_percorso_cover_as_in_use(): void
+    {
+        $editor = $this->editor();
+        $media = Media::create([
+            'user_id' => $editor->id,
+            'filename' => 'percorso.webp',
+            'disk_name' => 'uploads/percorso.webp',
+            'mime_type' => 'image/webp',
+            'size' => 1200,
+        ]);
+        ContentCluster::factory()->create([
+            'name' => 'Percorso protetto',
+            'slug' => 'percorso-protetto',
+            'cover_image' => $media->disk_name,
+        ]);
+
+        $usage = app(MediaUsageService::class)->usageFor($media);
+
+        $this->assertCount(1, $usage);
+        $this->assertSame('content_cluster_cover_image', $usage[0]['type']);
+        $this->assertSame('Percorso protetto', $usage[0]['title']);
     }
 
     public function test_guest_cannot_use_media_picker_or_direct_media_upload(): void
