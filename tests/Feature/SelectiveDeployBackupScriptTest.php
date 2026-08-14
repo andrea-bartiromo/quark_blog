@@ -101,7 +101,7 @@ class SelectiveDeployBackupScriptTest extends TestCase
         $this->assertSame("created-after-rollback\n", File::get($this->appRoot.'/new.php'));
     }
 
-    public function test_invalid_absolute_duplicate_or_forbidden_manifest_fails_closed(): void
+    public function test_invalid_absolute_duplicate_empty_or_forbidden_manifest_fails_closed(): void
     {
         foreach ([
             "app\t../escape\n",
@@ -110,6 +110,7 @@ class SelectiveDeployBackupScriptTest extends TestCase
             "app\t.env.production\n",
             "app\ta.php\textra\n",
             "app\ta.php\napp\ta.php\n",
+            "# comment only\n",
         ] as $content) {
             $manifest = $this->root.'/bad-'.bin2hex(random_bytes(3)).'.tsv';
             File::put($manifest, $content);
@@ -165,6 +166,22 @@ class SelectiveDeployBackupScriptTest extends TestCase
 
         $this->assertFalse($process->isSuccessful());
         $this->assertFileDoesNotExist($wrongApp.'/existing.php');
+    }
+
+    public function test_rollback_rejects_corrupted_file_lists_outside_stored_manifest(): void
+    {
+        File::put($this->appRoot.'/existing.php', "old\n");
+        File::put($this->appRoot.'/unrelated.php', "keep\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\texisting.php\n");
+        $backup = $this->runBackup($manifest);
+        File::append($backup.'/new-files.tsv', "app\tunrelated.php\n");
+
+        $process = $this->rollbackProcess($backup);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+        $this->assertSame("keep\n", File::get($this->appRoot.'/unrelated.php'));
     }
 
     public function test_rollback_refuses_file_path_that_became_directory_before_changing_anything(): void
