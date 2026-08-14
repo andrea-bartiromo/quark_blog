@@ -36,21 +36,32 @@ for (const width of viewportWidths) {
             const detailLayout = await page.evaluate(() => {
                 const shell = document.querySelector('.path-detail > .container');
                 const hero = document.querySelector('.path-hero');
+                const copy = document.querySelector('.path-hero__copy');
+                const cover = document.querySelector('.path-hero__cover');
                 const steps = document.querySelector('.path-steps');
-                if (!shell || !hero || !steps) return null;
+                if (!shell || !hero || !copy || !cover || !steps) return null;
 
+                const heroStyle = getComputedStyle(hero);
                 return {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
+                    copy: copy.getBoundingClientRect().width,
+                    cover: cover.getBoundingClientRect().width,
                     steps: steps.getBoundingClientRect().width,
-                    viewport: document.documentElement.clientWidth,
+                    heroDisplay: heroStyle.display,
+                    heroColumns: heroStyle.gridTemplateColumns,
                 };
             });
 
             expect(detailLayout).not.toBeNull();
-            expect(detailLayout.shell).toBeGreaterThanOrEqual(detailLayout.viewport - 40);
-            expect(detailLayout.hero).toBeGreaterThanOrEqual(detailLayout.viewport - 40);
-            expect(detailLayout.steps).toBeGreaterThan(1120);
+            expect(detailLayout.shell).toBeGreaterThan(1150);
+            expect(detailLayout.shell).toBeLessThanOrEqual(1220);
+            expect(detailLayout.hero).toBeGreaterThan(1150);
+            expect(detailLayout.steps).toBeGreaterThan(1150);
+            expect(detailLayout.heroDisplay).toBe('grid');
+            expect(detailLayout.copy).toBeGreaterThan(500);
+            expect(detailLayout.cover).toBeGreaterThan(350);
+            expect(detailLayout.heroColumns).not.toBe('none');
         }
 
         expect(errors).toEqual([]);
