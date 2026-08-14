@@ -13,12 +13,21 @@
 @endif
 
 @section('head')
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters-detail.css') }}">
 <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 @endsection
 
 @section('content')
+@php
+  $pathCoverUrl = $cluster->cover_image
+      ? asset('assets/img/'.ltrim($cluster->cover_image, '/'))
+      : null;
+  $pathCoverAlt = 'Cover del percorso '.$cluster->name;
+  $pathCoverViewerId = 'path-cover-viewer-'.$cluster->id;
+@endphp
+
 <section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
     <nav class="path-breadcrumb" aria-label="Breadcrumb">
@@ -41,9 +50,18 @@
         </div>
       </div>
 
-      <div class="path-hero__cover {{ $cluster->cover_image ? '' : 'path-hero__cover--fallback' }}">
-        @if($cluster->cover_image)
-          <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" width="720" height="450">
+      <div class="path-hero__cover {{ $pathCoverUrl ? '' : 'path-hero__cover--fallback' }}">
+        @if($pathCoverUrl)
+          <a
+            class="path-hero__cover-trigger"
+            href="{{ $pathCoverUrl }}"
+            data-media-viewer-target="{{ $pathCoverViewerId }}"
+            aria-haspopup="dialog"
+            aria-label="Visualizza l'immagine completa del percorso {{ $cluster->name }}"
+          >
+            <img src="{{ $pathCoverUrl }}" alt="{{ $pathCoverAlt }}" width="720" height="450">
+            <span class="path-hero__cover-action" aria-hidden="true">Visualizza immagine</span>
+          </a>
         @else
           <span class="path-card__fallback" aria-hidden="true">
             <span>Kairus · Percorso</span>
@@ -52,6 +70,16 @@
         @endif
       </div>
     </header>
+
+    @if($pathCoverUrl)
+      <x-media.image-viewer
+        :src="$pathCoverUrl"
+        :alt="$pathCoverAlt"
+        :title="$cluster->name"
+        :id="$pathCoverViewerId"
+        variant="embedded"
+      />
+    @endif
 
     <section class="path-editorial-note" aria-labelledby="path-note-title">
       <p class="eyebrow">Perché questo percorso</p>
