@@ -32,6 +32,26 @@ for (const width of viewportWidths) {
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
+        if (width === 1440) {
+            const detailLayout = await page.evaluate(() => {
+                const shell = document.querySelector('.path-detail > .container');
+                const hero = document.querySelector('.path-hero');
+                const steps = document.querySelector('.path-steps');
+                if (!shell || !hero || !steps) return null;
+
+                return {
+                    shell: shell.getBoundingClientRect().width,
+                    hero: hero.getBoundingClientRect().width,
+                    steps: steps.getBoundingClientRect().width,
+                };
+            });
+
+            expect(detailLayout).not.toBeNull();
+            expect(detailLayout.shell).toBeGreaterThan(1100);
+            expect(detailLayout.hero).toBeGreaterThan(1100);
+            expect(detailLayout.steps).toBeGreaterThan(950);
+        }
+
         expect(errors).toEqual([]);
     });
 
