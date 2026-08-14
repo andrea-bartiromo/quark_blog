@@ -9,7 +9,7 @@ class NewsletterClick extends Model
     protected $table = 'newsletter_clicks';
 
     protected $fillable = [
-        'newsletter_id',
+        'newsletter_subscriber_id',
         'article_id',
         'email',
         'ip_hash',
