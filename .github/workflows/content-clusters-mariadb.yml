@@ -1,6 +1,9 @@
 name: Content Clusters MariaDB
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - 'app/**'
@@ -64,9 +67,15 @@ jobs:
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Pint
-        run: vendor/bin/pint --test app/Models/ContentCluster.php app/Models/ContentClusterSuggestion.php app/Services/ContentClusterMembershipService.php app/Services/ContentClusterHealth.php app/Services/ContentClusterSuggestionService.php app/Services/ArticlePathNavigation.php app/Http/Controllers/Admin/ContentClusterController.php app/Http/Controllers/Admin/ContentClusterSuggestionController.php app/Http/Controllers/ArticleController.php database/factories/ContentClusterFactory.php tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
+        run: vendor/bin/pint --test
       - name: Diff check
-        run: git diff --check origin/main...HEAD
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git diff --check "${{ github.event.before }}..${{ github.sha }}"
+          else
+            git diff --check origin/main...HEAD
+          fi
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
       - name: Fresh MariaDB migration and focused tests
         run: |
