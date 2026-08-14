@@ -27,8 +27,9 @@ class BackfillInitialContentClusters extends Command
             $resolved = [];
             foreach ($definition['articles'] as $item) {
                 $article = Article::query()->where('slug', $item['slug'])->first();
-                if (!$article) {
+                if (! $article) {
                     $this->warn("MISSING ARTICLE {$item['slug']}");
+
                     continue;
                 }
 
@@ -40,6 +41,7 @@ class BackfillInitialContentClusters extends Command
 
                 if ($item['primary'] && $primaryConflict) {
                     $this->warn("CONFLICT {$item['slug']} already has a different primary; skipped");
+
                     continue;
                 }
 
@@ -52,11 +54,11 @@ class BackfillInitialContentClusters extends Command
             }
 
             $pillarId = null;
-            if (!empty($definition['pillar'])) {
+            if (! empty($definition['pillar'])) {
                 $pillar = Article::query()->where('slug', $definition['pillar'])->first();
-                if (!$pillar) {
+                if (! $pillar) {
                     $this->warn("MISSING ARTICLE {$definition['pillar']} (PILLAR not set)");
-                } elseif (!collect($resolved)->contains('article_id', $pillar->id)) {
+                } elseif (! collect($resolved)->contains('article_id', $pillar->id)) {
                     $this->warn("CONFLICT pillar {$definition['pillar']} is not an applicable mapped membership; PILLAR not set");
                 } else {
                     $pillarId = $pillar->id;
@@ -66,7 +68,7 @@ class BackfillInitialContentClusters extends Command
                 $this->line('SKIP PILLAR — mapping intentionally leaves it unset');
             }
 
-            if (!$apply) {
+            if (! $apply) {
                 continue;
             }
 
