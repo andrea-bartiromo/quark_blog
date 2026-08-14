@@ -20,11 +20,10 @@
       <h1 id="percorsi-title">Percorsi</h1>
       <p>Guide editoriali per capire un tema un passo alla volta: parti dall'articolo chiave e prosegui con gli approfondimenti.</p>
     </header>
-
     <div class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
         <article class="path-card">
-          <a class="path-card__media" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
+          <a class="path-card__media article-card__thumb" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
             @if($cluster->cover_image)
               <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" loading="lazy" width="720" height="450">
             @else
@@ -32,26 +31,15 @@
             @endif
           </a>
           <div class="path-card__body">
-            <div class="path-card__meta">
-              <span>Percorso</span>
-              <span>{{ $cluster->published_articles_count }} {{ $cluster->published_articles_count === 1 ? 'articolo' : 'articoli' }}</span>
-            </div>
+            <div class="path-card__meta"><span>Percorso</span><span>{{ $cluster->published_articles_count }} {{ $cluster->published_articles_count === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span></div>
             <h2><a href="{{ route('percorsi.show', $cluster->slug) }}">{{ $cluster->name }}</a></h2>
-            @if($cluster->short_description)
-              <p class="path-card__description">{{ $cluster->short_description }}</p>
-            @endif
-            @if($cluster->pillarArticle)
-              <p class="path-card__start"><span>Da dove iniziare</span>{{ $cluster->pillarArticle->title }}</p>
-            @endif
+            @if($cluster->short_description)<p class="path-card__description">{{ $cluster->short_description }}</p>@endif
+            @if($cluster->pillarArticle)<p class="path-card__start"><span>Da dove iniziare</span>{{ $cluster->pillarArticle->title }}</p>@endif
             <a class="path-card__cta" href="{{ route('percorsi.show', $cluster->slug) }}">Esplora il percorso <span aria-hidden="true">→</span></a>
           </div>
         </article>
       @empty
-        <div class="paths-empty">
-          <p class="eyebrow">In preparazione</p>
-          <h2>Nuovi percorsi stanno prendendo forma.</h2>
-          <p>Torna presto: qui raccoglieremo sequenze editoriali curate per orientarti nei temi di Kairus.</p>
-        </div>
+        <div class="paths-empty"><p class="eyebrow">In preparazione</p><h2>Nuovi percorsi stanno prendendo forma.</h2><p>Torna presto: qui raccoglieremo sequenze editoriali curate per orientarti nei temi di Kairus.</p></div>
       @endforelse
     </div>
   </div>
