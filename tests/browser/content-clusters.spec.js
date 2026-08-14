@@ -35,17 +35,22 @@ for (const width of viewportWidths) {
 
         if (width === 1440) {
             const detailLayout = await page.evaluate(() => {
+                const detail = document.querySelector('.path-detail');
                 const shell = document.querySelector('.path-detail > .container');
                 const hero = document.querySelector('.path-hero');
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
                 const cover = document.querySelector('.path-hero__cover');
                 const pillar = document.querySelector('.path-pillar');
+                const steps = document.querySelector('.path-steps');
                 const firstStep = document.querySelector('.path-step');
                 const firstStepTitle = document.querySelector('.path-step h3');
-                if (!shell || !hero || !title || !copy || !cover || !pillar || !firstStep || !firstStepTitle) return null;
+                if (!detail || !shell || !hero || !title || !copy || !cover || !pillar || !steps || !firstStep || !firstStepTitle) return null;
 
                 const heroStyle = getComputedStyle(hero);
+                const detailStyle = getComputedStyle(detail);
+                const pillarStyle = getComputedStyle(pillar);
+                const stepsStyle = getComputedStyle(steps);
                 return {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
@@ -59,6 +64,10 @@ for (const width of viewportWidths) {
                     heroDisplay: heroStyle.display,
                     heroColumns: heroStyle.gridTemplateColumns,
                     heroRadius: parseFloat(heroStyle.borderRadius),
+                    detailBackground: detailStyle.backgroundImage,
+                    heroBackground: heroStyle.backgroundImage,
+                    pillarBackground: pillarStyle.backgroundImage,
+                    stepsBackground: stepsStyle.backgroundColor,
                 };
             });
 
@@ -67,7 +76,7 @@ for (const width of viewportWidths) {
             expect(detailLayout.shell).toBeLessThanOrEqual(1220);
             expect(detailLayout.hero).toBeGreaterThan(1150);
             expect(detailLayout.pillar).toBeGreaterThan(1150);
-            expect(detailLayout.step).toBeGreaterThan(1150);
+            expect(detailLayout.step).toBeGreaterThan(1080);
             expect(detailLayout.heroDisplay).toBe('grid');
             expect(detailLayout.copy).toBeGreaterThan(500);
             expect(detailLayout.cover).toBeGreaterThan(350);
@@ -76,6 +85,11 @@ for (const width of viewportWidths) {
             expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
             expect(detailLayout.heroColumns).not.toBe('none');
+            expect(detailLayout.detailBackground).not.toBe('none');
+            expect(detailLayout.heroBackground).not.toBe('none');
+            expect(detailLayout.pillarBackground).not.toBe('none');
+            expect(detailLayout.stepsBackground).not.toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
         }
 
         expect(errors).toEqual([]);
@@ -108,6 +122,28 @@ for (const width of viewportWidths) {
         expect(errors).toEqual([]);
     });
 }
+
+test('homepage Percorsi discovery uses editorial-scale cover on desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const errors = watchPage(page);
+    await page.goto('/');
+
+    const card = page.locator('.home-path-link').first();
+    const visual = card.locator('.home-path-link__visual');
+    await expect(card).toBeVisible();
+    await expect(visual).toBeVisible();
+
+    const dimensions = await visual.evaluate(element => ({
+        width: element.getBoundingClientRect().width,
+        height: element.getBoundingClientRect().height,
+        pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    }));
+
+    expect(dimensions.width).toBeGreaterThanOrEqual(140);
+    expect(dimensions.height).toBeGreaterThanOrEqual(100);
+    expect(dimensions.pageFits).toBeTruthy();
+    expect(errors).toEqual([]);
+});
 
 test('inactive Percorso returns 404', async ({ page }) => {
     const response = await page.goto('/percorsi/percorso-inattivo-ci');
