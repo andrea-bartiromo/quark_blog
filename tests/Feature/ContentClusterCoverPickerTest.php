@@ -24,6 +24,9 @@ class ContentClusterCoverPickerTest extends TestCase
             ->assertSee('Carica immagine')
             ->assertSee('Cambia immagine')
             ->assertSee('Rimuovi cover')
+            ->assertSee('id="cluster-cover-upload-button"', false)
+            ->assertSee('aria-labelledby="cluster-media-title"', false)
+            ->assertSee('aria-label="Cerca nella Libreria media"', false)
             ->assertSee(route('admin.content-clusters.media-picker'), false)
             ->assertSee(route('admin.media.upload'), false)
             ->assertSee('Cover media path')
@@ -150,6 +153,34 @@ class ContentClusterCoverPickerTest extends TestCase
         $this->assertCount(1, $usage);
         $this->assertSame('content_cluster_cover_image', $usage[0]['type']);
         $this->assertSame('Percorso protetto', $usage[0]['title']);
+    }
+
+    public function test_media_linked_as_percorso_cover_cannot_be_deleted(): void
+    {
+        $editor = $this->editor();
+        $media = Media::create([
+            'user_id' => $editor->id,
+            'filename' => 'cover-protetta.webp',
+            'disk_name' => 'uploads/cover-protetta.webp',
+            'mime_type' => 'image/webp',
+            'size' => 1200,
+        ]);
+        ContentCluster::factory()->create([
+            'name' => 'Percorso con cover',
+            'slug' => 'percorso-con-cover',
+            'cover_image' => $media->disk_name,
+        ]);
+
+        $this->actingAs($editor)
+            ->from(route('admin.media'))
+            ->delete(route('admin.media.destroy', $media))
+            ->assertRedirect(route('admin.media'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('media', [
+            'id' => $media->id,
+            'disk_name' => 'uploads/cover-protetta.webp',
+        ]);
     }
 
     public function test_guest_cannot_use_media_picker_or_direct_media_upload(): void
