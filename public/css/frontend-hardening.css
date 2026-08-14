@@ -18,8 +18,8 @@
   min-width: max-content;
   gap: 3rem;
   padding-left: 0;
-  animation: kairus-ticker-loop 22s linear infinite !important;
-  animation-play-state: running !important;
+  animation: kairus-ticker-loop 22s linear infinite;
+  animation-play-state: running;
   transform: translate3d(0, 0, 0);
   will-change: transform;
   backface-visibility: hidden;
@@ -27,7 +27,7 @@
 
 .ticker-track:hover,
 .ticker-track:focus-within {
-  animation-play-state: running !important;
+  animation-play-state: running;
 }
 
 .ticker-sequence {
@@ -58,8 +58,8 @@
   .ticker-track,
   .ticker-track:hover,
   .ticker-track:focus-within {
-    animation: none !important;
-    animation-play-state: paused !important;
+    animation: none;
+    animation-play-state: paused;
     transform: none;
     padding-right: 2rem;
     will-change: auto;
