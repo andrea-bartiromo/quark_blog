@@ -18,7 +18,12 @@
   min-width: max-content;
   gap: 3rem;
   padding-left: 0;
+  animation: ticker-scroll 40s linear infinite;
   will-change: transform;
+}
+
+.ticker-track:hover {
+  animation-play-state: running;
 }
 
 .ticker-sequence {
