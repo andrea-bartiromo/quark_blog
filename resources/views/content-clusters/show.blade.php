@@ -24,7 +24,7 @@
       <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
     </nav>
 
-    <header class="path-hero {{ $cluster->cover_image ? 'path-hero--with-cover' : '' }}">
+    <header class="path-hero">
       <div class="path-hero__copy">
         <p class="eyebrow">Percorso editoriale</p>
         <h1 id="percorso-title">{{ $cluster->name }}</h1>
@@ -33,19 +33,31 @@
         @elseif($cluster->short_description)
           <p>{{ $cluster->short_description }}</p>
         @endif
-        <p class="path-hero__count">{{ $articles->count() }} {{ $articles->count() === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }} · in ordine di lettura</p>
+        <div class="path-hero__meta">
+          <span>{{ $articles->count() }} {{ $articles->count() === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span>
+          <span aria-hidden="true">·</span>
+          <span>Ordine di lettura curato</span>
+        </div>
       </div>
-      @if($cluster->cover_image)
-        <div class="path-hero__cover"><img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" width="720" height="450"></div>
-      @endif
+
+      <div class="path-hero__cover {{ $cluster->cover_image ? '' : 'path-hero__cover--fallback' }}">
+        @if($cluster->cover_image)
+          <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" width="720" height="450">
+        @else
+          <span class="path-card__fallback" aria-hidden="true">
+            <span>Kairus · Percorso</span>
+            <strong>{{ $cluster->name }}</strong>
+          </span>
+        @endif
+      </div>
     </header>
 
     @if($pillar)
       <aside class="path-pillar" aria-labelledby="pillar-title">
-        <div>
+        <div class="path-pillar__intro">
           <p class="eyebrow">Da dove iniziare</p>
           <h2 id="pillar-title">Il punto di partenza</h2>
-          <p>Se è la prima volta che esplori questo tema, comincia da qui.</p>
+          <p>Se è la prima volta che esplori questo tema, comincia dall'articolo chiave e poi prosegui nella sequenza.</p>
         </div>
         <a class="path-pillar__link" href="{{ route('articolo', $pillar->slug) }}">
           <span>Articolo chiave</span>
@@ -57,8 +69,10 @@
 
     <section class="path-steps" aria-labelledby="articles-title">
       <header class="path-steps__header">
-        <p class="eyebrow">La sequenza</p>
-        <h2 id="articles-title">Articoli del percorso</h2>
+        <div>
+          <p class="eyebrow">La sequenza</p>
+          <h2 id="articles-title">Articoli del percorso</h2>
+        </div>
         <p>Segui l'ordine proposto oppure entra direttamente nell'approfondimento che ti interessa.</p>
       </header>
       <ol class="path-steps__list">
