@@ -97,7 +97,7 @@ class ContentClusterPublicTest extends TestCase
             ->assertDontSee('Homepage futuro segreto');
     }
 
-    public function test_cluster_cover_uses_public_media_root_path_card_and_social_metadata(): void
+    public function test_cluster_cover_uses_public_media_root_path_card_social_metadata_and_shared_viewer(): void
     {
         $cluster = ContentCluster::factory()->create([
             'name' => 'Percorso con cover',
@@ -116,10 +116,28 @@ class ContentClusterPublicTest extends TestCase
             ->assertSee('src="'.$expected.'"', false)
             ->assertDontSee('src="'.asset('articles/covers/percorso.webp').'"', false);
 
-        $this->get(route('percorsi.show', $cluster->slug))
+        $response = $this->get(route('percorsi.show', $cluster->slug));
+        $response
             ->assertOk()
             ->assertSee('property="og:image" content="'.$expected.'"', false)
-            ->assertSee('name="twitter:image" content="'.$expected.'"', false);
+            ->assertSee('name="twitter:image" content="'.$expected.'"', false)
+            ->assertSee('css/media-lightbox.css', false)
+            ->assertSee('href="'.$expected.'"', false)
+            ->assertSee('data-media-viewer-target="path-cover-viewer-'.$cluster->id.'"', false)
+            ->assertSee('aria-haspopup="dialog"', false)
+            ->assertSee('role="dialog"', false)
+            ->assertSee('data-media-viewer-image', false)
+            ->assertSee('js/media-viewer.js', false);
+
+        $html = $response->getContent();
+        preg_match('/<a\b[^>]*class="path-hero__cover-trigger"[^>]*href="([^"]+)"[^>]*data-media-viewer-target="([^"]+)"/s', $html, $trigger);
+        preg_match('/<img\b[^>]*src="([^"]+)"[^>]*data-media-viewer-image/s', $html, $dialogImage);
+
+        $this->assertNotEmpty($trigger, 'Il trigger della cover Percorso non e\' stato trovato.');
+        $this->assertNotEmpty($dialogImage, 'L\'immagine del viewer condiviso non e\' stata trovata.');
+        $this->assertSame($expected, $trigger[1]);
+        $this->assertSame($expected, $dialogImage[1]);
+        $this->assertSame('path-cover-viewer-'.$cluster->id, $trigger[2]);
     }
 
     public function test_detail_filters_non_public_articles_preserves_manual_order_and_hides_non_public_pillar(): void
