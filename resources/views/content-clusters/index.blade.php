@@ -23,7 +23,7 @@
     <div class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
         <article class="path-card">
-          <a class="path-card__media article-card__thumb" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
+          <a class="path-card__media" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
             @if($cluster->cover_image)
               <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" loading="lazy" width="720" height="450">
             @else
