@@ -27,6 +27,8 @@ for (const width of viewportWidths) {
         await page.goto('/percorsi/ia-spiegata');
         await expect(page.locator('main')).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 2, name: 'Capire un tema significa seguirne i passaggi essenziali.' })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 2, name: 'Continua a esplorare' })).toBeVisible();
         await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
         await expect(page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first()).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
@@ -41,16 +43,22 @@ for (const width of viewportWidths) {
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
                 const cover = document.querySelector('.path-hero__cover');
+                const note = document.querySelector('.path-editorial-note');
                 const pillar = document.querySelector('.path-pillar');
                 const steps = document.querySelector('.path-steps');
                 const firstStep = document.querySelector('.path-step');
+                const firstStepNumber = document.querySelector('.path-step__number');
                 const firstStepTitle = document.querySelector('.path-step h3');
-                if (!detail || !shell || !hero || !title || !copy || !cover || !pillar || !steps || !firstStep || !firstStepTitle) return null;
+                const ending = document.querySelector('.path-ending');
+                if (!detail || !shell || !hero || !title || !copy || !cover || !note || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 const detailStyle = getComputedStyle(detail);
+                const noteStyle = getComputedStyle(note);
                 const pillarStyle = getComputedStyle(pillar);
                 const stepsStyle = getComputedStyle(steps);
+                const stepStyle = getComputedStyle(firstStep);
+                const endingStyle = getComputedStyle(ending);
                 return {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
@@ -61,13 +69,19 @@ for (const width of viewportWidths) {
                     step: firstStep.getBoundingClientRect().width,
                     titleSize: parseFloat(getComputedStyle(title).fontSize),
                     stepTitleSize: parseFloat(getComputedStyle(firstStepTitle).fontSize),
+                    stepNumberSize: parseFloat(getComputedStyle(firstStepNumber).fontSize),
                     heroDisplay: heroStyle.display,
                     heroColumns: heroStyle.gridTemplateColumns,
                     heroRadius: parseFloat(heroStyle.borderRadius),
-                    detailBackground: detailStyle.backgroundImage,
-                    heroBackground: heroStyle.backgroundImage,
-                    pillarBackground: pillarStyle.backgroundImage,
+                    detailBackground: detailStyle.backgroundColor,
+                    heroBackground: heroStyle.backgroundColor,
+                    noteBorderTop: noteStyle.borderTopWidth,
+                    pillarBackground: pillarStyle.backgroundColor,
+                    pillarAccent: pillarStyle.borderLeftWidth,
                     stepsBackground: stepsStyle.backgroundColor,
+                    stepBackground: stepStyle.backgroundColor,
+                    stepRule: stepStyle.borderBottomWidth,
+                    endingRule: endingStyle.borderTopWidth,
                 };
             });
 
@@ -78,18 +92,22 @@ for (const width of viewportWidths) {
             expect(detailLayout.pillar).toBeGreaterThan(1150);
             expect(detailLayout.step).toBeGreaterThan(1080);
             expect(detailLayout.heroDisplay).toBe('grid');
-            expect(detailLayout.copy).toBeGreaterThan(500);
-            expect(detailLayout.cover).toBeGreaterThan(350);
-            expect(detailLayout.coverHeight).toBeGreaterThanOrEqual(420);
+            expect(detailLayout.copy).toBeGreaterThan(450);
+            expect(detailLayout.cover).toBeGreaterThan(500);
+            expect(detailLayout.coverHeight).toBeGreaterThanOrEqual(500);
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
             expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
+            expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
             expect(detailLayout.heroColumns).not.toBe('none');
-            expect(detailLayout.detailBackground).not.toBe('none');
-            expect(detailLayout.heroBackground).not.toBe('none');
-            expect(detailLayout.pillarBackground).not.toBe('none');
-            expect(detailLayout.stepsBackground).not.toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.detailBackground).not.toBe('rgb(255, 255, 255)');
             expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
+            expect(detailLayout.noteBorderTop).not.toBe('0px');
+            expect(detailLayout.pillarAccent).not.toBe('0px');
+            expect(detailLayout.stepsBackground).toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.stepBackground).toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.stepRule).not.toBe('0px');
+            expect(detailLayout.endingRule).not.toBe('0px');
         }
 
         expect(errors).toEqual([]);
