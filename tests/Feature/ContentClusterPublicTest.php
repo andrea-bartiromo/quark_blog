@@ -53,7 +53,7 @@ class ContentClusterPublicTest extends TestCase
             ->assertDontSee('Bozza segreta');
     }
 
-    public function test_cluster_cover_uses_public_media_root_thumbnail_class_and_social_metadata(): void
+    public function test_cluster_cover_uses_public_media_root_path_card_and_social_metadata(): void
     {
         $cluster = ContentCluster::factory()->create([
             'name' => 'Percorso con cover',
@@ -67,7 +67,8 @@ class ContentClusterPublicTest extends TestCase
 
         $this->get(route('percorsi.index'))
             ->assertOk()
-            ->assertSee('class="article-card__thumb"', false)
+            ->assertSee('class="path-card__media"', false)
+            ->assertDontSee('article-card__thumb', false)
             ->assertSee('src="'.$expected.'"', false)
             ->assertDontSee('src="'.asset('articles/covers/percorso.webp').'"', false);
 
