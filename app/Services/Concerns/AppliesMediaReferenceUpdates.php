@@ -115,6 +115,11 @@ trait AppliesMediaReferenceUpdates
             $content = $page->content ?? [];
 
             foreach ($pageRefs as $ref) {
+                // Stessa qualificazione sul valore atteso di
+                // applySingleReference(), qui esplicita (non un WHERE SQL)
+                // perche' il contenuto e' un JSON letto e riscritto per
+                // intero: se un redattore ha gia' cambiato questo campo
+                // nel frattempo, non sovrascriverlo con il path migrato.
                 if (data_get($content, $ref['json_path']) !== $ref['old_value']) {
                     continue;
                 }
