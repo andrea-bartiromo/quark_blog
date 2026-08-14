@@ -11,14 +11,37 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 valid_sha() { [[ "$1" =~ ^[0-9a-fA-F]{40}$ ]]; }
 valid_rel() {
   local p="$1"
-  [[ -n "$p" && "$p" != /* && "$p" != *$'\n'* && "$p" != *$'\r'* ]] || return 1
+  [[ -n "$p" && "$p" != /* && "$p" != *$'\n'* && "$p" != *$'\r'* && "$p" != *$'\t'* ]] || return 1
   [[ "/$p/" != *"/../"* && "/$p/" != *"/./"* && "$p" != ".." && "$p" != "." ]] || return 1
+}
+forbidden_any() {
+  case "$1" in
+    .env|.env.*) return 0;;
+    *) return 1;;
+  esac
 }
 forbidden_app() {
   case "$1" in
-    .env|.env/*|vendor|vendor/*|storage|storage/*|tests|tests/*|docs|docs/*|.git|.git/*|.github|.github/*) return 0;;
+    vendor|vendor/*|storage|storage/*|tests|tests/*|docs|docs/*|.git|.git/*|.github|.github/*) return 0;;
     *) return 1;;
   esac
+}
+canonical_dir() {
+  [[ -d "$1" ]] || fail "directory does not exist: $1"
+  realpath -e -- "$1" 2>/dev/null || fail "cannot resolve directory: $1"
+}
+path_within_root() {
+  local root="$1" rel="$2" resolved
+  resolved="$(realpath -m -- "$root/$rel" 2>/dev/null)" || return 1
+  [[ "$resolved" == "$root"/* ]]
+}
+validate_entry() {
+  local scope="$1" rel="$2" root="$3"
+  [[ "$scope" == "app" || "$scope" == "public" ]] || fail "invalid scope: $scope"
+  valid_rel "$rel" || fail "invalid relative path: ${rel:-<empty>}"
+  forbidden_any "$rel" && fail "forbidden environment path: $rel"
+  if [[ "$scope" == "app" ]] && forbidden_app "$rel"; then fail "forbidden app path: $rel"; fi
+  path_within_root "$root" "$rel" || fail "path escapes destination root: $scope $rel"
 }
 
 cmd="${1:-}"; shift || true
@@ -26,6 +49,7 @@ case "$cmd" in
 backup)
   manifest=""; app_root=""; public_root=""; backup_root=""; previous_sha=""; target_sha=""
   while [[ $# -gt 0 ]]; do
+    [[ $# -ge 2 ]] || usage
     case "$1" in
       --manifest) manifest="$2"; shift 2;;
       --app-root) app_root="$2"; shift 2;;
@@ -36,7 +60,10 @@ backup)
       *) usage;;
     esac
   done
-  [[ -f "$manifest" && -d "$app_root" && -d "$public_root" && -d "$backup_root" ]] || fail "missing manifest/root"
+  [[ -f "$manifest" ]] || fail "missing manifest"
+  app_root="$(canonical_dir "$app_root")"
+  public_root="$(canonical_dir "$public_root")"
+  backup_root="$(canonical_dir "$backup_root")"
   valid_sha "$previous_sha" || fail "invalid previous SHA"
   valid_sha "$target_sha" || fail "invalid target SHA"
   [[ "$previous_sha" != "$target_sha" ]] || fail "previous and target SHA must differ"
@@ -48,15 +75,19 @@ backup)
   : > "$backup_dir/backed-up-files.tsv"
   : > "$backup_dir/new-files.tsv"
   cp -p "$manifest" "$backup_dir/manifest.tsv"
+  printf 'app\t%s\npublic\t%s\n' "$app_root" "$public_root" > "$backup_dir/roots.tsv"
+  declare -A seen=()
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
     [[ -n "${scope:-}" ]] || continue
     [[ "${scope:0:1}" != "#" ]] || continue
-    [[ -z "${extra:-}" ]] || fail "manifest line has extra fields: $scope $rel"
-    [[ "$scope" == "app" || "$scope" == "public" ]] || fail "invalid scope: $scope"
-    valid_rel "${rel:-}" || fail "invalid relative path: ${rel:-<empty>}"
-    if [[ "$scope" == "app" ]] && forbidden_app "$rel"; then fail "forbidden app path: $rel"; fi
+    [[ -z "${extra:-}" ]] || fail "manifest line has extra fields: $scope ${rel:-}"
     root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
+    validate_entry "$scope" "${rel:-}" "$root"
+    key="$scope"$'\t'"$rel"
+    [[ -z "${seen[$key]+x}" ]] || fail "duplicate manifest entry: $scope $rel"
+    seen[$key]=1
+
     src="$root/$rel"
     if [[ -e "$src" || -L "$src" ]]; then
       [[ ! -d "$src" || -L "$src" ]] || fail "manifest entries must be files/symlinks: $scope $rel"
@@ -74,11 +105,13 @@ previous_sha=$previous_sha
 target_sha=$target_sha
 created_at_utc=$stamp
 EOF
+  : > "$backup_dir/.complete"
   printf '%s\n' "$backup_dir"
   ;;
 rollback)
   backup_dir=""; app_root=""; public_root=""
   while [[ $# -gt 0 ]]; do
+    [[ $# -ge 2 ]] || usage
     case "$1" in
       --backup-dir) backup_dir="$2"; shift 2;;
       --app-root) app_root="$2"; shift 2;;
@@ -86,29 +119,48 @@ rollback)
       *) usage;;
     esac
   done
-  [[ -d "$backup_dir" && -f "$backup_dir/metadata.env" && -f "$backup_dir/backed-up-files.tsv" && -f "$backup_dir/new-files.tsv" ]] || fail "invalid backup directory"
-  [[ -d "$app_root" && -d "$public_root" ]] || fail "missing destination roots"
+  [[ -d "$backup_dir" && -f "$backup_dir/.complete" && -f "$backup_dir/metadata.env" && -f "$backup_dir/roots.tsv" && -f "$backup_dir/backed-up-files.tsv" && -f "$backup_dir/new-files.tsv" ]] || fail "backup is incomplete or invalid"
+  [[ ! -e "$backup_dir/.rollback-complete" ]] || fail "rollback already completed"
+  app_root="$(canonical_dir "$app_root")"
+  public_root="$(canonical_dir "$public_root")"
+  expected_roots="$(printf 'app\t%s\npublic\t%s\n' "$app_root" "$public_root")"
+  [[ "$(cat "$backup_dir/roots.tsv")" == "$expected_roots" ]] || fail "destination roots do not match backup metadata"
+
+  for list in backed-up-files.tsv new-files.tsv; do
+    declare -A rollback_seen=()
+    while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
+      [[ -n "${scope:-}" ]] || continue
+      [[ -z "${extra:-}" ]] || fail "invalid rollback manifest entry"
+      root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
+      validate_entry "$scope" "${rel:-}" "$root"
+      key="$scope"$'\t'"$rel"
+      [[ -z "${rollback_seen[$key]+x}" ]] || fail "duplicate rollback entry: $scope $rel"
+      rollback_seen[$key]=1
+      target="$root/$rel"
+      [[ ! -d "$target" || -L "$target" ]] || fail "destination is a directory at file path: $scope $rel"
+      if [[ "$list" == "backed-up-files.tsv" ]]; then
+        src="$backup_dir/files/$scope/$rel"
+        [[ -e "$src" || -L "$src" ]] || fail "missing backed up source: $scope $rel"
+      fi
+    done < "$backup_dir/$list"
+  done
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
-    [[ -n "${scope:-}" && -z "${extra:-}" ]] || continue
-    [[ "$scope" == "app" || "$scope" == "public" ]] || fail "invalid rollback scope"
-    valid_rel "$rel" || fail "invalid rollback path"
+    [[ -n "${scope:-}" ]] || continue
     root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
     src="$backup_dir/files/$scope/$rel"
-    [[ -e "$src" || -L "$src" ]] || fail "missing backed up source: $scope $rel"
     mkdir -p "$(dirname "$root/$rel")"
     rm -f -- "$root/$rel"
     cp -a -- "$src" "$root/$rel"
   done < "$backup_dir/backed-up-files.tsv"
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
-    [[ -n "${scope:-}" && -z "${extra:-}" ]] || continue
-    [[ "$scope" == "app" || "$scope" == "public" ]] || fail "invalid rollback scope"
-    valid_rel "$rel" || fail "invalid rollback path"
+    [[ -n "${scope:-}" ]] || continue
     root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
-    [[ ! -d "$root/$rel" || -L "$root/$rel" ]] || fail "refusing to remove directory introduced at file path: $scope $rel"
     rm -f -- "$root/$rel"
   done < "$backup_dir/new-files.tsv"
+
+  : > "$backup_dir/.rollback-complete"
   ;;
 *) usage;;
 esac
