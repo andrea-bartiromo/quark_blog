@@ -36,7 +36,7 @@
 
     <header class="path-hero">
       <div class="path-hero__copy">
-        <p class="eyebrow">Percorso editoriale</p>
+        <p class="eyebrow">Percorso Kairus</p>
         <h1 id="percorso-title">{{ $cluster->name }}</h1>
         @if($cluster->description)
           <p>{{ $cluster->description }}</p>
@@ -46,7 +46,7 @@
         <div class="path-hero__meta">
           <span>{{ $articles->count() }} {{ $articles->count() === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span>
           <span aria-hidden="true">·</span>
-          <span>Ordine di lettura curato</span>
+          <span>Mappa di lettura curata</span>
         </div>
       </div>
 
@@ -81,8 +81,8 @@
       />
     @endif
 
-    <section class="path-editorial-note" aria-labelledby="path-note-title">
-      <p class="eyebrow">Perché questo percorso</p>
+    <section class="path-editorial-note path-brand-statement" aria-labelledby="path-note-title">
+      <p class="eyebrow">Mappa di lettura</p>
       <h2 id="path-note-title">Capire un tema significa seguirne i passaggi essenziali.</h2>
       <p>Abbiamo ordinato gli approfondimenti per accompagnarti dalle basi ai nodi più importanti, con una sequenza pensata per costruire il quadro un articolo alla volta.</p>
     </section>
@@ -91,7 +91,7 @@
       <aside class="path-pillar" aria-labelledby="pillar-title">
         <div class="path-pillar__intro">
           <span class="path-pillar__number" aria-hidden="true">00</span>
-          <p class="eyebrow">Da dove iniziare</p>
+          <p class="eyebrow">Da qui si parte</p>
           <h2 id="pillar-title">Il punto di partenza</h2>
           <p>Se è la prima volta che esplori questo tema, comincia dall'articolo chiave e poi prosegui nella sequenza.</p>
         </div>
@@ -106,7 +106,7 @@
     <section class="path-steps" aria-labelledby="articles-title">
       <header class="path-steps__header">
         <div>
-          <p class="eyebrow">La sequenza</p>
+          <p class="eyebrow">Sequenza Kairus</p>
           <h2 id="articles-title">Articoli del percorso</h2>
         </div>
         <p>Segui l'ordine proposto oppure entra direttamente nell'approfondimento che ti interessa.</p>
@@ -130,8 +130,8 @@
 
     <footer class="path-ending">
       <div>
-        <p class="eyebrow">Fine del percorso</p>
-        <h2>Continua a esplorare</h2>
+        <p class="eyebrow">Continua l'esplorazione</p>
+        <h2>Apri una nuova traiettoria.</h2>
         <p>Ogni Percorso Kairus apre una nuova prospettiva: scegli il prossimo tema e continua la lettura.</p>
       </div>
       <a href="{{ route('percorsi.index') }}">Scopri tutti i Percorsi <span aria-hidden="true">→</span></a>
