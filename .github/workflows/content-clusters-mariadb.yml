@@ -1,3 +1,4 @@
+# Main push is the pre-deploy release-candidate gate for the integrated stack.
 name: Content Clusters MariaDB
 
 on:
