@@ -48,6 +48,7 @@ class SelectiveDeployBackupScriptTest extends TestCase
 
         $backup = $this->runBackup($manifest);
 
+        $this->assertFileExists($backup.'/.complete');
         $this->assertFileExists($backup.'/files/app/a/one.php');
         $this->assertFileExists($backup.'/files/public/css/site.css');
         $this->assertStringContainsString("app\tb/new.php", File::get($backup.'/new-files.tsv'));
@@ -59,18 +60,57 @@ class SelectiveDeployBackupScriptTest extends TestCase
         File::put($this->appRoot.'/b/new.php', "new-file\n");
         File::put($this->publicRoot.'/css/site.css', "new-css\n");
 
-        $process = new Process(['bash', $this->script, 'rollback', '--backup-dir', $backup, '--app-root', $this->appRoot, '--public-root', $this->publicRoot]);
-        $process->mustRun();
+        $this->rollbackProcess($backup)->mustRun();
 
         $this->assertSame("old-a\n", File::get($this->appRoot.'/a/one.php'));
         $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/site.css'));
         $this->assertFileDoesNotExist($this->appRoot.'/b/new.php');
         $this->assertSame('640', substr(sprintf('%o', fileperms($this->appRoot.'/a/one.php')), -3));
+        $this->assertFileExists($backup.'/.rollback-complete');
     }
 
-    public function test_invalid_or_forbidden_manifest_fails_closed(): void
+    public function test_incomplete_backup_is_rejected_for_rollback(): void
     {
-        foreach (["app\t../escape\n", "app\tvendor/autoload.php\n", "app\ta.php\textra\n"] as $content) {
+        File::put($this->appRoot.'/existing.php', "old\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\texisting.php\n");
+        $backup = $this->runBackup($manifest);
+        File::delete($backup.'/.complete');
+
+        $process = $this->rollbackProcess($backup);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+        $this->assertSame("old\n", File::get($this->appRoot.'/existing.php'));
+    }
+
+    public function test_completed_rollback_cannot_be_replayed(): void
+    {
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tnew.php\n");
+        $backup = $this->runBackup($manifest);
+        File::put($this->appRoot.'/new.php', "deployed\n");
+
+        $this->rollbackProcess($backup)->mustRun();
+        File::put($this->appRoot.'/new.php', "created-after-rollback\n");
+
+        $second = $this->rollbackProcess($backup);
+        $second->run();
+
+        $this->assertFalse($second->isSuccessful());
+        $this->assertSame("created-after-rollback\n", File::get($this->appRoot.'/new.php'));
+    }
+
+    public function test_invalid_absolute_duplicate_or_forbidden_manifest_fails_closed(): void
+    {
+        foreach ([
+            "app\t../escape\n",
+            "app\t/etc/passwd\n",
+            "app\tvendor/autoload.php\n",
+            "app\t.env.production\n",
+            "app\ta.php\textra\n",
+            "app\ta.php\napp\ta.php\n",
+        ] as $content) {
             $manifest = $this->root.'/bad-'.bin2hex(random_bytes(3)).'.tsv';
             File::put($manifest, $content);
             $process = $this->backupProcess($manifest);
@@ -79,7 +119,75 @@ class SelectiveDeployBackupScriptTest extends TestCase
         }
     }
 
-    public function test_pr194_like_manifest_does_not_capture_unlisted_vendor_storage_or_public_media(): void
+    public function test_directory_manifest_entry_is_rejected(): void
+    {
+        File::ensureDirectoryExists($this->appRoot.'/config-dir');
+        $manifest = $this->root.'/directory.tsv';
+        File::put($manifest, "app\tconfig-dir\n");
+
+        $process = $this->backupProcess($manifest);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+    }
+
+    public function test_symlinked_ancestor_cannot_escape_destination_root(): void
+    {
+        $outside = $this->root.'/outside';
+        File::ensureDirectoryExists($outside);
+        File::put($outside.'/secret.php', "secret\n");
+        symlink($outside, $this->appRoot.'/linked');
+
+        $manifest = $this->root.'/symlink-escape.tsv';
+        File::put($manifest, "app\tlinked/secret.php\n");
+        $process = $this->backupProcess($manifest);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+    }
+
+    public function test_rollback_rejects_wrong_destination_roots(): void
+    {
+        File::put($this->appRoot.'/existing.php', "old\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\texisting.php\n");
+        $backup = $this->runBackup($manifest);
+        $wrongApp = $this->root.'/wrong-app';
+        File::ensureDirectoryExists($wrongApp);
+
+        $process = new Process([
+            'bash', $this->script, 'rollback',
+            '--backup-dir', $backup,
+            '--app-root', $wrongApp,
+            '--public-root', $this->publicRoot,
+        ]);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+        $this->assertFileDoesNotExist($wrongApp.'/existing.php');
+    }
+
+    public function test_rollback_refuses_file_path_that_became_directory_before_changing_anything(): void
+    {
+        File::put($this->appRoot.'/first.php', "old-first\n");
+        File::put($this->appRoot.'/second.php', "old-second\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tfirst.php\napp\tsecond.php\n");
+        $backup = $this->runBackup($manifest);
+
+        File::put($this->appRoot.'/first.php', "new-first\n");
+        File::delete($this->appRoot.'/second.php');
+        File::ensureDirectoryExists($this->appRoot.'/second.php');
+
+        $process = $this->rollbackProcess($backup);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+        $this->assertSame("new-first\n", File::get($this->appRoot.'/first.php'));
+        $this->assertDirectoryExists($this->appRoot.'/second.php');
+    }
+
+    public function test_pr194_like_manifest_captures_only_preexisting_runtime_files(): void
     {
         $entries = [
             ['app', 'app/Http/Controllers/Admin/ContentClusterController.php'],
@@ -102,25 +210,36 @@ class SelectiveDeployBackupScriptTest extends TestCase
         $manifestLines = [];
         foreach ($entries as [$scope, $relative]) {
             $root = $scope === 'app' ? $this->appRoot : $this->publicRoot;
-            File::ensureDirectoryExists(dirname($root.'/'.$relative));
-            File::put($root.'/'.$relative, "x\n");
+            if ($relative !== 'resources/views/home/partials/paths-discovery.blade.php') {
+                File::ensureDirectoryExists(dirname($root.'/'.$relative));
+                File::put($root.'/'.$relative, "x\n");
+            }
             $manifestLines[] = $scope."\t".$relative;
         }
 
         File::ensureDirectoryExists($this->appRoot.'/vendor/large');
         File::ensureDirectoryExists($this->appRoot.'/storage/runtime');
+        File::ensureDirectoryExists($this->appRoot.'/tests/Feature');
+        File::ensureDirectoryExists($this->appRoot.'/docs');
         File::ensureDirectoryExists($this->publicRoot.'/assets/img/media');
         File::put($this->appRoot.'/vendor/large/blob', str_repeat('v', 256 * 1024));
+        File::put($this->appRoot.'/storage/runtime/blob', str_repeat('s', 128 * 1024));
+        File::put($this->appRoot.'/tests/Feature/NoiseTest.php', str_repeat('t', 64 * 1024));
+        File::put($this->appRoot.'/docs/noise.md', str_repeat('d', 64 * 1024));
         File::put($this->publicRoot.'/assets/img/media/blob', str_repeat('m', 256 * 1024));
 
         $manifest = $this->root.'/pr194.tsv';
         File::put($manifest, implode("\n", $manifestLines)."\n");
         $backup = $this->runBackup($manifest);
 
-        $backedUp = array_values(array_filter(explode("\n", trim(File::get($backup.'/backed-up-files.tsv')))));
-        $this->assertCount(15, $backedUp);
+        $backedUp = $this->nonEmptyLines($backup.'/backed-up-files.tsv');
+        $newFiles = $this->nonEmptyLines($backup.'/new-files.tsv');
+        $this->assertCount(14, $backedUp);
+        $this->assertSame(["app\tresources/views/home/partials/paths-discovery.blade.php"], $newFiles);
         $this->assertDirectoryDoesNotExist($backup.'/files/app/vendor');
         $this->assertDirectoryDoesNotExist($backup.'/files/app/storage');
+        $this->assertDirectoryDoesNotExist($backup.'/files/app/tests');
+        $this->assertDirectoryDoesNotExist($backup.'/files/app/docs');
         $this->assertDirectoryDoesNotExist($backup.'/files/public/assets');
         $this->assertLessThan(128 * 1024, $this->directorySize($backup));
     }
@@ -144,6 +263,22 @@ class SelectiveDeployBackupScriptTest extends TestCase
             '--previous-sha', str_repeat('1', 40),
             '--target-sha', str_repeat('2', 40),
         ]);
+    }
+
+    private function rollbackProcess(string $backup): Process
+    {
+        return new Process([
+            'bash', $this->script, 'rollback',
+            '--backup-dir', $backup,
+            '--app-root', $this->appRoot,
+            '--public-root', $this->publicRoot,
+        ]);
+    }
+
+    /** @return list<string> */
+    private function nonEmptyLines(string $path): array
+    {
+        return array_values(array_filter(explode("\n", trim(File::get($path)))));
     }
 
     private function directorySize(string $directory): int
