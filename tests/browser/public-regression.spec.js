@@ -170,7 +170,7 @@ test('ticker autoplays continuously in normal motion, including pointer and keyb
         };
     });
 
-    expect(initial.animationName).toContain('ticker-scroll');
+    expect(initial.animationName).toBe('kairus-ticker-loop');
     expect(initial.animationDuration).not.toBe('0s');
     expect(initial.playState).toBe('running');
 
