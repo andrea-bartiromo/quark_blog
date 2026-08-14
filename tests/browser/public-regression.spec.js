@@ -177,7 +177,12 @@ test('ticker autoplays continuously in normal motion, including hover', async ({
     const movingTransform = await track.evaluate(element => getComputedStyle(element).transform);
     expect(movingTransform).not.toBe(initial.transform);
 
-    await track.hover();
+    const viewportBox = await viewport.boundingBox();
+    expect(viewportBox).not.toBeNull();
+    await page.mouse.move(
+        viewportBox.x + viewportBox.width / 2,
+        viewportBox.y + viewportBox.height / 2,
+    );
     await expect.poll(() => track.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('running');
     const hoveredTransform = await track.evaluate(element => getComputedStyle(element).transform);
     await page.waitForTimeout(350);
