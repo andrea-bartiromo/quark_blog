@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Article;
 use App\Models\Newsletter;
+use App\Models\NewsletterClick;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -30,6 +31,21 @@ class NewsletterTrackingTest extends TestCase
             'article_id' => $article->id,
             'email' => $subscriber->email,
         ]);
+    }
+
+    public function test_tracking_persistence_failure_does_not_block_article_redirect(): void
+    {
+        $subscriber = $this->subscriber();
+        $article = $this->article();
+
+        NewsletterClick::creating(function (): void {
+            throw new \RuntimeException('simulated tracking persistence failure');
+        });
+
+        $response = $this->get(route('newsletter.click', [$subscriber->id, $article->id]));
+
+        $response->assertRedirect(route('articolo', $article->slug));
+        $this->assertDatabaseCount('newsletter_clicks', 0);
     }
 
     public function test_missing_subscriber_still_redirects_to_existing_article_without_tracking(): void
