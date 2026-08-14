@@ -16,7 +16,7 @@ valid_rel() {
 }
 forbidden_any() {
   case "$1" in
-    .env|.env.*) return 0;;
+    .env|.env.*|.env/*|*/.env|*/.env.*|*/.env/*) return 0;;
     *) return 1;;
   esac
 }
@@ -77,6 +77,7 @@ backup)
   cp -p "$manifest" "$backup_dir/manifest.tsv"
   printf 'app\t%s\npublic\t%s\n' "$app_root" "$public_root" > "$backup_dir/roots.tsv"
   declare -A seen=()
+  entry_count=0
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
     [[ -n "${scope:-}" ]] || continue
@@ -87,6 +88,7 @@ backup)
     key="$scope"$'\t'"$rel"
     [[ -z "${seen[$key]+x}" ]] || fail "duplicate manifest entry: $scope $rel"
     seen[$key]=1
+    entry_count=$((entry_count + 1))
 
     src="$root/$rel"
     if [[ -e "$src" || -L "$src" ]]; then
@@ -100,6 +102,7 @@ backup)
     fi
   done < "$manifest"
 
+  [[ "$entry_count" -gt 0 ]] || fail "manifest has no release entries"
   cat > "$backup_dir/metadata.env" <<EOF
 previous_sha=$previous_sha
 target_sha=$target_sha
@@ -119,23 +122,48 @@ rollback)
       *) usage;;
     esac
   done
-  [[ -d "$backup_dir" && -f "$backup_dir/.complete" && -f "$backup_dir/metadata.env" && -f "$backup_dir/roots.tsv" && -f "$backup_dir/backed-up-files.tsv" && -f "$backup_dir/new-files.tsv" ]] || fail "backup is incomplete or invalid"
+  [[ -d "$backup_dir" && -f "$backup_dir/.complete" && -f "$backup_dir/metadata.env" && -f "$backup_dir/manifest.tsv" && -f "$backup_dir/roots.tsv" && -f "$backup_dir/backed-up-files.tsv" && -f "$backup_dir/new-files.tsv" ]] || fail "backup is incomplete or invalid"
   [[ ! -e "$backup_dir/.rollback-complete" ]] || fail "rollback already completed"
   app_root="$(canonical_dir "$app_root")"
   public_root="$(canonical_dir "$public_root")"
   expected_roots="$(printf 'app\t%s\npublic\t%s\n' "$app_root" "$public_root")"
   [[ "$(cat "$backup_dir/roots.tsv")" == "$expected_roots" ]] || fail "destination roots do not match backup metadata"
 
+  previous_sha="$(sed -n 's/^previous_sha=//p' "$backup_dir/metadata.env")"
+  target_sha="$(sed -n 's/^target_sha=//p' "$backup_dir/metadata.env")"
+  [[ "$(grep -c '^previous_sha=' "$backup_dir/metadata.env")" -eq 1 && "$(grep -c '^target_sha=' "$backup_dir/metadata.env")" -eq 1 ]] || fail "invalid SHA metadata"
+  valid_sha "$previous_sha" || fail "invalid previous SHA metadata"
+  valid_sha "$target_sha" || fail "invalid target SHA metadata"
+  [[ "$previous_sha" != "$target_sha" ]] || fail "invalid identical SHA metadata"
+
+  declare -A manifest_entries=()
+  manifest_count=0
+  while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
+    [[ -n "${scope:-}" ]] || continue
+    [[ "${scope:0:1}" != "#" ]] || continue
+    [[ -z "${extra:-}" ]] || fail "stored manifest is malformed"
+    root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
+    validate_entry "$scope" "${rel:-}" "$root"
+    key="$scope"$'\t'"$rel"
+    [[ -z "${manifest_entries[$key]+x}" ]] || fail "stored manifest contains duplicates"
+    manifest_entries[$key]=1
+    manifest_count=$((manifest_count + 1))
+  done < "$backup_dir/manifest.tsv"
+  [[ "$manifest_count" -gt 0 ]] || fail "stored manifest has no entries"
+
+  declare -A rollback_entries=()
+  rollback_count=0
   for list in backed-up-files.tsv new-files.tsv; do
-    declare -A rollback_seen=()
     while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
       [[ -n "${scope:-}" ]] || continue
       [[ -z "${extra:-}" ]] || fail "invalid rollback manifest entry"
       root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
       validate_entry "$scope" "${rel:-}" "$root"
       key="$scope"$'\t'"$rel"
-      [[ -z "${rollback_seen[$key]+x}" ]] || fail "duplicate rollback entry: $scope $rel"
-      rollback_seen[$key]=1
+      [[ -n "${manifest_entries[$key]+x}" ]] || fail "rollback entry is not in stored manifest: $scope $rel"
+      [[ -z "${rollback_entries[$key]+x}" ]] || fail "duplicate rollback entry: $scope $rel"
+      rollback_entries[$key]=1
+      rollback_count=$((rollback_count + 1))
       target="$root/$rel"
       [[ ! -d "$target" || -L "$target" ]] || fail "destination is a directory at file path: $scope $rel"
       if [[ "$list" == "backed-up-files.tsv" ]]; then
@@ -144,6 +172,7 @@ rollback)
       fi
     done < "$backup_dir/$list"
   done
+  [[ "$rollback_count" -eq "$manifest_count" ]] || fail "rollback lists do not exactly cover stored manifest"
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
     [[ -n "${scope:-}" ]] || continue
