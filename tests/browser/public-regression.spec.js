@@ -148,6 +148,87 @@ test.describe('semantic public page contracts', () => {
     });
 });
 
+test('ticker autoplays continuously in normal motion, including hover', async ({ page }) => {
+    test.setTimeout(15_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const guards = await gotoPublicPage(page, fixture.routes.home);
+    const track = page.locator('.ticker-track');
+    const viewport = page.locator('.ticker-viewport');
+
+    await expect(track).toBeVisible();
+    await expect(track.locator('.ticker-sequence')).toHaveCount(2);
+
+    const initial = await track.evaluate(element => {
+        const style = getComputedStyle(element);
+        return {
+            animationName: style.animationName,
+            animationDuration: style.animationDuration,
+            playState: style.animationPlayState,
+            transform: style.transform,
+        };
+    });
+
+    expect(initial.animationName).toContain('ticker-scroll');
+    expect(initial.animationDuration).not.toBe('0s');
+    expect(initial.playState).toBe('running');
+
+    await page.waitForTimeout(350);
+    const movingTransform = await track.evaluate(element => getComputedStyle(element).transform);
+    expect(movingTransform).not.toBe(initial.transform);
+
+    await track.hover();
+    await expect.poll(() => track.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('running');
+    const hoveredTransform = await track.evaluate(element => getComputedStyle(element).transform);
+    await page.waitForTimeout(350);
+    expect(await track.evaluate(element => getComputedStyle(element).transform)).not.toBe(hoveredTransform);
+
+    const overflow = await viewport.evaluate(element => ({
+        overflowX: getComputedStyle(element).overflowX,
+        pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    }));
+    expect(overflow.overflowX).toBe('hidden');
+    expect(overflow.pageFits).toBeTruthy();
+    guards.assertClean();
+});
+
+test('ticker reduced motion disables autoplay but keeps manual horizontal access', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const guards = await gotoPublicPage(page, fixture.routes.home);
+    const track = page.locator('.ticker-track');
+    const viewport = page.locator('.ticker-viewport');
+
+    await expect(track).toBeVisible();
+    const state = await page.evaluate(() => {
+        const trackElement = document.querySelector('.ticker-track');
+        const viewportElement = document.querySelector('.ticker-viewport');
+        const duplicate = document.querySelector('.ticker-sequence[aria-hidden="true"]');
+        if (!trackElement || !viewportElement || !duplicate) return null;
+
+        const trackStyle = getComputedStyle(trackElement);
+        const viewportStyle = getComputedStyle(viewportElement);
+        return {
+            animationName: trackStyle.animationName,
+            transform: trackStyle.transform,
+            overflowX: viewportStyle.overflowX,
+            duplicateDisplay: getComputedStyle(duplicate).display,
+            scrollWidth: viewportElement.scrollWidth,
+            clientWidth: viewportElement.clientWidth,
+            pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        };
+    });
+
+    expect(state).not.toBeNull();
+    expect(state.animationName).toBe('none');
+    expect(state.transform).toBe('none');
+    expect(state.overflowX).toBe('auto');
+    expect(state.duplicateDisplay).toBe('none');
+    expect(state.scrollWidth).toBeGreaterThan(state.clientWidth);
+    expect(state.pageFits).toBeTruthy();
+    guards.assertClean();
+});
+
 test('newsletter modal traps keyboard focus and restores semantic closed state without submitting', async ({ page }) => {
     const guards = await gotoPublicPage(page, fixture.routes.home);
     const trigger = page.getByRole('button', { name: /Newsletter/ });
