@@ -2,7 +2,10 @@
    Loaded only by /percorsi/{slug}; keeps the /percorsi index unchanged. */
 .path-detail {
   padding: clamp(2.25rem, 5vw, 4rem) 0 5rem;
-  background: #f8fafc;
+  background:
+    radial-gradient(circle at 10% 8%, rgba(13, 148, 136, .09), transparent 30rem),
+    radial-gradient(circle at 88% 24%, rgba(249, 115, 22, .055), transparent 26rem),
+    linear-gradient(180deg, #f4faf8 0%, #f8fafc 46%, #f5f5f4 100%);
 }
 
 .path-detail > .container {
@@ -14,13 +17,23 @@
 }
 
 .path-detail .path-hero {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, .08);
+  border: 1px solid rgba(13, 148, 136, .15);
   border-radius: 30px;
-  background: #fff;
-  box-shadow: 0 22px 55px rgba(15, 23, 42, .08);
+  background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(240,253,250,.82));
+  box-shadow: 0 24px 64px rgba(15, 23, 42, .10);
+}
+
+.path-detail .path-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--primary), #5eead4);
+  z-index: 2;
 }
 
 .path-detail .path-hero__copy {
@@ -69,12 +82,12 @@
 
 .path-detail .path-pillar {
   grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
-  margin: 1.5rem 0 3rem;
+  margin: 1.65rem 0 3rem;
   padding: 1rem;
-  border: 1px solid #dbe7e4;
+  border: 1px solid #fed7aa;
   border-radius: 24px;
-  background: #f0fdfa;
-  box-shadow: 0 14px 34px rgba(15, 118, 110, .06);
+  background: linear-gradient(135deg, #fff7ed 0%, #fffaf5 58%, #ffffff 100%);
+  box-shadow: 0 16px 38px rgba(154, 52, 18, .07);
 }
 
 .path-detail .path-pillar__intro {
@@ -96,8 +109,10 @@
 .path-detail .path-pillar__link {
   min-height: 170px;
   padding: 1.5rem 1.65rem;
-  border: 1px solid #cfe2de;
+  border: 1px solid #fed7aa;
   border-radius: 18px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 8px 24px rgba(154, 52, 18, .06);
 }
 
 .path-detail .path-pillar__link strong {
@@ -109,6 +124,12 @@
 .path-detail .path-steps {
   width: 100%;
   margin-top: 3rem;
+  padding: clamp(1.4rem, 3vw, 2rem);
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, .065);
+  backdrop-filter: blur(4px);
 }
 
 .path-detail .path-steps__header {
@@ -144,14 +165,23 @@
   min-height: 150px;
   border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, .055);
+  background: linear-gradient(135deg, #ffffff 0%, #fbfdfc 100%);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .06);
+}
+
+.path-detail .path-step:nth-child(even) {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.path-detail .path-step--pillar {
+  border-color: rgba(13, 148, 136, .32);
+  box-shadow: 0 0 0 1px rgba(13,148,136,.06), 0 14px 34px rgba(13,148,136,.07);
 }
 
 .path-detail .path-step__number {
   padding-top: 1.55rem;
   border-right: 1px solid #dbe7e4;
-  background: #f0fdfa;
+  background: linear-gradient(180deg, #ecfdf5, #f0fdfa);
   font-size: 1.45rem;
 }
 
@@ -205,7 +235,8 @@
 
   .path-detail .path-hero,
   .path-detail .path-pillar,
-  .path-detail .path-step {
+  .path-detail .path-step,
+  .path-detail .path-steps {
     border-radius: 18px;
   }
 
@@ -224,6 +255,10 @@
   .path-detail .path-pillar__intro,
   .path-detail .path-pillar__link {
     padding: 1rem;
+  }
+
+  .path-detail .path-steps {
+    padding: .8rem;
   }
 
   .path-detail .path-step {
