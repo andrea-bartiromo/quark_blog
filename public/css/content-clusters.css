@@ -24,6 +24,36 @@
 .paths-index .paths-intro h1 { margin: .4rem 0 1rem; color: var(--paths-green); font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5.2rem); line-height: .94; letter-spacing: -.045em; }
 .paths-index .paths-intro > p:last-of-type { max-width: 680px; margin: 0; color: #4f625c; font-size: clamp(1.02rem, 2vw, 1.2rem); line-height: 1.7; }
 .paths-index .paths-intro__rule { display: block; width: min(9rem, 32vw); height: 4px; margin-top: 1.5rem; border-radius: 999px; background: var(--paths-gold); }
+
+/* One editorial statement: a Kairus signature, not another catalog card. */
+.paths-index .paths-brand-statement {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 clamp(2rem, 4vw, 3.2rem);
+  padding: clamp(1.5rem, 3vw, 2.15rem) clamp(1.5rem, 4vw, 2.8rem);
+  border-top: 3px solid var(--paths-gold);
+  border-bottom: 1px solid rgba(245, 240, 230, .18);
+  background: var(--paths-green);
+  color: #fffaf0;
+}
+.paths-index .paths-brand-statement::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: clamp(-5rem, -4vw, -2rem);
+  width: clamp(13rem, 24vw, 21rem);
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  border: 1px solid rgba(232, 200, 159, .22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, transparent 0 19%, rgba(232, 200, 159, .16) 19.5% 20%, transparent 20.5% 39%, rgba(232, 200, 159, .12) 39.5% 40%, transparent 40.5%),
+    linear-gradient(90deg, transparent 49.7%, rgba(232, 200, 159, .1) 50%, transparent 50.3%);
+  pointer-events: none;
+}
+.paths-index .paths-brand-statement .eyebrow { position: relative; z-index: 1; margin: 0 0 .55rem; color: #e8c89f; }
+.paths-index .paths-brand-statement > p:last-child { position: relative; z-index: 1; max-width: 31ch; margin: 0; font-family: var(--font-display); font-size: clamp(1.45rem, 2.5vw, 2.15rem); line-height: 1.18; letter-spacing: -.02em; }
+
 .paths-index .paths-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 3vw, 2.25rem); }
 .paths-index .path-card { min-width: 0; overflow: hidden; border: 1px solid var(--paths-rule); border-radius: 24px; background: rgba(251, 247, 238, .96); box-shadow: 0 14px 32px rgba(35, 50, 45, .07); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
 .paths-index .path-card:hover { transform: translateY(-3px); border-color: rgba(18, 63, 56, .24); box-shadow: 0 18px 38px rgba(35, 50, 45, .1); }
@@ -62,6 +92,31 @@
 .path-hero__cover img { width: 100%; height: 100%; object-fit: cover; }
 .path-hero__cover--fallback .path-card__fallback { min-height: 100%; padding: clamp(1.6rem, 3vw, 2.4rem); }
 .path-hero__cover--fallback .path-card__fallback strong { font-size: clamp(2rem, 4vw, 3.4rem); }
+
+/* Existing editorial note becomes the single Kairus statement on detail. */
+.path-detail .path-editorial-note.path-brand-statement {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(201, 120, 43, .32);
+  border-top: 4px solid var(--path-gold, #c9782b);
+  background: var(--path-green, #123f38);
+  color: #fffaf0;
+}
+.path-detail .path-editorial-note.path-brand-statement::after {
+  content: "";
+  position: absolute;
+  right: clamp(-4rem, -3vw, -1rem);
+  bottom: clamp(-5rem, -5vw, -2rem);
+  width: clamp(12rem, 22vw, 19rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(232, 200, 159, .2);
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(232, 200, 159, .11) 28px 29px);
+  pointer-events: none;
+}
+.path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: #e8c89f; }
+.path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: #fffdf8; }
+.path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: rgba(255, 253, 248, .82); }
 
 .path-pillar { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: .85rem; align-items: stretch; margin: 1.5rem 0 3rem; padding: .85rem; border: 1px solid #fed7aa; border-radius: var(--radius-lg); background: #fffaf5; box-shadow: var(--shadow-sm); }
 .path-pillar__intro { padding: 1rem 1.15rem; }
@@ -142,6 +197,9 @@
   .paths-index { padding-top: 1.6rem; background-size: 32px 32px; }
   .paths-index .paths-intro { margin-bottom: 2rem; padding-bottom: .75rem; }
   .paths-index .paths-intro h1 { font-size: clamp(2.75rem, 14vw, 4rem); }
+  .paths-index .paths-brand-statement { margin-bottom: 1.6rem; padding: 1.35rem 1.2rem 1.5rem; }
+  .paths-index .paths-brand-statement::before { right: -6rem; opacity: .72; }
+  .paths-index .paths-brand-statement > p:last-child { max-width: 25ch; font-size: clamp(1.35rem, 7vw, 1.8rem); }
   .paths-index .paths-grid { grid-template-columns: 1fr; gap: 1.35rem; }
   .paths-index .path-card { border-radius: 18px; }
   .paths-index .path-card__body { padding: 1.35rem 1.2rem 1.5rem; }
