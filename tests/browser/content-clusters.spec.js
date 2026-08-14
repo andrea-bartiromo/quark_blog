@@ -30,16 +30,20 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
         await expect(page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first()).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(page.locator('link[href*="content-clusters-detail.css"]')).toHaveCount(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         if (width === 1440) {
             const detailLayout = await page.evaluate(() => {
                 const shell = document.querySelector('.path-detail > .container');
                 const hero = document.querySelector('.path-hero');
+                const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
                 const cover = document.querySelector('.path-hero__cover');
-                const steps = document.querySelector('.path-steps');
-                if (!shell || !hero || !copy || !cover || !steps) return null;
+                const pillar = document.querySelector('.path-pillar');
+                const firstStep = document.querySelector('.path-step');
+                const firstStepTitle = document.querySelector('.path-step h3');
+                if (!shell || !hero || !title || !copy || !cover || !pillar || !firstStep || !firstStepTitle) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 return {
@@ -47,9 +51,14 @@ for (const width of viewportWidths) {
                     hero: hero.getBoundingClientRect().width,
                     copy: copy.getBoundingClientRect().width,
                     cover: cover.getBoundingClientRect().width,
-                    steps: steps.getBoundingClientRect().width,
+                    coverHeight: cover.getBoundingClientRect().height,
+                    pillar: pillar.getBoundingClientRect().width,
+                    step: firstStep.getBoundingClientRect().width,
+                    titleSize: parseFloat(getComputedStyle(title).fontSize),
+                    stepTitleSize: parseFloat(getComputedStyle(firstStepTitle).fontSize),
                     heroDisplay: heroStyle.display,
                     heroColumns: heroStyle.gridTemplateColumns,
+                    heroRadius: parseFloat(heroStyle.borderRadius),
                 };
             });
 
@@ -57,10 +66,15 @@ for (const width of viewportWidths) {
             expect(detailLayout.shell).toBeGreaterThan(1150);
             expect(detailLayout.shell).toBeLessThanOrEqual(1220);
             expect(detailLayout.hero).toBeGreaterThan(1150);
-            expect(detailLayout.steps).toBeGreaterThan(1150);
+            expect(detailLayout.pillar).toBeGreaterThan(1150);
+            expect(detailLayout.step).toBeGreaterThan(1150);
             expect(detailLayout.heroDisplay).toBe('grid');
             expect(detailLayout.copy).toBeGreaterThan(500);
             expect(detailLayout.cover).toBeGreaterThan(350);
+            expect(detailLayout.coverHeight).toBeGreaterThanOrEqual(420);
+            expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
+            expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
+            expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
             expect(detailLayout.heroColumns).not.toBe('none');
         }
 
