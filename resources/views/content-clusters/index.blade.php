@@ -16,7 +16,7 @@
 <section class="section paths-index" aria-labelledby="percorsi-title">
   <div class="container">
     <header class="paths-intro">
-      <p class="eyebrow">Percorsi Kairus</p>
+      <p class="eyebrow">Percorsi Kairus · Archivio editoriale</p>
       <h1 id="percorsi-title">Percorsi</h1>
       <p>Esplora un tema dall'inizio, seguendo un ordine di lettura curato: ogni Percorso raccoglie gli approfondimenti essenziali e indica da dove cominciare.</p>
       <span class="paths-intro__rule" aria-hidden="true"></span>
