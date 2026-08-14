@@ -16,9 +16,10 @@
 <section class="section paths-index" aria-labelledby="percorsi-title">
   <div class="container">
     <header class="paths-intro">
-      <p class="eyebrow">Approfondisci</p>
+      <p class="eyebrow">Archivio editoriale</p>
       <h1 id="percorsi-title">Percorsi</h1>
-      <p>Guide editoriali per capire un tema un passo alla volta: parti dall'articolo chiave e prosegui con gli approfondimenti.</p>
+      <p>Esplora un tema dall'inizio, seguendo un ordine di lettura curato: ogni Percorso raccoglie gli approfondimenti essenziali e indica da dove cominciare.</p>
+      <span class="paths-intro__rule" aria-hidden="true"></span>
     </header>
     <div class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
