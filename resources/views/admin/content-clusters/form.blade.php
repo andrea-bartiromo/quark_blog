@@ -52,7 +52,7 @@
 
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
         <button type="button" class="btn btn--secondary" id="cluster-cover-library">Scegli dalla libreria</button>
-        <label class="btn btn--secondary" for="cluster-cover-upload" style="cursor:pointer;">Carica immagine</label>
+        <button type="button" class="btn btn--secondary" id="cluster-cover-upload-button">Carica immagine</button>
         <input type="file" id="cluster-cover-upload" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
         <button type="button" class="action-btn" id="cluster-cover-change" style="{{ $selectedCover ? '' : 'display:none;' }}">Cambia immagine</button>
         <button type="button" class="action-btn" id="cluster-cover-remove" style="{{ $selectedCover ? '' : 'display:none;' }}color:#b91c1c;">Rimuovi cover</button>
@@ -79,14 +79,14 @@
   </div>
 </form>
 
-<dialog id="cluster-media-dialog" style="width:min(920px,calc(100vw - 2rem));max-height:85vh;border:0;border-radius:14px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.25);">
+<dialog id="cluster-media-dialog" aria-labelledby="cluster-media-title" style="width:min(920px,calc(100vw - 2rem));max-height:85vh;border:0;border-radius:14px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.25);">
   <div style="padding:1rem 1rem .75rem;border-bottom:1px solid #e5e7eb;display:flex;gap:1rem;justify-content:space-between;align-items:center;">
-    <div><strong>Scegli dalla libreria</strong><div style="font-size:.75rem;color:#6b7280;">Solo immagini della Libreria media Kairus</div></div>
+    <div><strong id="cluster-media-title">Scegli dalla libreria</strong><div style="font-size:.75rem;color:#6b7280;">Solo immagini della Libreria media Kairus</div></div>
     <button type="button" class="action-btn" id="cluster-media-close" aria-label="Chiudi selettore">Chiudi</button>
   </div>
   <div style="padding:1rem;">
     <form id="cluster-media-search-form" style="display:flex;gap:.5rem;margin-bottom:1rem;">
-      <input id="cluster-media-search" class="form-input" type="search" maxlength="100" placeholder="Cerca nome file o testo alternativo…">
+      <input id="cluster-media-search" class="form-input" type="search" maxlength="100" aria-label="Cerca nella Libreria media" placeholder="Cerca nome file o testo alternativo…">
       <button class="btn btn--secondary" type="submit">Cerca</button>
     </form>
     <div id="cluster-media-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;max-height:55vh;overflow:auto;"></div>
@@ -182,6 +182,7 @@
   const missing = document.getElementById('cluster-cover-missing');
   const filename = document.getElementById('cluster-cover-filename');
   const libraryButton = document.getElementById('cluster-cover-library');
+  const uploadButton = document.getElementById('cluster-cover-upload-button');
   const changeButton = document.getElementById('cluster-cover-change');
   const removeButton = document.getElementById('cluster-cover-remove');
   const uploadInput = document.getElementById('cluster-cover-upload');
@@ -221,6 +222,7 @@
   advanced.addEventListener('input', () => selectCover(advanced.value.trim(), '', advanced.value.trim().split('/').pop()));
   removeButton.addEventListener('click', () => selectCover('', '', ''));
   changeButton.addEventListener('click', () => libraryButton.click());
+  uploadButton.addEventListener('click', () => uploadInput.click());
 
   const renderMedia = (items) => {
     grid.innerHTML = '';
