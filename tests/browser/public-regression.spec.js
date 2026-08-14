@@ -148,13 +148,14 @@ test.describe('semantic public page contracts', () => {
     });
 });
 
-test('ticker autoplays continuously in normal motion, including hover', async ({ page }) => {
+test('ticker autoplays continuously in normal motion, including pointer and keyboard focus', async ({ page }) => {
     test.setTimeout(15_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     const guards = await gotoPublicPage(page, fixture.routes.home);
     const track = page.locator('.ticker-track');
     const viewport = page.locator('.ticker-viewport');
+    const firstLink = track.locator('.ticker-sequence').first().getByRole('link').first();
 
     await expect(track).toBeVisible();
     await expect(track.locator('.ticker-sequence')).toHaveCount(2);
@@ -187,6 +188,13 @@ test('ticker autoplays continuously in normal motion, including hover', async ({
     const hoveredTransform = await track.evaluate(element => getComputedStyle(element).transform);
     await page.waitForTimeout(350);
     expect(await track.evaluate(element => getComputedStyle(element).transform)).not.toBe(hoveredTransform);
+
+    await firstLink.focus();
+    await expect(firstLink).toBeFocused();
+    await expect.poll(() => track.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('running');
+    const focusedTransform = await track.evaluate(element => getComputedStyle(element).transform);
+    await page.waitForTimeout(350);
+    expect(await track.evaluate(element => getComputedStyle(element).transform)).not.toBe(focusedTransform);
 
     const overflow = await viewport.evaluate(element => ({
         overflowX: getComputedStyle(element).overflowX,
