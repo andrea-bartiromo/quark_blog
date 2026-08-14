@@ -53,9 +53,16 @@
       </div>
     </header>
 
+    <section class="path-editorial-note" aria-labelledby="path-note-title">
+      <p class="eyebrow">Perché questo percorso</p>
+      <h2 id="path-note-title">Capire un tema significa seguirne i passaggi essenziali.</h2>
+      <p>Abbiamo ordinato gli approfondimenti per accompagnarti dalle basi ai nodi più importanti, con una sequenza pensata per costruire il quadro un articolo alla volta.</p>
+    </section>
+
     @if($pillar)
       <aside class="path-pillar" aria-labelledby="pillar-title">
         <div class="path-pillar__intro">
+          <span class="path-pillar__number" aria-hidden="true">00</span>
           <p class="eyebrow">Da dove iniziare</p>
           <h2 id="pillar-title">Il punto di partenza</h2>
           <p>Se è la prima volta che esplori questo tema, comincia dall'articolo chiave e poi prosegui nella sequenza.</p>
@@ -92,6 +99,15 @@
         @endforelse
       </ol>
     </section>
+
+    <footer class="path-ending">
+      <div>
+        <p class="eyebrow">Fine del percorso</p>
+        <h2>Continua a esplorare</h2>
+        <p>Ogni Percorso Kairus apre una nuova prospettiva: scegli il prossimo tema e continua la lettura.</p>
+      </div>
+      <a href="{{ route('percorsi.index') }}">Scopri tutti i Percorsi <span aria-hidden="true">→</span></a>
+    </footer>
   </div>
 </section>
 @endsection
