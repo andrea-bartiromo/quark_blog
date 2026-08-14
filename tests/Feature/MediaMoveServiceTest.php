@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Models\MediaFolder;
 use App\Models\User;
@@ -247,6 +248,22 @@ class MediaMoveServiceTest extends TestCase
 
         $this->assertTrue($result->isMoved());
         $this->assertSame('archivio/cover.jpg', $article->fresh()->cover_image);
+    }
+
+    public function test_content_cluster_cover_reference_is_updated_with_the_move(): void
+    {
+        $folder = $this->folder('archivio');
+        $media = $this->mediaWithFile('percorso-cover.jpg');
+        $cluster = ContentCluster::factory()->create([
+            'name' => 'Percorso media move',
+            'slug' => 'percorso-media-move',
+            'cover_image' => 'percorso-cover.jpg',
+        ]);
+
+        $result = $this->service->move($media->id, $folder->id);
+
+        $this->assertTrue($result->isMoved());
+        $this->assertSame('archivio/percorso-cover.jpg', $cluster->fresh()->cover_image);
     }
 
     public function test_blocking_reference_prevents_the_move_and_leaves_everything_untouched(): void
