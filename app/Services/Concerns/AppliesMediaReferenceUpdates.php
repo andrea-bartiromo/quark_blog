@@ -5,6 +5,7 @@ namespace App\Services\Concerns;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\SpecialPage;
 use App\Models\User;
 use RuntimeException;
@@ -76,6 +77,7 @@ trait AppliesMediaReferenceUpdates
 
         match ($ref['type']) {
             'article_cover_image' => Article::whereKey($ref['record_id'])->where('cover_image', $expectedCurrentValue)->update(['cover_image' => $ref['new_value']]),
+            'content_cluster_cover_image' => ContentCluster::whereKey($ref['record_id'])->where('cover_image', $expectedCurrentValue)->update(['cover_image' => $ref['new_value']]),
             'ad_banner_image' => Ad::whereKey($ref['record_id'])->where('banner_image', $expectedCurrentValue)->update(['banner_image' => $ref['new_value']]),
             'user_photo' => User::whereKey($ref['record_id'])->where('photo', $expectedCurrentValue)->update(['photo' => $ref['new_value']]),
             'category_image' => Category::whereKey($ref['record_id'])->where('image', $expectedCurrentValue)->update(['image' => $ref['new_value']]),
@@ -113,11 +115,6 @@ trait AppliesMediaReferenceUpdates
             $content = $page->content ?? [];
 
             foreach ($pageRefs as $ref) {
-                // Stessa qualificazione sul valore atteso di
-                // applySingleReference(), qui esplicita (non un WHERE SQL)
-                // perche' il contenuto e' un JSON letto e riscritto per
-                // intero: se un redattore ha gia' cambiato questo campo
-                // nel frattempo, non sovrascriverlo con il path migrato.
                 if (data_get($content, $ref['json_path']) !== $ref['old_value']) {
                     continue;
                 }
