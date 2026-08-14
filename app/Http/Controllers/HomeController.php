@@ -12,6 +12,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\ArticleView;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\SpecialPage;
 use Illuminate\Support\Carbon;
 
@@ -27,7 +28,6 @@ class HomeController extends Controller
             ->limit(6)
             ->get();
 
-        // Trending 24h basato su visualizzazioni reali
         $trendingIds = ArticleView::query()
             ->where('viewed_at', '>=', Carbon::now()->subDay())
             ->selectRaw('article_id, COUNT(*) as total_views')
@@ -43,16 +43,9 @@ class HomeController extends Controller
 
         $categoryRecords = Category::ordered()->get()->keyBy('slug');
         $categoryOptions = Category::options();
-
-        // Articoli per categoria
         $byCategory = [];
 
         foreach ($categoryOptions as $slug => $label) {
-            // Niente esclusione dell'articolo featured qui: a differenza di
-            // $latest, questa query serve solo a stabilire se la categoria ha
-            // contenuto pubblicato (la tile mostra la categoria, non
-            // l'articolo). Escluderlo può far sparire l'intera categoria
-            // quando il suo unico articolo pubblicato è quello in evidenza.
             $arts = Article::published()
                 ->byCategory($slug)
                 ->with('author')
@@ -65,6 +58,16 @@ class HomeController extends Controller
             }
         }
 
+        $homePaths = ContentCluster::query()
+            ->active()
+            ->ordered()
+            ->withCount([
+                'articles as published_articles_count' => fn ($query) => $query->published(),
+            ])
+            ->having('published_articles_count', '>', 0)
+            ->limit(2)
+            ->get();
+
         $turingHome = $this->turingHomeTeaser();
 
         return view('home', compact(
@@ -74,7 +77,8 @@ class HomeController extends Controller
             'trending',
             'categoryRecords',
             'categoryOptions',
-            'turingHome'
+            'turingHome',
+            'homePaths'
         ));
     }
 
