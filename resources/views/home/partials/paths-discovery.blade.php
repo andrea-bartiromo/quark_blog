@@ -1,4 +1,3 @@
-<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <section class="home-paths" aria-labelledby="home-paths-title">
   <div class="container container--wide">
     <div class="home-paths__shell">
