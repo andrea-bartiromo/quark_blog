@@ -131,7 +131,7 @@
     <footer class="path-ending">
       <div>
         <p class="eyebrow">Continua l'esplorazione</p>
-        <h2>Apri una nuova traiettoria.</h2>
+        <h2>Continua a esplorare</h2>
         <p>Ogni Percorso Kairus apre una nuova prospettiva: scegli il prossimo tema e continua la lettura.</p>
       </div>
       <a href="{{ route('percorsi.index') }}">Scopri tutti i Percorsi <span aria-hidden="true">→</span></a>
