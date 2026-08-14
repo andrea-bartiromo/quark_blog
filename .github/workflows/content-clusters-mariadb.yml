@@ -67,11 +67,47 @@ jobs:
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Pint
-        shell: bash
-        run: |
-          vendor/bin/pint app/Console/Commands/BackfillInitialContentClusters.php
-          git diff -- app/Console/Commands/BackfillInitialContentClusters.php
-          git diff --exit-code -- app/Console/Commands/BackfillInitialContentClusters.php
+        run: >-
+          vendor/bin/pint --test
+          app/Console/Commands/BackfillInitialContentClusters.php
+          app/Http/Controllers/Admin/ContentClusterController.php
+          app/Http/Controllers/Admin/ContentClusterSuggestionController.php
+          app/Http/Controllers/ArticleController.php
+          app/Http/Controllers/ContentClusterController.php
+          app/Http/Controllers/NewsletterTrackingController.php
+          app/Http/Controllers/SeoController.php
+          app/Models/ContentCluster.php
+          app/Models/ContentClusterSuggestion.php
+          app/Models/NewsletterClick.php
+          app/Observers/ContentClusterSuggestionObserver.php
+          app/Providers/AppServiceProvider.php
+          app/Services/ArticlePathNavigation.php
+          app/Services/ContentClusterHealth.php
+          app/Services/ContentClusterMembershipService.php
+          app/Services/ContentClusterSuggestionService.php
+          bootstrap/app.php
+          config/content-clusters-analytics.php
+          config/content-clusters-initial.php
+          database/factories/ContentClusterFactory.php
+          database/migrations/2026_08_10_120000_add_is_editorial_calendar_to_project_documents_table.php
+          database/migrations/2026_08_13_080610_create_content_clusters_table.php
+          database/migrations/2026_08_13_080620_create_article_content_cluster_table.php
+          database/migrations/2026_08_13_080630_add_pillar_article_to_content_clusters_table.php
+          database/migrations/2026_08_13_104700_create_content_cluster_suggestions_table.php
+          database/seeders/BrowserTestSeeder.php
+          routes/content-clusters-admin.php
+          routes/content-clusters-public.php
+          tests/Feature/ArticlePathNavigationTest.php
+          tests/Feature/ContentClusterAdminTest.php
+          tests/Feature/ContentClusterPhase2ATest.php
+          tests/Feature/ContentClusterPhase2BTest.php
+          tests/Feature/ContentClusterPhase2CArticleCohortTest.php
+          tests/Feature/ContentClusterPhase2CArticleTest.php
+          tests/Feature/ContentClusterPhase2CMembershipSignalTest.php
+          tests/Feature/ContentClusterPhase2CPruningRegressionTest.php
+          tests/Feature/ContentClusterPublicTest.php
+          tests/Feature/NewsletterTrackingTest.php
+          tests/Unit/ArticleLinkSuggestionTest.php
       - name: Diff check
         shell: bash
         run: |
