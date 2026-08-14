@@ -19,20 +19,19 @@
   gap: 3rem;
   padding-left: 0;
   animation: ticker-scroll 40s linear infinite;
+  animation-play-state: running;
   will-change: transform;
 }
 
-.ticker-track:hover {
+/* Normal-motion ticker never pauses because of pointer/focus state. */
+.ticker-track:hover,
+.ticker-track:focus-within {
   animation-play-state: running;
 }
 
 .ticker-sequence {
   gap: 3rem;
   flex: 0 0 auto;
-}
-
-.ticker-track:focus-within {
-  animation-play-state: paused;
 }
 
 @keyframes ticker-scroll {
@@ -55,7 +54,9 @@
     display: none;
   }
 
-  .ticker-track {
+  .ticker-track,
+  .ticker-track:hover,
+  .ticker-track:focus-within {
     animation: none;
     transform: none;
     padding-right: 2rem;
