@@ -18,9 +18,16 @@
   min-width: max-content;
   gap: 3rem;
   padding-left: 0;
+  animation: kairus-ticker-loop 22s linear infinite !important;
+  animation-play-state: running !important;
   transform: translate3d(0, 0, 0);
   will-change: transform;
   backface-visibility: hidden;
+}
+
+.ticker-track:hover,
+.ticker-track:focus-within {
+  animation-play-state: running !important;
 }
 
 .ticker-sequence {
@@ -31,16 +38,6 @@
 @keyframes kairus-ticker-loop {
   from { transform: translate3d(0, 0, 0); }
   to { transform: translate3d(calc(-50% - 1.5rem), 0, 0); }
-}
-
-/* Explicit normal-motion contract: later generic styles cannot pause the ticker. */
-@media (prefers-reduced-motion: no-preference) {
-  .ticker-track,
-  .ticker-track:hover,
-  .ticker-track:focus-within {
-    animation: kairus-ticker-loop 24s linear infinite !important;
-    animation-play-state: running !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -62,6 +59,7 @@
   .ticker-track:hover,
   .ticker-track:focus-within {
     animation: none !important;
+    animation-play-state: paused !important;
     transform: none;
     padding-right: 2rem;
     will-change: auto;
