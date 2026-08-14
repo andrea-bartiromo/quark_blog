@@ -21,16 +21,46 @@ class HomeController extends Controller
     public function index()
     {
         $featured = Article::published()->featured()->with('author')->first();
-        $latest = Article::published()->with('author')->when($featured, fn ($q) => $q->where('id', '!=', $featured->id))->orderByDesc('published_at')->limit(6)->get();
 
-        $trendingIds = ArticleView::query()->where('viewed_at', '>=', Carbon::now()->subDay())->selectRaw('article_id, COUNT(*) as total_views')->groupBy('article_id')->orderByDesc('total_views')->limit(5)->pluck('article_id');
-        $trending = Article::published()->whereIn('id', $trendingIds)->with('author')->get();
+        $latest = Article::published()->with('author')
+            ->when($featured, fn ($q) => $q->where('id', '!=', $featured->id))
+            ->orderByDesc('published_at')
+            ->limit(6)
+            ->get();
+
+        // Trending 24h basato su visualizzazioni reali
+        $trendingIds = ArticleView::query()
+            ->where('viewed_at', '>=', Carbon::now()->subDay())
+            ->selectRaw('article_id, COUNT(*) as total_views')
+            ->groupBy('article_id')
+            ->orderByDesc('total_views')
+            ->limit(5)
+            ->pluck('article_id');
+
+        $trending = Article::published()
+            ->whereIn('id', $trendingIds)
+            ->with('author')
+            ->get();
+
         $categoryRecords = Category::ordered()->get()->keyBy('slug');
         $categoryOptions = Category::options();
+
+        // Articoli per categoria
         $byCategory = [];
 
         foreach ($categoryOptions as $slug => $label) {
-            $arts = Article::published()->byCategory($slug)->with('author')->orderByDesc('published_at')->limit(3)->get();
+            // Niente esclusione dell'articolo featured qui: a differenza di
+            // $latest, questa query serve solo a stabilire se la categoria ha
+            // contenuto pubblicato (la tile mostra la categoria, non
+            // l'articolo). Escluderlo può far sparire l'intera categoria
+            // quando il suo unico articolo pubblicato è quello in evidenza.
+            $arts = Article::published()
+                ->byCategory($slug)
+                ->with('author')
+                ->orderByDesc('published_at')
+                ->limit(3)
+                ->get();
+
             if ($arts->count() > 0) {
                 $byCategory[$slug] = $arts;
             }
@@ -46,7 +76,16 @@ class HomeController extends Controller
 
         $turingHome = $this->turingHomeTeaser();
 
-        return view('home', compact('featured', 'latest', 'byCategory', 'trending', 'categoryRecords', 'categoryOptions', 'turingHome', 'homePaths'));
+        return view('home', compact(
+            'featured',
+            'latest',
+            'byCategory',
+            'trending',
+            'categoryRecords',
+            'categoryOptions',
+            'turingHome',
+            'homePaths'
+        ));
     }
 
     private function turingHomeTeaser(): array
@@ -62,8 +101,15 @@ class HomeController extends Controller
             'lead' => $homeTeaser['text'] ?? 'Una nuova area speciale di Kairus dedicata a Enigma, alla nascita del computer, al Test di Turing e al legame con l’intelligenza artificiale moderna.',
             'cta' => $homeTeaser['cta_label'] ?? 'Entra nella Turing Experience',
             'terminalTitle' => $homeTeaser['terminal_title'] ?? 'TURING ARCHIVE',
-            'terminalLines' => $homeTeaser['terminal_lines'] ?? ['ENIGMA SIGNAL FOUND', 'MACHINE INTELLIGENCE: ACTIVE', 'QUESTION: CAN MACHINES THINK?', 'STATUS: STILL OPEN'],
-            'style' => $backgroundImage ? "background-image:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.06),rgba(255,255,255,0)),url('".asset('assets/img/'.$backgroundImage)."');" : 'background:linear-gradient(135deg,#ecfeff,#f8fafc);',
+            'terminalLines' => $homeTeaser['terminal_lines'] ?? [
+                'ENIGMA SIGNAL FOUND',
+                'MACHINE INTELLIGENCE: ACTIVE',
+                'QUESTION: CAN MACHINES THINK?',
+                'STATUS: STILL OPEN',
+            ],
+            'style' => $backgroundImage
+                ? "background-image:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.06),rgba(255,255,255,0)),url('".asset('assets/img/'.$backgroundImage)."');"
+                : 'background:linear-gradient(135deg,#ecfeff,#f8fafc);',
         ];
     }
 }
