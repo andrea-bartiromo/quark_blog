@@ -9,6 +9,11 @@
   --path-gold: #c9782b;
   --path-rule: rgba(23, 51, 47, .16);
   --path-shadow: 0 14px 34px rgba(35, 50, 45, .07);
+  /* Firma visiva (Pass 2): posizione orizzontale del glow dell'hero e
+     tonalità dell'oro — sovrascritte per preset in fondo a questo file,
+     mai qui (questo è il valore di fallback quando nessun preset
+     .path-signature-N è applicato). */
+  --path-glow-x: 50%;
   padding: clamp(2rem, 4vw, 3.5rem) 0 5rem;
   color: var(--path-ink);
   background-color: var(--path-ivory);
@@ -16,7 +21,7 @@
      concessione di profondità oltre alla texture puntinata esistente —
      una rivista digitale premium, non una landing a "strisce" (Parte 6). */
   background-image:
-    radial-gradient(ellipse 900px 520px at 50% 0%, rgba(201, 120, 43, .05), transparent 70%),
+    radial-gradient(ellipse 900px 520px at var(--path-glow-x) 0%, rgba(201, 120, 43, .05), transparent 70%),
     linear-gradient(rgba(18, 63, 56, .025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 63, 56, .018) 1px, transparent 1px);
   background-repeat: no-repeat, repeat, repeat;
@@ -808,3 +813,20 @@
     transform: none;
   }
 }
+
+/* ── Firma visiva del Percorso (Pass 2) ──────────────────────────────
+   Sei preset, selezionati in modo deterministico da
+   App\Support\PathVisualSignature in base allo slug — mai casuali, mai
+   configurati per singolo Percorso. La variazione resta deliberatamente
+   sottile e dentro il DNA Kairus: solo la tonalità dell'oro controllato
+   e la posizione del glow cambiano, mai il verde profondo o l'avorio di
+   base, mai una tinta estranea alla famiglia (Parte 3 — "non IA=blu
+   neon"). Il preset di chiusura del motivo orbitale (path-brand-statement)
+   vive invece in content-clusters.css, accanto alla regola base che
+   sovrascrive. */
+.path-detail.path-signature-0 { --path-gold: #c9782b; --path-glow-x: 32%; }
+.path-detail.path-signature-1 { --path-gold: #b6672a; --path-glow-x: 68%; }
+.path-detail.path-signature-2 { --path-gold: #ad7f3f; --path-glow-x: 50%; }
+.path-detail.path-signature-3 { --path-gold: #c68a3f; --path-glow-x: 22%; }
+.path-detail.path-signature-4 { --path-gold: #a96b34; --path-glow-x: 78%; }
+.path-detail.path-signature-5 { --path-gold: #bf7d33; --path-glow-x: 44%; }
