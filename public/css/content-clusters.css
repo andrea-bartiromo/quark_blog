@@ -75,8 +75,20 @@
 .path-continuation a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .paths-index .path-card__description { max-width: 58ch; margin: 0; color: #53645f; line-height: 1.7; }
 .paths-index .path-card__start { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid rgba(23, 51, 47, .12); color: #5b5d52; font-size: .92rem; line-height: 1.55; overflow-wrap: anywhere; }
-.paths-index .path-card__start span { display: block; margin-bottom: .22rem; color: #9a4f16; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }
-.paths-index .path-card__cta { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; margin-top: 1rem; color: var(--paths-green); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(201, 120, 43, .72); }
+.paths-index .path-card__start span { display: block; margin-bottom: .22rem; color: var(--paths-gold, #9a4f16); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }
+.paths-index .path-card__cta { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; margin-top: 1rem; color: var(--paths-green); font-weight: 800; text-decoration: none; border-bottom: 2px solid var(--paths-gold, #c9782b); }
+
+/* Firma visiva (Pass 2): stesso preset del detail, ma qui limitato a un
+   singolo accent — il minimo che basta a far percepire un'identità
+   propria senza alterare la griglia/scala già approvata dell'archivio
+   (Parte 4). Nessuna nuova dimensione, nessun nuovo elemento: solo un
+   colore diverso su ciò che già esiste. */
+.paths-index .path-card.path-signature-0 { --paths-gold: #c9782b; }
+.paths-index .path-card.path-signature-1 { --paths-gold: #b6672a; }
+.paths-index .path-card.path-signature-2 { --paths-gold: #ad7f3f; }
+.paths-index .path-card.path-signature-3 { --paths-gold: #c68a3f; }
+.paths-index .path-card.path-signature-4 { --paths-gold: #a96b34; }
+.paths-index .path-card.path-signature-5 { --paths-gold: #bf7d33; }
 .paths-index .paths-empty { grid-column: 1 / -1; padding: clamp(2rem, 4vw, 3rem); border: 1px solid var(--paths-rule); border-radius: 22px; background: var(--paths-cream); box-shadow: 0 12px 28px rgba(35, 50, 45, .06); }
 
 /* Detail: base contracts; the detail-only stylesheet owns the final presentation. */
@@ -109,8 +121,10 @@
 .path-detail .path-editorial-note.path-brand-statement::after {
   content: "";
   position: absolute;
-  right: clamp(-4rem, -3vw, -1rem);
-  bottom: clamp(-5rem, -5vw, -2rem);
+  /* Angolo del motivo orbitale: valore di fallback in basso a destra,
+     sovrascritto per preset di firma qui sotto (Pass 2, Parte 2 —
+     "posizione degli elementi decorativi" come tratto distintivo). */
+  inset: auto clamp(-4rem, -3vw, -1rem) clamp(-5rem, -5vw, -2rem) auto;
   width: clamp(12rem, 22vw, 19rem);
   aspect-ratio: 1;
   border: 1px solid rgba(18, 63, 56, .14);
@@ -121,6 +135,19 @@
 .path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: var(--path-gold, #9a4f16); }
 .path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: var(--path-ink, #17332f); }
 .path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: #3d534c; }
+
+/* Angolo del motivo orbitale per preset — stessa firma applicata
+   all'intera .path-detail (vedi content-clusters-detail.css). */
+.path-detail.path-signature-1 .path-brand-statement::after,
+.path-detail.path-signature-4 .path-brand-statement::after {
+  inset: clamp(-5rem, -5vw, -2rem) auto auto clamp(-4rem, -3vw, -1rem);
+}
+.path-detail.path-signature-2 .path-brand-statement::after {
+  inset: auto auto clamp(-6rem, -6vw, -3rem) 45%;
+}
+.path-detail.path-signature-3 .path-brand-statement::after {
+  inset: clamp(-5rem, -5vw, -2rem) clamp(-4rem, -3vw, -1rem) auto auto;
+}
 
 .path-pillar { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: .85rem; align-items: stretch; margin: 1.5rem 0 3rem; padding: .85rem; border: 1px solid #fed7aa; border-radius: var(--radius-lg); background: #fffaf5; box-shadow: var(--shadow-sm); }
 .path-pillar__intro { padding: 1rem 1.15rem; }
@@ -199,7 +226,17 @@
 .home-path-link__copy span { color: var(--primary-dark); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 .home-path-link__copy strong { display: block; margin: .3rem 0 .55rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.7rem); line-height: 1.08; overflow-wrap: anywhere; }
 .home-path-link__copy small { display: block; max-width: 36ch; color: var(--ink-muted); line-height: 1.55; }
-.home-path-link__arrow { position: absolute; right: 1.05rem; bottom: .95rem; color: var(--primary-dark); font-size: 1.35rem; }
+.home-path-link__arrow { position: absolute; right: 1.05rem; bottom: .95rem; color: var(--home-path-accent, var(--primary-dark)); font-size: 1.35rem; }
+
+/* Firma visiva (Pass 2), tocco minimo consentito in homepage (Parte 5):
+   solo il colore della freccia, nessuna dimensione o layout toccati —
+   la griglia/scala già approvata resta identica. */
+.home-path-link.path-signature-0 { --home-path-accent: #c9782b; }
+.home-path-link.path-signature-1 { --home-path-accent: #b6672a; }
+.home-path-link.path-signature-2 { --home-path-accent: #ad7f3f; }
+.home-path-link.path-signature-3 { --home-path-accent: #c68a3f; }
+.home-path-link.path-signature-4 { --home-path-accent: #a96b34; }
+.home-path-link.path-signature-5 { --home-path-accent: #bf7d33; }
 
 @media (max-width: 900px) {
   .home-paths__shell { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); }

@@ -33,7 +33,7 @@
   $publishedStepCount = $articles->count();
 @endphp
 
-<section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
+<section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
     <nav class="path-breadcrumb" aria-label="Breadcrumb">
       <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>

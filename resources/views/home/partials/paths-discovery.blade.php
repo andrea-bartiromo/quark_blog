@@ -9,7 +9,7 @@
       </div>
       <div class="home-paths__cards">
         @foreach($homePaths as $path)
-          <a class="home-path-link" href="{{ route('percorsi.show', $path->slug) }}">
+          <a class="home-path-link {{ \App\Support\PathVisualSignature::cssClass($path) }}" href="{{ route('percorsi.show', $path->slug) }}">
             <span class="home-path-link__visual">
               @if($path->cover_image)<img src="{{ asset('assets/img/'.ltrim($path->cover_image, '/')) }}" alt="" loading="lazy" width="184" height="184">@endif
             </span>
