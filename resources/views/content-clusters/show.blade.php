@@ -31,6 +31,17 @@
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
   $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
   $publishedStepCount = $articles->count();
+
+  // Kairus Editorial Visual Library — pause narrative, mai cover articolo
+  // (quelle restano nella timeline sotto). 1-2 immagini al massimo, mai
+  // una per sezione: vedi App\Support\PathVisualLibrary per la filosofia
+  // "quante pause" e la selezione semantica deterministica.
+  $visualBreakCount = \App\Support\PathVisualLibrary::breakCountFor($publishedStepCount);
+  $visualBreaks = \App\Support\PathVisualLibrary::imagesFor($cluster, $visualBreakCount);
+  $visualBreakUrls = array_map(
+      fn (string $file) => \App\Support\PathVisualLibrary::url($file),
+      $visualBreaks
+  );
 @endphp
 
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -91,6 +102,10 @@
       <h2 id="path-note-title">Perché questo percorso</h2>
       <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
     </section>
+
+    @isset($visualBreakUrls[0])
+      @include('content-clusters.partials.visual-break', ['src' => $visualBreakUrls[0]])
+    @endisset
 
     @if($takeaways->isNotEmpty())
       <section class="path-narrative path-narrative--takeaways" aria-labelledby="path-takeaways-title">
@@ -177,6 +192,10 @@
         @endif
       </ol>
     </section>
+
+    @isset($visualBreakUrls[1])
+      @include('content-clusters.partials.visual-break', ['src' => $visualBreakUrls[1]])
+    @endisset
 
     <footer class="path-ending {{ $showContinuation ? 'path-ending--continues' : '' }}" @if($showContinuation) data-path-continues @endif>
       <div>
