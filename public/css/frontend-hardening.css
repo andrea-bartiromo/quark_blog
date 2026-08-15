@@ -18,7 +18,7 @@
   min-width: max-content;
   gap: 3rem;
   padding-left: 0;
-  animation: kairus-ticker-loop 16s linear infinite;
+  animation: kairus-ticker-loop 32s linear infinite;
   animation-play-state: running;
   transform: translate3d(0, 0, 0);
   will-change: transform;
