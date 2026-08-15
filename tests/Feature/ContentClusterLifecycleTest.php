@@ -49,18 +49,24 @@ class ContentClusterLifecycleTest extends TestCase
             $last->id => ['position' => 30],
         ]);
 
-        $this->get(route('percorsi.show', $cluster->slug))
+        $detailResponse = $this->get(route('percorsi.show', $cluster->slug));
+        $detailResponse
             ->assertOk()
             ->assertSee('Il percorso continua')
             ->assertSee('Non siamo ancora arrivati alla fine.')
             ->assertSee('2 tappe disponibili · Percorso in aggiornamento')
-            ->assertSee("Stiamo preparando nuovi capitoli per continuare l'esplorazione.")
             ->assertSee('Torna presto: la prossima tappa arriverà qui.')
             ->assertSee('Qui riprenderà il viaggio.')
             ->assertDontSee('3 tappe disponibili')
             ->assertDontSee('Tappa futura')
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
             ->assertDontSee('Avvisami quando continua');
+
+        $renderedText = html_entity_decode(strip_tags($detailResponse->getContent()), ENT_QUOTES | ENT_HTML5);
+        $this->assertStringContainsString(
+            "Stiamo preparando nuovi capitoli per continuare l'esplorazione.",
+            $renderedText
+        );
 
         $this->get(route('articolo', $first->slug))
             ->assertOk()
