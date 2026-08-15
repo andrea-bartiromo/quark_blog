@@ -37,7 +37,7 @@
 
 @keyframes kairus-ticker-loop {
   from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(calc(-50% - 1.5rem), 0, 0); }
+  to { transform: translate3d(calc(-25% - .75rem), 0, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
