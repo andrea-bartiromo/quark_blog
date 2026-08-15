@@ -74,8 +74,8 @@ for (const width of viewportWidths) {
         await expect(page).toHaveURL(/\/percorsi\/ia-spiegata$/);
         await expect(page.locator('main')).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
-        await expect(page.getByRole('heading', { level: 2, name: 'Capire un tema significa seguirne i passaggi essenziali.' })).toBeVisible();
-        await expect(page.getByRole('heading', { level: 2, name: 'Continua a esplorare' })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 2, name: 'Perché questo percorso' })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 2, name: 'Fine del percorso' })).toBeVisible();
         await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
         await expect(page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first()).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
