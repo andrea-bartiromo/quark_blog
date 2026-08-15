@@ -1,0 +1,92 @@
+# Gate dedicato al ledger di consegna generico (comunicazioni Kairus).
+# Perché un workflow separato e non un'estensione di
+# content-clusters-mariadb.yml: quel workflow è scoped tramite `paths:` ai
+# soli file di Content Clusters e non si attiverebbe mai su queste
+# modifiche — questo file segue la stessa convenzione per-feature, scoped
+# ai soli file toccati da questa missione.
+name: Communication Delivery MariaDB
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'app/Models/CommunicationDelivery.php'
+      - 'app/Models/CommunicationSubscriber.php'
+      - 'app/Services/Communication/CommunicationDeliveryService.php'
+      - 'database/factories/CommunicationDeliveryFactory.php'
+      - 'database/migrations/2026_08_15_111755_create_communication_deliveries_table.php'
+      - 'tests/Unit/Communication/CommunicationDeliveryServiceTest.php'
+      - 'tests/Feature/Communication/CommunicationDeliveryConcurrencyTest.php'
+      - '.github/workflows/communication-delivery-mariadb.yml'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mariadb-communication-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: kairus_test
+          MARIADB_USER: kairus
+          MARIADB_PASSWORD: kairus_test_password
+          MARIADB_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: mariadb
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: kairus_test
+      DB_USERNAME: kairus
+      DB_PASSWORD: kairus_test_password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl, gd, exif
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Pint
+        run: >-
+          vendor/bin/pint --test
+          app/Models/CommunicationDelivery.php
+          app/Models/CommunicationSubscriber.php
+          app/Services/Communication/CommunicationDeliveryService.php
+          database/factories/CommunicationDeliveryFactory.php
+          database/migrations/2026_08_15_111755_create_communication_deliveries_table.php
+          tests/Unit/Communication/CommunicationDeliveryServiceTest.php
+          tests/Feature/Communication/CommunicationDeliveryConcurrencyTest.php
+      - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
+      - name: Fresh MariaDB migration and idempotency/concurrency tests
+        run: |
+          php artisan db:show --database=mariadb
+          php artisan migrate:fresh --force
+          php artisan test tests/Unit/Communication tests/Feature/Communication tests/Feature/Admin/Communication
+      - name: Incremental migration from a populated pre-existing schema
+        run: |
+          php artisan migrate:fresh --force
+          php artisan migrate:rollback --force --step=1
+          php artisan tinker --execute="App\\Models\\CommunicationSubscriber::create(['email'=>'incremental@example.test','status'=>App\\Models\\CommunicationSubscriber::STATUS_CONFIRMED,'unsubscribe_token'=>bin2hex(random_bytes(16)),'confirmed_at'=>now()]);"
+          php artisan migrate --force
+          php artisan tinker --execute="\$s=App\\Models\\CommunicationSubscriber::where('email','incremental@example.test')->first(); if (!\$s || !Illuminate\\Support\\Facades\\Schema::hasTable('communication_deliveries')) { throw new RuntimeException('Incremental migration verification failed'); } \$d=app(App\\Services\\Communication\\CommunicationDeliveryService::class)->registerDelivery('email','incremental_probe',\$s,null,'ci-incremental-check'); if (!\$d->id) { throw new RuntimeException('New table not usable after incremental migration'); }"
