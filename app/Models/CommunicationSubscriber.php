@@ -41,11 +41,29 @@ class CommunicationSubscriber extends Model
         return $this->hasMany(CommunicationSend::class, 'subscriber_id');
     }
 
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(CommunicationDelivery::class, 'subscriber_id');
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopeConfirmed(Builder $q): Builder
     {
         return $q->where('status', self::STATUS_CONFIRMED);
+    }
+
+    /**
+     * Unica definizione di "può ricevere un invio adesso" — usata da
+     * CommunicationDeliveryService::attemptSend() sia prima di creare un
+     * claim sia di nuovo subito prima dell'invio reale (il consenso può
+     * essere revocato tra le due cose). Solo 'confirmed' è eleggibile:
+     * pending (mai confermato), unsubscribed, bounced, complained non lo
+     * sono mai, indipendentemente dal motivo.
+     */
+    public function isEligibleForDelivery(): bool
+    {
+        return $this->status === self::STATUS_CONFIRMED;
     }
 
     // ── Etichette ─────────────────────────────────────────────
