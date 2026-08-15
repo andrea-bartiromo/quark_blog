@@ -97,6 +97,14 @@
     <div class="form-group"><label class="form-label" for="seo_description">SEO description</label><textarea id="seo_description" class="form-textarea" name="seo_description" maxlength="320">{{ old('seo_description', $cluster?->seo_description) }}</textarea></div>
     <div class="form-group"><label class="form-label" for="sort_order">Ordine percorso</label><input id="sort_order" class="form-input" type="number" min="0" name="sort_order" value="{{ old('sort_order', $cluster?->sort_order ?? 0) }}"></div>
     <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
+    <div class="form-group">
+      <label class="form-label" for="lifecycle_status">Stato del Percorso</label>
+      <select id="lifecycle_status" class="form-input" name="lifecycle_status">
+        <option value="updating" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'updating' ? 'selected' : '' }}>In aggiornamento</option>
+        <option value="complete" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'complete' ? 'selected' : '' }}>Concluso</option>
+      </select>
+      <small style="color:#6b7280;">Decisione editoriale esplicita: non viene dedotta dalla presenza di bozze o articoli programmati.</small>
+    </div>
     <button class="btn btn--primary" type="submit">{{ $cluster ? 'Salva metadati' : 'Crea percorso' }}</button>
     @if(!$cluster)<small>Dopo la creazione potrai aggiungere articoli dal catalogo ricercabile e paginato.</small>@endif
   </div>

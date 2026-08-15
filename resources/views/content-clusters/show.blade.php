@@ -29,6 +29,8 @@
   $pathCoverViewerId = 'path-cover-viewer-'.$cluster->id;
   $takeaways = collect($cluster->takeaways ?? [])->filter()->values();
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
+  $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
+  $publishedStepCount = $articles->count();
 @endphp
 
 <section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -152,11 +154,19 @@
       </ol>
     </section>
 
-    <footer class="path-ending">
+    <footer class="path-ending {{ $showContinuation ? 'path-ending--continues' : '' }}" @if($showContinuation) data-path-continues @endif>
       <div>
-        <p class="eyebrow">Continua l'esplorazione</p>
-        <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>
-        <p>{{ $cluster->closing_text ?: 'Hai attraversato la mappa essenziale di questo tema. Puoi tornare ai Percorsi e scegliere la prossima direzione.' }}</p>
+        @if($showContinuation)
+          <p class="eyebrow">Il percorso continua</p>
+          <h2>Non siamo ancora arrivati alla fine.</h2>
+          <p>{{ $publishedStepCount }} {{ $publishedStepCount === 1 ? 'tappa disponibile' : 'tappe disponibili' }} · Percorso in aggiornamento</p>
+          <p>Questo Percorso Kairus è ancora in evoluzione. Stiamo preparando nuovi capitoli per continuare l'esplorazione. Torna presto: la prossima tappa arriverà qui.</p>
+          <p><em>Qui riprenderà il viaggio.</em></p>
+        @else
+          <p class="eyebrow">Continua l'esplorazione</p>
+          <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>
+          <p>{{ $cluster->closing_text ?: 'Hai attraversato la mappa essenziale di questo tema. Puoi tornare ai Percorsi e scegliere la prossima direzione.' }}</p>
+        @endif
       </div>
       <a href="{{ route('percorsi.index') }}">Scopri tutti i Percorsi <span aria-hidden="true">→</span></a>
     </footer>

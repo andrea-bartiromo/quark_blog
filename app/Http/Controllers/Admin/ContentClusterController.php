@@ -184,6 +184,7 @@ class ContentClusterController extends Controller
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],
             'is_active' => ['nullable', 'boolean'],
+            'lifecycle_status' => ['nullable', Rule::in([ContentCluster::LIFECYCLE_UPDATING, ContentCluster::LIFECYCLE_COMPLETE])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'takeaways' => ['nullable', 'array', 'max:4'],
             'takeaways.*' => ['nullable', 'string', 'max:320'],
