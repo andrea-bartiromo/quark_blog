@@ -479,6 +479,12 @@
   padding: clamp(1.8rem, 4vw, 2.8rem) 0 clamp(2rem, 4vw, 3rem);
 }
 
+.path-detail .path-step__label {
+  color: #9a4f16;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 /* Tappa fantasma "il percorso continua": stesso filo, nodo aperto e
    tratteggiato — mai un titolo, una data o un numero di articoli futuri
    (Parte 5), solo una metafora grafica di prosecuzione. */
@@ -525,12 +531,6 @@
 
 .path-detail .path-step__label--close {
   color: rgba(18, 63, 56, .55);
-}
-
-.path-detail .path-step__label {
-  color: #9a4f16;
-  letter-spacing: .08em;
-  text-transform: uppercase;
 }
 
 .path-detail .path-step h3 {
@@ -602,6 +602,15 @@
   border-radius: 22px;
   background: #e4ece6;
   box-shadow: var(--path-shadow);
+}
+
+/* Aggiornamento vs concluso deve leggersi anche senza leggere il testo
+   (Parte 7) — stesso linguaggio "aperto/tratteggiato" già usato dal nodo
+   fantasma della timeline (path-step--next), qui sul bordo superiore.
+   Nessuna icona, nessun badge: solo lo stile del bordo che cambia. */
+.path-detail .path-ending--continues {
+  border-top-style: dashed;
+  border-top-color: var(--path-gold);
 }
 
 .path-detail .path-ending h2 {
