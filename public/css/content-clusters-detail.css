@@ -12,10 +12,16 @@
   padding: clamp(2rem, 4vw, 3.5rem) 0 5rem;
   color: var(--path-ink);
   background-color: var(--path-ivory);
+  /* Terzo strato: un glow oro appena percettibile dietro l'hero, l'unica
+     concessione di profondità oltre alla texture puntinata esistente —
+     una rivista digitale premium, non una landing a "strisce" (Parte 6). */
   background-image:
+    radial-gradient(ellipse 900px 520px at 50% 0%, rgba(201, 120, 43, .05), transparent 70%),
     linear-gradient(rgba(18, 63, 56, .025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 63, 56, .018) 1px, transparent 1px);
-  background-size: 42px 42px;
+  background-repeat: no-repeat, repeat, repeat;
+  background-size: 100% 640px, 42px 42px, 42px 42px;
+  background-position: top center, 0 0, 0 0;
 }
 
 .path-detail > .container {
@@ -120,6 +126,22 @@
   min-height: inherit;
   overflow: hidden;
   cursor: zoom-in;
+}
+
+/* La cover deve sembrare parte dell'atmosfera dell'hero, non un'immagine
+   appoggiata accanto al pannello verde (Parte 2): una sfumatura verde
+   Kairus dal bordo dove le due metà si incontrano, più un velo scuro
+   in basso che protegge sempre la leggibilità del pulsante "Visualizza
+   immagine" sopra qualunque cover, chiara o scura. */
+.path-detail .path-hero__cover-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, transparent 55%, rgba(10, 31, 27, .55) 100%),
+    linear-gradient(90deg, rgba(18, 63, 56, .5) 0%, rgba(18, 63, 56, 0) 16%);
+  pointer-events: none;
 }
 
 .path-detail .path-hero__cover img,
@@ -606,6 +628,12 @@
     aspect-ratio: inherit;
   }
 
+  .path-detail .path-hero__cover-trigger::before {
+    /* La cover è sopra il pannello copy, non accanto: la sfumatura
+       orizzontale non ha senso qui, resta solo il velo inferiore. */
+    background: linear-gradient(180deg, transparent 55%, rgba(10, 31, 27, .55) 100%);
+  }
+
   .path-detail .path-hero__copy {
     padding: clamp(2rem, 6vw, 3rem);
   }
@@ -765,12 +793,18 @@
 @media (prefers-reduced-motion: reduce) {
   .path-detail .path-pillar__link,
   .path-detail .path-step,
-  .path-detail .path-hero__cover-trigger img {
+  .path-detail .path-hero__cover-trigger img,
+  .path-detail .path-step__cover img {
     transition: none;
   }
 
   .path-detail .path-hero__cover-trigger:hover img,
   .path-detail .path-hero__cover-trigger:focus-visible img {
+    transform: none;
+  }
+
+  .path-detail .path-step:hover .path-step__cover img,
+  .path-detail .path-step__cover:focus-visible img {
     transform: none;
   }
 }
