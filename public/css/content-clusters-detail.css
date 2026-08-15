@@ -373,7 +373,11 @@
 }
 
 .path-detail .path-step:has(.path-step__cover) {
-  grid-template-columns: 116px minmax(140px, 190px) minmax(0, 1fr);
+  /* Cover editoriale, non thumbnail (feedback smoke umano su
+     /percorsi/intelligenza-artificiale): più presenza rispetto al
+     precedente minmax(140px, 190px), ma ancora una colonna subordinata
+     al numero e al corpo — mai una card fotografica a sé stante. */
+  grid-template-columns: 116px minmax(170px, 230px) minmax(0, 1fr);
   grid-template-areas: "number cover body";
 }
 
@@ -801,7 +805,10 @@
 
   .path-detail .path-step__cover {
     margin: .5rem 0 .35rem;
-    aspect-ratio: 16 / 9;
+    /* 16:9 leggeva troppo piatta a piena larghezza; 3:2 dà più presenza
+       verticale senza avvicinarsi al rapporto dei visual break (21:9 /
+       16:10) — restano due linguaggi visivi distinti. */
+    aspect-ratio: 3 / 2;
   }
 
   .path-detail .path-step__body {
