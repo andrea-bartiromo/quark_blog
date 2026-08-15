@@ -504,7 +504,10 @@
 }
 
 .path-detail .path-step__label--next {
-  color: rgba(18, 63, 56, .5);
+  /* .7, non .5: la trasparenza più bassa scendeva sotto 4.5:1 sul fondo
+     crema (~2.7:1) — muta rispetto all'oro delle label attive, ma resta
+     leggibile (misurato ~4.6:1). */
+  color: rgba(18, 63, 56, .7);
 }
 
 .path-detail .path-step__next-copy {
@@ -530,7 +533,7 @@
 }
 
 .path-detail .path-step__label--close {
-  color: rgba(18, 63, 56, .55);
+  color: rgba(18, 63, 56, .7);
 }
 
 .path-detail .path-step h3 {
