@@ -26,6 +26,8 @@
       : null;
   $pathCoverAlt = 'Cover del percorso '.$cluster->name;
   $pathCoverViewerId = 'path-cover-viewer-'.$cluster->id;
+  $takeaways = collect($cluster->takeaways ?? [])->filter()->values();
+  $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
 @endphp
 
 <section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -83,9 +85,27 @@
 
     <section class="path-editorial-note path-brand-statement" aria-labelledby="path-note-title">
       <p class="eyebrow">Mappa di lettura</p>
-      <h2 id="path-note-title">Capire un tema significa seguirne i passaggi essenziali.</h2>
-      <p>Abbiamo ordinato gli approfondimenti per accompagnarti dalle basi ai nodi più importanti, con una sequenza pensata per costruire il quadro un articolo alla volta.</p>
+      <h2 id="path-note-title">Perché questo percorso</h2>
+      <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
     </section>
+
+    @if($takeaways->isNotEmpty())
+      <section class="path-narrative path-narrative--takeaways" aria-labelledby="path-takeaways-title">
+        <div><p class="eyebrow">Cosa capirai</p><h2 id="path-takeaways-title">I punti da portare con te</h2></div>
+        <ol>
+          @foreach($takeaways as $takeaway)<li>{{ $takeaway }}</li>@endforeach
+        </ol>
+      </section>
+    @endif
+
+    @if($guidingQuestions->isNotEmpty())
+      <section class="path-narrative path-narrative--questions" aria-labelledby="path-questions-title">
+        <div><p class="eyebrow">Le domande che ci guideranno</p><h2 id="path-questions-title">Una mappa fatta di domande</h2></div>
+        <ul>
+          @foreach($guidingQuestions as $question)<li>{{ $question }}</li>@endforeach
+        </ul>
+      </section>
+    @endif
 
     @if($pillar)
       <aside class="path-pillar" aria-labelledby="pillar-title">
@@ -120,6 +140,9 @@
               <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
               @if($article->excerpt)<p>{{ $article->excerpt }}</p>@endif
               <a class="path-step__cta" href="{{ route('articolo', $article->slug) }}">Leggi l'articolo <span aria-hidden="true">→</span></a>
+              @if($article->pivot?->transition_text)
+                <p class="path-step__transition"><span aria-hidden="true">↳</span> {{ $article->pivot->transition_text }}</p>
+              @endif
             </div>
           </li>
         @empty
@@ -131,8 +154,8 @@
     <footer class="path-ending">
       <div>
         <p class="eyebrow">Continua l'esplorazione</p>
-        <h2>Continua a esplorare</h2>
-        <p>Ogni Percorso Kairus apre una nuova prospettiva: scegli il prossimo tema e continua la lettura.</p>
+        <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>
+        <p>{{ $cluster->closing_text ?: 'Hai attraversato la mappa essenziale di questo tema. Puoi tornare ai Percorsi e scegliere la prossima direzione.' }}</p>
       </div>
       <a href="{{ route('percorsi.index') }}">Scopri tutti i Percorsi <span aria-hidden="true">→</span></a>
     </footer>
