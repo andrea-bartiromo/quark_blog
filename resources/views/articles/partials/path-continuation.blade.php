@@ -1,4 +1,8 @@
 @if($pathNavigation)
+@php
+    $pathIsUpdating = $pathNavigation['cluster']->isUpdating();
+    $isCurrentPublishedEnd = ! $pathNavigation['next'];
+@endphp
 <section class="path-continuation" aria-labelledby="path-continuation-title" data-path-slug="{{ $pathNavigation['cluster']->slug }}" data-article-id="{{ $article->id }}" data-path-position="{{ $pathNavigation['current_index'] }}" data-path-total="{{ $pathNavigation['total'] }}">
     <div class="path-continuation__header">
         <div><p class="path-continuation__eyebrow">Percorso · {{ $pathNavigation['cluster']->name }}</p><h2 id="path-continuation-title">Continua il percorso</h2></div>
@@ -9,8 +13,15 @@
             @if($pathNavigation['previous'])<a class="path-continuation__step path-continuation__step--previous" href="{{ route('articolo', $pathNavigation['previous']->slug) }}" data-path-event="path_previous_click" data-target-article-id="{{ $pathNavigation['previous']->id }}"><span class="path-continuation__direction"><span aria-hidden="true">←</span> Precedente</span><strong>{{ $pathNavigation['previous']->title }}</strong></a>@endif
             @if($pathNavigation['next'])<a class="path-continuation__step path-continuation__step--next" href="{{ route('articolo', $pathNavigation['next']->slug) }}" data-path-event="path_next_click" data-target-article-id="{{ $pathNavigation['next']->id }}"><span class="path-continuation__direction">Successivo <span aria-hidden="true">→</span></span><strong>{{ $pathNavigation['next']->title }}</strong></a>@endif
         </nav>
-    @else
+    @elseif(! $pathIsUpdating)
         <p class="path-continuation__complete">Questo è l'unico articolo pubblicato del percorso.</p>
+    @endif
+    @if($pathIsUpdating && $isCurrentPublishedEnd)
+        <aside class="path-continuation__continues" data-path-continues aria-label="Il percorso continua">
+            <p class="path-continuation__eyebrow">Il percorso continua</p>
+            <strong>Non siamo ancora arrivati alla fine.</strong>
+            <p>Questo Percorso Kairus è ancora in evoluzione. Nuovi capitoli verranno pubblicati quando il lavoro editoriale sarà pronto.</p>
+        </aside>
     @endif
     <div class="path-continuation__footer"><a class="path-continuation__all" href="{{ $pathNavigation['path_url'] }}" data-path-event="path_view_all_click">Vedi tutto il percorso “{{ $pathNavigation['cluster']->name }}” <span aria-hidden="true">→</span></a></div>
 </section>
