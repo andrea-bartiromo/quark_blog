@@ -46,6 +46,11 @@ class CommunicationSubscriber extends Model
         return $this->hasMany(CommunicationDelivery::class, 'subscriber_id');
     }
 
+    public function pathSubscriptions(): HasMany
+    {
+        return $this->hasMany(ContentClusterSubscriber::class, 'subscriber_id');
+    }
+
     // ── Scope ─────────────────────────────────────────────────
 
     public function scopeConfirmed(Builder $q): Builder
