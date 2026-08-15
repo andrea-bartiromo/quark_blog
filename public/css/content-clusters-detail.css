@@ -328,10 +328,15 @@
   padding: 0;
 }
 
+/* Timeline: numero + covers restano il ritmo tipografico principale; il
+   filo/nodo (Parte 4) è un dettaglio discreto disegnato interamente in CSS
+   nella colonna del numero — mai un componente decorativo separato. */
 .path-detail .path-step {
   position: relative;
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-areas: "number body";
+  column-gap: 1.5rem;
   min-height: 0;
   border: 0;
   border-bottom: 1px solid var(--path-rule);
@@ -339,6 +344,15 @@
   background: transparent;
   box-shadow: none;
 }
+
+.path-detail .path-step:has(.path-step__cover) {
+  grid-template-columns: 116px minmax(140px, 190px) minmax(0, 1fr);
+  grid-template-areas: "number cover body";
+}
+
+.path-detail .path-step__number { grid-area: number; }
+.path-detail .path-step__cover { grid-area: cover; }
+.path-detail .path-step__body { grid-area: body; }
 
 .path-detail .path-step:last-child {
   border-bottom: 0;
@@ -349,6 +363,7 @@
 }
 
 .path-detail .path-step__number {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -367,9 +382,118 @@
   color: rgba(201, 120, 43, .72);
 }
 
+/* Nodo: un piccolo cerchio ancorato al battistrada del numero. */
+.path-detail .path-step__number::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: clamp(2.35rem, 4.3vw, 3.35rem);
+  z-index: 2;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--path-green);
+  border-radius: 50%;
+  background: var(--path-cream);
+}
+
+.path-detail .path-step--pillar .path-step__number::before {
+  border-color: var(--path-gold);
+  background: var(--path-gold);
+}
+
+/* Filo: dal nodo di questa tappa fino al bordo inferiore della sua stessa
+   riga (che si estende per l'intera altezza grazie allo stretch di
+   default della grid) — la riga successiva riprende visivamente da lì,
+   senza bisogno di calcolare un'unica linea continua su tutta la lista. */
+.path-detail .path-step__number::after {
+  content: "";
+  position: absolute;
+  left: 10.5px;
+  top: calc(clamp(2.35rem, 4.3vw, 3.35rem) + 13px);
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  background: var(--path-rule);
+}
+
+.path-detail .path-step:last-child .path-step__number::after {
+  display: none;
+}
+
+.path-detail .path-step__cover {
+  display: block;
+  align-self: start;
+  margin-top: clamp(1.9rem, 4vw, 2.75rem);
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--path-green-soft);
+  aspect-ratio: 4 / 3;
+}
+
+.path-detail .path-step__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .25s ease;
+}
+
+.path-detail .path-step:hover .path-step__cover img,
+.path-detail .path-step__cover:focus-visible img {
+  transform: scale(1.035);
+}
+
 .path-detail .path-step__body {
   min-width: 0;
   padding: clamp(1.8rem, 4vw, 2.8rem) 0 clamp(2rem, 4vw, 3rem);
+}
+
+/* Tappa fantasma "il percorso continua": stesso filo, nodo aperto e
+   tratteggiato — mai un titolo, una data o un numero di articoli futuri
+   (Parte 5), solo una metafora grafica di prosecuzione. */
+.path-detail .path-step--next .path-step__number {
+  color: rgba(18, 63, 56, .3);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: .1em;
+}
+
+.path-detail .path-step--next .path-step__number::before {
+  border-style: dashed;
+  background: transparent;
+}
+
+.path-detail .path-step--next .path-step__body {
+  padding-top: clamp(2.2rem, 4.3vw, 3.1rem);
+}
+
+.path-detail .path-step__label--next {
+  color: rgba(18, 63, 56, .5);
+}
+
+.path-detail .path-step__next-copy {
+  margin: .3rem 0 0;
+  color: #6c7d77;
+  font-style: italic;
+}
+
+/* Tappa fantasma di chiusura per un Percorso concluso: nodo pieno, filo
+   assente dopo di essa — una conclusione visiva reale (Parte 5). */
+.path-detail .path-step--close .path-step__number {
+  color: var(--path-green);
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+}
+
+.path-detail .path-step--close .path-step__number::before {
+  background: var(--path-green);
+  border-color: var(--path-green);
+}
+
+.path-detail .path-step--close .path-step__body {
+  padding-top: clamp(2.2rem, 4.3vw, 3.1rem);
+}
+
+.path-detail .path-step__label--close {
+  color: rgba(18, 63, 56, .55);
 }
 
 .path-detail .path-step__label {
@@ -589,6 +713,12 @@
 
   .path-detail .path-step {
     grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-areas: "number body";
+  }
+
+  .path-detail .path-step:has(.path-step__cover) {
+    grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-areas: "number cover" "number body";
   }
 
   .path-detail .path-step__number {
@@ -596,8 +726,25 @@
     font-size: 1.9rem;
   }
 
+  .path-detail .path-step__number::before {
+    top: 1.85rem;
+  }
+
+  .path-detail .path-step__number::after {
+    top: calc(1.85rem + 13px);
+  }
+
+  .path-detail .path-step__cover {
+    margin: .5rem 0 .35rem;
+    aspect-ratio: 16 / 9;
+  }
+
   .path-detail .path-step__body {
     padding: 1.55rem 0 1.75rem;
+  }
+
+  .path-detail .path-step:has(.path-step__cover) .path-step__body {
+    padding-top: .25rem;
   }
 
   .path-detail .path-step h3 {
