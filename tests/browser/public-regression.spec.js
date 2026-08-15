@@ -158,7 +158,7 @@ test('ticker autoplays with visibly measurable motion in normal mode', async ({ 
     const firstLink = track.locator('.ticker-sequence').first().getByRole('link').first();
 
     await expect(track).toBeVisible();
-    await expect(track.locator('.ticker-sequence')).toHaveCount(2);
+    await expect(track.locator('.ticker-sequence')).toHaveCount(4);
 
     const initial = await track.evaluate(element => {
         const style = getComputedStyle(element);
