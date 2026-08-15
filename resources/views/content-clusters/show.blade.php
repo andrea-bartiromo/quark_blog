@@ -163,15 +163,15 @@
           <li class="path-step path-step--next" aria-hidden="true">
             <div class="path-step__number path-step__number--next">···</div>
             <div class="path-step__body">
-              <span class="path-step__label path-step__label--next">Prossima tappa</span>
-              <p class="path-step__next-copy">Il percorso continua: la prossima tappa arriverà qui.</p>
+              <span class="path-step__label path-step__label--next">In arrivo</span>
+              <p class="path-step__next-copy">La prossima tappa non è ancora disponibile.</p>
             </div>
           </li>
         @elseif($articles->isNotEmpty())
           <li class="path-step path-step--close" aria-hidden="true">
             <div class="path-step__number path-step__number--close">●</div>
             <div class="path-step__body">
-              <span class="path-step__label path-step__label--close">Fine del percorso</span>
+              <span class="path-step__label path-step__label--close">Percorso concluso</span>
             </div>
           </li>
         @endif
