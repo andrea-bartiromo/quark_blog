@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Models\ContentClusterSubscriber;
 use App\Services\Communication\CommunicationDeliveryService;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Trigger di pubblicazione per "Avvisami quando continua" (Parte 8/9/10
@@ -24,6 +25,23 @@ class PathContinuationNotifier
     public function notifyIfPublished(Article $article): void
     {
         if ($article->status !== Article::STATUS_PUBLISHED) {
+            return;
+        }
+
+        // Questo hook scatta su OGNI pubblicazione di articolo, anche in
+        // finestre transitorie in cui lo schema Percorsi non è ancora (o
+        // non è più) completo — es. un test di migrazione incrementale che
+        // ricrea deliberatamente uno stato intermedio pre-esistente
+        // popolato con articoli, prima che le colonne/tabelle dei Percorsi
+        // vengano ri-applicate. In quello stato non esiste nessun Percorso
+        // eleggibile per costruzione: uscire qui è corretto, non un
+        // fallback che nasconde un errore reale.
+        if (
+            ! Schema::hasTable('content_clusters')
+            || ! Schema::hasTable('article_content_cluster')
+            || ! Schema::hasColumn('content_clusters', 'lifecycle_status')
+            || ! Schema::hasColumn('article_content_cluster', 'transition_text')
+        ) {
             return;
         }
 
