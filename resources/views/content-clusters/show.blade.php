@@ -30,6 +30,7 @@
   $takeaways = collect($cluster->takeaways ?? [])->filter()->values();
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
   $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
+  $publishedStepCount = $articles->count();
 @endphp
 
 <section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -158,7 +159,9 @@
         @if($showContinuation)
           <p class="eyebrow">Il percorso continua</p>
           <h2>Non siamo ancora arrivati alla fine.</h2>
-          <p>Questo Percorso Kairus è ancora in evoluzione. Nuovi capitoli verranno pubblicati quando il lavoro editoriale sarà pronto.</p>
+          <p>{{ $publishedStepCount }} {{ $publishedStepCount === 1 ? 'tappa disponibile' : 'tappe disponibili' }} · Percorso in aggiornamento</p>
+          <p>Questo Percorso Kairus è ancora in evoluzione. Stiamo preparando nuovi capitoli per continuare l'esplorazione. Torna presto: la prossima tappa arriverà qui.</p>
+          <p><em>Qui riprenderà il viaggio.</em></p>
         @else
           <p class="eyebrow">Continua l'esplorazione</p>
           <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>
