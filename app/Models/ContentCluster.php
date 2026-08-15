@@ -22,18 +22,24 @@ class ContentCluster extends Model
         'pillar_article_id',
         'is_active',
         'sort_order',
+        'takeaways',
+        'guiding_questions',
+        'closing_title',
+        'closing_text',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
         'pillar_article_id' => 'integer',
+        'takeaways' => 'array',
+        'guiding_questions' => 'array',
     ];
 
     public function articles()
     {
         return $this->belongsToMany(Article::class, 'article_content_cluster')
-            ->withPivot(['position', 'is_primary'])
+            ->withPivot(['position', 'is_primary', 'transition_text'])
             ->withTimestamps()
             ->orderByPivot('position')
             ->orderBy('articles.title');

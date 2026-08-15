@@ -148,6 +148,96 @@ test.describe('semantic public page contracts', () => {
     });
 });
 
+test('ticker autoplays with visibly measurable motion in normal mode', async ({ page }) => {
+    test.setTimeout(15_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const guards = await gotoPublicPage(page, fixture.routes.home);
+    const track = page.locator('.ticker-track');
+    const viewport = page.locator('.ticker-viewport');
+    const firstLink = track.locator('.ticker-sequence').first().getByRole('link').first();
+
+    await expect(track).toBeVisible();
+    await expect(track.locator('.ticker-sequence')).toHaveCount(4);
+
+    const initial = await track.evaluate(element => {
+        const style = getComputedStyle(element);
+        return {
+            animationName: style.animationName,
+            animationDuration: style.animationDuration,
+            playState: style.animationPlayState,
+        };
+    });
+    const startBox = await track.boundingBox();
+
+    expect(initial.animationName).toBe('kairus-ticker-loop');
+    expect(initial.animationDuration).not.toBe('0s');
+    expect(initial.playState).toBe('running');
+    expect(startBox).not.toBeNull();
+
+    await page.waitForTimeout(1000);
+    const endBox = await track.boundingBox();
+    expect(endBox).not.toBeNull();
+    expect(Math.abs(endBox.x - startBox.x)).toBeGreaterThanOrEqual(15);
+
+    const viewportBox = await viewport.boundingBox();
+    expect(viewportBox).not.toBeNull();
+    await page.mouse.move(
+        viewportBox.x + viewportBox.width / 2,
+        viewportBox.y + viewportBox.height / 2,
+    );
+    await expect.poll(() => track.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('running');
+
+    await firstLink.focus();
+    await expect(firstLink).toBeFocused();
+    await expect.poll(() => track.evaluate(element => getComputedStyle(element).animationPlayState)).toBe('running');
+
+    const overflow = await viewport.evaluate(element => ({
+        overflowX: getComputedStyle(element).overflowX,
+        pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    }));
+    expect(overflow.overflowX).toBe('hidden');
+    expect(overflow.pageFits).toBeTruthy();
+    guards.assertClean();
+});
+
+test('ticker reduced motion disables autoplay but keeps manual horizontal access', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const guards = await gotoPublicPage(page, fixture.routes.home);
+    const track = page.locator('.ticker-track');
+    const viewport = page.locator('.ticker-viewport');
+
+    await expect(track).toBeVisible();
+    const state = await page.evaluate(() => {
+        const trackElement = document.querySelector('.ticker-track');
+        const viewportElement = document.querySelector('.ticker-viewport');
+        const duplicate = document.querySelector('.ticker-sequence[aria-hidden="true"]');
+        if (!trackElement || !viewportElement || !duplicate) return null;
+
+        const trackStyle = getComputedStyle(trackElement);
+        const viewportStyle = getComputedStyle(viewportElement);
+        return {
+            animationName: trackStyle.animationName,
+            transform: trackStyle.transform,
+            overflowX: viewportStyle.overflowX,
+            duplicateDisplay: getComputedStyle(duplicate).display,
+            scrollWidth: viewportElement.scrollWidth,
+            clientWidth: viewportElement.clientWidth,
+            pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        };
+    });
+
+    expect(state).not.toBeNull();
+    expect(state.animationName).toBe('none');
+    expect(state.transform).toBe('none');
+    expect(state.overflowX).toBe('auto');
+    expect(state.duplicateDisplay).toBe('none');
+    expect(state.scrollWidth).toBeGreaterThan(state.clientWidth);
+    expect(state.pageFits).toBeTruthy();
+    guards.assertClean();
+});
+
 test('newsletter modal traps keyboard focus and restores semantic closed state without submitting', async ({ page }) => {
     const guards = await gotoPublicPage(page, fixture.routes.home);
     const trigger = page.getByRole('button', { name: /Newsletter/ });

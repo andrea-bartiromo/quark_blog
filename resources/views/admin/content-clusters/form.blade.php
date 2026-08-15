@@ -29,6 +29,8 @@
 @php
   $selectedCover = old('cover_image', $cluster?->cover_image ?? '');
   $selectedCoverUrl = $selectedCover !== '' ? asset('assets/img/'.ltrim($selectedCover, '/')) : '';
+  $takeaways = array_pad(array_slice(old('takeaways', $cluster?->takeaways ?? []), 0, 4), 4, '');
+  $guidingQuestions = array_pad(array_slice(old('guiding_questions', $cluster?->guiding_questions ?? []), 0, 4), 4, '');
 @endphp
 
 <form method="POST" action="{{ $cluster ? route('admin.content-clusters.update', $cluster) : route('admin.content-clusters.store') }}" id="content-cluster-form">
@@ -39,6 +41,27 @@
     <div class="form-group"><label class="form-label" for="slug">Slug</label><input id="slug" class="form-input" name="slug" maxlength="180" value="{{ old('slug', $cluster?->slug) }}" placeholder="auto-generato dal nome se vuoto"></div>
     <div class="form-group"><label class="form-label" for="short_description">Descrizione breve</label><textarea id="short_description" class="form-textarea" name="short_description" maxlength="320">{{ old('short_description', $cluster?->short_description) }}</textarea></div>
     <div class="form-group"><label class="form-label" for="description">Descrizione</label><textarea id="description" class="form-textarea" name="description" style="min-height:120px;">{{ old('description', $cluster?->description) }}</textarea></div>
+
+    <section class="form-group" aria-labelledby="cluster-narrative-title" style="padding:1rem;border:1px solid #e5e7eb;border-radius:10px;display:grid;gap:1rem;">
+      <div>
+        <div class="form-label" id="cluster-narrative-title">Narrazione del Percorso</div>
+        <small style="color:#6b7280;">Campi opzionali: lascia vuoto ciò che non serve. L’ordine delle voci segue l’ordine dei campi.</small>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cosa capirai</label>
+        @foreach($takeaways as $index => $value)
+          <input class="form-input" name="takeaways[]" maxlength="320" value="{{ $value }}" placeholder="Voce {{ $index + 1 }}" style="margin-bottom:.45rem;">
+        @endforeach
+      </div>
+      <div class="form-group">
+        <label class="form-label">Le domande che ci guideranno</label>
+        @foreach($guidingQuestions as $index => $value)
+          <input class="form-input" name="guiding_questions[]" maxlength="320" value="{{ $value }}" placeholder="Domanda {{ $index + 1 }}" style="margin-bottom:.45rem;">
+        @endforeach
+      </div>
+      <div class="form-group"><label class="form-label" for="closing_title">Titolo conclusivo</label><input id="closing_title" class="form-input" name="closing_title" maxlength="255" value="{{ old('closing_title', $cluster?->closing_title) }}"></div>
+      <div class="form-group"><label class="form-label" for="closing_text">Testo conclusivo</label><textarea id="closing_text" class="form-textarea" name="closing_text" maxlength="2000">{{ old('closing_text', $cluster?->closing_text) }}</textarea></div>
+    </section>
 
     <section class="form-group" aria-labelledby="cluster-cover-title" data-cluster-cover-picker>
       <div class="form-label" id="cluster-cover-title">Cover</div>
@@ -114,22 +137,24 @@
       @method('PUT')
       <div style="overflow-x:auto;">
         <table class="admin-table">
-          <thead><tr><th>Articolo</th><th>Stato</th><th>Posizione</th><th>Primary</th><th>Azione</th></tr></thead>
+          <thead><tr><th>Articolo</th><th>Stato</th><th>Posizione</th><th>Primary</th><th>Raccordo editoriale</th><th>Azione</th></tr></thead>
           <tbody>
           @forelse($selected as $article)
             @php
               $position = old("memberships.{$article->id}.position", $article->pivot?->position);
               $primary = old("memberships.{$article->id}.is_primary", $article->pivot?->is_primary ?? false);
+              $transition = old("memberships.{$article->id}.transition_text", $article->pivot?->transition_text);
             @endphp
             <tr>
               <td>{{ $article->title }}<input type="hidden" name="membership_ids[]" value="{{ $article->id }}"></td>
               <td>{{ $article->status }}</td>
               <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $article->id }}][position]" value="{{ $position }}"></td>
               <td><input aria-label="Primary {{ $article->title }}" type="checkbox" name="memberships[{{ $article->id }}][is_primary]" value="1" {{ $primary ? 'checked' : '' }}></td>
+              <td><textarea aria-label="Raccordo editoriale {{ $article->title }}" class="form-textarea" style="min-width:220px;min-height:70px;" maxlength="1000" name="memberships[{{ $article->id }}][transition_text]">{{ $transition }}</textarea></td>
               <td><button class="action-btn" type="submit" name="remove_article_id" value="{{ $article->id }}">Rimuovi</button></td>
             </tr>
           @empty
-            <tr><td colspan="5">Nessuna membership. Usa il catalogo qui sotto.</td></tr>
+            <tr><td colspan="6">Nessuna membership. Usa il catalogo qui sotto.</td></tr>
           @endforelse
           </tbody>
         </table>

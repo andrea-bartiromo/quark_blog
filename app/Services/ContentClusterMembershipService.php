@@ -11,7 +11,7 @@ use Throwable;
 class ContentClusterMembershipService
 {
     /**
-     * @param  array<int, array{article_id:int, position?:int|null, is_primary?:bool}>  $memberships
+     * @param  array<int, array{article_id:int, position?:int|null, is_primary?:bool, transition_text?:string|null}>  $memberships
      */
     public function sync(ContentCluster $cluster, array $memberships, ?int $pillarArticleId): void
     {
@@ -56,6 +56,7 @@ class ContentClusterMembershipService
                 $sync[$articleId] = [
                     'position' => ($index + 1) * 10,
                     'is_primary' => $isPrimary,
+                    'transition_text' => $membership['transition_text'] ?? null,
                 ];
             }
 
@@ -127,6 +128,7 @@ class ContentClusterMembershipService
             $cluster->articles()->attach($article->id, [
                 'position' => max(10, $nextPosition),
                 'is_primary' => $primary,
+                'transition_text' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
