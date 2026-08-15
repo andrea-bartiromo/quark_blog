@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters-detail.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters-narrative.css') }}">
 <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 @endsection
 
