@@ -128,12 +128,31 @@ class BrowserTestSeeder extends Seeder
             ],
         ]);
 
+        $completeClusterId = DB::table('content_clusters')->insertGetId([
+            'name' => 'Percorso completo CI',
+            'slug' => 'percorso-completo-ci',
+            'short_description' => 'Percorso concluso per il contratto browser.',
+            'is_active' => true,
+            'lifecycle_status' => 'complete',
+            'sort_order' => 20,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('article_content_cluster')->insert([
+            'article_id' => $publishedArticleId,
+            'content_cluster_id' => $completeClusterId,
+            'position' => 10,
+            'is_primary' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         DB::table('content_clusters')->insert([
             'name' => 'Percorso inattivo CI',
             'slug' => 'percorso-inattivo-ci',
             'is_active' => false,
             'lifecycle_status' => 'complete',
-            'sort_order' => 20,
+            'sort_order' => 30,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
