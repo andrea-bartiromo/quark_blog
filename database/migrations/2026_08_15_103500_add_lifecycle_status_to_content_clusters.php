@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('content_clusters', function (Blueprint $table) {
-            $table->string('lifecycle_status', 20)->default('complete')->after('is_active');
+            $table->string('lifecycle_status', 20)->default('complete');
         });
     }
 
