@@ -93,14 +93,18 @@
 .path-hero__cover--fallback .path-card__fallback { min-height: 100%; padding: clamp(1.6rem, 3vw, 2.4rem); }
 .path-hero__cover--fallback .path-card__fallback strong { font-size: clamp(2rem, 4vw, 3.4rem); }
 
-/* Existing editorial note becomes the single Kairus statement on detail. */
+/* Existing editorial note becomes the single Kairus statement on detail.
+   Toni chiari (non lo stesso verde profondo dell'hero appena sopra): due
+   pannelli scuri consecutivi a tutta larghezza si fondevano in un'unica
+   massa, perdendo ritmo — qui la stessa identità (bordo oro, motivo
+   orbitale) regge su un verde-avorio chiaro, dando respiro reale. */
 .path-detail .path-editorial-note.path-brand-statement {
   position: relative;
   overflow: hidden;
   border-color: rgba(201, 120, 43, .32);
   border-top: 4px solid var(--path-gold, #c9782b);
-  background: var(--path-green, #123f38);
-  color: #fffaf0;
+  background: var(--path-green-soft, #dfeae4);
+  color: var(--path-ink, #17332f);
 }
 .path-detail .path-editorial-note.path-brand-statement::after {
   content: "";
@@ -109,14 +113,14 @@
   bottom: clamp(-5rem, -5vw, -2rem);
   width: clamp(12rem, 22vw, 19rem);
   aspect-ratio: 1;
-  border: 1px solid rgba(232, 200, 159, .2);
+  border: 1px solid rgba(18, 63, 56, .14);
   border-radius: 50%;
-  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(232, 200, 159, .11) 28px 29px);
+  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(18, 63, 56, .07) 28px 29px);
   pointer-events: none;
 }
-.path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: #e8c89f; }
-.path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: #fffdf8; }
-.path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: rgba(255, 253, 248, .82); }
+.path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: var(--path-gold, #9a4f16); }
+.path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: var(--path-ink, #17332f); }
+.path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: #3d534c; }
 
 .path-pillar { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: .85rem; align-items: stretch; margin: 1.5rem 0 3rem; padding: .85rem; border: 1px solid #fed7aa; border-radius: var(--radius-lg); background: #fffaf5; box-shadow: var(--shadow-sm); }
 .path-pillar__intro { padding: 1rem 1.15rem; }
