@@ -103,9 +103,12 @@ class SelectiveDeployBackupScriptTest extends TestCase
 
     public function test_invalid_absolute_duplicate_empty_or_forbidden_manifest_fails_closed(): void
     {
+        File::put($this->appRoot.'/trailing.php', "old\n");
+
         foreach ([
             "app\t../escape\n",
             "app\t/etc/passwd\n",
+            "app\ttrailing.php/\n",
             "app\tvendor/autoload.php\n",
             "app\t.env.production\n",
             "app\ta.php\textra\n",
