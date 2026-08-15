@@ -212,7 +212,7 @@ for (const width of viewportWidths) {
         await expect(lastBox.locator('[data-path-continues]')).toBeVisible();
         await expect(lastBox.getByText("Hai raggiunto l'ultima tappa disponibile.")).toBeVisible();
         await expect(lastBox.getByText('Il prossimo capitolo arriverà qui.')).toBeVisible();
-        await expect(lastBox.getByRole('link', { name: /Torna al Percorso.*IA spiegata/ })).toBeVisible();
+        await expect(lastBox.getByRole('link', { name: /Vedi tutto il percorso.*IA spiegata/ })).toBeVisible();
         await expect(lastBox.getByText('Non siamo ancora arrivati alla fine.')).toHaveCount(0);
         await expect(lastBox.getByText('Avvisami quando continua')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
@@ -220,7 +220,7 @@ for (const width of viewportWidths) {
         await lastBox.getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
         await expect(page).toHaveURL(/\/articolo\/browser-turing-article$/);
 
-        await page.locator('.path-continuation').getByRole('link', { name: /Torna al Percorso/ }).click();
+        await page.locator('.path-continuation').getByRole('link', { name: /Vedi tutto il percorso/ }).click();
         await expect(page).toHaveURL(/\/percorsi\/ia-spiegata$/);
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
 
