@@ -25,12 +25,9 @@
   backface-visibility: hidden;
 }
 
-.ticker-track:hover {
-  animation-play-state: running;
-}
-
+.ticker-track:hover,
 .ticker-track:focus-within {
-  animation-play-state: paused;
+  animation-play-state: running;
 }
 
 .ticker-sequence {
