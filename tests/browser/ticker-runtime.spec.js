@@ -10,7 +10,7 @@ for (const width of [390, 768, 1440]) {
 
         const track = page.locator('.ticker-track');
         const viewport = page.locator('.ticker-viewport');
-        await expect(track.locator('.ticker-sequence')).toHaveCount(2);
+        await expect(track.locator('.ticker-sequence')).toHaveCount(4);
         await expect(track).toBeVisible();
 
         const runtime = await track.evaluate(element => {
