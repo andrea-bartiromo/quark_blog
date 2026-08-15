@@ -72,7 +72,7 @@ class ContentClusterLifecycleTest extends TestCase
             ->assertSee('Il percorso continua')
             ->assertSee("Hai raggiunto l'ultima tappa disponibile.")
             ->assertSee('Il prossimo capitolo arriverà qui.')
-            ->assertSee('Torna al Percorso')
+            ->assertSee('Vedi tutto il percorso')
             ->assertDontSee('Tappa futura')
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
             ->assertDontSee('Avvisami quando continua');
