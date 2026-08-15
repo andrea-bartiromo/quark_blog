@@ -134,10 +134,18 @@
         </div>
         <p>Segui l'ordine proposto oppure entra direttamente nell'approfondimento che ti interessa.</p>
       </header>
-      <ol class="path-steps__list">
+      <ol class="path-steps__list {{ $showContinuation ? 'path-steps__list--continues' : '' }}">
         @forelse($articles as $article)
-          <li class="path-step {{ $pillar && $article->is($pillar) ? 'path-step--pillar' : '' }}">
+          @php
+            $stepCoverUrl = filled($article->cover_image) ? asset('assets/img/'.$article->cover_image) : null;
+          @endphp
+          <li class="path-step {{ $pillar && $article->is($pillar) ? 'path-step--pillar' : '' }} {{ $stepCoverUrl ? '' : 'path-step--no-cover' }}">
             <div class="path-step__number" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</div>
+            @if($stepCoverUrl)
+              <a class="path-step__cover" href="{{ route('articolo', $article->slug) }}" tabindex="-1" aria-hidden="true">
+                <img src="{{ $stepCoverUrl }}" alt="" loading="lazy" decoding="async" width="320" height="240">
+              </a>
+            @endif
             <div class="path-step__body">
               @if($pillar && $article->is($pillar))<span class="path-step__label">Punto di partenza</span>@endif
               <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
@@ -151,6 +159,22 @@
         @empty
           <li class="paths-empty">Nessun articolo pubblicato in questo percorso.</li>
         @endforelse
+        @if($showContinuation)
+          <li class="path-step path-step--next" aria-hidden="true">
+            <div class="path-step__number path-step__number--next">···</div>
+            <div class="path-step__body">
+              <span class="path-step__label path-step__label--next">Prossima tappa</span>
+              <p class="path-step__next-copy">Il percorso continua: la prossima tappa arriverà qui.</p>
+            </div>
+          </li>
+        @elseif($articles->isNotEmpty())
+          <li class="path-step path-step--close" aria-hidden="true">
+            <div class="path-step__number path-step__number--close">●</div>
+            <div class="path-step__body">
+              <span class="path-step__label path-step__label--close">Fine del percorso</span>
+            </div>
+          </li>
+        @endif
       </ol>
     </section>
 
