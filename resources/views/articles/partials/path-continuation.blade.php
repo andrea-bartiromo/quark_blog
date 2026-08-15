@@ -17,10 +17,10 @@
         <p class="path-continuation__complete">Questo è l'unico articolo pubblicato del percorso.</p>
     @endif
     @if($pathIsUpdating && $isCurrentPublishedEnd)
-        <aside class="path-continuation__continues" data-path-continues aria-label="Il percorso continua">
-            <p class="path-continuation__eyebrow">Il percorso continua</p>
+        <aside class="path-continuation__complete path-continuation__continues" data-path-continues aria-label="Il percorso continua">
+            <span class="path-continuation__eyebrow">Il percorso continua</span>
             <strong>Non siamo ancora arrivati alla fine.</strong>
-            <p>Questo Percorso Kairus è ancora in evoluzione. Nuovi capitoli verranno pubblicati quando il lavoro editoriale sarà pronto.</p>
+            <span>Questo Percorso Kairus è ancora in evoluzione. Nuovi capitoli verranno pubblicati quando il lavoro editoriale sarà pronto.</span>
         </aside>
     @endif
     <div class="path-continuation__footer"><a class="path-continuation__all" href="{{ $pathNavigation['path_url'] }}" data-path-event="path_view_all_click">Vedi tutto il percorso “{{ $pathNavigation['cluster']->name }}” <span aria-hidden="true">→</span></a></div>
