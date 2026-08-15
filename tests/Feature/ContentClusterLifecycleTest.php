@@ -26,10 +26,13 @@ class ContentClusterLifecycleTest extends TestCase
         $this->assertSame(ContentCluster::LIFECYCLE_COMPLETE, $cluster->lifecycle_status);
         $this->get(route('percorsi.show', $cluster->slug))
             ->assertOk()
+            ->assertSee('Fine del percorso')
+            ->assertDontSee('Il percorso continua')
+            ->assertDontSee('Percorso in aggiornamento')
             ->assertDontSee('Non siamo ancora arrivati alla fine.');
     }
 
-    public function test_updating_path_with_published_content_renders_continuation_on_detail_and_last_article(): void
+    public function test_updating_path_with_published_content_renders_refined_public_continuation_on_detail_and_last_article(): void
     {
         $cluster = ContentCluster::factory()->create([
             'name' => 'Percorso in aggiornamento',
@@ -50,17 +53,29 @@ class ContentClusterLifecycleTest extends TestCase
             ->assertOk()
             ->assertSee('Il percorso continua')
             ->assertSee('Non siamo ancora arrivati alla fine.')
-            ->assertDontSee('Tappa futura');
+            ->assertSee('2 tappe disponibili · Percorso in aggiornamento')
+            ->assertSee("Stiamo preparando nuovi capitoli per continuare l'esplorazione.")
+            ->assertSee('Torna presto: la prossima tappa arriverà qui.')
+            ->assertSee('Qui riprenderà il viaggio.')
+            ->assertDontSee('3 tappe disponibili')
+            ->assertDontSee('Tappa futura')
+            ->assertDontSee('quando il lavoro editoriale sarà pronto')
+            ->assertDontSee('Avvisami quando continua');
 
         $this->get(route('articolo', $first->slug))
             ->assertOk()
-            ->assertDontSee('Non siamo ancora arrivati alla fine.');
+            ->assertDontSee("Hai raggiunto l'ultima tappa disponibile.")
+            ->assertDontSee('Il prossimo capitolo arriverà qui.');
 
         $this->get(route('articolo', $last->slug))
             ->assertOk()
             ->assertSee('Il percorso continua')
-            ->assertSee('Non siamo ancora arrivati alla fine.')
-            ->assertDontSee('Tappa futura');
+            ->assertSee("Hai raggiunto l'ultima tappa disponibile.")
+            ->assertSee('Il prossimo capitolo arriverà qui.')
+            ->assertSee('Torna al Percorso')
+            ->assertDontSee('Tappa futura')
+            ->assertDontSee('quando il lavoro editoriale sarà pronto')
+            ->assertDontSee('Avvisami quando continua');
     }
 
     public function test_updating_path_without_public_articles_does_not_render_continuation_state(): void
@@ -75,7 +90,9 @@ class ContentClusterLifecycleTest extends TestCase
 
         $this->get(route('percorsi.show', $cluster->slug))
             ->assertOk()
-            ->assertDontSee('Non siamo ancora arrivati alla fine.');
+            ->assertDontSee('Percorso in aggiornamento')
+            ->assertDontSee('Non siamo ancora arrivati alla fine.')
+            ->assertDontSee('Solo futuro');
     }
 
     public function test_editor_can_set_lifecycle_status_and_admin_form_exposes_explicit_control(): void
