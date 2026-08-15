@@ -99,6 +99,45 @@ class PathVisualTimelineTest extends TestCase
         $response->assertDontSee('path-step--close', false);
     }
 
+    public function test_the_ending_carries_a_distinct_class_for_updating_versus_complete(): void
+    {
+        // Contratto della Parte 7 (Pass 3): la differenza updating/complete
+        // deve essere percepibile senza leggere il testo. La classe
+        // path-ending--continues è ciò che la CSS usa per differenziare il
+        // bordo (tratteggiato oro vs pieno verde) — qui blocchiamo solo il
+        // contratto strutturale, non i pixel.
+        $updating = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
+        $updating->articles()->attach($this->article('Tappa pubblicata')->id, ['position' => 10]);
+
+        $complete = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'complete']);
+        $complete->articles()->attach($this->article('Tappa pubblicata')->id, ['position' => 10]);
+
+        $updatingResponse = $this->get(route('percorsi.show', $updating->slug));
+        $completeResponse = $this->get(route('percorsi.show', $complete->slug));
+
+        $updatingResponse->assertOk();
+        $updatingResponse->assertSee('path-ending--continues', false);
+
+        $completeResponse->assertOk();
+        $completeResponse->assertDontSee('path-ending--continues', false);
+    }
+
+    public function test_the_article_cover_column_keeps_its_editorial_sizing_contract(): void
+    {
+        // Blocca la geometria a livello di struttura CSS, non di pixel
+        // renderizzati (Parte 19): un cambiamento che riduca di nuovo la
+        // colonna cover a una thumbnail (com'era prima del feedback smoke
+        // umano su /percorsi/intelligenza-artificiale) deve rompere questo
+        // test.
+        $css = file_get_contents(public_path('css/content-clusters-detail.css'));
+
+        $this->assertStringContainsString(
+            'minmax(170px, 230px)',
+            $css,
+            'La colonna cover degli step non deve tornare a essere una thumbnail striminzita.'
+        );
+    }
+
     public function test_the_terminal_node_never_leaks_scheduled_article_information(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
