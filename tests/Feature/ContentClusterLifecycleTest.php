@@ -62,26 +62,36 @@ class ContentClusterLifecycleTest extends TestCase
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
             ->assertDontSee('Avvisami quando continua');
 
-        $renderedText = html_entity_decode(strip_tags($detailResponse->getContent()), ENT_QUOTES | ENT_HTML5);
+        $detailText = html_entity_decode(strip_tags($detailResponse->getContent()), ENT_QUOTES | ENT_HTML5);
         $this->assertStringContainsString(
             "Stiamo preparando nuovi capitoli per continuare l'esplorazione.",
-            $renderedText
+            $detailText
         );
 
-        $this->get(route('articolo', $first->slug))
+        $firstArticleResponse = $this->get(route('articolo', $first->slug));
+        $firstArticleResponse
             ->assertOk()
-            ->assertDontSee("Hai raggiunto l'ultima tappa disponibile.")
             ->assertDontSee('Il prossimo capitolo arriverà qui.');
+        $firstArticleText = html_entity_decode(strip_tags($firstArticleResponse->getContent()), ENT_QUOTES | ENT_HTML5);
+        $this->assertStringNotContainsString(
+            "Hai raggiunto l'ultima tappa disponibile.",
+            $firstArticleText
+        );
 
-        $this->get(route('articolo', $last->slug))
+        $lastArticleResponse = $this->get(route('articolo', $last->slug));
+        $lastArticleResponse
             ->assertOk()
             ->assertSee('Il percorso continua')
-            ->assertSee("Hai raggiunto l'ultima tappa disponibile.")
             ->assertSee('Il prossimo capitolo arriverà qui.')
             ->assertSee('Vedi tutto il percorso')
             ->assertDontSee('Tappa futura')
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
             ->assertDontSee('Avvisami quando continua');
+        $lastArticleText = html_entity_decode(strip_tags($lastArticleResponse->getContent()), ENT_QUOTES | ENT_HTML5);
+        $this->assertStringContainsString(
+            "Hai raggiunto l'ultima tappa disponibile.",
+            $lastArticleText
+        );
     }
 
     public function test_updating_path_without_public_articles_does_not_render_continuation_state(): void
