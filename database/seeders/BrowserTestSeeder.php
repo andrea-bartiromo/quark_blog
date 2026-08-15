@@ -86,6 +86,23 @@ class BrowserTestSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $completeArticleId = DB::table('articles')->insertGetId([
+            'user_id' => $authorId,
+            'title' => 'Capitolo conclusivo browser',
+            'slug' => 'browser-complete-path-article',
+            'excerpt' => 'Fixture dedicata al Percorso concluso.',
+            'body' => '<p>Questo articolo appartiene soltanto al Percorso concluso.</p>',
+            'category' => 'intelligenza-artificiale',
+            'cover_image' => null,
+            'status' => 'published',
+            'featured' => false,
+            'read_minutes' => 1,
+            'views' => 0,
+            'published_at' => $now->copy()->subHours(3),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         $clusterId = DB::table('content_clusters')->insertGetId([
             'name' => 'IA spiegata',
             'slug' => 'ia-spiegata',
@@ -132,6 +149,7 @@ class BrowserTestSeeder extends Seeder
             'name' => 'Percorso completo CI',
             'slug' => 'percorso-completo-ci',
             'short_description' => 'Percorso concluso per il contratto browser.',
+            'pillar_article_id' => $completeArticleId,
             'is_active' => true,
             'lifecycle_status' => 'complete',
             'sort_order' => 20,
@@ -139,7 +157,7 @@ class BrowserTestSeeder extends Seeder
             'updated_at' => $now,
         ]);
         DB::table('article_content_cluster')->insert([
-            'article_id' => $publishedArticleId,
+            'article_id' => $completeArticleId,
             'content_cluster_id' => $completeClusterId,
             'position' => 10,
             'is_primary' => true,
