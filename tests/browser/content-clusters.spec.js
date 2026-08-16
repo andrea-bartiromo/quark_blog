@@ -100,18 +100,20 @@ for (const width of viewportWidths) {
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
                 const cover = document.querySelector('.path-hero__cover');
-                const note = document.querySelector('.path-editorial-note');
+                const note = document.querySelector('.path-entrance');
+                const noteCopy = document.querySelector('.path-entrance__copy');
                 const pillar = document.querySelector('.path-pillar');
                 const steps = document.querySelector('.path-steps');
                 const firstStep = document.querySelector('.path-step');
                 const firstStepNumber = document.querySelector('.path-step__number');
                 const firstStepTitle = document.querySelector('.path-step h3');
                 const ending = document.querySelector('.path-ending');
-                if (!detail || !shell || !hero || !title || !copy || !cover || !note || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
+                if (!detail || !shell || !hero || !title || !copy || !cover || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 const detailStyle = getComputedStyle(detail);
                 const noteStyle = getComputedStyle(note);
+                const noteCopyStyle = getComputedStyle(noteCopy);
                 const pillarStyle = getComputedStyle(pillar);
                 const stepsStyle = getComputedStyle(steps);
                 const stepStyle = getComputedStyle(firstStep);
@@ -133,7 +135,7 @@ for (const width of viewportWidths) {
                     detailBackground: detailStyle.backgroundColor,
                     heroBackground: heroStyle.backgroundColor,
                     noteBackground: noteStyle.backgroundColor,
-                    noteBorder: noteStyle.borderTopWidth,
+                    noteBorder: noteCopyStyle.borderTopWidth,
                     noteRadius: parseFloat(noteStyle.borderRadius),
                     pillarBackground: pillarStyle.backgroundColor,
                     pillarAccent: pillarStyle.borderLeftWidth,
