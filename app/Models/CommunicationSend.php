@@ -16,6 +16,17 @@ class CommunicationSend extends Model
 
     public const STATUS_QUEUED = 'queued';
 
+    /**
+     * Claim in corso — transizione atomica queued->sending guardata da
+     * WHERE status='queued' (stesso pattern già collaudato in
+     * CommunicationDeliveryService::attemptSend()): la garanzia che due
+     * worker concorrenti sulla STESSA riga non possano mai processarla
+     * entrambi. Nessuna migration necessaria: `status` è una colonna
+     * string semplice, senza vincolo CHECK — questo valore era già
+     * rappresentabile dallo schema originale.
+     */
+    public const STATUS_SENDING = 'sending';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_DELIVERED = 'delivered';
@@ -23,6 +34,15 @@ class CommunicationSend extends Model
     public const STATUS_BOUNCED = 'bounced';
 
     public const STATUS_FAILED = 'failed';
+
+    /**
+     * Campagna annullata mentre questa riga era ancora 'queued' (mai
+     * 'sending' — vedi CampaignDeliveryOrchestrator, la cancellazione
+     * mid-flight non interrompe un claim già in corso, lo lascia
+     * concludere). Distinto da 'failed': qui non è mai stato tentato
+     * alcun invio, reale o fake.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
         'uuid', 'campaign_id', 'subscriber_id', 'status',
@@ -71,10 +91,12 @@ class CommunicationSend extends Model
     {
         return [
             self::STATUS_QUEUED => 'In coda',
+            self::STATUS_SENDING => 'Invio in corso',
             self::STATUS_SENT => 'Inviata',
             self::STATUS_DELIVERED => 'Consegnata',
             self::STATUS_BOUNCED => 'Rimbalzata',
             self::STATUS_FAILED => 'Fallita',
+            self::STATUS_CANCELLED => 'Annullata',
         ];
     }
 }
