@@ -11,6 +11,7 @@ use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
+use App\Services\Communication\CampaignPreflightService;
 use App\Services\Communication\CampaignRenderer;
 use App\Services\Communication\RecipientSnapshotService;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class CommunicationCampaignController extends Controller
     public function __construct(
         private readonly RecipientSnapshotService $recipientSnapshot,
         private readonly CampaignRenderer $campaignRenderer,
+        private readonly CampaignPreflightService $campaignPreflight,
     ) {}
 
     /**
@@ -306,6 +308,21 @@ class CommunicationCampaignController extends Controller
         return redirect()
             ->route('admin.comunicazione.campaigns.show', [$campaign, 'tab' => 'sends'])
             ->with('success', "{$result['added']} nuovi destinatari aggiunti. {$result['already_present']} erano già presenti.");
+    }
+
+    /**
+     * N2.8 — verifica pre-invio: sola lettura, nessuna azione. Ultima
+     * schermata prima di un eventuale futuro dry-run (N2.9); qui non
+     * esiste né esisterà mai un bottone "Invia" — vedi il docblock di
+     * CampaignPreflightService per cosa distingue un blocco da un avviso.
+     */
+    public function preflight(CommunicationCampaign $campaign)
+    {
+        return view('admin.communication.campaigns.preflight', [
+            'campaign' => $campaign,
+            'report' => $this->campaignPreflight->assess($campaign),
+            'statusOptions' => CommunicationCampaign::statusOptions(),
+        ]);
     }
 
     /**

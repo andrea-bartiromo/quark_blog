@@ -286,6 +286,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::delete('/campagne/{campaign}', [CommunicationCampaignController::class, 'destroy'])->name('campaigns.destroy');
         Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
         Route::post('/campagne/{campaign}/destinatari/prepara', [CommunicationCampaignController::class, 'prepareRecipients'])->name('campaigns.recipients.prepare');
+        Route::get('/campagne/{campaign}/verifica-pre-invio', [CommunicationCampaignController::class, 'preflight'])->name('campaigns.preflight');
 
         // Template
         Route::get('/template', [CommunicationTemplateController::class, 'index'])->name('templates.index');

@@ -23,6 +23,7 @@
   </div>
   <div style="display:flex;gap:.5rem;">
     <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary">👁️ Anteprima</a>
+    <a href="{{ route('admin.comunicazione.campaigns.preflight', $campaign) }}" class="btn btn--secondary">✅ Verifica pre-invio</a>
     <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
