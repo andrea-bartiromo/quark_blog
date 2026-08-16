@@ -137,8 +137,8 @@ class SendWeeklyNewsletterTest extends TestCase
         return Newsletter::create([
             'email' => $email,
             'confirmed' => true,
-            'token' => 'confirm-token-'.$email,
-            'unsubscribe_token' => 'unsubscribe-token-'.$email,
+            'token' => hash('sha256', 'confirm-'.$email),
+            'unsubscribe_token' => md5('unsubscribe-'.$email),
         ]);
     }
 
