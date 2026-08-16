@@ -2,16 +2,21 @@
 
 namespace App\Providers;
 
+use App\Contracts\DatabaseDumpRunner;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Observers\ContentClusterSuggestionObserver;
+use App\Services\Backup\ProcessDatabaseDumpRunner;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->app->bind(DatabaseDumpRunner::class, ProcessDatabaseDumpRunner::class);
+    }
 
     public function boot(): void
     {
