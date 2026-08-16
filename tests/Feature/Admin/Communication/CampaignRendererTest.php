@@ -141,4 +141,35 @@ class CampaignRendererTest extends TestCase
         $this->assertSame($first->text, $second->text);
         $this->assertSame($first->subject, $second->subject);
     }
+
+    /**
+     * N2.11 — difesa in profondità: anche se la validazione in ingresso
+     * (StoreCommunicationCampaignRequest e affini) già rifiuta \r/\n in
+     * questi campi, il rendering — unico punto riusato da preview,
+     * dry-run E futuro invio reale — non deve MAI produrre un header con
+     * newline, indipendentemente da come i dati sono finiti nel DB (qui
+     * scritti direttamente via Eloquent, bypassando il FormRequest,
+     * come farebbe una fixture/import/scrittura diretta).
+     */
+    public function test_a_newline_smuggled_into_the_subject_via_direct_write_never_reaches_the_rendered_message(): void
+    {
+        $campaign = CommunicationCampaign::factory()->draft()->create([
+            'subject' => "Oggetto\r\nBcc: attacker@example.com",
+            'preheader' => "Anteprima\nX-Injected: true",
+            'content' => ['body' => 'Corpo.'],
+            'sender_profile_id' => CommunicationSenderProfile::factory()->create([
+                'from_name' => "Kairus\r\nBcc: attacker@example.com",
+            ])->id,
+        ]);
+        $subscriber = CommunicationSubscriber::factory()->confirmed()->create();
+
+        $rendering = app(CampaignRenderer::class)->render($campaign, $subscriber);
+
+        $this->assertStringNotContainsString("\r", $rendering->subject);
+        $this->assertStringNotContainsString("\n", $rendering->subject);
+        $this->assertStringNotContainsString("\r", (string) $rendering->preheader);
+        $this->assertStringNotContainsString("\n", (string) $rendering->preheader);
+        $this->assertStringNotContainsString("\r", (string) $rendering->fromName);
+        $this->assertStringNotContainsString("\n", (string) $rendering->fromName);
+    }
 }

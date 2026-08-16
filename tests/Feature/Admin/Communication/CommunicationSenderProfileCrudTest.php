@@ -124,6 +124,23 @@ class CommunicationSenderProfileCrudTest extends TestCase
         $this->assertDatabaseCount('comm_sender_profiles', 0);
     }
 
+    /**
+     * N2.11 — audit di sicurezza: from_name diventa il display-name
+     * dell'header From di un'email reale quando un provider verrà
+     * collegato. Un \r o \n al suo interno è un vettore classico di CRLF
+     * header injection, rifiutato già qui in ingresso.
+     */
+    public function test_from_name_cannot_contain_a_newline(): void
+    {
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.sender-profiles.store'), $this->validPayload([
+                'from_name' => "Kairus\r\nBcc: attacker@example.com",
+            ]));
+
+        $response->assertSessionHasErrors('from_name');
+        $this->assertDatabaseCount('comm_sender_profiles', 0);
+    }
+
     public function test_reply_to_is_optional(): void
     {
         $this->actingAs($this->editor())

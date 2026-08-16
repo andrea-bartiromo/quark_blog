@@ -32,8 +32,13 @@ class StoreCommunicationCampaignRequest extends FormRequest
             ],
             'description' => 'nullable|string',
             'internal_notes' => 'nullable|string',
-            'subject' => 'required|string|max:255',
-            'preheader' => 'nullable|string|max:255',
+            // Niente \r/\n: questi campi diventeranno header email veri
+            // (Subject) quando un provider reale verrà collegato — un
+            // carattere di ritorno a capo qui è un vettore classico di
+            // header injection (CRLF), rifiutato già alla validazione
+            // invece di essere solo ripulito più a valle nel rendering.
+            'subject' => ['required', 'string', 'max:255', 'regex:/^[^\r\n]*$/'],
+            'preheader' => ['nullable', 'string', 'max:255', 'regex:/^[^\r\n]*$/'],
             'body' => 'nullable|string',
         ];
     }

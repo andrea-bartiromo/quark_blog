@@ -65,13 +65,13 @@ class CampaignRenderer
         ])->render();
 
         return new RenderedCampaignMessage(
-            subject: (string) $campaign->subject,
-            preheader: $campaign->preheader,
+            subject: self::sanitizeHeaderValue((string) $campaign->subject) ?? '',
+            preheader: self::sanitizeHeaderValue($campaign->preheader),
             html: $html,
             text: $this->textConverter->convert($html),
-            fromName: $campaign->senderProfile?->from_name,
-            fromEmail: $campaign->senderProfile?->from_email,
-            replyTo: $campaign->senderProfile?->reply_to,
+            fromName: self::sanitizeHeaderValue($campaign->senderProfile?->from_name),
+            fromEmail: self::sanitizeHeaderValue($campaign->senderProfile?->from_email),
+            replyTo: self::sanitizeHeaderValue($campaign->senderProfile?->reply_to),
             recipientSubscriberId: $subscriber?->id,
             recipientEmail: $subscriber?->email,
             isPlaceholderRecipient: $isPlaceholder,
@@ -85,5 +85,27 @@ class CampaignRenderer
     public static function idempotencyKey(int $campaignId, int $subscriberId): string
     {
         return hash('sha256', $campaignId.':'.$subscriberId);
+    }
+
+    /**
+     * Difesa in profondità contro CRLF/header injection (N2.11): questi
+     * campi (subject/preheader/from_name/from_email/reply_to) diventano
+     * header email veri quando un provider reale verrà collegato — un
+     * \r o \n al loro interno basterebbe a iniettare header aggiuntivi
+     * se quel provider non li normalizzasse da solo. La validazione in
+     * ingresso (StoreCommunicationCampaignRequest e affini) già rifiuta
+     * questi caratteri, ma questo è il punto di rendering condiviso da
+     * preview, dry-run E futuro invio reale: non deve MAI produrre un
+     * valore con newline, indipendentemente da come i dati sono arrivati
+     * nel DB (fixture, import, scrittura diretta che bypassa il
+     * FormRequest).
+     */
+    private static function sanitizeHeaderValue(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return trim(str_replace(["\r\n", "\r", "\n"], ' ', $value));
     }
 }
