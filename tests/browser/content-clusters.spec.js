@@ -99,7 +99,6 @@ for (const width of viewportWidths) {
                 const hero = document.querySelector('.path-hero');
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
-                const cover = document.querySelector('.path-hero__cover');
                 const note = document.querySelector('.path-entrance');
                 const noteCopy = document.querySelector('.path-entrance__copy');
                 const pillar = document.querySelector('.path-pillar');
@@ -108,12 +107,11 @@ for (const width of viewportWidths) {
                 const firstStepNumber = document.querySelector('.path-step__number');
                 const firstStepTitle = document.querySelector('.path-step h3');
                 const ending = document.querySelector('.path-ending');
-                if (!detail || !shell || !hero || !title || !copy || !cover || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
+                if (!detail || !shell || !hero || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 const detailStyle = getComputedStyle(detail);
                 const noteStyle = getComputedStyle(note);
-                const noteCopyStyle = getComputedStyle(noteCopy);
                 const pillarStyle = getComputedStyle(pillar);
                 const stepsStyle = getComputedStyle(steps);
                 const stepStyle = getComputedStyle(firstStep);
@@ -121,21 +119,20 @@ for (const width of viewportWidths) {
                 return {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
+                    heroHeight: hero.getBoundingClientRect().height,
                     copy: copy.getBoundingClientRect().width,
-                    cover: cover.getBoundingClientRect().width,
-                    coverHeight: cover.getBoundingClientRect().height,
                     pillar: pillar.getBoundingClientRect().width,
                     step: firstStep.getBoundingClientRect().width,
                     titleSize: parseFloat(getComputedStyle(title).fontSize),
                     stepTitleSize: parseFloat(getComputedStyle(firstStepTitle).fontSize),
                     stepNumberSize: parseFloat(getComputedStyle(firstStepNumber).fontSize),
                     heroDisplay: heroStyle.display,
-                    heroColumns: heroStyle.gridTemplateColumns,
+                    heroBackgroundImage: heroStyle.backgroundImage,
                     heroRadius: parseFloat(heroStyle.borderRadius),
                     detailBackground: detailStyle.backgroundColor,
                     heroBackground: heroStyle.backgroundColor,
                     noteBackground: noteStyle.backgroundColor,
-                    noteBorder: noteCopyStyle.borderTopWidth,
+                    noteBorder: noteStyle.borderTopWidth,
                     noteRadius: parseFloat(noteStyle.borderRadius),
                     pillarBackground: pillarStyle.backgroundColor,
                     pillarAccent: pillarStyle.borderLeftWidth,
@@ -155,17 +152,16 @@ for (const width of viewportWidths) {
             expect(detailLayout.shell).toBeGreaterThan(1150);
             expect(detailLayout.shell).toBeLessThanOrEqual(1220);
             expect(detailLayout.hero).toBeGreaterThan(1150);
+            expect(detailLayout.heroHeight).toBeGreaterThan(500);
             expect(detailLayout.pillar).toBeGreaterThan(1150);
             expect(detailLayout.step).toBeGreaterThan(1000);
-            expect(detailLayout.heroDisplay).toBe('grid');
+            expect(detailLayout.heroDisplay).toBe('flex');
             expect(detailLayout.copy).toBeGreaterThan(450);
-            expect(detailLayout.cover).toBeGreaterThan(500);
-            expect(detailLayout.coverHeight).toBeGreaterThanOrEqual(500);
+            expect(detailLayout.heroBackgroundImage).not.toBe('none');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
             expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
             expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
-            expect(detailLayout.heroColumns).not.toBe('none');
             expect(detailLayout.detailBackground).not.toBe('rgb(255, 255, 255)');
             expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
             expect(detailLayout.noteBackground).not.toBe('rgba(0, 0, 0, 0)');

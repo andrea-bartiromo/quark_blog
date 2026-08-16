@@ -47,16 +47,26 @@
   letter-spacing: .13em;
 }
 
-/* Hero — the strongest editorial surface on the page. */
+/* Hero — l'unica apertura atmosferica legittima della pagina (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: "una pagina può permettersi
+   un'apertura atmosferica", al singolare — mai un riquadro fotografico
+   separato più in basso). Sfondo a piena immersione: la cover reale del
+   Percorso quando esiste, altrimenti l'immagine della Visual Library —
+   la stessa grammatica cinematografica delle pagine più mature dello
+   Speciale Turing (hero scuro, testo sovrapposto, velo di leggibilità),
+   nella palette Kairus (verde profondo/oro) invece del ciano/navy
+   proprio dello Speciale. */
 .path-detail .path-hero {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr);
-  min-height: 510px;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(74vh, 620px);
   overflow: hidden;
   border: 1px solid rgba(18, 63, 56, .18);
   border-radius: 28px;
-  background: var(--path-green);
+  background-color: var(--path-green);
+  background-size: cover;
+  background-position: center;
   box-shadow: 0 22px 48px rgba(35, 50, 45, .12);
 }
 
@@ -71,11 +81,25 @@
   background: var(--path-gold);
 }
 
+/* Velo di leggibilità: scuro dove vive il testo, verso trasparente in
+   alto, più un accenno del glow oro della firma (Pass 2) per legare
+   l'hero al resto della pagina invece di un overlay generico. */
+.path-detail .path-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 900px 480px at var(--path-glow-x) 0%, rgba(201, 120, 43, .16), transparent 60%),
+    linear-gradient(0deg, rgba(15, 41, 36, .94) 0%, rgba(15, 41, 36, .78) 30%, rgba(15, 41, 36, .22) 66%, rgba(15, 41, 36, .05) 100%);
+}
+
 .path-detail .path-hero__copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   min-width: 0;
+  max-width: min(680px, 78%);
   flex-direction: column;
-  justify-content: center;
   padding: clamp(2.4rem, 5vw, 4.3rem);
   color: #fdfbf5;
 }
@@ -85,11 +109,11 @@
 }
 
 .path-detail .path-hero h1 {
-  max-width: 11ch;
+  max-width: 16ch;
   margin: .5rem 0 1.25rem;
   color: #fffdf8;
   font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(3.1rem, 5vw, 5.25rem);
+  font-size: clamp(3.1rem, 6vw, 5.6rem);
   line-height: .94;
   letter-spacing: -.045em;
 }
@@ -97,8 +121,8 @@
 .path-detail .path-hero__copy > p:not(.eyebrow) {
   max-width: 58ch;
   margin: 0;
-  color: rgba(255, 253, 248, .84);
-  font-size: 1.04rem;
+  color: rgba(255, 253, 248, .88);
+  font-size: 1.08rem;
   line-height: 1.75;
 }
 
@@ -108,7 +132,7 @@
   gap: .5rem .75rem;
   margin-top: 1.75rem;
   padding-top: 1.1rem;
-  border-top: 1px solid rgba(255, 255, 255, .2);
+  border-top: 1px solid rgba(255, 255, 255, .22);
   color: #f1d8b7;
   font-size: .8rem;
   font-weight: 700;
@@ -116,84 +140,33 @@
   text-transform: uppercase;
 }
 
-.path-detail .path-hero__cover {
-  position: relative;
-  min-width: 0;
-  min-height: 510px;
-  background: #d8ded8;
-}
-
-.path-detail .path-hero__cover-trigger {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  overflow: hidden;
-  cursor: zoom-in;
-}
-
-/* La cover deve sembrare parte dell'atmosfera dell'hero, non un'immagine
-   appoggiata accanto al pannello verde (Parte 2): una sfumatura verde
-   Kairus dal bordo dove le due metà si incontrano, più un velo scuro
-   in basso che protegge sempre la leggibilità del pulsante "Visualizza
-   immagine" sopra qualunque cover, chiara o scura. */
-.path-detail .path-hero__cover-trigger::before {
-  content: "";
+.path-detail .path-hero__view-trigger {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  background:
-    linear-gradient(180deg, transparent 55%, rgba(10, 31, 27, .55) 100%),
-    linear-gradient(90deg, rgba(18, 63, 56, .5) 0%, rgba(18, 63, 56, 0) 16%);
-  pointer-events: none;
-}
-
-.path-detail .path-hero__cover img,
-.path-detail .path-hero__cover .path-card__fallback,
-.path-detail .path-hero__cover-trigger img {
-  width: 100%;
-  height: 100%;
-}
-
-.path-detail .path-hero__cover img,
-.path-detail .path-hero__cover-trigger img {
-  display: block;
-  object-fit: cover;
-  transition: transform .25s ease, filter .25s ease;
-}
-
-.path-detail .path-hero__cover-trigger:hover img,
-.path-detail .path-hero__cover-trigger:focus-visible img {
-  transform: scale(1.015);
-  filter: brightness(.94);
-}
-
-.path-detail .path-hero__cover-trigger:focus-visible {
-  outline: 3px solid #f3c37f;
-  outline-offset: -6px;
-}
-
-.path-detail .path-hero__cover-action {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
+  right: 1.15rem;
+  bottom: 1.15rem;
   z-index: 2;
-  padding: .55rem .78rem;
-  border: 1px solid rgba(255,255,255,.44);
+  padding: .55rem .8rem;
+  border: 1px solid rgba(255, 255, 255, .44);
   border-radius: 999px;
-  background: rgba(18, 63, 56, .84);
+  background: rgba(18, 63, 56, .78);
   color: #fffdf8;
+  font: inherit;
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .04em;
   text-transform: uppercase;
+  cursor: zoom-in;
   backdrop-filter: blur(6px);
 }
 
-.path-detail .path-hero__cover--fallback .path-card__fallback {
-  min-height: 100%;
-  padding: clamp(2rem, 4vw, 3rem);
+.path-detail .path-hero__view-trigger:hover,
+.path-detail .path-hero__view-trigger:focus-visible {
+  background: rgba(18, 63, 56, .92);
+}
+
+.path-detail .path-hero__view-trigger:focus-visible {
+  outline: 3px solid #f3c37f;
+  outline-offset: 2px;
 }
 
 /* Chapter zero — warm editorial card, not a nested SaaS panel. */
@@ -546,62 +519,54 @@
    segno orbitale, la stessa grammatica editoriale del resto del
    Percorso. Presente solo quando PathVisualLibrary::transitionImage()
    rileva un vero scarto tematico nella sequenza — vedi show.blade.php. */
+/* "Cambio di registro" — un momento tonale, non una foto (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: l'alternanza chiaro/scuro delle
+   pagine più mature dello Speciale Turing segnala un cambio di registro
+   narrativo, mai una seconda apertura atmosferica). Stessa palette
+   scura dell'hero, nessuna immagine: solo tipografia su fondo verde
+   profondo. */
 .path-detail .path-transition {
-  display: grid;
-  justify-items: start;
-  gap: .9rem;
+  position: relative;
+  overflow: hidden;
   margin: clamp(2.5rem, 5vw, 4rem) 0;
+  padding: clamp(2.4rem, 5vw, 3.6rem) clamp(2rem, 4vw, 3rem);
+  border-radius: 24px;
+  background: var(--path-green);
+  box-shadow: var(--path-shadow);
+  text-align: center;
+}
+
+/* Lo stesso glow oro dell'hero, appena percettibile: lega il momento
+   scuro al resto della pagina senza introdurre una seconda immagine. */
+.path-detail .path-transition::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 700px 320px at 50% 0%, rgba(201, 120, 43, .16), transparent 70%);
 }
 
 .path-detail .path-transition__kicker {
-  margin: 0;
-  /* Colore fisso, non var(--path-gold): misurato contro l'avorio, alcuni
-     preset della firma scendono sotto 4.5:1 su testo di questa taglia. */
-  color: #9a4f16;
+  position: relative;
+  z-index: 1;
+  margin: 0 0 .75rem;
+  color: #e8c89f;
   font-size: .76rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .1em;
-}
-
-.path-detail .path-transition__crop {
-  position: relative;
-  width: 100%;
-  margin: 0;
-  overflow: hidden;
-  border-radius: 18px;
-  aspect-ratio: 21 / 9;
-  box-shadow: var(--path-shadow);
-}
-
-.path-detail .path-transition__crop img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Segno orbitale minimo nell'angolo del crop — mai un motivo grande, solo
-   un accenno che lega la sezione al resto del linguaggio visivo Kairus. */
-.path-detail .path-transition__crop::after {
-  content: "";
-  position: absolute;
-  right: 1.1rem;
-  bottom: 1.1rem;
-  width: 3rem;
-  aspect-ratio: 1;
-  border: 1px solid rgba(251, 247, 238, .6);
-  border-radius: 50%;
-  pointer-events: none;
+  letter-spacing: .14em;
 }
 
 .path-detail .path-transition__phrase {
+  position: relative;
+  z-index: 1;
   max-width: 46ch;
-  margin: 0;
-  color: #4c5e58;
-  font-size: 1.02rem;
+  margin: 0 auto;
+  color: #fdfbf5;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
   font-style: italic;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .path-detail .path-ending {
@@ -696,7 +661,6 @@
 }
 
 @media (max-width: 900px) {
-  .path-detail .path-hero,
   .path-detail .path-pillar,
   .path-detail .path-steps__header,
   .path-detail .path-entrance,
@@ -705,25 +669,16 @@
   }
 
   .path-detail .path-hero {
-    min-height: 0;
+    min-height: min(60vh, 480px);
   }
 
-  .path-detail .path-entrance__atmosphere {
-    order: -1;
-    min-height: 0;
-    aspect-ratio: 16 / 9;
+  .path-detail .path-hero__copy {
+    max-width: 100%;
+    padding: clamp(2rem, 6vw, 3rem);
   }
 
-  .path-detail .path-entrance__atmosphere::before {
-    /* L'immagine ora sta sopra il testo: la cucitura è orizzontale in
-       basso, non più verticale a sinistra. */
-    background: linear-gradient(180deg, rgba(223, 234, 228, 0) 80%, var(--path-green-soft, #dfeae4) 100%);
-  }
-
-  .path-detail .path-entrance::after {
-    top: auto;
-    bottom: 0;
-    left: 50%;
+  .path-detail .path-hero h1 {
+    max-width: 14ch;
   }
 
   /* La riga della tappa è più stretta qui: lo stesso tetto assoluto del
@@ -732,36 +687,6 @@
      (~30-33%) senza schiacciare titolo/estratto. */
   .path-detail .path-step:has(.path-step__cover) {
     grid-template-columns: 116px minmax(190px, 220px) minmax(0, 1fr);
-  }
-
-  .path-detail .path-transition__crop {
-    aspect-ratio: 16 / 10;
-    border-radius: 16px;
-  }
-
-  .path-detail .path-hero__cover {
-    order: -1;
-    min-height: 0;
-    aspect-ratio: 16 / 9;
-  }
-
-  .path-detail .path-hero__cover-trigger {
-    min-height: 0;
-    aspect-ratio: inherit;
-  }
-
-  .path-detail .path-hero__cover-trigger::before {
-    /* La cover è sopra il pannello copy, non accanto: la sfumatura
-       orizzontale non ha senso qui, resta solo il velo inferiore. */
-    background: linear-gradient(180deg, transparent 55%, rgba(10, 31, 27, .55) 100%);
-  }
-
-  .path-detail .path-hero__copy {
-    padding: clamp(2rem, 6vw, 3rem);
-  }
-
-  .path-detail .path-hero h1 {
-    max-width: 14ch;
   }
 
   .path-detail .path-pillar__link {
@@ -790,24 +715,12 @@
   }
 
   .path-detail .path-hero {
+    min-height: min(56vh, 420px);
     border-radius: 18px;
   }
 
   .path-detail .path-transition {
     margin: 2rem 0;
-  }
-
-  .path-detail .path-transition__crop {
-    aspect-ratio: 4 / 3;
-    border-radius: 14px;
-  }
-
-  .path-detail .path-entrance__atmosphere {
-    aspect-ratio: 4 / 3;
-  }
-
-  .path-detail .path-hero__cover {
-    aspect-ratio: 4 / 3;
   }
 
   .path-detail .path-hero__copy {
@@ -829,7 +742,7 @@
     line-height: 1.45;
   }
 
-  .path-detail .path-hero__cover-action {
+  .path-detail .path-hero__view-trigger {
     right: .75rem;
     bottom: .75rem;
     font-size: .66rem;
@@ -931,14 +844,8 @@
 @media (prefers-reduced-motion: reduce) {
   .path-detail .path-pillar__link,
   .path-detail .path-step,
-  .path-detail .path-hero__cover-trigger img,
   .path-detail .path-step__cover img {
     transition: none;
-  }
-
-  .path-detail .path-hero__cover-trigger:hover img,
-  .path-detail .path-hero__cover-trigger:focus-visible img {
-    transform: none;
   }
 
   .path-detail .path-step:hover .path-step__cover img,

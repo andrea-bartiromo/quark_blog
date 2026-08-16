@@ -5,6 +5,7 @@ namespace Tests\Feature\ContentClusters;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Models\User;
+use App\Support\PathVisualLibrary;
 use App\Support\PathVisualSignature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -54,16 +55,18 @@ class PathVisualIntegrationTest extends TestCase
         $cluster->update(['pillar_article_id' => $articles[0]->id]);
 
         $expectedSignature = PathVisualSignature::cssClass($cluster->fresh());
+        $expectedAtmosphere = PathVisualLibrary::atmosphereImage($cluster->fresh());
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
         // Firma deterministica (Pass 2A) sulla sezione .path-detail.
         $response->assertSee($expectedSignature, false);
-        // Ingresso atmosferico (sempre presente) e cambio di registro
-        // (presente perché la sequenza attraversa spazio -> energia).
-        $response->assertSee('path-entrance__atmosphere', false);
-        $response->assertSee('path-transition__crop', false);
+        // Ingresso atmosferico (sempre presente, ora nell'hero stesso) e
+        // cambio di registro (presente perché la sequenza attraversa
+        // spazio -> energia).
+        $response->assertSee('background-image: url(\''.PathVisualLibrary::url($expectedAtmosphere).'\')', false);
+        $response->assertSee('class="path-transition"', false);
         // Cover reali degli articoli nella timeline, mai spostate o
         // sostituite dalla Visual Library.
         $response->assertSee('path-step__cover', false);
