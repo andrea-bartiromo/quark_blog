@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Concerns\ConfirmsFileDeletion;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -10,6 +11,8 @@ use RuntimeException;
 
 class ImageService
 {
+    use ConfirmsFileDeletion;
+
     /**
      * Numero di tentativi per la rimozione del sorgente originale dopo una
      * conversione WebP riuscita (vedi autoConvertToWebpIfEligible()) e
@@ -21,6 +24,16 @@ class ImageService
     private const SOURCE_REMOVAL_RETRY_ATTEMPTS = 5;
 
     private const SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS = 100_000;
+
+    /**
+     * Controlli consecutivi (e intervallo tra l'uno e l'altro) per
+     * confermare che il sorgente sia davvero sparito dopo un unlink() che
+     * ha già riportato successo — vedi ConfirmsFileDeletion. Stessi valori
+     * usati da PublicMediaSyncService per lo stesso motivo.
+     */
+    private const SOURCE_REMOVAL_CONFIRMATION_CHECKS = 3;
+
+    private const SOURCE_REMOVAL_CONFIRMATION_DELAY_MICROSECONDS = 100_000;
 
     /**
      * Determina l'estensione sicura a partire dal MIME type
@@ -148,23 +161,6 @@ class ImageService
         $file->move($destinationPath, $fileName);
 
         $fullPath = $destinationPath.'/'.$fileName;
-
-        // DIAGNOSTICA TEMPORANEA (vedi PublicMediaSyncService::logPathDiagnostics):
-        // registra il path esatto restituito da questo metodo, cosi' da
-        // poterlo confrontare — a partire dai log di una vera esecuzione
-        // Windows — con quello effettivamente ricevuto piu' avanti da
-        // PublicMediaSyncService::cleanupAfterFailedCreate(), per escludere
-        // (o confermare) una qualunque ricostruzione/alterazione del path
-        // nel tragitto tra i due punti.
-        Log::debug('ImageService: diagnostica — path restituito da upload().', [
-            'checkpoint' => 'image_service:upload:returned',
-            'destination_path' => $destinationPath,
-            'file_name' => $fileName,
-            'full_path' => $fullPath,
-            'file_exists' => file_exists($fullPath),
-            'is_file' => is_file($fullPath),
-            'realpath' => realpath($fullPath),
-        ]);
 
         if (! is_file($fullPath)) {
             throw new RuntimeException(
@@ -559,18 +555,34 @@ class ImageService
      * tentativo fallito cosi' da restare idempotente anche se un unlink()
      * precedente e' in realta' riuscito nonostante un esito riportato come
      * "false".
+     *
+     * Un unlink() che riporta successo non e' trattato come la parola
+     * finale (vedi ConfirmsFileDeletion): lo stesso file puo' ricomparire
+     * poco dopo una rimozione apparentemente riuscita — esattamente il bug
+     * gia' osservato su Windows reale per PublicMediaSyncService, che
+     * senza questo controllo restava aperto qui per il sorgente JPG/PNG
+     * nei flussi di conversione automatica a WebP.
      */
     private function removeSourceWithRetry(string $path): bool
     {
+        $originalContentHash = @hash_file('sha256', $path);
+
         for ($attempt = 1; $attempt <= self::SOURCE_REMOVAL_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
-                return true;
-            }
+                if ($this->confirmFileReallyGone(
+                    $path,
+                    $originalContentHash,
+                    self::SOURCE_REMOVAL_CONFIRMATION_CHECKS,
+                    self::SOURCE_REMOVAL_CONFIRMATION_DELAY_MICROSECONDS,
+                )) {
+                    return true;
+                }
+            } else {
+                clearstatcache(true, $path);
 
-            clearstatcache(true, $path);
-
-            if (! file_exists($path)) {
-                return true;
+                if (! file_exists($path)) {
+                    return true;
+                }
             }
 
             if ($attempt < self::SOURCE_REMOVAL_RETRY_ATTEMPTS) {

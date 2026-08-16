@@ -82,6 +82,7 @@
       $isCategories    = request()->routeIs('admin.categories*');
       $isMedia         = request()->routeIs('admin.media*');
       $isComments      = request()->routeIs('admin.comments*');
+      $isContentClusters = request()->routeIs('admin.content-clusters.*');
       $isReview        = request()->routeIs('admin.review*');
       $isVerification  = request()->routeIs('admin.verification');
       $isCollaborators = request()->routeIs('admin.collaborators*');
@@ -111,7 +112,7 @@
       // sempre visibili, non raggruppati: sono i due ancoraggi che l'utente
       // deve poter raggiungere senza aprire nulla (FASE 5.2 della missione
       // IA sidebar).
-      $contenutiOpen = $isArticles || $isCategories || $isMedia || $isComments;
+      $contenutiOpen = $isArticles || $isCategories || $isMedia || $isComments || $isContentClusters;
       $redazioneOpen = $isReview || $isVerification || $isCollaborators;
       $progettazioneOpen = $isProgettazioneDashboard || $isProgettazioneProjects
                           || $isProgettazioneTasks || $isProgettazioneCalendar || $isProgettazioneDocuments;
@@ -135,6 +136,7 @@
         <x-admin.nav-link :route="route('admin.categories')" :active="$isCategories" icon="🏷️">Categorie</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.media')" :active="$isMedia" icon="🖼️">Media</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.comments')" :active="$isComments" icon="💬">Commenti</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.content-clusters.index')" :active="$isContentClusters" icon="🧭">Percorsi</x-admin.nav-link>
       </x-admin.nav-group>
 
       <x-admin.nav-group label="Redazione" :open="$redazioneOpen">
