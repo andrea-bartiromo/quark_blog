@@ -10,19 +10,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Riconciliazione PASS 2A (firma visiva, #201) + PASS 2B (Visual Library,
- * #202): entrambi i sistemi sono stati costruiti in modo indipendente su
- * rami sibling e non si sono mai visti in un'unica risposta prima di
- * questo merge. Copre esattamente l'intersezione che nessuno dei due
- * suite originali testava — che la firma deterministica, le pause della
- * Visual Library e le cover reali degli articoli coesistano sulla stessa
- * pagina senza spegnersi a vicenda.
+ * Riconciliazione PASS 2A (firma visiva, #201) + PASS 2B/Kairus Path
+ * Visual Language (#202-#205): sistemi costruiti in fasi distinte, mai
+ * visti tutti insieme in un'unica risposta prima di questo test. Copre
+ * l'intersezione che nessuna suite isolata testava — che la firma
+ * deterministica, l'ingresso atmosferico + il cambio di registro della
+ * Visual Library, e le cover reali degli articoli coesistano sulla
+ * stessa pagina senza spegnersi a vicenda.
  */
 class PathVisualIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_signature_visual_breaks_and_article_covers_all_render_together(): void
+    public function test_signature_atmosphere_transition_and_article_covers_all_render_together(): void
     {
         $cluster = ContentCluster::factory()->create([
             'is_active' => true,
@@ -30,6 +30,10 @@ class PathVisualIntegrationTest extends TestCase
         ]);
 
         $author = User::factory()->create();
+        // Tre articoli spazio + uno energia: un vero scarto tematico, che
+        // giustifica sia l'ingresso atmosferico (categoria dominante:
+        // spazio) sia il cambio di registro (energia).
+        $categories = ['spazio', 'spazio', 'spazio', 'energia'];
         $articles = [];
         foreach (['Uno', 'Due', 'Tre', 'Quattro'] as $i => $title) {
             $article = Article::create([
@@ -38,7 +42,7 @@ class PathVisualIntegrationTest extends TestCase
                 'slug' => str($title)->slug().'-'.uniqid(),
                 'body' => '<p>Corpo.</p>',
                 'excerpt' => 'Estratto.',
-                'category' => 'spazio',
+                'category' => $categories[$i],
                 'status' => Article::STATUS_PUBLISHED,
                 'cover_image' => 'articles/copertina-'.$i.'.jpg',
                 'read_minutes' => 3,
@@ -56,10 +60,10 @@ class PathVisualIntegrationTest extends TestCase
         $response->assertOk();
         // Firma deterministica (Pass 2A) sulla sezione .path-detail.
         $response->assertSee($expectedSignature, false);
-        // Pause della Visual Library (Pass 2B) — 4 articoli pubblicati,
-        // quindi due break attesi.
-        $count = substr_count($response->getContent(), 'path-visual-break');
-        $this->assertSame(2, $count);
+        // Ingresso atmosferico (sempre presente) e cambio di registro
+        // (presente perché la sequenza attraversa spazio -> energia).
+        $response->assertSee('path-entrance__atmosphere', false);
+        $response->assertSee('path-transition__crop', false);
         // Cover reali degli articoli nella timeline, mai spostate o
         // sostituite dalla Visual Library.
         $response->assertSee('path-step__cover', false);

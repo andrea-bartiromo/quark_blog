@@ -32,16 +32,15 @@
   $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
   $publishedStepCount = $articles->count();
 
-  // Kairus Editorial Visual Library — pause narrative, mai cover articolo
-  // (quelle restano nella timeline sotto). 1-2 immagini al massimo, mai
-  // una per sezione: vedi App\Support\PathVisualLibrary per la filosofia
-  // "quante pause" e la selezione semantica deterministica.
-  $visualBreakCount = \App\Support\PathVisualLibrary::breakCountFor($publishedStepCount);
-  $visualBreaks = \App\Support\PathVisualLibrary::imagesFor($cluster, $visualBreakCount);
-  $visualBreakUrls = array_map(
-      fn (string $file) => \App\Support\PathVisualLibrary::url($file),
-      $visualBreaks
+  // Kairus Visual Language — due asset SEMANTICI, non un conteggio
+  // derivato dal numero di articoli (vedi App\Support\PathVisualLibrary):
+  // l'atmosfera d'ingresso è sempre presente, il cambio di registro solo
+  // quando la sequenza pubblicata attraversa davvero più di una categoria.
+  $atmosphereUrl = \App\Support\PathVisualLibrary::url(
+      \App\Support\PathVisualLibrary::atmosphereImage($cluster)
   );
+  $transitionImage = \App\Support\PathVisualLibrary::transitionImage($cluster);
+  $transitionUrl = $transitionImage ? \App\Support\PathVisualLibrary::url($transitionImage) : null;
 @endphp
 
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -97,15 +96,16 @@
       />
     @endif
 
-    <section class="path-editorial-note path-brand-statement" aria-labelledby="path-note-title">
-      <p class="eyebrow">Mappa di lettura</p>
-      <h2 id="path-note-title">Perché questo percorso</h2>
-      <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
+    <section class="path-entrance" aria-labelledby="path-note-title">
+      <div class="path-entrance__copy">
+        <p class="eyebrow">Mappa di lettura</p>
+        <h2 id="path-note-title">Perché questo percorso</h2>
+        <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
+      </div>
+      <figure class="path-entrance__atmosphere" aria-hidden="true">
+        <img src="{{ $atmosphereUrl }}" alt="" loading="lazy" decoding="async" width="1200" height="1500">
+      </figure>
     </section>
-
-    @isset($visualBreakUrls[0])
-      @include('content-clusters.partials.visual-break', ['src' => $visualBreakUrls[0]])
-    @endisset
 
     @if($takeaways->isNotEmpty())
       <section class="path-narrative path-narrative--takeaways" aria-labelledby="path-takeaways-title">
@@ -193,8 +193,8 @@
       </ol>
     </section>
 
-    @isset($visualBreakUrls[1])
-      @include('content-clusters.partials.visual-break', ['src' => $visualBreakUrls[1]])
+    @isset($transitionUrl)
+      @include('content-clusters.partials.path-transition', ['src' => $transitionUrl])
     @endisset
 
     <footer class="path-ending {{ $showContinuation ? 'path-ending--continues' : '' }}" @if($showContinuation) data-path-continues @endif>

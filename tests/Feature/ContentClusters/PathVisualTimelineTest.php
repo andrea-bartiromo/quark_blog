@@ -128,11 +128,12 @@ class PathVisualTimelineTest extends TestCase
         // renderizzati (Parte 19): un cambiamento che riduca di nuovo la
         // colonna cover a una thumbnail (com'era prima del feedback smoke
         // umano su /percorsi/intelligenza-artificiale) deve rompere questo
-        // test.
+        // test. Target ~30-36% della larghezza della tappa (Kairus Path
+        // Visual Language, Parte 3) — misurato a 32.5% su desktop.
         $css = file_get_contents(public_path('css/content-clusters-detail.css'));
 
         $this->assertStringContainsString(
-            'minmax(170px, 230px)',
+            'minmax(260px, 340px)',
             $css,
             'La colonna cover degli step non deve tornare a essere una thumbnail striminzita.'
         );

@@ -3,14 +3,15 @@
 namespace App\Support;
 
 use App\Models\ContentCluster;
+use Illuminate\Support\Collection;
 
 /**
  * Integrazione reale della Kairus Editorial Visual Library (Missione
- * PERCORSI WOW, Pass 2/3 — "Integrazione reale"). Distinta di proposito
- * dalle cover articolo (App\Models\Article::cover_image, usate nella
- * timeline — vedi show.blade.php): questa libreria serve solo le "pause
- * narrative" (visual break) tra le sezioni del Percorso, mai come una
- * seconda serie di thumbnail.
+ * KAIRUS PATH VISUAL LANGUAGE). Distinta di proposito dalle cover
+ * articolo (App\Models\Article::cover_image, usate nella timeline — vedi
+ * show.blade.php): questa libreria fornisce solo asset SEMANTICI —
+ * quanti e dove mostrarli è una decisione editoriale del layout
+ * (show.blade.php), mai un conteggio derivato dal numero di articoli.
  *
  * Selezione semantica SENZA nuovo schema: `articles.category` è già
  * validato contro esattamente le 6 chiavi di config('laboratorio.categories')
@@ -21,6 +22,15 @@ use App\Models\ContentCluster;
  * un segnale di categoria chiaro) non genera un'eccezione: ricade su una
  * scelta deterministica basata sullo slug, esattamente come
  * PathVisualSignature — mai una configurazione per singolo Percorso.
+ *
+ * Due asset distinti, non un elenco quantitativo:
+ * - atmosphereImage(): sempre presente, un solo ingresso atmosferico
+ *   nell'apertura del Percorso, dalla categoria dominante.
+ * - transitionImage(): presente solo quando esiste un vero cambio di
+ *   registro — la sequenza pubblicata attraversa più di una categoria.
+ *   Un Percorso tematicamente omogeneo (il caso comune: ogni Percorso
+ *   reale corrisponde già a una categoria) non ne genera uno — non è un
+ *   numero da raggiungere, è un segnale reale o la sua assenza.
  */
 class PathVisualLibrary
 {
@@ -72,52 +82,74 @@ class PathVisualLibrary
     ];
 
     /**
-     * Filosofia dei break (Parte 4): non un numero arbitrario, ma "quanto
-     * viaggio c'è da respirare". Un Percorso con poche tappe non ha spazio
-     * per due pause senza sembrare sovraccarico; uno maturo se lo può
-     * permettere. Nessuna pausa per un Percorso ancora senza contenuto
-     * pubblico — non c'è alcun viaggio da accompagnare.
+     * L'ingresso atmosferico del Percorso (Parte 1) — sempre esattamente
+     * un'immagine, mai assente, mai in numero variabile: è l'apertura
+     * della mappa editoriale, non una pausa fra tante. Selezionata dalla
+     * categoria dominante degli articoli pubblicati (o dal fallback per
+     * slug se il Percorso non ne ha ancora).
      */
-    public static function breakCountFor(int $publishedArticleCount): int
+    public static function atmosphereImage(ContentCluster $cluster): string
     {
-        if ($publishedArticleCount <= 0) {
-            return 0;
-        }
+        $pool = self::CATEGORY_IMAGES[self::categoryFor($cluster)];
 
-        return $publishedArticleCount >= 4 ? 2 : 1;
+        return $pool[self::hash(self::seed($cluster)) % count($pool)];
     }
 
     /**
-     * $count immagini distinte, deterministiche per questo Percorso — mai
-     * casuali, mai ripetute tra loro entro lo stesso Percorso (finché
-     * $count non supera la dimensione del pool, che con 3-5 immagini per
-     * categoria e al più 2 break non accade mai in pratica).
-     *
-     * @return list<string> nomi file, non URL — vedi self::url()
+     * Il "cambio di registro" (Parte 5) — presente solo quando la
+     * sequenza pubblicata attraversa davvero più di una categoria: un
+     * segnale reale già nei dati (non un conteggio di articoli travestito
+     * da euristica). La categoria di transizione è la prima, in ordine di
+     * sequenza, diversa da quella del primo articolo pubblicato — il
+     * punto in cui il Percorso cambia effettivamente argomento. Un
+     * Percorso tematicamente omogeneo (il caso comune, dato che ogni
+     * Percorso reale corrisponde già a una categoria) restituisce null:
+     * nessuna immagine, perché non c'è alcuno scarto da segnalare.
      */
-    public static function imagesFor(ContentCluster $cluster, int $count): array
+    public static function transitionImage(ContentCluster $cluster): ?string
     {
-        if ($count <= 0) {
-            return [];
+        $categories = self::orderedPublishedCategories($cluster);
+        $opening = $categories->first();
+
+        if ($opening === null) {
+            return null;
         }
 
-        $pool = self::CATEGORY_IMAGES[self::categoryFor($cluster)];
-        $poolSize = count($pool);
-        $count = min($count, $poolSize);
+        $shift = $categories->first(fn (string $category) => $category !== $opening);
 
-        $start = self::hash(self::seed($cluster)) % $poolSize;
-
-        $selected = [];
-        for ($i = 0; $i < $count; $i++) {
-            $selected[] = $pool[($start + $i) % $poolSize];
+        if ($shift === null) {
+            return null;
         }
 
-        return $selected;
+        $pool = self::CATEGORY_IMAGES[$shift];
+        // Seed distinto da quello dell'atmosfera: la stessa categoria non
+        // deve mai restituire la stessa immagine per i due ruoli.
+        $start = self::hash(self::seed($cluster).'|transition') % count($pool);
+
+        return $pool[$start];
     }
 
     public static function url(string $filename): string
     {
         return asset('assets/img/'.self::DIRECTORY.'/'.$filename);
+    }
+
+    /**
+     * Categorie note (tra le 6 della libreria) degli articoli pubblicati
+     * del Percorso, nell'ordine reale della sequenza — lo stesso ordine
+     * (position) con cui la timeline li presenta al lettore.
+     *
+     * @return Collection<int, string>
+     */
+    private static function orderedPublishedCategories(ContentCluster $cluster): Collection
+    {
+        $categories = $cluster->relationLoaded('articles')
+            ? $cluster->articles->where('status', 'published')->pluck('category')
+            : $cluster->articles()->published()->pluck('category');
+
+        return collect($categories)
+            ->filter(fn (?string $category) => $category !== null && array_key_exists($category, self::CATEGORY_IMAGES))
+            ->values();
     }
 
     /**
@@ -131,12 +163,7 @@ class PathVisualLibrary
      */
     private static function categoryFor(ContentCluster $cluster): string
     {
-        $dominant = $cluster->relationLoaded('articles')
-            ? $cluster->articles->where('status', 'published')->pluck('category')
-            : $cluster->articles()->published()->pluck('category');
-
-        $dominant = collect($dominant)
-            ->filter(fn (?string $category) => $category !== null && array_key_exists($category, self::CATEGORY_IMAGES))
+        $dominant = self::orderedPublishedCategories($cluster)
             ->countBy()
             ->sortDesc()
             ->keys()
