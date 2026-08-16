@@ -61,6 +61,11 @@
       </div>
       <div class="form-group"><label class="form-label" for="closing_title">Titolo conclusivo</label><input id="closing_title" class="form-input" name="closing_title" maxlength="255" value="{{ old('closing_title', $cluster?->closing_title) }}"></div>
       <div class="form-group"><label class="form-label" for="closing_text">Testo conclusivo</label><textarea id="closing_text" class="form-textarea" name="closing_text" maxlength="2000">{{ old('closing_text', $cluster?->closing_text) }}</textarea></div>
+      <div class="form-group">
+        <label class="form-label" for="curator_note">Nota del curatore</label>
+        <textarea id="curator_note" class="form-textarea" name="curator_note" maxlength="2000">{{ old('curator_note', $cluster?->curator_note) }}</textarea>
+        <small style="color:#6b7280;">Opzionale, in prima persona: perché questo percorso esiste o perché questo ordine ha senso. Compare sulla pagina pubblica solo se compilata.</small>
+      </div>
     </section>
 
     <section class="form-group" aria-labelledby="cluster-cover-title" data-cluster-cover-picker>

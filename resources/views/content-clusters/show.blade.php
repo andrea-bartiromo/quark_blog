@@ -31,15 +31,46 @@
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
   $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
   $publishedStepCount = $articles->count();
+
+  // Tempo di lettura dell'intero percorso: somma automatica dei
+  // read_minutes degli articoli pubblicati (calcolati da Article stesso,
+  // vedi getReadTimeAttribute) — nessun campo editoriale da gestire a
+  // mano, si aggiorna da sé quando cambia la sequenza pubblicata.
+  $totalReadMinutes = (int) $articles->sum('read_minutes');
+
+  // Etichetta di categoria per singolo articolo: ha senso solo quando la
+  // sequenza pubblicata attraversa davvero più di una categoria (stesso
+  // segnale del "cambio di registro" più sotto) — su un percorso
+  // omogeneo (il caso comune) sarebbe una ripetizione senza informazione.
+  $pathCategories = $articles->pluck('category')->filter()->unique();
+  $isMultiCategoryPath = $pathCategories->count() > 1;
+  $categoryLabels = config('laboratorio.categories', []);
+
+  // Kairus Visual Language — due asset SEMANTICI, non un conteggio
+  // derivato dal numero di articoli (vedi App\Support\PathVisualLibrary):
+  // l'atmosfera d'ingresso è sempre presente, il cambio di registro solo
+  // quando la sequenza pubblicata attraversa davvero più di una categoria.
+  //
+  // L'apertura atmosferica di una pagina va nell'HERO stesso, mai altrove
+  // (Manuale di Identità Visiva Kairus/Quark, Vol. I — "una pagina può
+  // permettersi un'apertura atmosferica" — singolare, e lì dove il
+  // lettore la incontra prima ancora di iniziare a leggere): quando il
+  // Percorso non ha una cover propria, l'immagine della Visual Library
+  // diventa lo sfondo cinematografico dell'hero stesso, non un riquadro
+  // separato più in basso.
+  $atmosphereImage = \App\Support\PathVisualLibrary::atmosphereImage($cluster);
+  $heroImageUrl = $pathCoverUrl ?: \App\Support\PathVisualLibrary::url($atmosphereImage);
+  $transitionImage = \App\Support\PathVisualLibrary::transitionImage($cluster);
 @endphp
 
-<section class="section path-detail" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
+<section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
     <nav class="path-breadcrumb" aria-label="Breadcrumb">
       <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
     </nav>
 
-    <header class="path-hero">
+    <header class="path-hero" style="background-image: url('{{ $heroImageUrl }}')">
+      <div class="path-hero__scrim" aria-hidden="true"></div>
       <div class="path-hero__copy">
         <p class="eyebrow">Percorso Kairus</p>
         <h1 id="percorso-title">{{ $cluster->name }}</h1>
@@ -50,30 +81,24 @@
         @endif
         <div class="path-hero__meta">
           <span>{{ $articles->count() }} {{ $articles->count() === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span>
+          @if($totalReadMinutes > 0)
+            <span aria-hidden="true">·</span>
+            <span>{{ $totalReadMinutes }} min di lettura</span>
+          @endif
           <span aria-hidden="true">·</span>
           <span>Mappa di lettura curata</span>
         </div>
       </div>
 
-      <div class="path-hero__cover {{ $pathCoverUrl ? '' : 'path-hero__cover--fallback' }}">
-        @if($pathCoverUrl)
-          <a
-            class="path-hero__cover-trigger"
-            href="{{ $pathCoverUrl }}"
-            data-media-viewer-target="{{ $pathCoverViewerId }}"
-            aria-haspopup="dialog"
-            aria-label="Visualizza l'immagine completa del percorso {{ $cluster->name }}"
-          >
-            <img src="{{ $pathCoverUrl }}" alt="{{ $pathCoverAlt }}" width="720" height="450">
-            <span class="path-hero__cover-action" aria-hidden="true">Visualizza immagine</span>
-          </a>
-        @else
-          <span class="path-card__fallback" aria-hidden="true">
-            <span>Kairus · Percorso</span>
-            <strong>{{ $cluster->name }}</strong>
-          </span>
-        @endif
-      </div>
+      @if($pathCoverUrl)
+        <button
+          type="button"
+          class="path-hero__view-trigger"
+          data-media-viewer-target="{{ $pathCoverViewerId }}"
+          aria-haspopup="dialog"
+          aria-label="Visualizza l'immagine completa del percorso {{ $cluster->name }}"
+        >Visualizza immagine</button>
+      @endif
     </header>
 
     @if($pathCoverUrl)
@@ -86,11 +111,20 @@
       />
     @endif
 
-    <section class="path-editorial-note path-brand-statement" aria-labelledby="path-note-title">
-      <p class="eyebrow">Mappa di lettura</p>
-      <h2 id="path-note-title">Perché questo percorso</h2>
-      <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
+    <section class="path-entrance" aria-labelledby="path-note-title">
+      <div class="path-entrance__copy">
+        <p class="eyebrow">Mappa di lettura</p>
+        <h2 id="path-note-title">Perché questo percorso</h2>
+        <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
+      </div>
     </section>
+
+    @if($cluster->curator_note)
+      <figure class="path-curator-note" aria-labelledby="path-curator-note-title">
+        <figcaption id="path-curator-note-title" class="eyebrow">Nota del curatore</figcaption>
+        <blockquote>{{ $cluster->curator_note }}</blockquote>
+      </figure>
+    @endif
 
     @if($takeaways->isNotEmpty())
       <section class="path-narrative path-narrative--takeaways" aria-labelledby="path-takeaways-title">
@@ -134,12 +168,23 @@
         </div>
         <p>Segui l'ordine proposto oppure entra direttamente nell'approfondimento che ti interessa.</p>
       </header>
-      <ol class="path-steps__list">
+      <ol class="path-steps__list {{ $showContinuation ? 'path-steps__list--continues' : '' }}">
         @forelse($articles as $article)
-          <li class="path-step {{ $pillar && $article->is($pillar) ? 'path-step--pillar' : '' }}">
+          @php
+            $stepCoverUrl = filled($article->cover_image) ? asset('assets/img/'.$article->cover_image) : null;
+          @endphp
+          <li class="path-step {{ $pillar && $article->is($pillar) ? 'path-step--pillar' : '' }} {{ $stepCoverUrl ? '' : 'path-step--no-cover' }}">
             <div class="path-step__number" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</div>
+            @if($stepCoverUrl)
+              <a class="path-step__cover" href="{{ route('articolo', $article->slug) }}" tabindex="-1" aria-hidden="true">
+                <img src="{{ $stepCoverUrl }}" alt="" loading="lazy" decoding="async" width="320" height="240">
+              </a>
+            @endif
             <div class="path-step__body">
               @if($pillar && $article->is($pillar))<span class="path-step__label">Punto di partenza</span>@endif
+              @if($isMultiCategoryPath && $article->category && isset($categoryLabels[$article->category]))
+                <span class="path-step__category">{{ $categoryLabels[$article->category] }}</span>
+              @endif
               <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
               @if($article->excerpt)<p>{{ $article->excerpt }}</p>@endif
               <a class="path-step__cta" href="{{ route('articolo', $article->slug) }}">Leggi l'articolo <span aria-hidden="true">→</span></a>
@@ -151,8 +196,28 @@
         @empty
           <li class="paths-empty">Nessun articolo pubblicato in questo percorso.</li>
         @endforelse
+        @if($showContinuation)
+          <li class="path-step path-step--next" aria-hidden="true">
+            <div class="path-step__number path-step__number--next">···</div>
+            <div class="path-step__body">
+              <span class="path-step__label path-step__label--next">In arrivo</span>
+              <p class="path-step__next-copy">La prossima tappa non è ancora disponibile.</p>
+            </div>
+          </li>
+        @elseif($articles->isNotEmpty())
+          <li class="path-step path-step--close" aria-hidden="true">
+            <div class="path-step__number path-step__number--close">●</div>
+            <div class="path-step__body">
+              <span class="path-step__label path-step__label--close">Percorso concluso</span>
+            </div>
+          </li>
+        @endif
       </ol>
     </section>
+
+    @isset($transitionImage)
+      @include('content-clusters.partials.path-transition')
+    @endisset
 
     <footer class="path-ending {{ $showContinuation ? 'path-ending--continues' : '' }}" @if($showContinuation) data-path-continues @endif>
       <div>

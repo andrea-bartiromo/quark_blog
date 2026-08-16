@@ -75,48 +75,123 @@
 .path-continuation a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .paths-index .path-card__description { max-width: 58ch; margin: 0; color: #53645f; line-height: 1.7; }
 .paths-index .path-card__start { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid rgba(23, 51, 47, .12); color: #5b5d52; font-size: .92rem; line-height: 1.55; overflow-wrap: anywhere; }
-.paths-index .path-card__start span { display: block; margin-bottom: .22rem; color: #9a4f16; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }
-.paths-index .path-card__cta { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; margin-top: 1rem; color: var(--paths-green); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(201, 120, 43, .72); }
+.paths-index .path-card__start span { display: block; margin-bottom: .22rem; color: var(--paths-gold, #9a4f16); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }
+.paths-index .path-card__cta { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; margin-top: 1rem; color: var(--paths-green); font-weight: 800; text-decoration: none; border-bottom: 2px solid var(--paths-gold, #c9782b); }
+
+/* Firma visiva (Pass 2): stesso preset del detail, ma qui limitato a un
+   singolo accent — il minimo che basta a far percepire un'identità
+   propria senza alterare la griglia/scala già approvata dell'archivio
+   (Parte 4). Nessuna nuova dimensione, nessun nuovo elemento: solo un
+   colore diverso su ciò che già esiste. */
+.paths-index .path-card.path-signature-0 { --paths-gold: #c9782b; }
+.paths-index .path-card.path-signature-1 { --paths-gold: #b6672a; }
+.paths-index .path-card.path-signature-2 { --paths-gold: #ad7f3f; }
+.paths-index .path-card.path-signature-3 { --paths-gold: #c68a3f; }
+.paths-index .path-card.path-signature-4 { --paths-gold: #a96b34; }
+.paths-index .path-card.path-signature-5 { --paths-gold: #bf7d33; }
 .paths-index .paths-empty { grid-column: 1 / -1; padding: clamp(2rem, 4vw, 3rem); border: 1px solid var(--paths-rule); border-radius: 22px; background: var(--paths-cream); box-shadow: 0 12px 28px rgba(35, 50, 45, .06); }
 
 /* Detail: base contracts; the detail-only stylesheet owns the final presentation. */
 .path-detail > .container { max-width: var(--max-width); }
 .path-breadcrumb { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1.25rem; color: var(--ink-muted); font-size: .82rem; }
 .path-breadcrumb a:hover { color: var(--primary-dark); text-decoration: underline; }
-.path-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--white); box-shadow: var(--shadow); }
-.path-hero__copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: clamp(1.6rem, 3.2vw, 2.8rem); }
+/* Fallback generico a bassa specificità: .path-detail .path-hero (in
+   content-clusters-detail.css) governa l'unica pagina che usa questa
+   classe e vince sempre. Qui solo un contenitore ragionevole se quel
+   foglio non fosse caricato. */
+.path-hero { position: relative; display: flex; align-items: flex-end; min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--white); box-shadow: var(--shadow); }
+.path-hero__copy { position: relative; display: flex; min-width: 0; flex-direction: column; padding: clamp(1.6rem, 3.2vw, 2.8rem); }
 .path-hero h1 { margin: .35rem 0 1rem; max-width: 760px; font-family: var(--font-display); font-size: clamp(2.45rem, 5vw, 4.35rem); line-height: .98; letter-spacing: -.045em; overflow-wrap: anywhere; }
 .path-hero__copy > p:not(.eyebrow) { max-width: 62ch; color: var(--ink-soft); font-size: clamp(1rem, 1.7vw, 1.14rem); line-height: 1.75; }
 .path-hero__meta { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.3rem; color: var(--primary-dark); font-size: .78rem; font-weight: 800; }
-.path-hero__cover { min-width: 0; min-height: 360px; aspect-ratio: 4 / 3; overflow: hidden; background: var(--primary-dark); }
-.path-hero__cover img { width: 100%; height: 100%; object-fit: cover; }
-.path-hero__cover--fallback .path-card__fallback { min-height: 100%; padding: clamp(1.6rem, 3vw, 2.4rem); }
-.path-hero__cover--fallback .path-card__fallback strong { font-size: clamp(2rem, 4vw, 3.4rem); }
 
-/* Existing editorial note becomes the single Kairus statement on detail. */
-.path-detail .path-editorial-note.path-brand-statement {
+/* "Perché questo percorso" — testo puro, nessuna immagine (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: l'unica apertura atmosferica
+   della pagina vive nell'hero; un'immagine qui non spiegherebbe,
+   confronterebbe, orienterebbe o renderebbe visibile nulla — sarebbe
+   pura decorazione, rimovibile senza perdita, esattamente ciò che il
+   manuale mette in guardia). Un'unica card editoriale, il motivo
+   orbitale Kairus nell'angolo come unico accento oltre al testo. */
+.path-detail .path-entrance {
   position: relative;
   overflow: hidden;
-  border-color: rgba(201, 120, 43, .32);
+  margin: clamp(2.5rem, 5vw, 4rem) 0;
+  padding: clamp(2rem, 4vw, 3rem);
+  border: 1px solid var(--path-rule);
   border-top: 4px solid var(--path-gold, #c9782b);
-  background: var(--path-green, #123f38);
-  color: #fffaf0;
+  border-radius: 26px;
+  background: var(--path-green-soft, #dfeae4);
+  box-shadow: var(--path-shadow);
 }
-.path-detail .path-editorial-note.path-brand-statement::after {
+
+.path-detail .path-entrance__copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+/* Colore fisso, non var(--path-gold): la firma visiva varia l'oro dei
+   bordi/decorazioni, ma su testo piccolo alcuni preset scendono sotto
+   4.5:1 contro l'avorio (misurato, non presunto) — qui serve un valore
+   stabile che superi sempre AA, indipendentemente dal preset. */
+.path-detail .path-entrance__copy .eyebrow { color: #9a4f16; }
+.path-detail .path-entrance__copy h2 {
+  max-width: 24ch;
+  margin: 0 0 .3rem;
+  color: var(--path-ink, #17332f);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -.025em;
+}
+.path-detail .path-entrance__copy p:last-child {
+  max-width: 60ch;
+  margin: 0;
+  color: #3d534c;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* Motivo orbitale nell'angolo — la stessa identità Kairus usata altrove
+   nel Percorso, qui un accento discreto, mai sovrapposto al testo. */
+.path-detail .path-entrance::after {
   content: "";
   position: absolute;
   right: clamp(-4rem, -3vw, -1rem);
   bottom: clamp(-5rem, -5vw, -2rem);
+  z-index: 0;
   width: clamp(12rem, 22vw, 19rem);
   aspect-ratio: 1;
-  border: 1px solid rgba(232, 200, 159, .2);
+  border: 1px solid rgba(18, 63, 56, .14);
   border-radius: 50%;
-  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(232, 200, 159, .11) 28px 29px);
+  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(18, 63, 56, .07) 28px 29px);
   pointer-events: none;
 }
-.path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: #e8c89f; }
-.path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: #fffdf8; }
-.path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: rgba(255, 253, 248, .82); }
+
+/* Nota del curatore — un'aside in prima persona, non una seconda card
+   editoriale: un filo verticale e testo in corsivo, così non compete
+   visivamente con ".path-entrance" appena sopra. Opzionale, compare solo
+   quando l'admin l'ha scritta (Parte "Nota del curatore"). */
+.path-detail .path-curator-note {
+  max-width: 62ch;
+  margin: 0 0 clamp(2.5rem, 5vw, 4rem);
+  padding-left: clamp(1.1rem, 3vw, 1.5rem);
+  border-left: 3px solid var(--path-gold, #c9782b);
+}
+.path-detail .path-curator-note figcaption {
+  margin: 0 0 .4rem;
+  color: #9a4f16;
+}
+.path-detail .path-curator-note blockquote {
+  margin: 0;
+  color: var(--path-ink, #17332f);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+  font-style: italic;
+  line-height: 1.65;
+}
 
 .path-pillar { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: .85rem; align-items: stretch; margin: 1.5rem 0 3rem; padding: .85rem; border: 1px solid #fed7aa; border-radius: var(--radius-lg); background: #fffaf5; box-shadow: var(--shadow-sm); }
 .path-pillar__intro { padding: 1rem 1.15rem; }
@@ -139,6 +214,11 @@
 .path-step__number { display: flex; align-items: flex-start; justify-content: center; padding-top: 1.35rem; border-right: 1px solid #dbe7e4; background: #f0fdfa; color: var(--primary-dark); font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; }
 .path-step__body { min-width: 0; padding: 1.35rem 1.5rem 1.45rem; }
 .path-step__label { color: var(--accent-dark); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+/* Etichetta di categoria per singolo articolo — solo quando la sequenza
+   attraversa più di una categoria (show.blade.php la omette del tutto
+   altrimenti): un tag, non uno status label, per questo ha un contorno
+   invece del solo colore di ".path-step__label". */
+.path-step__category { display: inline-block; margin: 0 .5rem .35rem 0; padding: .15rem .55rem; border: 1px solid var(--border); border-radius: 999px; background: rgba(18, 63, 56, .05); color: var(--ink-muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .path-step h3 { margin: .15rem 0 .5rem; font-family: var(--font-display); font-size: clamp(1.3rem, 2.4vw, 1.75rem); line-height: 1.14; overflow-wrap: anywhere; }
 .path-step p { max-width: 70ch; color: var(--ink-soft); line-height: 1.7; }
 .path-step__cta { display: inline-flex; margin-top: .8rem; color: var(--primary-dark); font-size: .85rem; font-weight: 800; }
@@ -195,7 +275,17 @@
 .home-path-link__copy span { color: var(--primary-dark); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 .home-path-link__copy strong { display: block; margin: .3rem 0 .55rem; font-family: var(--font-display); font-size: clamp(1.35rem, 2vw, 1.7rem); line-height: 1.08; overflow-wrap: anywhere; }
 .home-path-link__copy small { display: block; max-width: 36ch; color: var(--ink-muted); line-height: 1.55; }
-.home-path-link__arrow { position: absolute; right: 1.05rem; bottom: .95rem; color: var(--primary-dark); font-size: 1.35rem; }
+.home-path-link__arrow { position: absolute; right: 1.05rem; bottom: .95rem; color: var(--home-path-accent, var(--primary-dark)); font-size: 1.35rem; }
+
+/* Firma visiva (Pass 2), tocco minimo consentito in homepage (Parte 5):
+   solo il colore della freccia, nessuna dimensione o layout toccati —
+   la griglia/scala già approvata resta identica. */
+.home-path-link.path-signature-0 { --home-path-accent: #c9782b; }
+.home-path-link.path-signature-1 { --home-path-accent: #b6672a; }
+.home-path-link.path-signature-2 { --home-path-accent: #ad7f3f; }
+.home-path-link.path-signature-3 { --home-path-accent: #c68a3f; }
+.home-path-link.path-signature-4 { --home-path-accent: #a96b34; }
+.home-path-link.path-signature-5 { --home-path-accent: #bf7d33; }
 
 @media (max-width: 900px) {
   .home-paths__shell { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); }
@@ -221,7 +311,6 @@
   .paths-index .path-card__body { padding: 1.35rem 1.2rem 1.5rem; }
   .paths-index .path-card h2 { font-size: clamp(1.7rem, 8vw, 2.15rem); }
   .paths-index .path-card__meta { flex-wrap: wrap; }
-  .path-hero__cover { order: -1; min-height: 0; aspect-ratio: 16 / 9; }
   .path-hero__copy { padding: 1.35rem; }
   .path-pillar { gap: .2rem; }
   .path-pillar__intro { padding: .8rem .65rem 1rem; }

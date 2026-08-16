@@ -9,13 +9,24 @@
   --path-gold: #c9782b;
   --path-rule: rgba(23, 51, 47, .16);
   --path-shadow: 0 14px 34px rgba(35, 50, 45, .07);
+  /* Firma visiva (Pass 2): posizione orizzontale del glow dell'hero e
+     tonalità dell'oro — sovrascritte per preset in fondo a questo file,
+     mai qui (questo è il valore di fallback quando nessun preset
+     .path-signature-N è applicato). */
+  --path-glow-x: 50%;
   padding: clamp(2rem, 4vw, 3.5rem) 0 5rem;
   color: var(--path-ink);
   background-color: var(--path-ivory);
+  /* Terzo strato: un glow oro appena percettibile dietro l'hero, l'unica
+     concessione di profondità oltre alla texture puntinata esistente —
+     una rivista digitale premium, non una landing a "strisce" (Parte 6). */
   background-image:
+    radial-gradient(ellipse 900px 520px at var(--path-glow-x) 0%, rgba(201, 120, 43, .05), transparent 70%),
     linear-gradient(rgba(18, 63, 56, .025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 63, 56, .018) 1px, transparent 1px);
-  background-size: 42px 42px;
+  background-repeat: no-repeat, repeat, repeat;
+  background-size: 100% 640px, 42px 42px, 42px 42px;
+  background-position: top center, 0 0, 0 0;
 }
 
 .path-detail > .container {
@@ -36,16 +47,26 @@
   letter-spacing: .13em;
 }
 
-/* Hero — the strongest editorial surface on the page. */
+/* Hero — l'unica apertura atmosferica legittima della pagina (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: "una pagina può permettersi
+   un'apertura atmosferica", al singolare — mai un riquadro fotografico
+   separato più in basso). Sfondo a piena immersione: la cover reale del
+   Percorso quando esiste, altrimenti l'immagine della Visual Library —
+   la stessa grammatica cinematografica delle pagine più mature dello
+   Speciale Turing (hero scuro, testo sovrapposto, velo di leggibilità),
+   nella palette Kairus (verde profondo/oro) invece del ciano/navy
+   proprio dello Speciale. */
 .path-detail .path-hero {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr);
-  min-height: 510px;
+  display: flex;
+  align-items: flex-end;
+  min-height: min(74vh, 620px);
   overflow: hidden;
   border: 1px solid rgba(18, 63, 56, .18);
   border-radius: 28px;
-  background: var(--path-green);
+  background-color: var(--path-green);
+  background-size: cover;
+  background-position: center;
   box-shadow: 0 22px 48px rgba(35, 50, 45, .12);
 }
 
@@ -60,11 +81,25 @@
   background: var(--path-gold);
 }
 
+/* Velo di leggibilità: scuro dove vive il testo, verso trasparente in
+   alto, più un accenno del glow oro della firma (Pass 2) per legare
+   l'hero al resto della pagina invece di un overlay generico. */
+.path-detail .path-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 900px 480px at var(--path-glow-x) 0%, rgba(201, 120, 43, .16), transparent 60%),
+    linear-gradient(0deg, rgba(15, 41, 36, .94) 0%, rgba(15, 41, 36, .78) 30%, rgba(15, 41, 36, .22) 66%, rgba(15, 41, 36, .05) 100%);
+}
+
 .path-detail .path-hero__copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   min-width: 0;
+  max-width: min(680px, 78%);
   flex-direction: column;
-  justify-content: center;
   padding: clamp(2.4rem, 5vw, 4.3rem);
   color: #fdfbf5;
 }
@@ -74,11 +109,11 @@
 }
 
 .path-detail .path-hero h1 {
-  max-width: 11ch;
+  max-width: 16ch;
   margin: .5rem 0 1.25rem;
   color: #fffdf8;
   font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(3.1rem, 5vw, 5.25rem);
+  font-size: clamp(3.1rem, 6vw, 5.6rem);
   line-height: .94;
   letter-spacing: -.045em;
 }
@@ -86,8 +121,8 @@
 .path-detail .path-hero__copy > p:not(.eyebrow) {
   max-width: 58ch;
   margin: 0;
-  color: rgba(255, 253, 248, .84);
-  font-size: 1.04rem;
+  color: rgba(255, 253, 248, .88);
+  font-size: 1.08rem;
   line-height: 1.75;
 }
 
@@ -97,7 +132,7 @@
   gap: .5rem .75rem;
   margin-top: 1.75rem;
   padding-top: 1.1rem;
-  border-top: 1px solid rgba(255, 255, 255, .2);
+  border-top: 1px solid rgba(255, 255, 255, .22);
   color: #f1d8b7;
   font-size: .8rem;
   font-weight: 700;
@@ -105,104 +140,33 @@
   text-transform: uppercase;
 }
 
-.path-detail .path-hero__cover {
-  position: relative;
-  min-width: 0;
-  min-height: 510px;
-  background: #d8ded8;
-}
-
-.path-detail .path-hero__cover-trigger {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  overflow: hidden;
-  cursor: zoom-in;
-}
-
-.path-detail .path-hero__cover img,
-.path-detail .path-hero__cover .path-card__fallback,
-.path-detail .path-hero__cover-trigger img {
-  width: 100%;
-  height: 100%;
-}
-
-.path-detail .path-hero__cover img,
-.path-detail .path-hero__cover-trigger img {
-  display: block;
-  object-fit: cover;
-  transition: transform .25s ease, filter .25s ease;
-}
-
-.path-detail .path-hero__cover-trigger:hover img,
-.path-detail .path-hero__cover-trigger:focus-visible img {
-  transform: scale(1.015);
-  filter: brightness(.94);
-}
-
-.path-detail .path-hero__cover-trigger:focus-visible {
-  outline: 3px solid #f3c37f;
-  outline-offset: -6px;
-}
-
-.path-detail .path-hero__cover-action {
+.path-detail .path-hero__view-trigger {
   position: absolute;
-  right: 1rem;
-  bottom: 1rem;
+  right: 1.15rem;
+  bottom: 1.15rem;
   z-index: 2;
-  padding: .55rem .78rem;
-  border: 1px solid rgba(255,255,255,.44);
+  padding: .55rem .8rem;
+  border: 1px solid rgba(255, 255, 255, .44);
   border-radius: 999px;
-  background: rgba(18, 63, 56, .84);
+  background: rgba(18, 63, 56, .78);
   color: #fffdf8;
+  font: inherit;
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .04em;
   text-transform: uppercase;
+  cursor: zoom-in;
   backdrop-filter: blur(6px);
 }
 
-.path-detail .path-hero__cover--fallback .path-card__fallback {
-  min-height: 100%;
-  padding: clamp(2rem, 4vw, 3rem);
+.path-detail .path-hero__view-trigger:hover,
+.path-detail .path-hero__view-trigger:focus-visible {
+  background: rgba(18, 63, 56, .92);
 }
 
-/* Independent editorial note: contained, but deliberately lighter than hero/pillar. */
-.path-detail .path-editorial-note {
-  display: grid;
-  grid-template-columns: minmax(180px, .38fr) minmax(0, 1.62fr);
-  gap: 1rem 3rem;
-  align-items: start;
-  margin: clamp(2.5rem, 5vw, 4rem) 0;
-  padding: clamp(2rem, 3.5vw, 2.8rem);
-  border: 1px solid var(--path-rule);
-  border-radius: 22px;
-  background: rgba(251, 247, 238, .94);
-  box-shadow: var(--path-shadow);
-}
-
-.path-detail .path-editorial-note .eyebrow {
-  margin-top: .4rem;
-}
-
-.path-detail .path-editorial-note h2 {
-  max-width: 24ch;
-  margin: 0 0 .8rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(1.9rem, 3vw, 2.75rem);
-  line-height: 1.08;
-  letter-spacing: -.025em;
-}
-
-.path-detail .path-editorial-note > p:last-child {
-  grid-column: 2;
-  max-width: 68ch;
-  margin: 0;
-  color: #4c5e58;
-  font-size: 1rem;
-  line-height: 1.75;
+.path-detail .path-hero__view-trigger:focus-visible {
+  outline: 3px solid #f3c37f;
+  outline-offset: 2px;
 }
 
 /* Chapter zero — warm editorial card, not a nested SaaS panel. */
@@ -328,10 +292,15 @@
   padding: 0;
 }
 
+/* Timeline: numero + covers restano il ritmo tipografico principale; il
+   filo/nodo (Parte 4) è un dettaglio discreto disegnato interamente in CSS
+   nella colonna del numero — mai un componente decorativo separato. */
 .path-detail .path-step {
   position: relative;
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-areas: "number body";
+  column-gap: 1.5rem;
   min-height: 0;
   border: 0;
   border-bottom: 1px solid var(--path-rule);
@@ -339,6 +308,20 @@
   background: transparent;
   box-shadow: none;
 }
+
+.path-detail .path-step:has(.path-step__cover) {
+  /* Cover editoriale, target ~30-36% della larghezza della tappa
+     (Kairus Path Visual Language, Parte 3) — una componente importante
+     della tappa, non una normale card da magazine: resta comunque una
+     colonna subordinata al numero e al corpo, mai una card fotografica
+     a sé stante. */
+  grid-template-columns: 116px minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-areas: "number cover body";
+}
+
+.path-detail .path-step__number { grid-area: number; }
+.path-detail .path-step__cover { grid-area: cover; }
+.path-detail .path-step__body { grid-area: body; }
 
 .path-detail .path-step:last-child {
   border-bottom: 0;
@@ -349,6 +332,7 @@
 }
 
 .path-detail .path-step__number {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -365,6 +349,71 @@
 
 .path-detail .path-step--pillar .path-step__number {
   color: rgba(201, 120, 43, .72);
+  /* Variazione sottile di scala (Kairus Path Visual Language, Parte 2):
+     il punto di partenza pesa leggermente di più nella sequenza, non
+     solo per colore — una mappa, non un elenco uniforme. */
+  font-size: clamp(2.75rem, 5.5vw, 4.85rem);
+}
+
+/* Nodo: un piccolo cerchio ancorato al battistrada del numero. */
+.path-detail .path-step__number::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: clamp(2.35rem, 4.3vw, 3.35rem);
+  z-index: 2;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--path-green);
+  border-radius: 50%;
+  background: var(--path-cream);
+}
+
+.path-detail .path-step--pillar .path-step__number::before {
+  border-color: var(--path-gold);
+  background: var(--path-gold);
+}
+
+/* Filo: dal nodo di questa tappa fino al bordo inferiore della sua stessa
+   riga (che si estende per l'intera altezza grazie allo stretch di
+   default della grid) — la riga successiva riprende visivamente da lì,
+   senza bisogno di calcolare un'unica linea continua su tutta la lista. */
+.path-detail .path-step__number::after {
+  content: "";
+  position: absolute;
+  left: 10.5px;
+  top: calc(clamp(2.35rem, 4.3vw, 3.35rem) + 13px);
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  background: var(--path-rule);
+}
+
+.path-detail .path-step:last-child .path-step__number::after {
+  display: none;
+}
+
+.path-detail .path-step__cover {
+  display: block;
+  align-self: start;
+  margin-top: clamp(1.9rem, 4vw, 2.75rem);
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--path-green-soft);
+  aspect-ratio: 4 / 3;
+}
+
+.path-detail .path-step__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .25s ease;
+}
+
+.path-detail .path-step:hover .path-step__cover img,
+.path-detail .path-step__cover:focus-visible img {
+  transform: scale(1.035);
 }
 
 .path-detail .path-step__body {
@@ -376,6 +425,63 @@
   color: #9a4f16;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.path-detail .path-step__category {
+  border-color: var(--path-rule);
+  background: rgba(18, 63, 56, .06);
+  color: var(--path-ink, #17332f);
+}
+
+/* Tappa fantasma "il percorso continua": stesso filo, nodo aperto e
+   tratteggiato — mai un titolo, una data o un numero di articoli futuri
+   (Parte 5), solo una metafora grafica di prosecuzione. */
+.path-detail .path-step--next .path-step__number {
+  color: rgba(18, 63, 56, .3);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: .1em;
+}
+
+.path-detail .path-step--next .path-step__number::before {
+  border-style: dashed;
+  background: transparent;
+}
+
+.path-detail .path-step--next .path-step__body {
+  padding-top: clamp(2.2rem, 4.3vw, 3.1rem);
+}
+
+.path-detail .path-step__label--next {
+  /* .7, non .5: la trasparenza più bassa scendeva sotto 4.5:1 sul fondo
+     crema (~2.7:1) — muta rispetto all'oro delle label attive, ma resta
+     leggibile (misurato ~4.6:1). */
+  color: rgba(18, 63, 56, .7);
+}
+
+.path-detail .path-step__next-copy {
+  margin: .3rem 0 0;
+  color: #6c7d77;
+  font-style: italic;
+}
+
+/* Tappa fantasma di chiusura per un Percorso concluso: nodo pieno, filo
+   assente dopo di essa — una conclusione visiva reale (Parte 5). */
+.path-detail .path-step--close .path-step__number {
+  color: var(--path-green);
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+}
+
+.path-detail .path-step--close .path-step__number::before {
+  background: var(--path-green);
+  border-color: var(--path-green);
+}
+
+.path-detail .path-step--close .path-step__body {
+  padding-top: clamp(2.2rem, 4.3vw, 3.1rem);
+}
+
+.path-detail .path-step__label--close {
+  color: rgba(18, 63, 56, .7);
 }
 
 .path-detail .path-step h3 {
@@ -414,7 +520,63 @@
   color: #9a4f16;
 }
 
+/* "Cambio di registro" (Kairus Path Visual Language, Parte 5) — mai un
+   blocco foto isolato: kicker + crop atmosferico + brevissima frase +
+   segno orbitale, la stessa grammatica editoriale del resto del
+   Percorso. Presente solo quando PathVisualLibrary::transitionImage()
+   rileva un vero scarto tematico nella sequenza — vedi show.blade.php. */
+/* "Cambio di registro" — un momento tonale, non una foto (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: l'alternanza chiaro/scuro delle
+   pagine più mature dello Speciale Turing segnala un cambio di registro
+   narrativo, mai una seconda apertura atmosferica). Stessa palette
+   scura dell'hero, nessuna immagine: solo tipografia su fondo verde
+   profondo. */
+.path-detail .path-transition {
+  position: relative;
+  overflow: hidden;
+  margin: clamp(2.5rem, 5vw, 4rem) 0;
+  padding: clamp(2.4rem, 5vw, 3.6rem) clamp(2rem, 4vw, 3rem);
+  border-radius: 24px;
+  background: var(--path-green);
+  box-shadow: var(--path-shadow);
+  text-align: center;
+}
+
+/* Lo stesso glow oro dell'hero, appena percettibile: lega il momento
+   scuro al resto della pagina senza introdurre una seconda immagine. */
+.path-detail .path-transition::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 700px 320px at 50% 0%, rgba(201, 120, 43, .16), transparent 70%);
+}
+
+.path-detail .path-transition__kicker {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 .75rem;
+  color: #e8c89f;
+  font-size: .76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+}
+
+.path-detail .path-transition__phrase {
+  position: relative;
+  z-index: 1;
+  max-width: 46ch;
+  margin: 0 auto;
+  color: #fdfbf5;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  font-style: italic;
+  line-height: 1.5;
+}
+
 .path-detail .path-ending {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2rem;
@@ -426,6 +588,52 @@
   border-radius: 22px;
   background: #e4ece6;
   box-shadow: var(--path-shadow);
+}
+
+/* Aggiornamento vs concluso deve leggersi anche senza leggere il testo
+   (Parte 7) — stesso linguaggio "aperto/tratteggiato" già usato dal nodo
+   fantasma della timeline (path-step--next), qui sul bordo superiore.
+   Nessuna icona, nessun badge: solo lo stile del bordo che cambia. */
+.path-detail .path-ending--continues {
+  border-top-style: dashed;
+  border-top-color: var(--path-gold);
+}
+
+/* Stessa geografia della timeline (Kairus Path Visual Language, Parte 6):
+   un piccolo filo/nodo nello spazio fra la sequenza e la chiusura,
+   identico linguaggio del nodo fantasma dentro la timeline (aperto e
+   tratteggiato per un Percorso ancora aperto, pieno per uno concluso) —
+   così il bordo della chiusura non è un accento isolato ma la
+   prosecuzione visiva dello stesso filo. Solo grafica statica, nessuna
+   animazione. */
+.path-detail .path-ending::before {
+  content: "";
+  position: absolute;
+  top: -1.75rem;
+  left: clamp(2rem, 4vw, 3rem);
+  width: 2px;
+  height: 1.75rem;
+  background: var(--path-rule);
+}
+.path-detail .path-ending--continues::before {
+  background-image: repeating-linear-gradient(to bottom, var(--path-gold) 0 4px, transparent 4px 9px);
+}
+
+.path-detail .path-ending::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: calc(clamp(2rem, 4vw, 3rem) - 5px);
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--path-green);
+  border-radius: 50%;
+  background: var(--path-cream);
+}
+.path-detail .path-ending--continues::after {
+  border-style: dashed;
+  border-color: var(--path-gold);
+  background: transparent;
 }
 
 .path-detail .path-ending h2 {
@@ -459,30 +667,19 @@
 }
 
 @media (max-width: 900px) {
-  .path-detail .path-hero,
   .path-detail .path-pillar,
   .path-detail .path-steps__header,
-  .path-detail .path-editorial-note,
+  .path-detail .path-entrance,
   .path-detail .path-ending {
     grid-template-columns: 1fr;
   }
 
   .path-detail .path-hero {
-    min-height: 0;
-  }
-
-  .path-detail .path-hero__cover {
-    order: -1;
-    min-height: 0;
-    aspect-ratio: 16 / 9;
-  }
-
-  .path-detail .path-hero__cover-trigger {
-    min-height: 0;
-    aspect-ratio: inherit;
+    min-height: min(60vh, 480px);
   }
 
   .path-detail .path-hero__copy {
+    max-width: 100%;
     padding: clamp(2rem, 6vw, 3rem);
   }
 
@@ -490,8 +687,12 @@
     max-width: 14ch;
   }
 
-  .path-detail .path-editorial-note > p:last-child {
-    grid-column: 1;
+  /* La riga della tappa è più stretta qui: lo stesso tetto assoluto del
+     desktop (340px) sforerebbe oltre il 50% della larghezza della tappa.
+     Un tetto proprio per questa fascia mantiene la cover proporzionata
+     (~30-33%) senza schiacciare titolo/estratto. */
+  .path-detail .path-step:has(.path-step__cover) {
+    grid-template-columns: 116px minmax(190px, 220px) minmax(0, 1fr);
   }
 
   .path-detail .path-pillar__link {
@@ -520,11 +721,12 @@
   }
 
   .path-detail .path-hero {
+    min-height: min(56vh, 420px);
     border-radius: 18px;
   }
 
-  .path-detail .path-hero__cover {
-    aspect-ratio: 4 / 3;
+  .path-detail .path-transition {
+    margin: 2rem 0;
   }
 
   .path-detail .path-hero__copy {
@@ -546,13 +748,12 @@
     line-height: 1.45;
   }
 
-  .path-detail .path-hero__cover-action {
+  .path-detail .path-hero__view-trigger {
     right: .75rem;
     bottom: .75rem;
     font-size: .66rem;
   }
 
-  .path-detail .path-editorial-note,
   .path-detail .path-pillar,
   .path-detail .path-steps,
   .path-detail .path-ending {
@@ -560,12 +761,17 @@
     border-radius: 16px;
   }
 
-  .path-detail .path-editorial-note {
+  .path-detail .path-entrance {
     margin: 2.2rem 0;
-    gap: .5rem;
+    border-radius: 16px;
   }
 
-  .path-detail .path-editorial-note h2 {
+  .path-detail .path-entrance__copy {
+    gap: .5rem;
+    padding: 1.45rem 1.2rem;
+  }
+
+  .path-detail .path-entrance__copy h2 {
     font-size: 1.75rem;
   }
 
@@ -589,6 +795,12 @@
 
   .path-detail .path-step {
     grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-areas: "number body";
+  }
+
+  .path-detail .path-step:has(.path-step__cover) {
+    grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-areas: "number cover" "number body";
   }
 
   .path-detail .path-step__number {
@@ -596,8 +808,28 @@
     font-size: 1.9rem;
   }
 
+  .path-detail .path-step__number::before {
+    top: 1.85rem;
+  }
+
+  .path-detail .path-step__number::after {
+    top: calc(1.85rem + 13px);
+  }
+
+  .path-detail .path-step__cover {
+    margin: .5rem 0 .35rem;
+    /* 16:9 leggeva troppo piatta a piena larghezza; 3:2 dà più presenza
+       verticale senza avvicinarsi al rapporto dei visual break (21:9 /
+       16:10) — restano due linguaggi visivi distinti. */
+    aspect-ratio: 3 / 2;
+  }
+
   .path-detail .path-step__body {
     padding: 1.55rem 0 1.75rem;
+  }
+
+  .path-detail .path-step:has(.path-step__cover) .path-step__body {
+    padding-top: .25rem;
   }
 
   .path-detail .path-step h3 {
@@ -618,12 +850,27 @@
 @media (prefers-reduced-motion: reduce) {
   .path-detail .path-pillar__link,
   .path-detail .path-step,
-  .path-detail .path-hero__cover-trigger img {
+  .path-detail .path-step__cover img {
     transition: none;
   }
 
-  .path-detail .path-hero__cover-trigger:hover img,
-  .path-detail .path-hero__cover-trigger:focus-visible img {
+  .path-detail .path-step:hover .path-step__cover img,
+  .path-detail .path-step__cover:focus-visible img {
     transform: none;
   }
 }
+
+/* ── Firma visiva del Percorso (Pass 2) ──────────────────────────────
+   Sei preset, selezionati in modo deterministico da
+   App\Support\PathVisualSignature in base allo slug — mai casuali, mai
+   configurati per singolo Percorso. La variazione resta deliberatamente
+   sottile e dentro il DNA Kairus: solo la tonalità dell'oro controllato
+   e la posizione del glow cambiano, mai il verde profondo o l'avorio di
+   base, mai una tinta estranea alla famiglia (Parte 3 — "non IA=blu
+   neon"). */
+.path-detail.path-signature-0 { --path-gold: #c9782b; --path-glow-x: 32%; }
+.path-detail.path-signature-1 { --path-gold: #b6672a; --path-glow-x: 68%; }
+.path-detail.path-signature-2 { --path-gold: #ad7f3f; --path-glow-x: 50%; }
+.path-detail.path-signature-3 { --path-gold: #c68a3f; --path-glow-x: 22%; }
+.path-detail.path-signature-4 { --path-gold: #a96b34; --path-glow-x: 78%; }
+.path-detail.path-signature-5 { --path-gold: #bf7d33; --path-glow-x: 44%; }
