@@ -14,6 +14,7 @@
 
 @section('head')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <meta property="article:published_time" content="{{ $article->published_at->toIso8601String() }}">
 <meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
 <meta property="article:author" content="{{ $article->author->name }}">
@@ -32,10 +33,6 @@
     transition: width 0.08s linear;
 }
 
-/*
- * La colonna laterale resta nel normale flusso della pagina.
- * L'indice non segue lo scorrimento.
- */
 .article-premium__layout > .article-premium__aside {
     position: static !important;
     top: auto !important;
@@ -54,12 +51,10 @@
     bottom: auto !important;
     left: auto !important;
     inset: auto !important;
-
     width: auto !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-
     overflow: visible !important;
     transform: none !important;
 }
@@ -71,11 +66,9 @@
     right: auto !important;
     bottom: auto !important;
     left: auto !important;
-
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-
     overflow: visible !important;
     transform: none !important;
 }
@@ -86,87 +79,36 @@
 <div class="reading-progress" id="reading-progress"></div>
 
 @php
-    $categoryLabel = \App\Models\Category::options(false)[$article->category]
-        ?? $article->category;
-
-    $cover = asset(
-        'assets/img/'.($article->cover_image ?? 'hero-placeholder.svg')
-    );
-
+    $categoryLabel = \App\Models\Category::options(false)[$article->category] ?? $article->category;
+    $cover = asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg'));
     $bodyParts = explode('---', (string) $article->body);
-
     $mainBody = $bodyParts[0] ?? (string) $article->body;
-
-    $sources = isset($bodyParts[1])
-        ? trim($bodyParts[1])
-        : null;
-
+    $sources = isset($bodyParts[1]) ? trim($bodyParts[1]) : null;
     $isHtml = strip_tags($mainBody) !== $mainBody;
-
     $relatedItems = collect($related ?? []);
-
-    /*
-     * L'indice viene generato solo dal contenuto HTML reale.
-     * Gli ID dei titoli vengono aggiunti esclusivamente durante
-     * il rendering e non modificano il testo salvato nel database.
-     */
-    $toc = $isHtml
-        ? app(\App\Services\TableOfContentsService::class)->build($mainBody)
-        : [
-            'html' => $mainBody,
-            'items' => [],
-        ];
-
-    $mainBodyWithTocIds = $isHtml
-        ? app(\App\Services\ArticleBodyImageService::class)->applyLazyLoading($toc['html'])
-        : $toc['html'];
+    $toc = $isHtml ? app(\App\Services\TableOfContentsService::class)->build($mainBody) : ['html' => $mainBody, 'items' => []];
+    $mainBodyWithTocIds = $isHtml ? app(\App\Services\ArticleBodyImageService::class)->applyLazyLoading($toc['html']) : $toc['html'];
     $tocItems = $toc['items'];
 @endphp
 
 <div class="public-shell">
     <article class="article-premium">
-
         @include('articles.partials.breadcrumb')
-
         @include('articles.partials.hero')
-
         <div class="article-premium__layout">
-
             <main>
-                @include('articles.partials.toc', [
-                    'tocVariant' => 'toc-panel--mobile',
-                ])
-
+                @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')
-
+                @include('articles.partials.path-continuation')
                 @include('articles.partials.newsletter-band')
-
                 @include('articles.partials.related-articles')
             </main>
-
-            <aside
-                class="article-premium__aside"
-                style="
-                    position: static !important;
-                    top: auto !important;
-                    right: auto !important;
-                    bottom: auto !important;
-                    left: auto !important;
-                    align-self: start !important;
-                    transform: none !important;
-                "
-            >
-                @include('articles.partials.toc', [
-                    'tocVariant' => 'toc-panel--desktop',
-                ])
-
+            <aside class="article-premium__aside" style="position:static !important;top:auto !important;right:auto !important;bottom:auto !important;left:auto !important;align-self:start !important;transform:none !important;">
+                @include('articles.partials.toc', ['tocVariant' => 'toc-panel--desktop'])
                 @include('articles.partials.author-card')
-
                 @include('articles.partials.share-card')
-
                 @include('components.sidebar')
             </aside>
-
         </div>
     </article>
 </div>
@@ -174,4 +116,5 @@
 
 @push('scripts')
     @include('articles.partials.scripts')
+    @include('partials.content-clusters-analytics')
 @endpush

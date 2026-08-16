@@ -1,0 +1,95 @@
+.path-detail .path-narrative {
+  display: grid;
+  grid-template-columns: minmax(180px, .38fr) minmax(0, 1.62fr);
+  gap: 1.25rem 3rem;
+  align-items: start;
+  margin: 0 0 clamp(2.5rem, 5vw, 4rem);
+  padding: clamp(2rem, 3.5vw, 2.8rem);
+  border: 1px solid var(--path-rule);
+  border-radius: 22px;
+  background: rgba(251, 247, 238, .94);
+  box-shadow: var(--path-shadow);
+}
+
+.path-detail .path-narrative h2 {
+  margin: .35rem 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  line-height: 1.08;
+  letter-spacing: -.025em;
+}
+
+.path-detail .path-narrative ol,
+.path-detail .path-narrative ul {
+  display: grid;
+  gap: .85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: narrative-item;
+}
+
+.path-detail .path-narrative li {
+  position: relative;
+  padding: 0 0 .85rem 2.6rem;
+  border-bottom: 1px solid var(--path-rule);
+  color: #3f514b;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.path-detail .path-narrative li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.path-detail .path-narrative--takeaways li {
+  counter-increment: narrative-item;
+}
+
+.path-detail .path-narrative--takeaways li::before {
+  content: counter(narrative-item, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: .05rem;
+  color: var(--path-gold);
+  font-family: var(--font-display, Georgia, serif);
+  font-weight: 700;
+}
+
+.path-detail .path-narrative--questions li::before {
+  content: "?";
+  position: absolute;
+  left: .35rem;
+  top: -.1rem;
+  color: var(--path-green);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.path-detail .path-step__transition {
+  max-width: 60ch;
+  margin: 1.1rem 0 0;
+  padding-top: .9rem;
+  border-top: 1px solid rgba(201, 120, 43, .22);
+  color: #6f5b46;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: .98rem;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.path-detail .path-step__transition span {
+  margin-right: .35rem;
+  color: var(--path-gold);
+  font-style: normal;
+}
+
+@media (max-width: 760px) {
+  .path-detail .path-narrative {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+    padding: 1.35rem;
+  }
+}
