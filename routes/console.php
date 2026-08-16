@@ -28,10 +28,15 @@ Schedule::command('news:fetch')
     ->appendOutputTo(storage_path('logs/news-fetch.log'));
 
 // ── Backup automatico database ─────────────────────────────────
-// Ogni giorno alle 2:00 di notte
-Schedule::command('backup:database')
-    ->dailyAt('02:00')
-    ->appendOutputTo(storage_path('logs/backup.log'));
+// Il comando backup:database corrente copia esclusivamente SQLite.
+// Manteniamo quindi il job per ambienti SQLite, ma non lo scheduliamo in
+// production MariaDB/MySQL finché Backup V2 non offre un dump verificato.
+if (config('database.default') === 'sqlite') {
+    Schedule::command('backup:database')
+        ->dailyAt('02:00')
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/backup.log'));
+}
 
 // ── Pulizia cache ──────────────────────────────────────────────
 // Ogni domenica alle 3:00
@@ -69,7 +74,7 @@ Schedule::command('projects:sync-github-tasks')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/projects-github-sync.log'));
 
-// ── Area Progettazione: sync calendario editoriale ───────────────
+// ── Area Progettazione: sync calendario editoriale ────────────────
 // Ogni 5 minuti: collega automaticamente SOLO i match sicuri e non
 // ambigui tra le voci del calendario editoriale e gli articoli reali
 // (sola scrittura additiva — mai uno scollegamento, mai un match

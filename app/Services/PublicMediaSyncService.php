@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Concerns\ConfirmsFileDeletion;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -21,6 +22,8 @@ use RuntimeException;
  */
 class PublicMediaSyncService
 {
+    use ConfirmsFileDeletion;
+
     /**
      * Tentativi e attesa tra un tentativo e l'altro per rimuovere un file
      * appena scritto (vedi removeFileWithRetry()).
@@ -30,10 +33,17 @@ class PublicMediaSyncService
     private const REMOVE_RETRY_DELAY_MICROSECONDS = 100_000; // 100ms
 
     /**
-     * Attesa prima di riverificare che un file resti davvero rimosso dopo
-     * un unlink() che ha gia' riportato successo (vedi removeFileWithRetry()).
+     * Controlli consecutivi (e intervallo tra l'uno e l'altro) per
+     * confermare che un file sia davvero rimosso dopo un unlink() che ha
+     * già riportato successo — vedi ConfirmsFileDeletion. Un solo
+     * controllo (il comportamento precedente a questo hardening) non
+     * bastava: un'indagine su Windows reale ha mostrato un file
+     * ricomparire anche dopo che una singola riverifica lo aveva già
+     * dichiarato assente.
      */
-    private const REAPPEARANCE_RECHECK_DELAY_MICROSECONDS = 100_000; // 100ms
+    private const REMOVE_CONFIRMATION_CHECKS = 3;
+
+    private const REMOVE_CONFIRMATION_DELAY_MICROSECONDS = 100_000; // 100ms
 
     /**
      * Copia un file gia' scritto in public/assets/img anche nella radice
@@ -92,18 +102,9 @@ class PublicMediaSyncService
      */
     public function cleanupAfterFailedCreate(string $fullPath): void
     {
-        $this->logPathDiagnostics('cleanup_after_failed_create:received', $fullPath);
-
         clearstatcache(true, $fullPath);
 
-        $this->logPathDiagnostics('cleanup_after_failed_create:after_clearstatcache', $fullPath);
-
         if (! file_exists($fullPath)) {
-            Log::debug('PublicMediaSyncService: diagnostica — file non trovato, nessuna rimozione necessaria.', [
-                'checkpoint' => 'cleanup_after_failed_create:file_not_found',
-                'path' => $fullPath,
-            ]);
-
             return;
         }
 
@@ -113,38 +114,6 @@ class PublicMediaSyncService
                 'path' => $fullPath,
             ]);
         }
-    }
-
-    /**
-     * DIAGNOSTICA TEMPORANEA (da rimuovere una volta identificata la causa
-     * reale del fallimento di cleanup su Windows reale — vedi PR di
-     * hardening #123, che non ha risolto il problema nonostante il retry).
-     *
-     * Registra lo stato del path cosi' come lo vede questo layer, per poter
-     * confrontare — a partire dai log prodotti da una vera esecuzione
-     * Windows — se il path ricevuto qui e' esattamente lo stesso restituito
-     * da ImageService::upload() e se file_exists()/is_file() sono coerenti
-     * con quanto poi osservato da unlink() e dal filesUnder() dei test.
-     */
-    private function logPathDiagnostics(string $checkpoint, string $path): void
-    {
-        Log::debug('PublicMediaSyncService: diagnostica path.', [
-            'checkpoint' => $checkpoint,
-            'path' => $path,
-            'path_length' => strlen($path),
-            'contains_backslash' => str_contains($path, '\\'),
-            'contains_double_slash' => str_contains($path, '//') || str_contains($path, '\\\\'),
-            'file_exists' => file_exists($path),
-            'is_file' => is_file($path),
-            'is_readable' => is_readable($path),
-            'is_writable' => is_writable($path),
-            'realpath' => realpath($path),
-            'dirname' => dirname($path),
-            'basename' => basename($path),
-            'dir_exists' => is_dir(dirname($path)),
-            'dir_realpath' => realpath(dirname($path)),
-            'dir_is_writable' => is_writable(dirname($path)),
-        ]);
     }
 
     /**
@@ -356,24 +325,7 @@ class PublicMediaSyncService
      */
     protected function removeFile(string $path): bool
     {
-        $this->logPathDiagnostics('remove_file:before_unlink', $path);
-
-        $result = @unlink($path);
-
-        // error_get_last() e' popolato anche quando l'errore e' soppresso
-        // da "@": l'operatore sopprime solo la segnalazione, non lo storico.
-        // Va letto subito dopo unlink(), prima di qualunque altra chiamata
-        // che potrebbe sovrascriverlo.
-        $lastError = $result ? null : error_get_last();
-
-        Log::debug('PublicMediaSyncService: diagnostica — esito unlink().', [
-            'checkpoint' => 'remove_file:after_unlink',
-            'path' => $path,
-            'unlink_result' => $result,
-            'error_get_last' => $lastError,
-        ]);
-
-        return $result;
+        return @unlink($path);
     }
 
     /**
@@ -397,27 +349,23 @@ class PublicMediaSyncService
      * unlink().
      *
      * Un unlink() che riporta successo non è più trattato come la parola
-     * finale: un'indagine precedente su Windows reale (vedi git log di
-     * questo file per il percorso diagnostico completo — PublicMediaSyncService
+     * finale: un'indagine precedente su Windows reale (PublicMediaSyncService
      * riceveva un path corretto, unlink() restituiva true al primo
      * tentativo, error_get_last() era null, file_exists()/is_file() erano
      * immediatamente false — eppure lo stesso file esisteva di nuovo al
-     * termine della richiesta HTTP) ha reso insufficiente il solo esito di
-     * removeFile(): un file può ricomparire poco dopo una rimozione
-     * riuscita (es. per un flush differito di un handle del framework di
-     * testing ancora aperto sullo stesso file — vedi UploadedFile::fake(),
-     * che scrive attraverso un handle tmpfile() che sopravvive a un
-     * successivo rename() verso questo stesso path). Dopo un unlink()
-     * riuscito, questo metodo attende una breve finestra fissa e riverifica
-     * l'esistenza del file prima di dichiarare vittoria: se è ricomparso,
-     * il tentativo NON conta come riuscito e il ciclo prosegue con gli
+     * termine della richiesta HTTP, e in un secondo momento è stato
+     * osservato ricomparire anche dopo una singola riverifica riuscita) ha
+     * reso insufficiente sia il solo esito di removeFile() sia una singola
+     * riverifica: la conferma (ConfirmsFileDeletion::confirmFileReallyGone())
+     * richiede più controlli consecutivi, non uno solo, prima di dichiarare
+     * vittoria. Se un tentativo non è confermato, il ciclo prosegue con gli
      * stessi budget di tentativi/attesa già esistenti (nessun tentativo
      * aggiuntivo introdotto). Se la ricomparsa persiste per tutti i
      * tentativi, resta il comportamento esistente: nessuna eccezione, solo
      * il warning già loggato dal chiamante — mai un fallimento permanente
      * mascherato da falso successo.
      *
-     * La riverifica confronta il contenuto (digest SHA-256, stesso
+     * La conferma confronta anche il contenuto (digest SHA-256, stesso
      * principio già usato da sameContent() altrove in questo servizio), non
      * solo l'esistenza del path: durante la breve attesa un'altra richiesta
      * concorrente potrebbe scrivere legittimamente un file diverso allo
@@ -433,22 +381,32 @@ class PublicMediaSyncService
 
         for ($attempt = 1; $attempt <= self::REMOVE_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
-                if ($this->confirmedGoneAfterSuccessfulRemoval($path, $attempt, $originalContentHash)) {
+                if ($this->confirmFileReallyGone(
+                    $path,
+                    $originalContentHash,
+                    self::REMOVE_CONFIRMATION_CHECKS,
+                    self::REMOVE_CONFIRMATION_DELAY_MICROSECONDS,
+                    function (string $path) use ($attempt): void {
+                        // Non e' il nostro file risorto: un contenuto diverso e'
+                        // comparso allo stesso path (es. un'altra richiesta concorrente
+                        // che ha scritto legittimamente un proprio file con lo stesso
+                        // disk_name). Il nostro compito — rimuovere il file che
+                        // QUESTO cleanup aveva scritto — resta comunque concluso:
+                        // cancellare quello che c'e' ora cancellerebbe dati che questo
+                        // servizio non ha mai scritto.
+                        Log::warning('PublicMediaSyncService: un file diverso e\' comparso allo stesso path durante il cleanup: lasciato intatto (non e\' il file che questo cleanup doveva rimuovere).', [
+                            'checkpoint' => 'remove_file_with_retry:different_file_reappeared',
+                            'attempt' => $attempt,
+                            'path' => $path,
+                        ]);
+                    },
+                )) {
                     return true;
                 }
             } else {
                 clearstatcache(true, $path);
 
-                $stillExists = file_exists($path);
-
-                Log::debug('PublicMediaSyncService: diagnostica — ricontrollo dopo clearstatcache.', [
-                    'checkpoint' => 'remove_file_with_retry:recheck_after_clearstatcache',
-                    'attempt' => $attempt,
-                    'path' => $path,
-                    'file_exists' => $stillExists,
-                ]);
-
-                if (! $stillExists) {
+                if (! file_exists($path)) {
                     return true;
                 }
             }
@@ -457,92 +415,6 @@ class PublicMediaSyncService
                 usleep(self::REMOVE_RETRY_DELAY_MICROSECONDS);
             }
         }
-
-        Log::debug('PublicMediaSyncService: diagnostica — tutti i tentativi di rimozione esauriti.', [
-            'checkpoint' => 'remove_file_with_retry:exhausted',
-            'path' => $path,
-            'attempts' => self::REMOVE_RETRY_ATTEMPTS,
-        ]);
-
-        return false;
-    }
-
-    /**
-     * Riverifica, dopo una breve attesa fissa, che un file appena rimosso
-     * con successo (removeFile() ha restituito true) non sia ricomparso
-     * prima di dichiarare il tentativo davvero riuscito. Vedi il commento
-     * di removeFileWithRetry() per l'evidenza reale che giustifica questo
-     * controllo e per il perche' del confronto per contenuto, non solo per
-     * path.
-     *
-     * @param  string|false  $originalContentHash  digest SHA-256 del file
-     *                                             PRIMA di questo tentativo
-     *                                             di rimozione, o false se
-     *                                             non leggibile: in quel
-     *                                             caso non c'e' un
-     *                                             riferimento affidabile
-     *                                             con cui confrontare
-     *                                             un'eventuale ricomparsa,
-     *                                             quindi si ricade sul
-     *                                             comportamento
-     *                                             conservativo esistente
-     *                                             (trattarla come il
-     *                                             nostro stesso file).
-     */
-    private function confirmedGoneAfterSuccessfulRemoval(string $path, int $attempt, string|false $originalContentHash): bool
-    {
-        usleep(self::REAPPEARANCE_RECHECK_DELAY_MICROSECONDS);
-        clearstatcache(true, $path);
-
-        $reappeared = file_exists($path);
-
-        Log::debug('PublicMediaSyncService: diagnostica — riverifica dopo unlink() riuscito.', [
-            'checkpoint' => 'remove_file_with_retry:recheck_after_success',
-            'attempt' => $attempt,
-            'path' => $path,
-            'reappeared' => $reappeared,
-        ]);
-
-        if (! $reappeared) {
-            Log::debug('PublicMediaSyncService: diagnostica — rimozione confermata.', [
-                'checkpoint' => 'remove_file_with_retry:success',
-                'attempt' => $attempt,
-                'path' => $path,
-            ]);
-
-            return true;
-        }
-
-        $reappearedContentHash = @hash_file('sha256', $path);
-
-        if ($originalContentHash !== false && $reappearedContentHash !== false && $reappearedContentHash !== $originalContentHash) {
-            // Non e' il nostro file risorto: un contenuto diverso e'
-            // comparso allo stesso path (es. un'altra richiesta concorrente
-            // che ha scritto legittimamente un proprio file con lo stesso
-            // disk_name). Il nostro compito — rimuovere il file che
-            // QUESTO cleanup aveva scritto — resta comunque concluso:
-            // cancellare quello che c'e' ora cancellerebbe dati che questo
-            // servizio non ha mai scritto.
-            Log::warning('PublicMediaSyncService: un file diverso e\' comparso allo stesso path durante il cleanup: lasciato intatto (non e\' il file che questo cleanup doveva rimuovere).', [
-                'checkpoint' => 'remove_file_with_retry:different_file_reappeared',
-                'attempt' => $attempt,
-                'path' => $path,
-            ]);
-
-            return true;
-        }
-
-        // Livello debug, non warning: un singolo tentativo scartato per
-        // ricomparsa del NOSTRO stesso contenuto non e' di per se' un
-        // problema per chi gestisce l'ambiente, solo un dato diagnostico —
-        // il warning esistente in cleanupAfterFailedCreate() resta l'unico
-        // segnale "azionabile", riservato al caso in cui TUTTI i tentativi
-        // siano stati esauriti senza una rimozione confermata.
-        Log::debug('PublicMediaSyncService: diagnostica — il file rimosso con successo e\' ricomparso subito dopo con lo stesso contenuto: tentativo non considerato definitivo.', [
-            'checkpoint' => 'remove_file_with_retry:reappeared_after_success',
-            'attempt' => $attempt,
-            'path' => $path,
-        ]);
 
         return false;
     }

@@ -11,6 +11,10 @@ class ContentCluster extends Model
 {
     use HasFactory;
 
+    public const LIFECYCLE_UPDATING = 'updating';
+
+    public const LIFECYCLE_COMPLETE = 'complete';
+
     protected $fillable = [
         'name',
         'slug',
@@ -21,11 +25,13 @@ class ContentCluster extends Model
         'seo_description',
         'pillar_article_id',
         'is_active',
+        'lifecycle_status',
         'sort_order',
         'takeaways',
         'guiding_questions',
         'closing_title',
         'closing_text',
+        'curator_note',
     ];
 
     protected $casts = [
@@ -63,6 +69,16 @@ class ContentCluster extends Model
     public function scopeOrdered(Builder $query): Builder
     {
         return $query->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function isUpdating(): bool
+    {
+        return $this->lifecycle_status === self::LIFECYCLE_UPDATING;
+    }
+
+    public function isComplete(): bool
+    {
+        return ! $this->isUpdating();
     }
 
     public function setNameAttribute(string $value): void
