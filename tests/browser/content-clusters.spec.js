@@ -75,7 +75,16 @@ for (const width of viewportWidths) {
         await expect(page.locator('main')).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
         await expect(page.getByRole('heading', { level: 2, name: 'Perché questo percorso' })).toBeVisible();
-        await expect(page.getByRole('heading', { level: 2, name: 'Fine del percorso' })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 2, name: 'Non siamo ancora arrivati alla fine.' })).toBeVisible();
+        const continuation = page.locator('[data-path-continues]');
+        await expect(continuation).toBeVisible();
+        await expect(continuation.getByText('2 tappe disponibili · Percorso in aggiornamento')).toBeVisible();
+        await expect(continuation.getByText("Stiamo preparando nuovi capitoli per continuare l'esplorazione.", { exact: false })).toBeVisible();
+        await expect(continuation.getByText('Torna presto: la prossima tappa arriverà qui.', { exact: false })).toBeVisible();
+        await expect(continuation.getByText('Qui riprenderà il viaggio.')).toBeVisible();
+        await expect(page.getByText('3 tappe disponibili')).toHaveCount(0);
+        await expect(page.getByText('quando il lavoro editoriale sarà pronto')).toHaveCount(0);
+        await expect(page.getByText('Avvisami quando continua')).toHaveCount(0);
         await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
         await expect(page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first()).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
@@ -90,15 +99,15 @@ for (const width of viewportWidths) {
                 const hero = document.querySelector('.path-hero');
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
-                const cover = document.querySelector('.path-hero__cover');
-                const note = document.querySelector('.path-editorial-note');
+                const note = document.querySelector('.path-entrance');
+                const noteCopy = document.querySelector('.path-entrance__copy');
                 const pillar = document.querySelector('.path-pillar');
                 const steps = document.querySelector('.path-steps');
                 const firstStep = document.querySelector('.path-step');
                 const firstStepNumber = document.querySelector('.path-step__number');
                 const firstStepTitle = document.querySelector('.path-step h3');
                 const ending = document.querySelector('.path-ending');
-                if (!detail || !shell || !hero || !title || !copy || !cover || !note || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
+                if (!detail || !shell || !hero || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 const detailStyle = getComputedStyle(detail);
@@ -110,16 +119,15 @@ for (const width of viewportWidths) {
                 return {
                     shell: shell.getBoundingClientRect().width,
                     hero: hero.getBoundingClientRect().width,
+                    heroHeight: hero.getBoundingClientRect().height,
                     copy: copy.getBoundingClientRect().width,
-                    cover: cover.getBoundingClientRect().width,
-                    coverHeight: cover.getBoundingClientRect().height,
                     pillar: pillar.getBoundingClientRect().width,
                     step: firstStep.getBoundingClientRect().width,
                     titleSize: parseFloat(getComputedStyle(title).fontSize),
                     stepTitleSize: parseFloat(getComputedStyle(firstStepTitle).fontSize),
                     stepNumberSize: parseFloat(getComputedStyle(firstStepNumber).fontSize),
                     heroDisplay: heroStyle.display,
-                    heroColumns: heroStyle.gridTemplateColumns,
+                    heroBackgroundImage: heroStyle.backgroundImage,
                     heroRadius: parseFloat(heroStyle.borderRadius),
                     detailBackground: detailStyle.backgroundColor,
                     heroBackground: heroStyle.backgroundColor,
@@ -144,17 +152,16 @@ for (const width of viewportWidths) {
             expect(detailLayout.shell).toBeGreaterThan(1150);
             expect(detailLayout.shell).toBeLessThanOrEqual(1220);
             expect(detailLayout.hero).toBeGreaterThan(1150);
+            expect(detailLayout.heroHeight).toBeGreaterThan(500);
             expect(detailLayout.pillar).toBeGreaterThan(1150);
             expect(detailLayout.step).toBeGreaterThan(1000);
-            expect(detailLayout.heroDisplay).toBe('grid');
+            expect(detailLayout.heroDisplay).toBe('flex');
             expect(detailLayout.copy).toBeGreaterThan(450);
-            expect(detailLayout.cover).toBeGreaterThan(500);
-            expect(detailLayout.coverHeight).toBeGreaterThanOrEqual(500);
+            expect(detailLayout.heroBackgroundImage).not.toBe('none');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
             expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
             expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
-            expect(detailLayout.heroColumns).not.toBe('none');
             expect(detailLayout.detailBackground).not.toBe('rgb(255, 255, 255)');
             expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
             expect(detailLayout.noteBackground).not.toBe('rgba(0, 0, 0, 0)');
@@ -172,6 +179,13 @@ for (const width of viewportWidths) {
             expect(detailLayout.endingRadius).toBeGreaterThanOrEqual(18);
         }
 
+        await page.goto('/percorsi/percorso-completo-ci');
+        await expect(page.getByRole('heading', { level: 2, name: 'Fine del percorso' })).toBeVisible();
+        await expect(page.locator('[data-path-continues]')).toHaveCount(0);
+        await expect(page.getByText('Percorso in aggiornamento')).toHaveCount(0);
+        await expect(page.getByText('Torna presto: la prossima tappa arriverà qui.', { exact: false })).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
         expect(errors).toEqual([]);
     });
 
@@ -185,17 +199,26 @@ for (const width of viewportWidths) {
         await expect(box.getByRole('heading', { name: 'Continua il percorso' })).toBeVisible();
         await expect(box.getByText('1 di 2')).toBeVisible();
         await expect(box.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(box.locator('[data-path-continues]')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         await box.getByRole('link', { name: /Successivo.*Dalle macchine ai modelli moderni/ }).click();
         await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
-        await expect(page.locator('.path-continuation').getByText('2 di 2')).toBeVisible();
-        await expect(page.locator('.path-continuation').getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        const lastBox = page.locator('.path-continuation');
+        await expect(lastBox.getByText('2 di 2')).toBeVisible();
+        await expect(lastBox.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(lastBox.locator('[data-path-continues]')).toBeVisible();
+        await expect(lastBox.getByText("Hai raggiunto l'ultima tappa disponibile.")).toBeVisible();
+        await expect(lastBox.getByText('Il prossimo capitolo arriverà qui.')).toBeVisible();
+        await expect(lastBox.getByRole('link', { name: /Vedi tutto il percorso.*IA spiegata/ })).toBeVisible();
+        await expect(lastBox.getByText('Non siamo ancora arrivati alla fine.')).toHaveCount(0);
+        await expect(lastBox.getByText('Avvisami quando continua')).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
-        await page.locator('.path-continuation').getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
+        await lastBox.getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
         await expect(page).toHaveURL(/\/articolo\/browser-turing-article$/);
 
-        await page.locator('.path-continuation').getByRole('link', { name: 'Vedi tutto il percorso' }).click();
+        await page.locator('.path-continuation').getByRole('link', { name: /Vedi tutto il percorso/ }).click();
         await expect(page).toHaveURL(/\/percorsi\/ia-spiegata$/);
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
 

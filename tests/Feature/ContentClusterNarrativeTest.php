@@ -36,12 +36,14 @@ class ContentClusterNarrativeTest extends TestCase
             'guiding_questions' => ['Da dove nasce il problema?', 'Come cambia nel tempo?'],
             'closing_title' => 'Una mappa da continuare',
             'closing_text' => 'Il percorso resta aperto a nuovi approfondimenti.',
+            'curator_note' => 'Ho scelto questo ordine perché ogni tappa prepara la successiva.',
         ])->assertRedirect();
 
         $cluster->refresh();
         $this->assertSame(['Capire il contesto', 'Distinguere i passaggi'], $cluster->takeaways);
         $this->assertSame(['Da dove nasce il problema?', 'Come cambia nel tempo?'], $cluster->guiding_questions);
         $this->assertSame('Una mappa da continuare', $cluster->closing_title);
+        $this->assertSame('Ho scelto questo ordine perché ogni tappa prepara la successiva.', $cluster->curator_note);
         $this->assertSame($article->id, $cluster->pillar_article_id);
         $this->assertTrue((bool) $cluster->articles()->firstOrFail()->pivot->is_primary);
         $this->assertSame(10, (int) $cluster->articles()->firstOrFail()->pivot->position);
@@ -92,7 +94,23 @@ class ContentClusterNarrativeTest extends TestCase
         $response->assertSee('Perché questo percorso');
         $response->assertDontSee('I punti da portare con te');
         $response->assertDontSee('Una mappa fatta di domande');
+        $response->assertDontSee('Nota del curatore');
         $response->assertSee('Fine del percorso');
+    }
+
+    public function test_curator_note_appears_only_when_the_editor_has_written_one(): void
+    {
+        $cluster = ContentCluster::factory()->create([
+            'slug' => 'percorso-con-nota',
+            'is_active' => true,
+            'curator_note' => 'Ho scelto questo ordine perché ogni tappa prepara la successiva.',
+        ]);
+
+        $response = $this->get(route('percorsi.show', $cluster->slug));
+
+        $response->assertOk();
+        $response->assertSee('Nota del curatore');
+        $response->assertSee('Ho scelto questo ordine perché ogni tappa prepara la successiva.');
     }
 
     public function test_narrative_validation_preserves_old_input(): void

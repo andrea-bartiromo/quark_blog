@@ -61,6 +61,11 @@
       </div>
       <div class="form-group"><label class="form-label" for="closing_title">Titolo conclusivo</label><input id="closing_title" class="form-input" name="closing_title" maxlength="255" value="{{ old('closing_title', $cluster?->closing_title) }}"></div>
       <div class="form-group"><label class="form-label" for="closing_text">Testo conclusivo</label><textarea id="closing_text" class="form-textarea" name="closing_text" maxlength="2000">{{ old('closing_text', $cluster?->closing_text) }}</textarea></div>
+      <div class="form-group">
+        <label class="form-label" for="curator_note">Nota del curatore</label>
+        <textarea id="curator_note" class="form-textarea" name="curator_note" maxlength="2000">{{ old('curator_note', $cluster?->curator_note) }}</textarea>
+        <small style="color:#6b7280;">Opzionale, in prima persona: perché questo percorso esiste o perché questo ordine ha senso. Compare sulla pagina pubblica solo se compilata.</small>
+      </div>
     </section>
 
     <section class="form-group" aria-labelledby="cluster-cover-title" data-cluster-cover-picker>
@@ -97,6 +102,14 @@
     <div class="form-group"><label class="form-label" for="seo_description">SEO description</label><textarea id="seo_description" class="form-textarea" name="seo_description" maxlength="320">{{ old('seo_description', $cluster?->seo_description) }}</textarea></div>
     <div class="form-group"><label class="form-label" for="sort_order">Ordine percorso</label><input id="sort_order" class="form-input" type="number" min="0" name="sort_order" value="{{ old('sort_order', $cluster?->sort_order ?? 0) }}"></div>
     <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
+    <div class="form-group">
+      <label class="form-label" for="lifecycle_status">Stato del Percorso</label>
+      <select id="lifecycle_status" class="form-input" name="lifecycle_status">
+        <option value="updating" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'updating' ? 'selected' : '' }}>In aggiornamento</option>
+        <option value="complete" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'complete' ? 'selected' : '' }}>Concluso</option>
+      </select>
+      <small style="color:#6b7280;">Decisione editoriale esplicita: non viene dedotta dalla presenza di bozze o articoli programmati.</small>
+    </div>
     <button class="btn btn--primary" type="submit">{{ $cluster ? 'Salva metadati' : 'Crea percorso' }}</button>
     @if(!$cluster)<small>Dopo la creazione potrai aggiungere articoli dal catalogo ricercabile e paginato.</small>@endif
   </div>
