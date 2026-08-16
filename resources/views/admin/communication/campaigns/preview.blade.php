@@ -16,12 +16,30 @@
 <div class="admin-card" style="max-width:640px;margin-bottom:1.25rem;">
   <h3 style="margin-top:0;font-size:.95rem;">Destinatario anteprima</h3>
 
+  <form method="GET" action="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" role="search" style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.85rem;">
+    <div>
+      <label for="recipient-search" style="display:block;font-size:.78rem;color:#6b7280;margin-bottom:.25rem;">Cerca per email</label>
+      <input type="search" name="q" id="recipient-search" value="{{ $recipientQuery }}"
+             placeholder="es. mario@" maxlength="190" autocomplete="off"
+             style="padding:.45rem .65rem;border:1px solid #e5e7eb;border-radius:.5rem;min-width:220px;">
+    </div>
+    <button type="submit" class="btn btn--secondary">Cerca</button>
+    @if($recipientQuery !== '')
+      <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" style="font-size:.8rem;color:#6b7280;align-self:center;">Azzera</a>
+    @endif
+  </form>
+
   @if($recipientOptions->isEmpty())
     <p style="color:#9ca3af;font-size:.85rem;">
-      Nessun iscritto confermato disponibile. L'anteprima sotto mostra la struttura dell'email con un destinatario segnaposto.
+      @if($recipientQuery !== '')
+        Nessun iscritto confermato trovato per «{{ $recipientQuery }}».
+      @else
+        Nessun iscritto confermato disponibile. L'anteprima sotto mostra la struttura dell'email con un destinatario segnaposto.
+      @endif
     </p>
   @else
     <form method="GET" action="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <input type="hidden" name="q" value="{{ $recipientQuery }}">
       <label for="subscriber_id" style="font-size:.8rem;color:#6b7280;">Mostra come ricevuto da</label>
       <select name="subscriber_id" id="subscriber_id" onchange="this.form.submit()" style="padding:.4rem .6rem;border:1px solid #e5e7eb;border-radius:.5rem;">
         @foreach($recipientOptions as $option)
@@ -30,8 +48,25 @@
       </select>
       <noscript><button type="submit" class="btn btn--secondary">Aggiorna</button></noscript>
     </form>
+
+    @if($recipientOptions->hasPages())
+      <nav aria-label="Pagine risultati destinatari" style="margin-top:.75rem;display:flex;gap:.75rem;align-items:center;font-size:.8rem;">
+        @if($recipientOptions->onFirstPage())
+          <span style="color:#d1d5db;">← Precedente</span>
+        @else
+          <a href="{{ $recipientOptions->previousPageUrl() }}" style="color:#0d9488;">← Precedente</a>
+        @endif
+        <span style="color:#6b7280;">Pagina {{ $recipientOptions->currentPage() }} di {{ $recipientOptions->lastPage() }}</span>
+        @if($recipientOptions->hasMorePages())
+          <a href="{{ $recipientOptions->nextPageUrl() }}" style="color:#0d9488;">Successiva →</a>
+        @else
+          <span style="color:#d1d5db;">Successiva →</span>
+        @endif
+      </nav>
+    @endif
+
     <p style="color:#9ca3af;font-size:.78rem;margin:.5rem 0 0;">
-      Elenco limitato agli ultimi {{ $recipientOptions->count() }} iscritti confermati (per campagne con più iscritti, non è ancora una ricerca).
+      {{ $recipientOptions->total() }} iscritto/i confermato/i {{ $recipientQuery !== '' ? 'trovato/i' : 'totale/i' }}.
     </p>
   @endif
 </div>

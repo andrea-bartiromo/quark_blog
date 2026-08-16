@@ -18,13 +18,14 @@ use Illuminate\Http\Request;
 class CommunicationCampaignController extends Controller
 {
     /**
-     * Quanti iscritti confermati proporre nel selettore destinatario
-     * dell'anteprima. Un semplice elenco limitato, non una ricerca/
-     * segmentazione: l'anteprima non è uno strumento di targeting, e non
-     * esiste ancora un'interfaccia admin dedicata alla gestione dei
-     * singoli iscritti da cui riusare un pattern di ricerca.
+     * Dimensione pagina del selettore destinatario dell'anteprima
+     * (ricerca server-side per email parziale, N2.1) — mai un preload di
+     * tutti gli iscritti confermati, indipendentemente dalla scala.
+     * L'anteprima resta uno strumento di anteprima, non di targeting/
+     * segmentazione: la ricerca serve solo a trovare UN destinatario per
+     * cui vedere il rendering reale.
      */
-    private const PREVIEW_RECIPIENT_OPTIONS_LIMIT = 50;
+    private const PREVIEW_RECIPIENT_OPTIONS_LIMIT = 20;
 
     public function __construct(
         private readonly RecipientSnapshotService $recipientSnapshot,
@@ -226,14 +227,27 @@ class CommunicationCampaignController extends Controller
      * segnaposto esplicito se la campagna non ne ha ancora nessuno). Solo
      * lettura: nessuna riga viene creata/modificata/marcata da questa
      * azione, indipendentemente da quante volte viene aperta.
+     *
+     * Selettore ricerca (N2.1): server-side, per email parziale, paginato
+     * — mai un preload di tutti gli iscritti confermati. `q` è limitato
+     * alla lunghezza della colonna email e i metacaratteri LIKE (% _ \)
+     * sono escapati esplicitamente, così un carattere `%` digitato
+     * dall'admin resta letterale invece di comportarsi da wildcard.
      */
     public function preview(Request $request, CommunicationCampaign $campaign)
     {
+        $query = trim((string) $request->string('q'));
+        $query = mb_substr($query, 0, 190);
+
         $recipientOptions = CommunicationSubscriber::confirmed()
+            ->when($query !== '', fn ($q) => $q->whereRaw(
+                'email LIKE ? ESCAPE ?',
+                ['%'.addcslashes($query, '%_\\').'%', '\\']
+            ))
             ->orderByDesc('confirmed_at')
             ->orderByDesc('id')
-            ->limit(self::PREVIEW_RECIPIENT_OPTIONS_LIMIT)
-            ->get(['id', 'email']);
+            ->paginate(self::PREVIEW_RECIPIENT_OPTIONS_LIMIT, ['id', 'email'])
+            ->withQueryString();
 
         $requestedId = $request->integer('subscriber_id') ?: null;
 
@@ -242,8 +256,9 @@ class CommunicationCampaignController extends Controller
             : null;
 
         // Nessuna selezione esplicita valida: rappresentativo = l'iscritto
-        // confermato più recente, così l'anteprima mostra sempre dati reali
-        // quando ne esistono, senza richiedere una scelta manuale.
+        // confermato più recente TRA I RISULTATI CORRENTI (rispetta un
+        // 'q' attivo), così l'anteprima mostra sempre dati reali coerenti
+        // con la ricerca in corso, senza richiedere una scelta manuale.
         if (! $subscriber) {
             $subscriber = $recipientOptions->first()
                 ? CommunicationSubscriber::confirmed()->find($recipientOptions->first()->id)
@@ -257,6 +272,7 @@ class CommunicationCampaignController extends Controller
             'rendering' => $rendering,
             'recipientOptions' => $recipientOptions,
             'selectedSubscriberId' => $subscriber?->id,
+            'recipientQuery' => $query,
         ]);
     }
 
