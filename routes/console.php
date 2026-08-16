@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Schedule;
 
 // ── Newsletter settimanale ─────────────────────────────────────
 // Ogni giovedì alle 9:00 — seleziona articoli e genera intro con AI
+// withoutOverlapping() protegge solo il comando (evita di ri-accodare N
+// job se una run schedulata si sovrappone a un'altra); la protezione
+// reale contro l'invio duplicato per singolo iscritto/settimana è la
+// claim Cache::add dentro SendNewsletterJob, l'unica difesa anche contro
+// l'invio manuale ("Invia ora" in admin), che bypassa lo scheduler.
 Schedule::command('newsletter:send')
     ->weeklyOn(4, '09:00')
     ->timezone('Europe/Rome')
@@ -20,19 +25,30 @@ Schedule::command('newsletter:send')
 // ── Automazione notizie ────────────────────────────────────────
 // Raccoglie da feed RSS e genera bozze con AI
 // Lunedì e giovedì alle 9:30 (dopo la newsletter)
+// withoutOverlapping() qui protegge solo le due run schedulate fra loro;
+// il comando ha comunque una claim per-source_url interna che è l'unica
+// difesa reale contro il fetch manuale ("Aggiorna ora") in admin, che
+// bypassa lo scheduler.
 Schedule::command('news:fetch')
     ->weeklyOn(1, '09:30')
+    ->withoutOverlapping(60)
     ->appendOutputTo(storage_path('logs/news-fetch.log'));
 
 Schedule::command('news:fetch')
     ->weeklyOn(4, '09:30')
+    ->withoutOverlapping(60)
     ->appendOutputTo(storage_path('logs/news-fetch.log'));
 
 // ── Backup automatico database ─────────────────────────────────
-// Ogni giorno alle 2:00 di notte
-Schedule::command('backup:database')
-    ->dailyAt('02:00')
-    ->appendOutputTo(storage_path('logs/backup.log'));
+// Il comando backup:database corrente copia esclusivamente SQLite.
+// Manteniamo quindi il job per ambienti SQLite, ma non lo scheduliamo in
+// production MariaDB/MySQL finché Backup V2 non offre un dump verificato.
+if (config('database.default') === 'sqlite') {
+    Schedule::command('backup:database')
+        ->dailyAt('02:00')
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/backup.log'));
+}
 
 // ── Pulizia cache ──────────────────────────────────────────────
 // Ogni domenica alle 3:00
@@ -70,7 +86,7 @@ Schedule::command('projects:sync-github-tasks')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/projects-github-sync.log'));
 
-// ── Area Progettazione: sync calendario editoriale ───────────────
+// ── Area Progettazione: sync calendario editoriale ────────────────
 // Ogni 5 minuti: collega automaticamente SOLO i match sicuri e non
 // ambigui tra le voci del calendario editoriale e gli articoli reali
 // (sola scrittura additiva — mai uno scollegamento, mai un match

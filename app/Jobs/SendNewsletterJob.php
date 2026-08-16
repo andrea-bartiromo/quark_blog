@@ -24,6 +24,23 @@ class SendNewsletterJob implements ShouldQueue
         $this->subscriber = $subscriber;
     }
 
+    /**
+     * Perché Cache::add() e non il ledger CommunicationDelivery: quel
+     * ledger vincola subscriber_id a una foreign key NOT NULL su
+     * comm_subscribers, popolata da `newsletter` (questa tabella, la
+     * fonte reale dei destinatari qui) solo tramite una copia manuale
+     * one-shot (communication:migrate-subscribers) — non c'è alcuna
+     * sincronizzazione continua tra le due tabelle. Instradare la
+     * consegna sul ledger avrebbe richiesto o inventare al volo righe
+     * comm_subscribers per iscritti `newsletter` non ancora migrati
+     * (una scrittura collaterale mai richiesta, fuori scope) o escludere
+     * dall'invio chi non è stato migrato (una modifica reale ai
+     * destinatari, esplicitamente vietata). Cache::add() resta quindi la
+     * primitiva corretta finché i destinatari della newsletter restano
+     * il modello `Newsletter`: è un'operazione atomica reale sia sul
+     * driver 'database' (insertOrIgnore contro la PRIMARY KEY di
+     * `cache`) sia su 'file' (flock esclusivo), non un check-then-act.
+     */
     public function handle(): void
     {
         $cacheKey = $this->deliveryKey ? 'newsletter:delivery:'.$this->deliveryKey : null;

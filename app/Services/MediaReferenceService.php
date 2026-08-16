@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Models\SpecialPage;
 use App\Models\User;
@@ -36,6 +37,7 @@ class MediaReferenceService
         $blocking = [];
 
         $this->scanArticleCoverImages($old, $newDiskName, $updatable);
+        $this->scanContentClusterCoverImages($old, $newDiskName, $updatable);
         $this->scanAdBannerImages($old, $newDiskName, $updatable);
         $this->scanUserPhotos($old, $newDiskName, $updatable, $blocking);
         $this->scanCategoryImages($old, $newDiskName, $updatable, $blocking);
@@ -76,6 +78,23 @@ class MediaReferenceService
                     $article->id,
                     'cover_image',
                     'Copertina articolo "'.$article->title.'"',
+                    $old,
+                    $new
+                );
+            }
+        );
+    }
+
+    private function scanContentClusterCoverImages(string $old, string $new, array &$updatable): void
+    {
+        ContentCluster::where('cover_image', $old)->get(['id', 'name'])->each(
+            function (ContentCluster $cluster) use ($old, $new, &$updatable): void {
+                $updatable[] = $this->reference(
+                    'content_cluster_cover_image',
+                    ContentCluster::class,
+                    $cluster->id,
+                    'cover_image',
+                    'Copertina Percorso "'.$cluster->name.'"',
                     $old,
                     $new
                 );
@@ -291,25 +310,18 @@ class MediaReferenceService
 
     /**
      * Verifica se $diskName e' referenziato da un qualunque campo
-     * strutturato conosciuto (copertina articolo, banner pubblicitario,
-     * foto profilo, immagine categoria, contenuto pagina speciale),
-     * indipendentemente dal fatto che esista o meno un Media che possiede
-     * quello stesso disk_name.
-     *
-     * Diversa da preflight(): preflight() presuppone un Media reale e
-     * confronta il SUO disk_name attuale; questo metodo serve invece
-     * MediaWebpCleanupService (FASE 12), che deve valutare un file che,
-     * per costruzione, NON ha (piu') un proprio Media (e' un originale
-     * gia' migrato). Un confronto per solo nome file tra originale e la
-     * sua ipotetica controparte WebP non basta a provare che quel WebP
-     * sia stato prodotto DA quell'originale — potrebbero coesistere per
-     * puro caso di stesso basename in file diversi — quindi ogni
-     * riferimento strutturato residuo al nome dell'originale, anche senza
-     * un Media proprietario, deve bloccare la candidatura alla rimozione.
+     * strutturato conosciuto (copertina articolo/Percorso, banner
+     * pubblicitario, foto profilo, immagine categoria, contenuto pagina
+     * speciale), indipendentemente dal fatto che esista o meno un Media che
+     * possiede quello stesso disk_name.
      */
     public function hasAnyStructuredReference(string $diskName): bool
     {
         if (Article::where('cover_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (ContentCluster::where('cover_image', $diskName)->exists()) {
             return true;
         }
 

@@ -50,9 +50,9 @@ class SearchController extends Controller
      * correttamente zero risultati, come faceva il confronto letterale
      * precedente.
      */
-    private function normalizeAuthorFilter(string $authorId): ?int
+    private function normalizeAuthorFilter(?string $authorId): ?int
     {
-        if ($authorId === '') {
+        if ($authorId === null || $authorId === '') {
             return null;
         }
 

@@ -329,6 +329,19 @@ class SearchControllerTest extends TestCase
         $this->assertNotContains($wrongAuthor->id, $ids);
     }
 
+    // 18a. Un filtro autore esplicitamente vuoto viene convertito da Laravel
+    // in null tramite ConvertEmptyStringsToNull: deve equivalere a nessun
+    // filtro autore e non provocare un TypeError.
+    public function test_empty_author_filter_is_treated_as_no_author_filter(): void
+    {
+        $article = $this->article(['title' => 'Turing e la crittografia']);
+
+        $response = $this->get('/ricerca?q=turing&categoria=&autore=&da=&a=');
+
+        $response->assertOk();
+        $this->assertContains($article->id, $this->resultIds($response));
+    }
+
     // 18b. Codex (PR #166, round 1): un valore "autore" malformato (non numerico) non deve
     // essere silenziosamente scartato (mostrando TUTTI gli autori) né far coincidere un ID
     // arbitrario diverso da quello digitato — deve produrre zero risultati, come un autore
