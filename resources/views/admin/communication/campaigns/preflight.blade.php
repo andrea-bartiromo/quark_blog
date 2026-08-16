@@ -16,7 +16,11 @@
 <div class="admin-card" style="max-width:720px;margin-bottom:1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
   @if($report->isReady())
     <span class="status" style="background:#d1fae5;color:#065f46;font-size:.85rem;padding:.4rem .8rem;">✅ {{ $report->readinessLabel() }}</span>
-    <p style="margin:0;color:#6b7280;font-size:.85rem;">Nessun blocco rilevato. Un futuro invio di test resterebbe comunque confinato a un provider fake/controllato finché non verrà collegato un provider reale.</p>
+    <p style="margin:0;color:#6b7280;font-size:.85rem;">Nessun blocco rilevato.</p>
+    <form method="POST" action="{{ route('admin.comunicazione.campaigns.dry-run', $campaign) }}" style="margin-left:auto;">
+      @csrf
+      <button type="submit" class="btn btn--secondary">🧪 Esegui dry-run</button>
+    </form>
   @else
     <span class="status" style="background:#fee2e2;color:#991b1b;font-size:.85rem;padding:.4rem .8rem;">⛔ {{ $report->readinessLabel() }}</span>
     <p style="margin:0;color:#6b7280;font-size:.85rem;">{{ count($report->blockingErrors) }} blocco/hi da risolvere prima di procedere.</p>

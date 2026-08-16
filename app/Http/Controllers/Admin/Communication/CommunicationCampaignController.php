@@ -11,9 +11,11 @@ use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
+use App\Services\Communication\CampaignDryRunService;
 use App\Services\Communication\CampaignPreflightService;
 use App\Services\Communication\CampaignRenderer;
 use App\Services\Communication\RecipientSnapshotService;
+use App\Services\Communication\RecordingEmailProvider;
 use Illuminate\Http\Request;
 
 class CommunicationCampaignController extends Controller
@@ -32,6 +34,7 @@ class CommunicationCampaignController extends Controller
         private readonly RecipientSnapshotService $recipientSnapshot,
         private readonly CampaignRenderer $campaignRenderer,
         private readonly CampaignPreflightService $campaignPreflight,
+        private readonly CampaignDryRunService $campaignDryRun,
     ) {}
 
     /**
@@ -322,6 +325,35 @@ class CommunicationCampaignController extends Controller
             'campaign' => $campaign,
             'report' => $this->campaignPreflight->assess($campaign),
             'statusOptions' => CommunicationCampaign::statusOptions(),
+        ]);
+    }
+
+    /**
+     * N2.9 — dry-run: esegue l'intera pipeline di invio reale con un
+     * RecordingEmailProvider, dentro una transazione SEMPRE annullata da
+     * CampaignDryRunService — zero email reali, zero righe modificate,
+     * indipendentemente da quante volte viene eseguito. Richiede lo
+     * stesso "nessun blocco" della verifica pre-invio: eseguire un
+     * dry-run su una campagna senza mittente/oggetto/destinatari non
+     * produrrebbe un numero significativo.
+     */
+    public function dryRun(CommunicationCampaign $campaign)
+    {
+        $preflight = $this->campaignPreflight->assess($campaign);
+
+        if (! $preflight->isReady()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.preflight', $campaign)
+                ->withErrors(['dry_run' => 'Risolvi i blocchi della verifica pre-invio prima di eseguire un dry-run.']);
+        }
+
+        $provider = new RecordingEmailProvider;
+        $report = $this->campaignDryRun->run($campaign, $provider);
+
+        return view('admin.communication.campaigns.dry-run', [
+            'campaign' => $campaign,
+            'report' => $report,
+            'attempts' => $provider->attempts(),
         ]);
     }
 

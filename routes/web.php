@@ -287,6 +287,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
         Route::post('/campagne/{campaign}/destinatari/prepara', [CommunicationCampaignController::class, 'prepareRecipients'])->name('campaigns.recipients.prepare');
         Route::get('/campagne/{campaign}/verifica-pre-invio', [CommunicationCampaignController::class, 'preflight'])->name('campaigns.preflight');
+        Route::post('/campagne/{campaign}/dry-run', [CommunicationCampaignController::class, 'dryRun'])->name('campaigns.dry-run');
 
         // Template
         Route::get('/template', [CommunicationTemplateController::class, 'index'])->name('templates.index');
