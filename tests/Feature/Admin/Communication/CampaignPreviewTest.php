@@ -9,6 +9,7 @@ use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationSubscriber;
 use App\Models\User;
 use App\Services\Communication\CampaignRenderer;
+use App\Services\Communication\RecipientSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
@@ -84,6 +85,28 @@ class CampaignPreviewTest extends TestCase
 
         $response2->assertOk();
         $response2->assertSee('secondo@example.com');
+    }
+
+    public function test_preview_reflects_an_email_changed_after_a_recipient_snapshot_was_already_prepared(): void
+    {
+        // Il renderer non denormalizza mai l'email (stessa garanzia già
+        // provata lato comm_sends in RecipientSnapshotRaceAndScaleTest):
+        // dopo un "Prepara destinatari" e un successivo cambio email,
+        // l'anteprima deve leggere l'email CORRENTE dal subscriber, non
+        // un valore congelato al momento dello snapshot.
+        $campaign = $this->campaignWithBody();
+        $subscriber = CommunicationSubscriber::factory()->confirmed()->create(['email' => 'vecchia@example.com']);
+
+        app(RecipientSnapshotService::class)->prepare($campaign);
+
+        $subscriber->update(['email' => 'nuova@example.com']);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.comunicazione.campaigns.preview', $campaign).'?subscriber_id='.$subscriber->id);
+
+        $response->assertOk();
+        $response->assertSee('nuova@example.com');
+        $response->assertDontSee('vecchia@example.com');
     }
 
     public function test_preview_ignores_a_pending_or_unsubscribed_subscriber_id_and_falls_back(): void
