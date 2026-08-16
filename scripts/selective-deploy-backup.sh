@@ -16,6 +16,9 @@ valid_rel() {
 }
 forbidden_any() {
   case "$1" in
+    .env.example|.env.*.example|*/.env.example|*/.env.*.example) return 1;;
+  esac
+  case "$1" in
     .env|.env.*|.env/*|*/.env|*/.env.*|*/.env/*) return 0;;
     *) return 1;;
   esac

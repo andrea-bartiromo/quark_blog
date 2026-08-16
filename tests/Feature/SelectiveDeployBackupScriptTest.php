@@ -127,6 +127,57 @@ class SelectiveDeployBackupScriptTest extends TestCase
         }
     }
 
+    public function test_env_example_templates_are_accepted_and_backed_up(): void
+    {
+        File::put($this->appRoot.'/.env.example', "APP_ENV=local\n");
+        File::put($this->appRoot.'/.env.production.example', "APP_ENV=production\n");
+
+        $manifest = $this->root.'/env-templates.tsv';
+        File::put($manifest, "app\t.env.example\napp\t.env.production.example\n");
+
+        $backup = $this->runBackup($manifest);
+
+        $backedUp = File::get($backup.'/backed-up-files.tsv');
+        $this->assertStringContainsString("app\t.env.example", $backedUp);
+        $this->assertStringContainsString("app\t.env.production.example", $backedUp);
+        $this->assertSame("APP_ENV=local\n", File::get($backup.'/files/app/.env.example'));
+        $this->assertSame("APP_ENV=production\n", File::get($backup.'/files/app/.env.production.example'));
+    }
+
+    public function test_real_env_files_remain_forbidden(): void
+    {
+        $i = 0;
+        foreach (['.env', '.env.production'] as $forbidden) {
+            $manifest = $this->root.'/env-real-'.bin2hex(random_bytes(3)).'.tsv';
+            File::put($manifest, "app\t.env.example\napp\t{$forbidden}\n");
+
+            // Distinct target SHA per iteration (not the shared fixed pair
+            // backupProcess() uses) so each attempt gets its own backup
+            // directory name — the real backup_dir path is created before
+            // the manifest is validated, so two calls sharing both SHAs and
+            // the same wall-clock second would otherwise collide on
+            // "backup path already exists" and mask the rejection this test
+            // is actually checking.
+            $i++;
+            $process = new Process([
+                'bash', $this->script, 'backup',
+                '--manifest', $manifest,
+                '--app-root', $this->appRoot,
+                '--public-root', $this->publicRoot,
+                '--backup-root', $this->backupRoot,
+                '--previous-sha', str_repeat('0', 40),
+                '--target-sha', str_repeat((string) $i, 40),
+            ]);
+            $process->run();
+
+            $this->assertFalse($process->isSuccessful(), "expected rejection for manifest entry: {$forbidden}");
+            $this->assertStringContainsString(
+                'forbidden environment path: '.$forbidden,
+                $process->getErrorOutput()
+            );
+        }
+    }
+
     public function test_directory_manifest_entry_is_rejected(): void
     {
         File::ensureDirectoryExists($this->appRoot.'/config-dir');
