@@ -85,8 +85,15 @@ jobs:
           php artisan test tests/Unit/Communication tests/Feature/Communication tests/Feature/Admin/Communication
       - name: Incremental migration from a populated pre-existing schema
         run: |
+          set -eu
           php artisan migrate:fresh --force
-          php artisan migrate:rollback --force --step=1
+          # Targeted teardown of exactly this migration, regardless of how
+          # many later migrations now exist on main (--path restricts what
+          # rollback actually runs down() for; every other migration in the
+          # same batch — and its migrations-table row — is left untouched,
+          # so this stays correct no matter how far main's timeline moves).
+          php artisan migrate:rollback --path=database/migrations/2026_08_15_111755_create_communication_deliveries_table.php --force
+          php artisan tinker --execute="if (Illuminate\\Support\\Facades\\Schema::hasTable('communication_deliveries')) { throw new RuntimeException('communication_deliveries still present after targeted rollback'); }"
           php artisan tinker --execute="App\\Models\\CommunicationSubscriber::create(['email'=>'incremental@example.test','status'=>App\\Models\\CommunicationSubscriber::STATUS_CONFIRMED,'unsubscribe_token'=>bin2hex(random_bytes(16)),'confirmed_at'=>now()]);"
           php artisan migrate --force
           php artisan tinker --execute="\$s=App\\Models\\CommunicationSubscriber::where('email','incremental@example.test')->first(); if (!\$s || !Illuminate\\Support\\Facades\\Schema::hasTable('communication_deliveries')) { throw new RuntimeException('Incremental migration verification failed'); } \$d=app(App\\Services\\Communication\\CommunicationDeliveryService::class)->registerDelivery('email','incremental_probe',\$s,null,'ci-incremental-check'); if (!\$d->id) { throw new RuntimeException('New table not usable after incremental migration'); }"
