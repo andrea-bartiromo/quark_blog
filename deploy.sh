@@ -34,16 +34,16 @@ ACTUAL_SHA="$(git rev-parse HEAD)"
 git diff --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
 git diff --cached --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
 
-APP_ENV_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); echo config("app.env");')"
+APP_ENV_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo config("app.env");')"
 [ "$APP_ENV_VALUE" = "production" ] || fail "APP_ENV must resolve to production; got '$APP_ENV_VALUE'."
 
-APP_DEBUG_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); echo config("app.debug") ? "true" : "false";')"
+APP_DEBUG_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo config("app.debug") ? "true" : "false";')"
 [ "$APP_DEBUG_VALUE" = "false" ] || fail "APP_DEBUG must resolve to false."
 
-APP_KEY_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); echo (string) config("app.key");')"
+APP_KEY_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo (string) config("app.key");')"
 [ -n "$APP_KEY_VALUE" ] || fail "APP_KEY is empty. Refusing to generate or rotate a production application key."
 
-DB_CONNECTION_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); echo (string) config("database.default");')"
+DB_CONNECTION_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo (string) config("database.default");')"
 case "$DB_CONNECTION_VALUE" in
     mysql|mariadb)
         ;;
