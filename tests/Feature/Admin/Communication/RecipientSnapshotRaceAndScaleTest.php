@@ -65,6 +65,90 @@ class RecipientSnapshotRaceAndScaleTest extends TestCase
         $this->assertSame(1000, CommunicationSend::where('campaign_id', $campaign->id)->count());
     }
 
+    public function test_10000_subscribers_completes_without_a_query_placeholder_limit(): void
+    {
+        // Stessa guardia di scala di test_1000_subscribers_..., a un
+        // ordine di grandezza oltre: il chunk(500) sull'insert e le due
+        // pluck() (eligibili/già presenti) restano l'unico punto dove un
+        // volume elevato di iscritti potrebbe avvicinarsi a un limite di
+        // parametri driver — verificato qui end-to-end, non solo stimato.
+        $campaign = CommunicationCampaign::factory()->draft()->create();
+
+        DB::table('comm_subscribers')->insert(
+            collect(range(1, 10000))->map(fn ($i) => [
+                'email' => "scale-sub{$i}@example.com",
+                'status' => 'confirmed',
+                'unsubscribe_token' => Str::random(32),
+                'confirmed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])->all()
+        );
+
+        $result = app(RecipientSnapshotService::class)->prepare($campaign);
+
+        $this->assertSame(10000, $result['added']);
+        $this->assertSame(10000, CommunicationSend::where('campaign_id', $campaign->id)->count());
+
+        // Rerun idempotente alla stessa scala: nessun nuovo added, nessun
+        // duplicato, nessun timeout/errore di query al secondo passaggio.
+        $second = app(RecipientSnapshotService::class)->prepare($campaign);
+        $this->assertSame(0, $second['added']);
+        $this->assertSame(10000, $second['already_present']);
+        $this->assertSame(10000, CommunicationSend::where('campaign_id', $campaign->id)->count());
+    }
+
+    public function test_editing_campaign_content_after_a_snapshot_does_not_touch_comm_sends(): void
+    {
+        // comm_sends non referenzia né copia il contenuto della campagna
+        // (destinatari e contenuto sono deliberatamente concetti separati,
+        // vedi il docblock di RecipientSnapshotService): modificare titolo/
+        // oggetto/corpo/stato dopo lo snapshot non deve mai alterare le
+        // righe già preparate.
+        $campaign = CommunicationCampaign::factory()->draft()->create(['subject' => 'Oggetto originale']);
+        CommunicationSubscriber::factory()->confirmed()->count(3)->create();
+
+        app(RecipientSnapshotService::class)->prepare($campaign);
+        $sendIds = CommunicationSend::where('campaign_id', $campaign->id)->pluck('id')->sort()->values();
+
+        $campaign->update(['subject' => 'Oggetto modificato', 'title' => 'Titolo modificato', 'content' => ['body' => 'Corpo nuovo']]);
+
+        $afterEditIds = CommunicationSend::where('campaign_id', $campaign->id)->pluck('id')->sort()->values();
+        $this->assertSame($sendIds->all(), $afterEditIds->all());
+        $this->assertSame(3, CommunicationSend::where('campaign_id', $campaign->id)->count());
+
+        // Rieseguire "Prepara destinatari" dopo la modifica resta un no-op
+        // sugli stessi iscritti: la modifica del contenuto non "invalida"
+        // artificialmente lo snapshot esistente.
+        $result = app(RecipientSnapshotService::class)->prepare($campaign->fresh());
+        $this->assertSame(0, $result['added']);
+        $this->assertSame(3, $result['already_present']);
+    }
+
+    /**
+     * Una campagna può passare da 'scheduled' a 'sending' dopo che lo
+     * snapshot è già stato preparato (es. un futuro job di invio che
+     * transiziona lo stato all'avvio) — canPrepare() deve rifiutare un
+     * secondo "Prepara destinatari" da quel momento in poi, senza toccare
+     * le righe già create in stato precedente.
+     */
+    public function test_campaign_transitioning_to_sending_after_a_snapshot_blocks_further_preparation(): void
+    {
+        $campaign = CommunicationCampaign::factory()->scheduled()->create();
+        CommunicationSubscriber::factory()->confirmed()->count(2)->create();
+
+        app(RecipientSnapshotService::class)->prepare($campaign);
+        $this->assertSame(2, CommunicationSend::where('campaign_id', $campaign->id)->count());
+
+        $campaign->update(['status' => CommunicationCampaign::STATUS_SENDING, 'sending_started_at' => now()]);
+        CommunicationSubscriber::factory()->confirmed()->create();
+
+        $service = app(RecipientSnapshotService::class);
+        $this->assertFalse($service->canPrepare($campaign->fresh()));
+        $this->expectException(\RuntimeException::class);
+        $service->prepare($campaign->fresh());
+    }
+
     public function test_five_consecutive_runs_never_duplicate_or_error(): void
     {
         $campaign = CommunicationCampaign::factory()->draft()->create();
