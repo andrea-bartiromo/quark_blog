@@ -46,6 +46,16 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Reset tracked files touched by composer/package discovery
+        run: |
+          set -eu
+          # composer install regenerates bootstrap/cache/packages.php (tracked
+          # in this repository) with this runner's own state, which would
+          # otherwise make deploy.sh's "tracked release files are clean" check
+          # fail for a reason unrelated to what each TEST below verifies.
+          git checkout -- .
+          git status --porcelain
+
       - name: Provision a production-shaped .env against the ephemeral MariaDB service
         run: |
           set -eu
