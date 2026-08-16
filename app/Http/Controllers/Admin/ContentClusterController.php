@@ -192,6 +192,7 @@ class ContentClusterController extends Controller
             'guiding_questions.*' => ['nullable', 'string', 'max:320'],
             'closing_title' => ['nullable', 'string', 'max:255'],
             'closing_text' => ['nullable', 'string', 'max:2000'],
+            'curator_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
@@ -199,6 +200,7 @@ class ContentClusterController extends Controller
         $data['guiding_questions'] = $this->normalizeEditorialList($data['guiding_questions'] ?? []);
         $data['closing_title'] = $this->nullableTrimmed($data['closing_title'] ?? null);
         $data['closing_text'] = $this->nullableTrimmed($data['closing_text'] ?? null);
+        $data['curator_note'] = $this->nullableTrimmed($data['curator_note'] ?? null);
 
         return $data;
     }

@@ -31,6 +31,7 @@ class ContentCluster extends Model
         'guiding_questions',
         'closing_title',
         'closing_text',
+        'curator_note',
     ];
 
     protected $casts = [
