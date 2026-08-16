@@ -27,11 +27,18 @@ class InternalLinkAuditCommand extends Command
         ogni articolo (stessa definizione già usata dal badge Admin e dal
         suggeritore, vedi ArticleLinkInsertionService), classificandoli:
           - valid: il target esiste ed è pubblicato;
-          - unpublished: il target esiste ma non è pubblico (bozza/
-            revisione/programmato) — un link pubblico non dovrebbe puntarci;
+          - scheduled_safe (V2.1): il target non è ancora pubblico, ma la
+            sorgente è essa stessa programmata e il target diventerà
+            pubblico PRIMA di lei (vedi InternalLinkTemporalEligibility) —
+            non un'anomalia, solo non ancora raggiungibile in questo
+            momento;
+          - unpublished: il target esiste ma non è pubblico né
+            temporalmente sicuro (bozza/revisione/programmato non ancora
+            garantito) — un link pubblico non dovrebbe puntarci;
           - redirected: il target non esiste più con questo slug, ma uno
-            storico ArticleSlugRedirect lo risolve (funziona, ma potrebbe
-            essere aggiornato);
+            storico ArticleSlugRedirect lo risolve (funziona, o sarà
+            temporalmente sicuro come sopra — in entrambi i casi andrebbe
+            comunque aggiornato allo slug corrente);
           - missing: nessun articolo né redirect risolve lo slug — link
             rotto;
           - self: l'articolo collega se stesso.
@@ -80,6 +87,7 @@ class InternalLinkAuditCommand extends Command
                 'broken_links' => $report->brokenLinks,
                 'self_links' => $report->selfLinks,
                 'unpublished_targets' => $report->unpublishedTargets,
+                'scheduled_safe_links' => $report->scheduledSafeLinks,
                 'redirected_links' => $report->redirectedLinks,
                 'articles_with_ambiguous_anchors' => $report->articlesWithAmbiguousAnchors,
                 'isolated_articles' => $report->isolatedArticles,
@@ -118,6 +126,7 @@ class InternalLinkAuditCommand extends Command
         $this->line("  Link rotti: {$report->brokenLinks}");
         $this->line("  Self-link: {$report->selfLinks}");
         $this->line("  Target non pubblicato: {$report->unpublishedTargets}");
+        $this->line("  Target scheduled temporalmente sicuro (V2.1): {$report->scheduledSafeLinks}");
         $this->line("  Link reindirizzati (redirect storico): {$report->redirectedLinks}");
         $this->line("  Articoli con anchor ambigui: {$report->articlesWithAmbiguousAnchors}");
         $this->line("  Articoli isolati (pubblicati, zero incoming): {$report->isolatedArticles}");

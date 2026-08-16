@@ -10,8 +10,10 @@ use App\Models\Article;
 use App\Models\User;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
+use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -23,6 +25,7 @@ class ArticleController extends Controller
         private readonly MediaService $mediaService,
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
+        private readonly MediaRetirementService $mediaRetirementService,
     ) {}
 
     public function index()
@@ -210,10 +213,15 @@ class ArticleController extends Controller
     ) {
         $data = $request->validated();
 
-        if (
-            $request->hasFile('cover_image_upload')
-            && $request->file('cover_image_upload')->isValid()
-        ) {
+        // Codex (PR #165, round 19): usato dal catch della transazione sotto per
+        // decidere se $data['cover_image'] sia davvero un disk_name appena generato da
+        // questa richiesta (sicuro da ritirare in caso di rollback) o un valore già
+        // esistente arrivato da $request->validated() (copertina invariata, o scelta
+        // dalla libreria media) — vedi commento sul catch.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
+        if ($newCoverWasUploaded) {
             $file = $request->file('cover_image_upload');
 
             $originalName = $file->getClientOriginalName();
@@ -297,38 +305,64 @@ class ArticleController extends Controller
             $data['cover_image'] = $diskName;
         }
 
-        $article->update([
-            'title' => $data['title'],
-            'excerpt' => $data['excerpt'] ?? null,
-            'body' => $data['body'],
-            'category' => $data['category'],
-            'cover_image' => $data['cover_image']
-                ?? $article->cover_image,
-            'cover_alt' => $data['cover_alt'] ?? null,
-            'cover_caption' => $data['cover_caption'] ?? null,
-            'cover_credit' => $data['cover_credit'] ?? null,
-            'cover_source' => $data['cover_source'] ?? null,
-            'cover_source_url' => $data['cover_source_url'] ?? null,
-            'cover_license' => $data['cover_license'] ?? null,
-            'status' => 'review',
-            'read_minutes' => Article::calculateReadMinutes($data['body']),
-            'seo_title' => $data['seo_title'] ?? null,
-            'seo_description' => $data['seo_description'] ?? null,
-            'canonical_url' => $data['canonical_url'] ?? null,
-            'robots' => $data['robots'] ?? null,
-            'og_title' => $data['og_title'] ?? null,
-            'og_description' => $data['og_description'] ?? null,
-            'og_image' => $data['og_image'] ?? null,
-            'twitter_title' => $data['twitter_title'] ?? null,
-            'twitter_description' => $data['twitter_description'] ?? null,
-            'twitter_image' => $data['twitter_image'] ?? null,
-        ]);
+        try {
+            // Codex (PR #165, P2 round 9): stessa atomicità richiesta lato
+            // Admin — il salvataggio dell'articolo e la revalidazione/pulizia
+            // dei suggerimenti applicati (che può a sua volta risalvare il
+            // body se un link non è più sicuro) devono avvenire insieme, non
+            // in due update() indipendenti.
+            DB::transaction(function () use ($article, $data, $request) {
+                $article->update([
+                    'title' => $data['title'],
+                    'excerpt' => $data['excerpt'] ?? null,
+                    'body' => $data['body'],
+                    'category' => $data['category'],
+                    'cover_image' => $data['cover_image']
+                        ?? $article->cover_image,
+                    'cover_alt' => $data['cover_alt'] ?? null,
+                    'cover_caption' => $data['cover_caption'] ?? null,
+                    'cover_credit' => $data['cover_credit'] ?? null,
+                    'cover_source' => $data['cover_source'] ?? null,
+                    'cover_source_url' => $data['cover_source_url'] ?? null,
+                    'cover_license' => $data['cover_license'] ?? null,
+                    'status' => 'review',
+                    'read_minutes' => Article::calculateReadMinutes($data['body']),
+                    'seo_title' => $data['seo_title'] ?? null,
+                    'seo_description' => $data['seo_description'] ?? null,
+                    'canonical_url' => $data['canonical_url'] ?? null,
+                    'robots' => $data['robots'] ?? null,
+                    'og_title' => $data['og_title'] ?? null,
+                    'og_description' => $data['og_description'] ?? null,
+                    'og_image' => $data['og_image'] ?? null,
+                    'twitter_title' => $data['twitter_title'] ?? null,
+                    'twitter_description' => $data['twitter_description'] ?? null,
+                    'twitter_image' => $data['twitter_image'] ?? null,
+                ]);
 
-        $this->linkSuggestionService->markAccepted(
-            $article,
-            (array) $request->input('applied_link_suggestions', []),
-            $request->user()->id
-        );
+                $this->linkSuggestionService->markAccepted(
+                    $article,
+                    (array) $request->input('applied_link_suggestions', []),
+                    $request->user()->id
+                );
+            });
+        } catch (\Throwable $exception) {
+            // Codex (PR #165, round 18): stessa pulizia richiesta lato
+            // Admin — il caricamento della nuova copertina (e la sua
+            // registrazione Media) avviene PRIMA di questa transazione, e
+            // un suo fallimento non annulla quei side effect già scritti.
+            //
+            // Codex (PR #165, round 19): $newCoverWasUploaded, non
+            // array_key_exists() da solo — vedi commento sulla sua
+            // definizione sopra.
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
+                $this->mediaRetirementService->retireIfUnused(
+                    $data['cover_image'],
+                    'article_update_transaction_rolled_back'
+                );
+            }
+
+            throw $exception;
+        }
 
         $this->notifyEditor($article, true);
 
@@ -422,10 +456,10 @@ class ArticleController extends Controller
                                         </td>
                                         <td style='font-weight:600;'>
                                             ".htmlspecialchars(
-                                                $author,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            )."
+                                            $author,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        )."
                                         </td>
                                     </tr>
 
@@ -435,10 +469,10 @@ class ArticleController extends Controller
                                         </td>
                                         <td style='font-weight:600;'>
                                             ".htmlspecialchars(
-                                                $article->title,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            )."
+                                            $article->title,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        )."
                                         </td>
                                     </tr>
 
@@ -448,10 +482,10 @@ class ArticleController extends Controller
                                         </td>
                                         <td>
                                             ".htmlspecialchars(
-                                                (string) $category,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            )."
+                                            (string) $category,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        )."
                                         </td>
                                     </tr>
                                 </table>

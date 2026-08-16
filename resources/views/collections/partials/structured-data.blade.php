@@ -11,16 +11,10 @@
     manutenzione (posizione, paginazione) senza un beneficio verificabile —
     stessa disciplina già seguita per SearchAction e dateModified.
 
-    url/@id usano request()->fullUrl(), non route('notizie')/
-    route('categoria', ...): verificato che non esiste alcuna logica
-    ufficiale di canonical per la paginazione in questo progetto (nessuna
-    @section('canonical') su queste viste, nessun rel=next/prev). Senza
-    quell'infrastruttura, il JSON-LD deve descrivere l'URL realmente
-    servito (inclusa ?page=N), mai l'URL di pagina 1 quando si è su una
-    pagina successiva. Limite noto e accettato: eventuali parametri di
-    query estranei (es. tracking) finirebbero anch'essi in url/@id, perché
-    non esiste ancora un canonical che li normalizzi — fuori scope per
-    questa fase, di competenza del futuro audit canonical.
+    url/@id devono descrivere lo stesso URL normalizzato dichiarato dal
+    canonical della pagina: pagina 1 senza ?page=1, pagina N su se stessa,
+    nessun parametro UTM/tracking. Le viste /notizie e /categoria impostano
+    entrambe la sezione canonical prima di includere questo partial.
 
     isPartOf referenzia il WebSite della homepage per solo @id (non un nodo
     duplicato): a differenza di NewsArticle.publisher, isPartOf non ha un
@@ -28,7 +22,7 @@
     relazionale tra pagine dello stesso sito.
 --}}
 @php
-    $collectionPageUrl = request()->fullUrl();
+    $collectionPageUrl = trim((string) $__env->yieldContent('canonical'));
 
     $collectionPageDescription = trim((string) $__env->yieldContent('description'));
 

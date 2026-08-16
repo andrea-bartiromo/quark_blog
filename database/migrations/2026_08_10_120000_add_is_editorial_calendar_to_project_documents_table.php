@@ -16,6 +16,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('project_documents', function (Blueprint $table) {
+            $table->dropIndex(['is_editorial_calendar']);
             $table->dropColumn('is_editorial_calendar');
         });
     }

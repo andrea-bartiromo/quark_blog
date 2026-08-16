@@ -22,9 +22,11 @@ use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\ImageService;
+use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -37,6 +39,7 @@ class ArticleController extends Controller
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
         private readonly ArticleLinkInsertionService $linkInsertionService,
         private readonly EditorialQualityChecker $qualityChecker,
+        private readonly MediaRetirementService $mediaRetirementService,
     ) {}
 
     public function index(Request $request)
@@ -133,6 +136,16 @@ class ArticleController extends Controller
         UpdateArticleRequest $request,
         Article $article
     ) {
+        // Codex (PR #165, round 19): calcolato PRIMA di applyBusinessRules()
+        // (che comunque non "consuma" il file — la stessa condizione resta
+        // verificabile in seguito) per sapere, con certezza, se $data['cover_image']
+        // sotto conterrà un disk_name APPENA generato da un nuovo upload, oppure un
+        // valore già esistente arrivato da $request->validated() (copertina invariata,
+        // o scelta dalla libreria media) — solo il primo caso è sicuro da ritirare in
+        // caso di rollback: il secondo può riferirsi a un file già in uso altrove.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
         try {
             $data = $this->applyBusinessRules(
                 $request,
@@ -146,13 +159,54 @@ class ArticleController extends Controller
                 ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
         }
 
-        $article->update($data);
+        try {
+            // Codex (PR #165, P2 round 9): il salvataggio dell'articolo e
+            // la conseguente revalidazione/pulizia dei suggerimenti
+            // applicati (markAccepted() può a sua volta salvare di nuovo il
+            // body se un link non è più sicuro — vedi
+            // ArticleLinkSuggestionService) devono avvenire come un'unica
+            // unità: senza transazione, un fallimento tra i due update()
+            // lascerebbe l'articolo pubblicato con un link ormai non
+            // sicuro ancora nel testo, o un suggerimento già marcato
+            // superato senza che il body sia stato ripulito.
+            DB::transaction(function () use ($article, $data, $request) {
+                $article->update($data);
 
-        $this->linkSuggestionService->markAccepted(
-            $article,
-            (array) $request->input('applied_link_suggestions', []),
-            $request->user()->id
-        );
+                $this->linkSuggestionService->markAccepted(
+                    $article,
+                    (array) $request->input('applied_link_suggestions', []),
+                    $request->user()->id
+                );
+            });
+        } catch (\Throwable $exception) {
+            // Codex (PR #165, round 18): applyBusinessRules() carica la
+            // nuova copertina, la sincronizza sulla radice pubblica
+            // secondaria e registra il Media PRIMA che questa transazione
+            // inizi — un fallimento al suo interno (es. markAccepted())
+            // annulla solo l'update() dell'Article, non quei side effect
+            // già scritti su filesystem/DB. Senza questa pulizia
+            // resterebbero un file orfano e una riga Media senza alcun
+            // articolo che la referenzi. retireIfUnused() è già lo
+            // strumento esistente per questo esatto scenario.
+            //
+            // Codex (PR #165, round 19): il ritiro va limitato al caso in
+            // cui QUESTA richiesta abbia davvero caricato un nuovo file
+            // ($newCoverWasUploaded, calcolato sopra) — array_key_exists()
+            // da solo non basta, perché $data['cover_image'] può contenere
+            // un valore già esistente arrivato da $request->validated()
+            // (copertina invariata, o un asset scelto dalla libreria media
+            // senza upload), che potrebbe non avere alcuna relazione con
+            // questa richiesta e non deve mai essere ritirato per un suo
+            // fallimento.
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
+                $this->mediaRetirementService->retireIfUnused(
+                    $data['cover_image'],
+                    'article_update_transaction_rolled_back'
+                );
+            }
+
+            throw $exception;
+        }
 
         return redirect()
             ->route('admin.articles')

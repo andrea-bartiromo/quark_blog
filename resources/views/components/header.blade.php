@@ -36,8 +36,8 @@
           <path d="m21 21-4.35-4.35"/>
         </svg>
       </a>
-      <button class="btn-subscribe"
-              onclick="document.querySelector('.newsletter-popup').classList.add('visible')">
+      <button type="button" class="btn-subscribe"
+              onclick="if (window.kairusOpenNewsletterPopup) { window.kairusOpenNewsletterPopup(); } else { document.querySelector('.newsletter-popup').classList.add('visible'); }">
         ✉ Newsletter
       </button>
     </div>

@@ -1,20 +1,12 @@
 @extends('layouts.app')
 @section('title', config('laboratorio.name').' — '.config('laboratorio.tagline'))
-
-{{--
-    La homepage non aveva mai definito 'canonical': il meccanismo esiste
-    gia' nel layout (@hasSection('canonical') in layouts/partials/head),
-    usato correttamente da articolo/notizie/categoria, ma questa vista non
-    vi aderiva. Senza canonical, Google tratta http/https (e qualunque
-    altra variante) come duplicati senza un URL preferito indicato dal
-    sito — esattamente il problema segnalato da Search Console.
-
-    route('home') non include lo slash finale (comportamento standard di
-    Laravel per la route radice "/"): aggiunto esplicitamente qui perche'
-    Search Console e il dominio ufficiale (vedi robots.txt) fanno
-    riferimento a "https://kairus.it/" con lo slash.
---}}
 @section('canonical', rtrim(route('home'), '/').'/')
+
+@section('home_css')
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-premium.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-fix.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
+@endsection
 
 @section('head')
 @include('home.partials.structured-data')

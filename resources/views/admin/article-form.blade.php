@@ -429,6 +429,20 @@ document.addEventListener('DOMContentLoaded', function () {
         font-style: italic;
       }
 
+      a {
+        color: #0d9488;
+        text-decoration: underline;
+      }
+
+      a:hover {
+        color: #0f766e;
+      }
+
+      a:focus-visible {
+        outline: 2px solid #0f766e;
+        outline-offset: 1px;
+      }
+
       table {
         border-collapse: collapse;
         width: 100%;

@@ -5,8 +5,10 @@ namespace Tests\Feature\Uploads;
 use App\Models\Article;
 use App\Models\Media;
 use App\Models\User;
+use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use RuntimeException;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
 
@@ -194,5 +196,99 @@ class AdminArticleImageUploadTest extends TestCase
 
         $article->refresh();
         $this->assertSame($oldCover, $article->cover_image);
+    }
+
+    // Codex (PR #165, round 18): applyBusinessRules() carica e registra la nuova
+    // copertina PRIMA che la transazione DB::transaction() (attorno a
+    // $article->update()+markAccepted()) inizi — se markAccepted() fallisce, la
+    // transazione annulla solo l'update() dell'Article, non quei side effect già
+    // scritti su filesystem/Media. Il file e la riga Media devono essere ripuliti.
+    public function test_update_cleans_up_the_new_cover_if_the_transaction_rolls_back(): void
+    {
+        $editor = $this->editor();
+
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Titolo originale',
+            'slug' => 'titolo-originale-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'draft',
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        $newCover = UploadedFile::fake()->image('nuova.jpg', 800, 600);
+
+        try {
+            $this->actingAs($editor)->put(route('admin.articles.update', $article), $this->articlePayload([
+                'title' => 'Titolo originale',
+                'cover_image_upload' => $newCover,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        // Nessun riferimento persistito alla nuova copertina (rollback).
+        $this->assertNull($article->fresh()->cover_image);
+
+        // Ma senza la pulizia, il file caricato e la sua riga Media
+        // sopravvivrebbero comunque, orfani, alla transazione annullata.
+        $this->assertSame(0, Media::where('filename', 'nuova.jpg')->count());
+
+        // Directory isolata per questo test (UsesIsolatedPublicPath): nessun
+        // file deve restare, orfano, dopo la pulizia.
+        $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
+    }
+
+    // Codex (PR #165, round 19): il ritiro sul rollback (round 18) deve limitarsi a un
+    // disk_name DAVVERO caricato in QUESTA richiesta — se l'admin invia invece un
+    // cover_image già esistente (es. un asset scelto dalla libreria media, non ancora
+    // riferito da alcun articolo, senza allegare cover_image_upload), quell'asset non ha
+    // alcuna relazione con questo fallimento e non deve mai essere ritirato.
+    public function test_update_never_retires_an_unrelated_existing_cover_image_on_rollback(): void
+    {
+        $editor = $this->editor();
+
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Titolo originale',
+            'slug' => 'titolo-originale-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'draft',
+        ]);
+
+        // Un asset già presente in libreria media, non riferito da alcun
+        // articolo — esattamente lo scenario del finding.
+        $libraryDiskName = 'libreria-esistente.webp';
+        file_put_contents(public_path('assets/img/'.$libraryDiskName), 'contenuto finto');
+        $libraryMedia = Media::create([
+            'user_id' => $editor->id,
+            'filename' => 'libreria-esistente.webp',
+            'disk_name' => $libraryDiskName,
+            'mime_type' => 'image/webp',
+            'size' => 100,
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        try {
+            $this->actingAs($editor)->put(route('admin.articles.update', $article), $this->articlePayload([
+                'title' => 'Titolo originale',
+                'cover_image' => $libraryDiskName,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNotNull(Media::find($libraryMedia->id));
+        $this->assertFileExists(public_path('assets/img/'.$libraryDiskName));
     }
 }

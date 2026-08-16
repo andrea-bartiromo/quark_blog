@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\ProjectEditorialLinkService;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
@@ -171,12 +172,44 @@ class Article extends Model
      */
     public function proposedLinkSuggestions()
     {
+        // Codex (PR #165, P2 round 9): la riga resta 'proposed' in DB finché
+        // non parte una nuova "Analizza" (o "Inserisci"/il salvataggio la
+        // rivalutano) — ma tra quel momento e l'apertura di QUESTA pagina il
+        // target può essere diventato non più sicuro (riprogrammato dopo la
+        // source, o retrocesso). Senza questo filtro il form la mostrerebbe
+        // comunque con l'etichetta "sarà pubblico prima di questo articolo"
+        // (ArticleLinkSuggestionController::serializeSuggestions()) — una
+        // dichiarazione di sicurezza ormai falsa, prima ancora che la
+        // redazione clicchi qualunque cosa. Nessuna scrittura qui: è un
+        // filtro di sola lettura per il rendering, lo stato 'proposed' in DB
+        // resta quello che era finché un'azione esplicita (Analizza/
+        // Inserisci/Salva) non lo aggiorna davvero.
+        //
+        // Codex, PR #165, P2 round 10: il filtro va applicato PRIMA del
+        // limite MAX_PROPOSED_RESULTS, non dopo. Se le righe con punteggio
+        // più alto sono proprio quelle diventate non sicure, un
+        // ->limit()->get()->filter() le include nella finestra del LIMIT e
+        // le scarta dopo — restituendo un pannello vuoto anche quando
+        // esistono altri suggerimenti sicuri appena sotto in classifica.
+        // Nessun limite SQL qui: il numero di righe 'proposed' per un
+        // singolo articolo è comunque piccolo (soglia di punteggio +
+        // MAX_PROPOSED_RESULTS già applicati da analyzeForSource()), il
+        // taglio ai primi MAX_PROPOSED_RESULTS avviene in PHP DOPO il
+        // filtro, sull'ordinamento per punteggio già applicato dalla query.
+        $temporalEligibility = app(InternalLinkTemporalEligibility::class);
+
         return $this->linkSuggestions()
             ->proposed()
-            ->with('targetArticle:id,title,slug')
+            // status/published_at (V2.1): il pannello "Collegamenti interni
+            // suggeriti" deve poter mostrare che un target è ancora
+            // programmato (mai come se fosse già pubblico senza contesto —
+            // vedi ArticleLinkSuggestionController::serializeSuggestions()).
+            ->with('targetArticle:id,title,slug,status,published_at')
             ->orderByDesc('confidence_score')
-            ->limit(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
-            ->get();
+            ->get()
+            ->filter(fn (ArticleLinkSuggestion $s) => $s->targetArticle !== null && $temporalEligibility->isTargetSafeForSource($this, $s->targetArticle))
+            ->take(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
+            ->values();
     }
 
     // ── Scope ─────────────────────────────────────────────────
@@ -204,11 +237,43 @@ class Article extends Model
             ->orderBy('published_at');
     }
 
+    /**
+     * Internal Linking V2.1 — pre-filtro SQL per SOLO il ramo "scheduled
+     * temporalmente sicuro" della candidate selection del suggeritore
+     * (App\Services\ArticleLinkSuggestionService::analyzeForSource()):
+     * stessa regola di App\Services\InternalLinking\
+     * InternalLinkTemporalEligibility::isTargetSafeForSource() ramo B, qui
+     * a livello DB per evitare di caricare in memoria candidati che non
+     * potrebbero mai essere eleggibili (draft/review, o scheduled con
+     * published_at non strettamente precedente a quello di $source).
+     *
+     * Interrogato SEPARATAMENTE dai candidati pubblicati (scopePublished()),
+     * ciascuno con una propria quota LIMIT indipendente (Codex, PR #165, P2
+     * round 4 e round 5): un'unica query con ORDER BY/LIMIT condiviso tra i
+     * due gruppi non può restare corretta in entrambe le direzioni — un
+     * gruppo abbastanza numeroso scalza sempre l'altro dalla finestra dei
+     * candidati, qualunque sia il criterio di ordinamento scelto tra i due.
+     *
+     * Il chiamante invoca questo scope solo quando $source stessa è
+     * 'scheduled' con published_at valorizzato (altrimenti il ramo B non si
+     * applica mai — vedi isTargetSafeForSource()); lo scope non ripete qui
+     * quel controllo. La fonte di verità applicativa resta comunque
+     * isTargetSafeForSource(), riapplicata subito dopo il fetch in
+     * analyzeForSource() come garanzia definitiva indipendente da questa
+     * query (vedi commento lì).
+     */
+    public function scopeScheduledSafeAsLinkTargetFor(Builder $q, self $source): Builder
+    {
+        return $q->where('status', self::STATUS_SCHEDULED)
+            ->whereNotNull('published_at')
+            ->where('published_at', '<', $source->published_at);
+    }
+
     // ── Stato ─────────────────────────────────────────────────
 
     /**
      * @return array<string, string> Valore enum => etichetta leggibile, nell'ordine
-     *                                in cui vanno proposte nel select "Stato articolo".
+     *                               in cui vanno proposte nel select "Stato articolo".
      */
     public static function statusOptions(): array
     {

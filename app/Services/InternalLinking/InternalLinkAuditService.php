@@ -37,6 +37,7 @@ class InternalLinkAuditService
 
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
+        private readonly InternalLinkTemporalEligibility $temporalEligibility = new InternalLinkTemporalEligibility,
     ) {}
 
     public function audit(?int $articleId = null, ?string $status = null): InternalLinkAuditReport
@@ -74,6 +75,7 @@ class InternalLinkAuditService
             brokenLinks: $rows->sum(fn (InternalLinkAuditRow $r) => $r->countByClassification('missing')),
             selfLinks: $rows->sum(fn (InternalLinkAuditRow $r) => $r->countByClassification('self')),
             unpublishedTargets: $rows->sum(fn (InternalLinkAuditRow $r) => $r->countByClassification('unpublished')),
+            scheduledSafeLinks: $rows->sum(fn (InternalLinkAuditRow $r) => $r->countByClassification('scheduled_safe')),
             redirectedLinks: $rows->sum(fn (InternalLinkAuditRow $r) => $r->countByClassification('redirected')),
             articlesWithAmbiguousAnchors: $rows->filter(fn (InternalLinkAuditRow $r) => $r->hasAmbiguousAnchor)->count(),
             isolatedArticles: $rows->filter(fn (InternalLinkAuditRow $r) => $r->isOrphan())->count(),
@@ -123,10 +125,20 @@ class InternalLinkAuditService
                 // target dall'essere considerato isolato.
                 $resolvedArticle = $bySlug->get($resolvedSlug);
 
+                // Nota V2.1: qui resta SOLO "pubblicamente visibile ora",
+                // deliberatamente non esteso alla sicurezza temporale
+                // scheduled→scheduled sotto — un lettore non può seguire
+                // DAVVERO questo link finché $article stessa (la sorgente)
+                // non è a sua volta pubblica, quindi non è ancora un
+                // incoming link reale, indipendentemente da quanto sia
+                // "sicuro" il collegamento in prospettiva. Non influisce
+                // comunque su isOrphan() (si applica solo a status
+                // 'published'), quindi nessun comportamento visibile
+                // cambia per un target ancora scheduled.
                 if ($resolvedSlug !== $article->slug
                     && array_key_exists($resolvedSlug, $incomingCountBySlug)
                     && $resolvedArticle !== null
-                    && $this->isPubliclyVisible($resolvedArticle)) {
+                    && $this->temporalEligibility->isPubliclyVisible($resolvedArticle)) {
                     $incomingCountBySlug[$resolvedSlug]++;
                 }
             }
@@ -145,25 +157,24 @@ class InternalLinkAuditService
     }
 
     /**
-     * Stessa definizione di "pubblicamente visibile" di
-     * Article::scopePublished() (status published E published_at non nel
-     * futuro) — applicata qui su modelli già in memoria, senza una query
-     * aggiuntiva. Regressione Codex (PR #158, P2): un articolo con status
-     * 'published' ma published_at futuro (un'incoerenza possibile solo
-     * per manipolazione diretta del DB, mai tramite il form — vedi
-     * Article::booted()) non è raggiungibile pubblicamente: il pubblico
-     * ArticleController::show() usa published() per sia il match diretto
-     * sia la risoluzione di un redirect, la stessa condizione va applicata
-     * qui per non classificare 'valid'/'redirected' un link che in realtà
-     * darebbe 404 al lettore.
+     * Internal Linking V2.1 — classifica un link uscente rispetto al suo
+     * stato REALE corrente e a quello, altrettanto reale e corrente, di
+     * $source: entrambi vengono sempre letti "adesso" (l'audit non è mai
+     * persistito, vedi InternalLinkAuditRow), quindi un target riprogrammato
+     * più avanti, retrocesso a bozza, o una sorgente pubblicata in anticipo
+     * rispetto al previsto vengono automaticamente rilevati alla prossima
+     * esecuzione senza bisogno di logica dedicata per ciascun caso — sono
+     * solo il risultato di rivalutare la stessa regola (vedi
+     * InternalLinkTemporalEligibility) sullo stato presente.
+     *
+     * 'unpublished' resta riservato ai casi realmente anomali: un target
+     * che esiste ma non è (e non sarà deterministicamente, prima che
+     * $source diventi pubblica) raggiungibile — mai mascherato.
+     * 'scheduled_safe' rende invece esplicito, non silenzioso, il caso in
+     * cui il target non è ancora pubblico ORA ma lo sarà con certezza prima
+     * che $source lo diventi: un fatto distinto da 'valid' (che significa
+     * "raggiungibile in questo momento"), non un sinonimo.
      */
-    private function isPubliclyVisible(Article $article): bool
-    {
-        return $article->status === Article::STATUS_PUBLISHED
-            && $article->published_at !== null
-            && ! $article->published_at->isFuture();
-    }
-
     private function classify(string $targetSlug, Article $source, Collection $bySlug, Collection $redirectTargetSlugByOldSlug): string
     {
         if ($targetSlug === $source->slug) {
@@ -171,16 +182,39 @@ class InternalLinkAuditService
         }
 
         if ($bySlug->has($targetSlug)) {
-            return $this->isPubliclyVisible($bySlug->get($targetSlug)) ? 'valid' : 'unpublished';
+            return $this->classifyTarget($source, $bySlug->get($targetSlug));
         }
 
         if ($redirectTargetSlugByOldSlug->has($targetSlug)) {
             $resolvedArticle = $bySlug->get($redirectTargetSlugByOldSlug->get($targetSlug));
 
-            return $resolvedArticle !== null && $this->isPubliclyVisible($resolvedArticle) ? 'redirected' : 'unpublished';
+            if ($resolvedArticle === null) {
+                return 'unpublished';
+            }
+
+            $classification = $this->classifyTarget($source, $resolvedArticle);
+
+            // Un redirect verso un target sicuro-perché-scheduled resta
+            // comunque un redirect (lo slug scritto nel link non è più
+            // quello corrente) — 'redirected' e 'scheduled_safe' sono due
+            // fatti indipendenti (identità dello slug vs. raggiungibilità
+            // temporale), 'scheduled_safe' qui significherebbe "il target
+            // risolto è sicuro" ma nasconderebbe che lo slug è comunque da
+            // aggiornare. Solo 'unpublished' resta un'anomalia da riportare
+            // as-is, essendo l'unico caso realmente problematico.
+            return $classification === 'unpublished' ? 'unpublished' : 'redirected';
         }
 
         return 'missing';
+    }
+
+    private function classifyTarget(Article $source, Article $target): string
+    {
+        if ($this->temporalEligibility->isPubliclyVisible($target)) {
+            return 'valid';
+        }
+
+        return $this->temporalEligibility->isTargetSafeForSource($source, $target) ? 'scheduled_safe' : 'unpublished';
     }
 
     /**
@@ -272,6 +306,19 @@ class InternalLinkAuditService
     }
 
     /**
+     * Codex (PR #165, round 12): un suggerimento 'proposed' ad alta
+     * confidenza il cui target è stato riprogrammato DOPO la sorgente (o
+     * comunque non è più temporalmente sicuro secondo
+     * InternalLinkTemporalEligibility) resta 'proposed' a livello di
+     * database — l'unica revalidazione avviene quando la sorgente viene di
+     * nuovo salvata (vedi ArticleLinkSuggestionService::markAccepted()),
+     * mai qui. Senza questo filtro, applicato PRIMA di ->take(), una simile
+     * riga stale poteva occupare uno dei MAX_TOP_OPPORTUNITIES slot al
+     * posto di un'opportunità realmente inseribile — stesso principio
+     * "mai limitare prima di filtrare" già corretto in questa stessa PR per
+     * Article::proposedLinkSuggestions() e
+     * ArticleLinkSuggestionService::analyzeForSource().
+     *
      * @param  Collection<int, Article>  $subjects
      * @return array<int, array{id:int,source:array{id:int,title:string},target:array{id:int,title:string},anchor_text:string,confidence_score:int}>
      */
@@ -280,10 +327,16 @@ class InternalLinkAuditService
         return ArticleLinkSuggestion::proposed()
             ->whereIn('source_article_id', $subjects->pluck('id'))
             ->where('confidence_score', '>=', self::HIGH_CONFIDENCE_THRESHOLD)
-            ->with(['sourceArticle:id,title', 'targetArticle:id,title'])
+            ->with([
+                'sourceArticle:id,title,status,published_at',
+                'targetArticle:id,title,status,published_at',
+            ])
             ->orderByDesc('confidence_score')
-            ->limit(self::MAX_TOP_OPPORTUNITIES)
             ->get()
+            ->filter(fn (ArticleLinkSuggestion $s) => $s->sourceArticle !== null
+                && $s->targetArticle !== null
+                && $this->temporalEligibility->isTargetSafeForSource($s->sourceArticle, $s->targetArticle))
+            ->take(self::MAX_TOP_OPPORTUNITIES)
             ->map(fn (ArticleLinkSuggestion $s) => [
                 'id' => $s->id,
                 'source' => ['id' => $s->sourceArticle->id, 'title' => $s->sourceArticle->title],
@@ -291,6 +344,7 @@ class InternalLinkAuditService
                 'anchor_text' => $s->anchor_text,
                 'confidence_score' => $s->confidence_score,
             ])
+            ->values()
             ->all();
     }
 }

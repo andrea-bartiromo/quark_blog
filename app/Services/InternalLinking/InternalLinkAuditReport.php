@@ -26,6 +26,7 @@ final readonly class InternalLinkAuditReport
         public int $brokenLinks,
         public int $selfLinks,
         public int $unpublishedTargets,
+        public int $scheduledSafeLinks,
         public int $redirectedLinks,
         public int $articlesWithAmbiguousAnchors,
         public int $isolatedArticles,

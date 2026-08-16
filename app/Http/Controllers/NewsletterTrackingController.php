@@ -7,18 +7,29 @@ use App\Models\Newsletter;
 use App\Models\NewsletterClick;
 use App\Models\NewsletterOpen;
 use Illuminate\Http\Request;
+use Throwable;
 
 class NewsletterTrackingController extends Controller
 {
-    public function open(Request $request, Newsletter $subscriber)
+    public function open(Request $request, string $subscriber)
     {
-        NewsletterOpen::create([
-            'newsletter_id' => $subscriber->id,
-            'email' => $subscriber->email,
-            'ip_hash' => hash('sha256', $request->ip()),
-            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
-            'opened_at' => now(),
-        ]);
+        $subscriberModel = ctype_digit($subscriber)
+            ? Newsletter::query()->find((int) $subscriber)
+            : null;
+
+        if ($subscriberModel !== null) {
+            try {
+                NewsletterOpen::create([
+                    'newsletter_id' => $subscriberModel->id,
+                    'email' => $subscriberModel->email,
+                    'ip_hash' => hash('sha256', $request->ip()),
+                    'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+                    'opened_at' => now(),
+                ]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         $pixel = base64_decode(
             'R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw=='
@@ -31,19 +42,36 @@ class NewsletterTrackingController extends Controller
         ]);
     }
 
-    public function click(Request $request, Newsletter $subscriber, Article $article)
+    public function click(Request $request, string $subscriber, string $article)
     {
-        $url = route('articolo', $article->slug);
+        $articleModel = ctype_digit($article)
+            ? Article::query()->find((int) $article)
+            : null;
 
-        NewsletterClick::create([
-            'newsletter_subscriber_id' => $subscriber->id,
-            'article_id' => $article->id,
-            'email' => $subscriber->email,
-            'ip_hash' => hash('sha256', $request->ip()),
-            'user_agent' => substr((string) $request->userAgent(), 0, 1000),
-            'url' => $url,
-            'clicked_at' => now(),
-        ]);
+        if ($articleModel === null) {
+            return redirect()->route('notizie');
+        }
+
+        $url = route('articolo', $articleModel->slug);
+        $subscriberModel = ctype_digit($subscriber)
+            ? Newsletter::query()->find((int) $subscriber)
+            : null;
+
+        if ($subscriberModel !== null) {
+            try {
+                NewsletterClick::create([
+                    'newsletter_subscriber_id' => $subscriberModel->id,
+                    'article_id' => $articleModel->id,
+                    'email' => $subscriberModel->email,
+                    'ip_hash' => hash('sha256', $request->ip()),
+                    'user_agent' => substr((string) $request->userAgent(), 0, 1000),
+                    'url' => $url,
+                    'clicked_at' => now(),
+                ]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return redirect()->away($url);
     }

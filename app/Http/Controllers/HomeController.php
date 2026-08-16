@@ -12,6 +12,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\ArticleView;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\SpecialPage;
 use Illuminate\Support\Carbon;
 
@@ -65,6 +66,14 @@ class HomeController extends Controller
             }
         }
 
+        $homePaths = ContentCluster::query()
+            ->active()
+            ->whereHas('articles', fn ($query) => $query->published())
+            ->ordered()
+            ->withCount(['articles as published_articles_count' => fn ($query) => $query->published()])
+            ->limit(2)
+            ->get();
+
         $turingHome = $this->turingHomeTeaser();
 
         return view('home', compact(
@@ -74,7 +83,8 @@ class HomeController extends Controller
             'trending',
             'categoryRecords',
             'categoryOptions',
-            'turingHome'
+            'turingHome',
+            'homePaths'
         ));
     }
 

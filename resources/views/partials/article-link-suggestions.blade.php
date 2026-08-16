@@ -49,18 +49,26 @@
       letteralmente "</script>" non può altrimenti chiudere questo tag ed
       iniettare markup nella pagina di un altro redattore.
     --}}
-    <script type="application/json" id="link-suggestions-initial">{!! \Illuminate\Support\Js::from($linkSuggestions->map(fn ($s) => [
-      'id' => $s->id,
-      'anchor_text' => $s->anchor_text,
-      'context_excerpt' => $s->context_excerpt,
-      'reason' => $s->reason,
-      'confidence_score' => $s->confidence_score,
-      'target' => [
-        'id' => $s->targetArticle->id,
-        'title' => $s->targetArticle->title,
-        'url' => route('articolo', $s->targetArticle->slug),
-      ],
-    ])->values()) !!}</script>
+    <script type="application/json" id="link-suggestions-initial">{!! \Illuminate\Support\Js::from($linkSuggestions->map(function ($s) {
+      $target = $s->targetArticle;
+      $isScheduled = $target->isScheduled() && $target->published_at !== null;
+
+      return [
+        'id' => $s->id,
+        'anchor_text' => $s->anchor_text,
+        'context_excerpt' => $s->context_excerpt,
+        'reason' => $s->reason,
+        'confidence_score' => $s->confidence_score,
+        'target' => [
+          'id' => $target->id,
+          'title' => $target->title,
+          'url' => route('articolo', $target->slug),
+          'scheduled_label' => $isScheduled
+            ? 'Programmato per '.$target->publishedAtForEditors()->format('d/m/Y H:i').' — sarà pubblico prima di questo articolo'
+            : null,
+        ],
+      ];
+    })->values()) !!}</script>
   @endif
 </div>
 
@@ -92,12 +100,23 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function cardHtml(suggestion) {
+    // V2.1: un target ancora 'scheduled' (temporalmente sicuro) non deve
+    // mai apparire come se fosse già pubblico senza contesto — la
+    // microcopy resta silenziosa (nessun elemento aggiunto) quando il
+    // target è già pubblicato, comportamento V2 invariato.
+    var scheduledNoticeHtml = suggestion.target.scheduled_label
+      ? '<div style="color:#92400e;background:#fffbeb;border-radius:4px;padding:.3rem .5rem;margin:.35rem 0;">' +
+          '🕒 ' + escapeHtml(suggestion.target.scheduled_label) +
+        '</div>'
+      : '';
+
     return (
       '<div class="link-suggestion-card" data-suggestion-id="' + suggestion.id + '" ' +
       'style="border:1px solid #e5e7eb;border-radius:8px;padding:.75rem;font-size:.8rem;">' +
         '<div style="font-weight:600;color:#111827;">' +
           '→ ' + escapeHtml(suggestion.target.title) +
         '</div>' +
+        scheduledNoticeHtml +
         '<div style="margin:.35rem 0;color:#374151;">' +
           'Anchor: <span style="background:#f0fdfa;padding:.05rem .35rem;border-radius:4px;">' + escapeHtml(suggestion.anchor_text) + '</span>' +
         '</div>' +
