@@ -1,0 +1,161 @@
+# Main push is the pre-deploy release-candidate gate for the integrated stack.
+name: Content Clusters MariaDB
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'bootstrap/app.php'
+      - 'config/content-clusters-*.php'
+      - 'database/**'
+      - 'resources/views/**content-clusters**'
+      - 'resources/views/articles/partials/path-continuation.blade.php'
+      - 'routes/content-clusters-*.php'
+      - 'tests/Feature/ContentClusterAdminTest.php'
+      - 'tests/Feature/ContentClusterPublicTest.php'
+      - 'tests/Feature/ContentClusterPhase2ATest.php'
+      - 'tests/Feature/ContentClusterPhase2BTest.php'
+      - 'tests/Feature/ArticlePathNavigationTest.php'
+      - '.github/workflows/content-clusters-mariadb.yml'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mariadb-content-clusters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: kairus_test
+          MARIADB_USER: kairus
+          MARIADB_PASSWORD: kairus_test_password
+          MARIADB_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: mariadb
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: kairus_test
+      DB_USERNAME: kairus
+      DB_PASSWORD: kairus_test_password
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl, gd, exif
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Pint
+        run: >-
+          vendor/bin/pint --test
+          app/Console/Commands/BackfillInitialContentClusters.php
+          app/Http/Controllers/Admin/ContentClusterController.php
+          app/Http/Controllers/Admin/ContentClusterSuggestionController.php
+          app/Http/Controllers/ArticleController.php
+          app/Http/Controllers/ContentClusterController.php
+          app/Http/Controllers/NewsletterTrackingController.php
+          app/Http/Controllers/SeoController.php
+          app/Models/ContentCluster.php
+          app/Models/ContentClusterSuggestion.php
+          app/Models/NewsletterClick.php
+          app/Observers/ContentClusterSuggestionObserver.php
+          app/Providers/AppServiceProvider.php
+          app/Services/ArticlePathNavigation.php
+          app/Services/ContentClusterHealth.php
+          app/Services/ContentClusterMembershipService.php
+          app/Services/ContentClusterSuggestionService.php
+          bootstrap/app.php
+          config/content-clusters-analytics.php
+          config/content-clusters-initial.php
+          database/factories/ContentClusterFactory.php
+          database/migrations/2026_08_10_120000_add_is_editorial_calendar_to_project_documents_table.php
+          database/migrations/2026_08_13_080610_create_content_clusters_table.php
+          database/migrations/2026_08_13_080620_create_article_content_cluster_table.php
+          database/migrations/2026_08_13_080630_add_pillar_article_to_content_clusters_table.php
+          database/migrations/2026_08_13_104700_create_content_cluster_suggestions_table.php
+          database/seeders/BrowserTestSeeder.php
+          routes/content-clusters-admin.php
+          routes/content-clusters-public.php
+          tests/Feature/ArticlePathNavigationTest.php
+          tests/Feature/ContentClusterAdminTest.php
+          tests/Feature/ContentClusterPhase2ATest.php
+          tests/Feature/ContentClusterPhase2BTest.php
+          tests/Feature/ContentClusterPhase2CArticleCohortTest.php
+          tests/Feature/ContentClusterPhase2CArticleTest.php
+          tests/Feature/ContentClusterPhase2CMembershipSignalTest.php
+          tests/Feature/ContentClusterPhase2CPruningRegressionTest.php
+          tests/Feature/ContentClusterPublicTest.php
+          tests/Feature/NewsletterTrackingTest.php
+          tests/Unit/ArticleLinkSuggestionTest.php
+      - name: Diff check
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git diff --check "${{ github.event.before }}..${{ github.sha }}"
+          else
+            git diff --check origin/main...HEAD
+          fi
+      - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
+      - name: Fresh MariaDB migration and focused tests
+        run: |
+          php artisan db:show --database=mariadb
+          php artisan migrate:fresh --force
+          php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
+      - name: Incremental migration from populated pre-Phase-1A schema (incl. content_cluster_subscribers)
+        run: |
+          set -eu
+          php artisan migrate:fresh --force
+          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]); App\\Models\\CommunicationSubscriber::create(['email'=>'incremental-path@example.test','status'=>App\\Models\\CommunicationSubscriber::STATUS_CONFIRMED,'unsubscribe_token'=>bin2hex(random_bytes(16)),'confirmed_at'=>now()]);"
+          # --step=N assumed Phase 1A's 4 migrations were always the most
+          # recent N on main; that broke as soon as later migrations (the
+          # lifecycle/curator-note columns, and content_cluster_subscribers'
+          # FK to content_clusters) started depending on content_clusters —
+          # --step=4 silently rolled back the WRONG (most recent) 4
+          # migrations instead, and this step's own hasTable() checks kept
+          # passing without ever proving anything real.
+          #
+          # --path targets migrations by file regardless of how many others
+          # exist after them. Every migration that currently creates,
+          # alters, or has a foreign key into content_clusters must be
+          # listed here together — content_clusters can't be dropped while
+          # anything still references it, and reapplying content_clusters'
+          # base CREATE alone would leave it missing the columns those
+          # ALTER migrations added, since Laravel would still consider them
+          # already applied. Add any future migration that touches
+          # content_clusters (new columns, or new FKs into it) to this list.
+          php artisan migrate:rollback \
+            --path=database/migrations/2026_08_13_080610_create_content_clusters_table.php \
+            --path=database/migrations/2026_08_13_080620_create_article_content_cluster_table.php \
+            --path=database/migrations/2026_08_13_080630_add_pillar_article_to_content_clusters_table.php \
+            --path=database/migrations/2026_08_13_104700_create_content_cluster_suggestions_table.php \
+            --path=database/migrations/2026_08_15_060000_add_editorial_narrative_to_content_clusters.php \
+            --path=database/migrations/2026_08_15_103500_add_lifecycle_status_to_content_clusters.php \
+            --path=database/migrations/2026_08_15_140000_create_content_cluster_subscribers_table.php \
+            --path=database/migrations/2026_08_16_080345_add_curator_note_to_content_clusters.php \
+            --force
+          php artisan tinker --execute="foreach (['content_clusters','article_content_cluster','content_cluster_suggestions','content_cluster_subscribers'] as \$t) { if (Illuminate\\Support\\Facades\\Schema::hasTable(\$t)) { throw new RuntimeException(\$t.' still present after targeted rollback'); } }"
+          php artisan migrate --force
+          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_suggestions') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists() || Illuminate\\Support\\Facades\\DB::table('content_cluster_suggestions')->exists()) { throw new RuntimeException('Phase 1A incremental migration verification failed'); }"
+          php artisan tinker --execute="\$subscriber=App\\Models\\CommunicationSubscriber::where('email','incremental-path@example.test')->first(); if (!\$subscriber || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_subscribers')) { throw new RuntimeException('content_cluster_subscribers incremental migration verification failed'); } \$cluster=App\\Models\\ContentCluster::create(['name'=>'Incremental Percorso CI','slug'=>'incremental-percorso-ci','is_active'=>true,'lifecycle_status'=>App\\Models\\ContentCluster::LIFECYCLE_UPDATING]); \$subscription=App\\Models\\ContentClusterSubscriber::create(['subscriber_id'=>\$subscriber->id,'content_cluster_id'=>\$cluster->id,'status'=>'active','unsubscribe_token'=>bin2hex(random_bytes(16))]); if (!\$subscription->id) { throw new RuntimeException('content_cluster_subscribers table not usable after incremental migration'); }"

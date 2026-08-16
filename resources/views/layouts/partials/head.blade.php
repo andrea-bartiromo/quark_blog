@@ -54,7 +54,11 @@
         : $__env->yieldContent('description') !!}"
 >
 
+@hasSection('canonical')
+<meta property="og:url" content="@yield('canonical')">
+@else
 <meta property="og:url" content="{{ url()->current() }}">
+@endif
 
 @php
     // Fallback globale: la maggior parte delle pagine (home, categorie,
@@ -90,8 +94,22 @@
 
 <meta name="twitter:image" content="{{ $twitterImage }}">
 
-{{-- Google Analytics --}}
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-Y1853N6FZP"></script>
+{{--
+    Google Analytics — Analytics Hygiene (docs/ANALYTICS_HYGIENE.md).
+
+    Lo script gtag.js viene emesso SOLO quando
+    AnalyticsExclusionService::shouldLoadAnalytics() e' vero per QUESTA
+    richiesta: nessun Measurement ID configurato, ambiente diverso da
+    "production" (locale/testing/staging non esplicitamente abilitato), o
+    il cookie kairus_analytics_excluded presente sul browser bloccano il
+    caricamento a monte. Deliberato: preferire il non caricamento rispetto
+    a inviare eventi marcati male e filtrarli solo dopo.
+--}}
+@php
+    $shouldLoadAnalytics = app(\App\Services\AnalyticsExclusionService::class)->shouldLoadAnalytics(request());
+@endphp
+@if($shouldLoadAnalytics)
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ config('analytics.measurement_id') }}"></script>
 
 <script>
 window.dataLayer = window.dataLayer || [];
@@ -110,10 +128,11 @@ gtag('consent', 'default', {
 
 gtag('js', new Date());
 
-gtag('config', 'G-Y1853N6FZP', {
+gtag('config', '{{ config('analytics.measurement_id') }}', {
     anonymize_ip: true
 });
 </script>
+@endif
 
 {{-- Google AdSense --}}
 {{--
@@ -133,12 +152,18 @@ gtag('config', 'G-Y1853N6FZP', {
     rel="stylesheet"
 >
 
-{{-- CSS --}}
-<link rel="stylesheet" href="{{ asset('css/style.css') }}">
-<link rel="stylesheet" href="{{ asset('css/home-premium.css') }}">
-<link rel="stylesheet" href="{{ asset('css/home-fix.css') }}">
-<link rel="stylesheet" href="{{ asset('css/public-premium.css') }}">
-<link rel="stylesheet" href="{{ asset('css/public-unified.css') }}">
-<link rel="stylesheet" href="{{ asset('css/premium-fixes.css') }}?v=10">
+{{--
+    CSS — versionato tramite mtime del file (App\Support\VersionedAsset),
+    non un contatore manuale come il precedente "?v=10" di
+    premium-fixes.css: quel numero andava incrementato a mano a ogni
+    modifica ed era già stato dimenticato per gli altri 5 file, che non
+    avevano alcun cache busting.
+--}}
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/style.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/frontend-hardening.css') }}">
+@yield('home_css')
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-premium.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-unified.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/premium-fixes.css') }}">
 
 @yield('head')

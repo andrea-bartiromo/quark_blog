@@ -4,6 +4,10 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
+use App\Models\ArticleSlugRedirect;
+use App\Services\InternalLinking\ConceptCandidate;
+use App\Services\InternalLinking\InternalLinkTemporalEligibility;
+use App\Services\InternalLinking\ScientificConceptMatcher;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -165,6 +169,23 @@ class ArticleLinkSuggestionService
     /** Limite candidati per restare compatibile con FASE 8 (calcolo on-demand, mai su ogni keypress). */
     private const MAX_CANDIDATES = 300;
 
+    /**
+     * V2.1 (Codex, PR #165, P2 round 4, 5, 6 e 11) — tetto MASSIMO,
+     * INDIPENDENTE, per i candidati scheduled temporalmente sicuri: una
+     * quota SEPARATA e aggiuntiva rispetto a MAX_CANDIDATES (mai sottratta
+     * ad essa, mai una funzione di quanti candidati scheduled sicuri
+     * esistono davvero — round 6 e 11 hanno mostrato entrambi che qualunque
+     * dipendenza tra le due quote riapre lo stesso problema in una forma
+     * diversa). I pubblicati mantengono sempre l'intera MAX_CANDIDATES che
+     * avevano prima di questa missione; il pool totale valutato per lo
+     * scoring può quindi arrivare a MAX_CANDIDATES + questo valore (350) —
+     * un aumento fisso e limitato, non una crescita indefinita. Il valore
+     * resta comunque più piccolo di MAX_CANDIDATES: un calendario
+     * editoriale realistico ha molti meno articoli scheduled-prima-di-
+     * questa-source che pubblicati in tutta la storia del sito.
+     */
+    private const MAX_SCHEDULED_SAFE_CANDIDATES = 50;
+
     private const MAX_RETROACTIVE_SOURCE_CANDIDATES = 200;
 
     // Stopword italiane comuni: articoli, preposizioni, congiunzioni,
@@ -228,14 +249,39 @@ class ArticleLinkSuggestionService
     /** Lunghezza minima perché un termine in "-mente" sia escluso come avverbio di modo generico (esclude il sostantivo "mente" da solo). */
     private const MIN_LENGTH_FOR_MENTE_ADVERB = 7;
 
+    /**
+     * V2 (Internal Linking V2, missione dedicata) — bonus per un CONCETTO
+     * scientifico multi-parola noto (config/scientific_concepts.php,
+     * es. "buco nero", "relatività generale") condiviso letteralmente tra
+     * sorgente e target — vedi App\Services\InternalLinking\
+     * ScientificConceptMatcher. Un concetto multi-parola è un segnale più
+     * specifico di un singolo termine condiviso (TERM_MATCH_SCORE): un
+     * numero di punti più alto lo riflette, senza sostituire i segnali
+     * esistenti (si somma, non li rimpiazza).
+     */
+    private const CONCEPT_MATCH_SCORE = 20;
+
+    /** Al più questi concetti contano ai fini del punteggio — "un buon segnale forte" è sufficiente, non serve premiare la ripetizione dello stesso tipo di segnale (stessa filosofia di MAX_SCORED_TERM_MATCHES). */
+    private const MAX_SCORED_CONCEPTS = 2;
+
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
+        private readonly ScientificConceptMatcher $conceptMatcher = new ScientificConceptMatcher,
+        private readonly InternalLinkTemporalEligibility $temporalEligibility = new InternalLinkTemporalEligibility,
     ) {}
 
     /**
-     * Analizza $source contro tutti gli altri articoli pubblicati e
-     * persiste/aggiorna i suggerimenti 'proposed'. Non tocca mai righe già
-     * 'accepted' o 'ignored' (FASE 7: non riproporre continuamente).
+     * Analizza $source contro tutti gli altri articoli temporalmente
+     * eleggibili (vedi InternalLinkTemporalEligibility) e persiste/aggiorna
+     * i suggerimenti 'proposed'. Non tocca mai righe già 'accepted' o
+     * 'ignored' (FASE 7: non riproporre continuamente).
+     *
+     * Internal Linking V2.1 — i candidati non sono più solo gli articoli
+     * già pubblicati: se $source è essa stessa 'scheduled', anche un
+     * articolo 'scheduled' con published_at STRETTAMENTE precedente a
+     * quello di $source entra nel pool, perché sarà già pubblico quando
+     * $source lo diventerà (vedi InternalLinkTemporalEligibility per la
+     * regola completa e il ragionamento).
      *
      * @return Collection<int, ArticleLinkSuggestion>
      */
@@ -248,13 +294,71 @@ class ArticleLinkSuggestionService
         }
 
         $sourceTerms = $this->extractTerms($sourcePlainBody);
+
+        // V2 (Internal Linking V2) — calcolato UNA VOLTA qui, non dentro
+        // scoreLink(): $sourcePlainBody non cambia tra un candidato e
+        // l'altro in questo metodo (a differenza di analyzeForNewTarget(),
+        // dove ogni candidato ha un proprio body e quindi un proprio
+        // scan), quindi ripetere la scansione dei concetti fino a
+        // MAX_CANDIDATES volte per la STESSA stringa sarebbe lavoro
+        // sprecato — stesso principio già applicato a $sourceTerms sopra.
+        $sourceConceptMatches = $this->conceptMatcher->conceptsPresentIn($sourcePlainBody);
+
         $alreadyLinkedSlugs = $this->insertionService->linkedArticleSlugsInBody((string) $source->body);
 
-        $candidates = Article::published()
+        // Article::published()/scopeScheduledSafeAsLinkTargetFor() sono
+        // pre-filtri SQL (evitano di caricare — e di far competere per uno
+        // slot nel LIMIT sotto — candidati che non potrebbero mai essere
+        // eleggibili). Il filter() subito dopo il fetch riapplica la STESSA
+        // regola (isTargetSafeForSource()) come garanzia definitiva sui
+        // modelli realmente caricati: la correttezza non dipende dalla
+        // query SQL essere scritta esattamente giusta, solo dalla policy
+        // PHP (single source of truth), che l'audit usa allo stesso modo.
+        //
+        // Codex (PR #165, P2 round 4, 5, 6 e 11): una singola query con
+        // ORDER BY + LIMIT condiviso tra pubblicati e scheduled sicuri non
+        // può mai essere corretta in entrambe le direzioni contemporaneamente
+        // — qualunque criterio di ordinamento fa sì che UN gruppo, se
+        // abbastanza numeroso, riempia da solo l'intera finestra del LIMIT
+        // ed escluda sistematicamente l'altro (round 4: senza priorità gli
+        // scheduled sicuri, sempre nel futuro, scalzavano i pubblicati;
+        // round 5: dando priorità ai pubblicati, un corpus maturo con
+        // >= MAX_CANDIDATES pubblicati scalzava a sua volta ogni scheduled
+        // sicuro). Anche far dipendere la quota dei pubblicati dal NUMERO
+        // di scheduled sicuri trovati (round 6) resta scorretto (round 11):
+        // quel numero non dice nulla sulla RILEVANZA dei candidati scheduled
+        // — con 50 scheduled sicuri ma irrilevanti per questa query, la
+        // quota pubblicati si riduceva comunque a 250, scalzando un
+        // pubblicato genuinamente pertinente in posizione 251-300 ancora
+        // prima che venga mai valutato per la rilevanza. L'unica soluzione
+        // davvero corretta è due quote COMPLETAMENTE INDIPENDENTI, nessuna
+        // funzione dell'altra: i pubblicati mantengono sempre l'intera
+        // MAX_CANDIDATES che avevano prima di questa missione, gli scheduled
+        // sicuri restano un tetto SEPARATO e aggiuntivo di
+        // MAX_SCHEDULED_SAFE_CANDIDATES — il pool totale valutato per lo
+        // scoring può quindi arrivare a MAX_CANDIDATES +
+        // MAX_SCHEDULED_SAFE_CANDIDATES (350), un aumento fisso e limitato,
+        // non una crescita indefinita, e comunque una singola query per
+        // gruppo (nessun N+1).
+        $publishedCandidates = Article::published()
             ->where('id', '!=', $source->id)
-            ->orderByDesc('published_at')
             ->limit(self::MAX_CANDIDATES)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body']);
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
+
+        $scheduledSafeCandidates = collect();
+
+        if ($source->isScheduled() && $source->published_at !== null) {
+            $scheduledSafeCandidates = Article::query()
+                ->scheduledSafeAsLinkTargetFor($source)
+                ->where('id', '!=', $source->id)
+                ->orderByDesc('published_at')
+                ->limit(self::MAX_SCHEDULED_SAFE_CANDIDATES)
+                ->get(['id', 'title', 'slug', 'excerpt', 'category', 'body', 'status', 'published_at']);
+        }
+
+        $candidates = $publishedCandidates->concat($scheduledSafeCandidates)
+            ->filter(fn (Article $candidate) => $this->temporalEligibility->isTargetSafeForSource($source, $candidate))
+            ->values();
 
         // V2 — un'unica passata sull'intero pool di candidati (stessa
         // Collection già caricata sopra, nessuna query aggiuntiva) per
@@ -264,7 +368,35 @@ class ArticleLinkSuggestionService
         $documentFrequency = $this->buildDocumentFrequency($candidates);
         $corpusSize = $candidates->count();
 
-        $existing = ArticleLinkSuggestion::forSource($source->id)->get()->keyBy('target_article_id');
+        // targetArticle:id,status,published_at eager-caricato qui (non in
+        // un lazy load dentro il loop sotto, N+1): serve al controllo di
+        // staleness temporale subito dopo.
+        $existing = ArticleLinkSuggestion::forSource($source->id)
+            ->with('targetArticle:id,status,published_at')
+            ->get()
+            ->keyBy('target_article_id');
+
+        // Codex (PR #165, P1): un suggerimento 'proposed' il cui target ha
+        // perso l'eleggibilità temporale da quando fu proposto (riprogrammato
+        // DOPO $source, o retrocesso a bozza/revisione) non deve restare
+        // "proposed" indefinitamente in attesa che il loop sotto lo
+        // incontri — per costruzione non lo incontrerà mai più, perché il
+        // filter() sopra lo esclude già a monte da $candidates. Senza
+        // questo passaggio esplicito resterebbe silenziosamente inseribile
+        // (ArticleLinkSuggestionController::insert() lo riverifica comunque,
+        // vedi lì, ma un suggerimento stantio non deve nemmeno restare
+        // visibile nel pannello).
+        foreach ($existing as $existingSuggestion) {
+            if (! $existingSuggestion->isActionable()) {
+                continue;
+            }
+
+            $target = $existingSuggestion->targetArticle;
+
+            if ($target === null || ! $this->temporalEligibility->isTargetSafeForSource($source, $target)) {
+                $this->supersedeIfActionable($existingSuggestion);
+            }
+        }
 
         $results = collect();
 
@@ -283,7 +415,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $documentFrequency, $corpusSize);
+            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $sourceConceptMatches, $documentFrequency, $corpusSize);
 
             if ($match === null) {
                 // Un suggerimento "proposed" che non passa più la soglia
@@ -301,6 +433,30 @@ class ArticleLinkSuggestionService
                 'confidence_score' => $match['score'],
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
+
+            // Codex (PR #165, round 12): snapshot dello slug al momento
+            // della proposta — target_article_id passa a nullOnDelete()
+            // (vedi migrazione), quindi se il target viene eliminato dopo
+            // che la redazione ha già cliccato "Inserisci" ma prima di
+            // salvare la source, markAccepted() deve poter ripulire il link
+            // dal body anche senza più poter risalire allo slug tramite la
+            // relazione.
+            //
+            // Codex (PR #165, round 16): valorizzato SOLO alla prima
+            // proposta di questa coppia (riga non ancora esistente), mai
+            // sovrascritto su una ri-Analizza successiva. "Inserisci" (vedi
+            // ArticleLinkSuggestionController) rimane l'unico punto che lo
+            // AGGIORNA deliberatamente, allineandolo allo slug realmente
+            // usato per l'href — se un'Analizza successiva lo sovrascrivesse
+            // col nuovo slug corrente del target (nel frattempo rinominato),
+            // lo snapshot si disallineerebbe dal link fisicamente ancora
+            // presente nel body non salvato del client. Se il link non è mai
+            // stato inserito, il valore non viene comunque mai consultato
+            // (letto solo da supersedeAndStripIfUnsafe() quando il target
+            // risulta eliminato).
+            if ($existingSuggestion === null || $existingSuggestion->target_slug === null) {
+                $attributes['target_slug'] = $candidate->slug;
+            }
 
             // updateOrCreate (non un controllo di esistenza seguito da un
             // create separato) resta corretto anche se due richieste
@@ -384,7 +540,8 @@ class ArticleLinkSuggestionService
             }
 
             $sourceTerms = $this->extractTerms($sourcePlainBody);
-            $match = $this->scoreLink($candidateSource->category, (string) $candidateSource->body, $sourcePlainBody, $sourceTerms, $targetAsCandidate);
+            $sourceConceptMatches = $this->conceptMatcher->conceptsPresentIn($sourcePlainBody);
+            $match = $this->scoreLink($candidateSource->category, (string) $candidateSource->body, $sourcePlainBody, $sourceTerms, $targetAsCandidate, $sourceConceptMatches);
 
             if ($match === null) {
                 $this->supersedeIfActionable($existingSuggestion);
@@ -400,6 +557,12 @@ class ArticleLinkSuggestionService
                 'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
             ];
 
+            // Codex (PR #165, round 12 e round 16): stesso snapshot di
+            // analyzeForSource() — vedi commento lì.
+            if ($existingSuggestion === null || $existingSuggestion->target_slug === null) {
+                $attributes['target_slug'] = $target->slug;
+            }
+
             // updateOrCreate: al sicuro anche in caso di richieste
             // concorrenti sulla stessa coppia (vincolo unique).
             $results->push(ArticleLinkSuggestion::updateOrCreate(
@@ -413,11 +576,12 @@ class ArticleLinkSuggestionService
 
     /**
      * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string,body?:?string}  $candidateTarget
+     * @param  array<int, ConceptCandidate>  $sourceConceptMatches  V2 — concetti trovati in $sourcePlainBody, calcolato dal chiamante UNA VOLTA (non qui): $sourcePlainBody resta lo stesso per ogni candidato dentro analyzeForSource(), ricalcolarlo per ciascuno dei fino a MAX_CANDIDATES candidati sarebbe lavoro ripetuto e sprecato (stesso principio già applicato a $sourceTerms).
      * @param  array<string,int>  $documentFrequency  V2 — quanti candidati del pool corrente contengono ciascun termine (vedi buildDocumentFrequency()). Vuoto = nessuna classificazione generico/specifico, tutti i termini condivisi restano a punteggio pieno (fallback usato da analyzeForNewTarget(), che itera i candidati via cursor() e non può costruire questa mappa senza una seconda passata sul DB — vedi docblock di analyzeForNewTarget()).
      * @param  int  $corpusSize  Dimensione del pool usato per calcolare $documentFrequency — 0 disabilita la classificazione (stesso motivo sopra).
      * @return array{score:int,anchor:string,context:?string,reason:string}|null
      */
-    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $documentFrequency = [], int $corpusSize = 0): ?array
+    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $sourceConceptMatches, array $documentFrequency = [], int $corpusSize = 0): ?array
     {
         $score = 0;
         $titleMatched = false;
@@ -456,6 +620,23 @@ class ArticleLinkSuggestionService
         $score += array_sum(array_map(fn (array $t) => $t['points'], $scoredTerms));
         $matchedTerms = array_column($scoredTerms, 'term');
 
+        // V2 (Internal Linking V2) — concetti scientifici multi-parola
+        // (config/scientific_concepts.php) menzionati per intero SIA nel
+        // testo sorgente SIA nel target: un segnale più specifico di un
+        // singolo termine condiviso, mai un sostituto (si somma).
+        // $sourceConceptMatches è un parametro (vedi sopra), non ricalcolato qui.
+        $sourceConceptCanonicals = array_values(array_unique(array_map(
+            fn (ConceptCandidate $c) => $c->canonicalTerm,
+            $sourceConceptMatches
+        )));
+        $targetConceptCanonicals = $this->conceptMatcher->canonicalTermsPresentIn($this->targetPlainText($candidateTarget));
+        $sharedConceptCanonicals = array_slice(
+            array_values(array_intersect($sourceConceptCanonicals, $targetConceptCanonicals)),
+            0,
+            self::MAX_SCORED_CONCEPTS
+        );
+        $score += count($sharedConceptCanonicals) * self::CONCEPT_MATCH_SCORE;
+
         $categoryMatched = $sourceCategory === $candidateTarget->category;
 
         if ($categoryMatched) {
@@ -480,6 +661,19 @@ class ArticleLinkSuggestionService
 
         if ($titleOccurrence !== null) {
             $anchorCandidates[] = $titleOccurrence;
+        }
+
+        // V2 — un concetto multi-parola condiviso è un'anchor più
+        // specifica/descrittiva di un singolo termine (FASE 23,
+        // accessibilità: l'anchor deve restare comprensibile fuori
+        // contesto) — provato subito dopo il titolo, prima dei termini
+        // singoli. Il testo resta SEMPRE quello verbatim trovato nella
+        // sorgente ($c->matchedText, es. "buchi neri"), mai la forma
+        // canonica.
+        foreach ($sourceConceptMatches as $conceptMatch) {
+            if (in_array($conceptMatch->canonicalTerm, $sharedConceptCanonicals, true)) {
+                $anchorCandidates[] = ['position' => $conceptMatch->position, 'text' => $conceptMatch->matchedText];
+            }
         }
 
         foreach ($rankedTerms as $ranked) {
@@ -510,7 +704,7 @@ class ArticleLinkSuggestionService
             'score' => $score,
             'anchor' => $anchor,
             'context' => $this->buildContextExcerpt($sourcePlainBody, $anchorPosition, mb_strlen($anchor, 'UTF-8')),
-            'reason' => $this->buildReason($titleMatched, $matchedTerms, $categoryMatched, $candidateTarget->category),
+            'reason' => $this->buildReason($titleMatched, $matchedTerms, $sharedConceptCanonicals, $categoryMatched, $candidateTarget->category),
         ];
     }
 
@@ -524,6 +718,22 @@ class ArticleLinkSuggestionService
      */
     private function extractTargetTerms(object $candidateTarget): array
     {
+        return $this->extractTerms($this->targetPlainText($candidateTarget));
+    }
+
+    /**
+     * V2 (Internal Linking V2) — testo semplice del ruolo "target" (titolo +
+     * excerpt + porzione di body, vedi extractTargetTerms()), estratto qui
+     * come stringa invece che già tokenizzato: ScientificConceptMatcher
+     * lavora su FRASI multi-parola, non sui singoli termini restituiti da
+     * extractTerms() — non può riutilizzare l'array di token già tokenizzati
+     * senza perdere l'adiacenza delle parole che compongono un concetto
+     * ("buco nero" tokenizzato diventerebbe due termini indipendenti,
+     * indistinguibile da "buco" e "nero" comparsi altrove nel testo senza
+     * relazione tra loro).
+     */
+    private function targetPlainText(object $candidateTarget): string
+    {
         $bodyExcerpt = '';
 
         if (! empty($candidateTarget->body)) {
@@ -535,9 +745,7 @@ class ArticleLinkSuggestionService
             );
         }
 
-        return $this->extractTerms(
-            ($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? '').' '.$bodyExcerpt
-        );
+        return ($candidateTarget->title ?? '').' '.($candidateTarget->excerpt ?? '').' '.$bodyExcerpt;
     }
 
     /**
@@ -693,12 +901,19 @@ class ArticleLinkSuggestionService
         return ($start > 0 ? '… ' : '').$excerpt.($end < $totalLength ? ' …' : '');
     }
 
-    private function buildReason(bool $titleMatched, array $matchedTerms, bool $categoryMatched, string $category): string
+    /**
+     * @param  array<int, string>  $matchedConcepts  forme canoniche (config/scientific_concepts.php) condivise, es. ["buco nero"]
+     */
+    private function buildReason(bool $titleMatched, array $matchedTerms, array $matchedConcepts, bool $categoryMatched, string $category): string
     {
         $parts = [];
 
         if ($titleMatched) {
             $parts[] = 'il titolo dell\'articolo collegato compare nel testo';
+        }
+
+        if (! empty($matchedConcepts)) {
+            $parts[] = 'concetto scientifico riconosciuto: '.implode(', ', $matchedConcepts);
         }
 
         if (! empty($matchedTerms)) {
@@ -963,22 +1178,208 @@ class ArticleLinkSuggestionService
      * invece di risultare "gestito" per sempre senza che il link sia mai
      * arrivato nell'articolo pubblicato.
      *
+     * Va chiamata DOPO $article->update($data) da parte del chiamante
+     * (Admin/Redazione ArticleController::update()): $article deve già
+     * riflettere lo stato/published_at appena salvati, non quelli
+     * precedenti. Questo è essenziale per la revalidazione qui sotto
+     * (Codex, PR #165, P1 round 2): "Inserisci" verifica l'eleggibilità
+     * temporale contro l'articolo COM'ERA PERSISTITO in quel momento, ma
+     * nella stessa modifica la redazione può spostare la programmazione
+     * della source stessa PRIMA di premere "Salva" — un target che era
+     * sicuro contro la vecchia data potrebbe non esserlo più contro quella
+     * appena salvata. Va quindi riverificato qui, con lo stato reale
+     * post-salvataggio: se non è più sicuro, il suggerimento non va
+     * accettato, e il link — già fisicamente presente nel body inviato dal
+     * form — va tolto (non basta lasciarlo "non accettato": resterebbe
+     * comunque un <a> reale verso un target ancora non pubblico).
+     *
+     * NON filtra per stato 'proposed' in query (Codex, PR #165, P1 round 3):
+     * se tra "Inserisci" e questo salvataggio una nuova "Analizza" ha già
+     * superato il suggerimento (perché il target è nel frattempo diventato
+     * non sicuro per un'altra ragione), il suo stato in DB è già
+     * 'superseded' — ma il link è comunque fisicamente presente nel body
+     * appena inviato dal form (era stato inserito lato client prima). Va
+     * quindi rivalutato e il link ripulito comunque, non saltato solo
+     * perché non è più 'proposed'.
+     *
+     * Codex, PR #165, P1 round 10: 'accepted' NON è più un vicolo cieco per
+     * la rivalidazione. Un suggerimento già accettato in un salvataggio
+     * PRECEDENTE (quindi non più tra $suggestionIds in QUESTO salvataggio)
+     * può comunque avere il proprio target diventato non sicuro nel
+     * frattempo (riprogrammato dopo la source, o retrocesso) — senza questo
+     * secondo passaggio, nulla lo avrebbe più rilevato: il loop di
+     * staleness in analyzeForSource() ignora le righe non 'actionable'
+     * (isActionable() è vero solo per 'proposed'), e questo salvataggio
+     * processa solo gli ID passati dal form corrente. Il link accettato
+     * sarebbe rimasto nel body fino alla pubblicazione della source con un
+     * 404 dentro. Ad OGNI salvataggio, quindi, si rivalutano anche tutte le
+     * righe 'accepted' di questa source, non solo quelle appena applicate —
+     * un salvataggio qualunque dell'articolo (anche per una modifica non
+     * correlata) diventa così un punto di controllo naturale, coerente con
+     * lo stesso principio già applicato ovunque in questa missione
+     * (rivalidare ad ogni touchpoint esistente, mai un trigger nuovo).
+     *
      * @param  array<int, int|string>  $suggestionIds
      */
     public function markAccepted(Article $article, array $suggestionIds, int $reviewerId): void
     {
-        if (empty($suggestionIds)) {
-            return;
+        $body = $article->body;
+        $bodyChanged = false;
+
+        if (! empty($suggestionIds)) {
+            $suggestions = ArticleLinkSuggestion::where('source_article_id', $article->id)
+                ->whereIn('id', $suggestionIds)
+                ->whereIn('status', [ArticleLinkSuggestion::STATUS_PROPOSED, ArticleLinkSuggestion::STATUS_SUPERSEDED])
+                ->with('targetArticle')
+                ->get();
+
+            foreach ($suggestions as $suggestion) {
+                $target = $suggestion->targetArticle;
+
+                if ($target !== null && $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
+                    $suggestion->update([
+                        'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+                        'reviewed_at' => now(),
+                        'reviewed_by' => $reviewerId,
+                    ]);
+
+                    continue;
+                }
+
+                $newBody = $this->supersedeAndStripIfUnsafe($article, $suggestion, $target, $body);
+
+                if ($newBody !== $body) {
+                    $body = $newBody;
+                    $bodyChanged = true;
+                }
+            }
         }
 
-        ArticleLinkSuggestion::where('source_article_id', $article->id)
-            ->whereIn('id', $suggestionIds)
-            ->proposed()
-            ->update([
-                'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
-                'reviewed_at' => now(),
-                'reviewed_by' => $reviewerId,
-            ]);
+        $previouslyAccepted = ArticleLinkSuggestion::where('source_article_id', $article->id)
+            ->where('status', ArticleLinkSuggestion::STATUS_ACCEPTED)
+            ->with('targetArticle')
+            ->get();
+
+        foreach ($previouslyAccepted as $suggestion) {
+            $target = $suggestion->targetArticle;
+
+            if ($target !== null && $this->temporalEligibility->isTargetSafeForSource($article, $target)) {
+                continue;
+            }
+
+            $newBody = $this->supersedeAndStripIfUnsafe($article, $suggestion, $target, $body);
+
+            if ($newBody !== $body) {
+                $body = $newBody;
+                $bodyChanged = true;
+            }
+        }
+
+        if ($bodyChanged) {
+            $article->update(['body' => $body]);
+        }
+    }
+
+    /**
+     * Marca $suggestion superata e toglie dal body ogni link verso lo slug
+     * attuale o storico del suo target — helper condiviso da entrambi i
+     * passaggi di markAccepted() (suggerimenti appena applicati e
+     * suggerimenti già accettati in precedenza). Il chiamante ha già
+     * verificato che il target NON è (più) temporalmente sicuro.
+     */
+    private function supersedeAndStripIfUnsafe(Article $article, ArticleLinkSuggestion $suggestion, ?Article $target, string $body): string
+    {
+        if ($suggestion->status !== ArticleLinkSuggestion::STATUS_SUPERSEDED) {
+            $suggestion->update(['status' => ArticleLinkSuggestion::STATUS_SUPERSEDED]);
+        }
+
+        if ($target === null) {
+            // Codex (PR #165, round 12): target_article_id è ora
+            // nullOnDelete() (era cascadeOnDelete()) — un target eliminato
+            // lascia $target null ma la riga del suggerimento (e il suo
+            // snapshot target_slug, preso alla creazione/aggiornamento,
+            // vedi analyzeForSource()/analyzeForNewTarget()) sopravvive.
+            // Senza questo, un link già fisicamente presente nel body
+            // (inserito prima che il target venisse eliminato) non sarebbe
+            // mai stato ripulito: nessun Article da cui leggere lo slug o i
+            // suoi redirect storici, quindi qui ci si limita all'unico slug
+            // noto dallo snapshot (i redirect storici del target sono a
+            // loro volta scomparsi con l'articolo eliminato).
+            //
+            // Codex (PR #165, round 15): questo slug, esattamente come uno
+            // slug storico (vedi sotto), può nel frattempo essere stato
+            // reclamato da un ARTICOLO DIVERSO — stessa identica situazione,
+            // stessa identica regola (excludeSafelyReclaimedSlugs()): senza
+            // questo, un link ormai valido verso il nuovo proprietario
+            // sicuro veniva rimosso incondizionatamente al salvataggio
+            // successivo della source.
+            if ($suggestion->target_slug === null) {
+                return $body;
+            }
+
+            $slugsToStrip = $this->excludeSafelyReclaimedSlugs($article, collect([$suggestion->target_slug]));
+
+            return $slugsToStrip->isEmpty()
+                ? $body
+                : $this->insertionService->removeLinksToSlugs($body, $slugsToStrip->all());
+        }
+
+        // Codex, PR #165, P2 round 3: l'href già nel body può ancora
+        // puntare a un vecchio slug del target, se è stato rinominato nel
+        // frattempo — cerca anche negli slug storici, non solo in quello
+        // attuale.
+        $historicalSlugs = ArticleSlugRedirect::where('article_id', $target->id)->pluck('old_slug');
+
+        // Codex, PR #165, P2 round 4 e round 5: un vecchio slug del target
+        // può nel frattempo essere stato reclamato come slug ATTUALE di un
+        // ARTICOLO DIVERSO (gli slug si liberano quando l'articolo che li
+        // usava ne cambia) — la rotta pubblica risolve sempre prima lo slug
+        // corrente di un articolo (Article::published(), vedi
+        // ArticleController::show()), quindi un simile href punterebbe
+        // DAVVERO all'altro articolo, non più al target di questo
+        // suggerimento. Va escluso dagli slug storici "sicuri da ripulire"
+        // SOLO se il nuovo proprietario è a sua volta temporalmente sicuro
+        // per questa source (round 5): la semplice esistenza di un
+        // reclamante non basta — Article::published() richiede
+        // status=published, quindi un reclamante ancora draft/review/
+        // scheduled non risolverebbe comunque l'href ora, e il redirect
+        // storico (che punta ancora al VECCHIO target, non sicuro) lo
+        // farebbe fallire ugualmente: lasciare lo slug nel body
+        // produrrebbe lo stesso 404 che questa pulizia esiste per evitare.
+        $historicalSlugs = $this->excludeSafelyReclaimedSlugs($article, $historicalSlugs);
+
+        $targetSlugs = [$target->slug, ...$historicalSlugs->all()];
+
+        return $this->insertionService->removeLinksToSlugs($body, $targetSlugs);
+    }
+
+    /**
+     * Esclude da $slugs quelli il cui proprietario ATTUALE è un articolo
+     * diverso (uno slug si libera quando l'articolo che lo usava lo cambia
+     * o viene eliminato) e temporalmente sicuro per $article — condiviso
+     * tra i due rami di supersedeAndStripIfUnsafe() (round 15): stessa
+     * identica situazione — "questo slug non punta più al target originario
+     * di questo suggerimento, ma a un altro articolo che ora lo possiede
+     * legittimamente" — si presenta sia per gli slug storici di un target
+     * ancora esistente sia per lo snapshot di un target eliminato.
+     *
+     * @param  Collection<int, string>  $slugs
+     * @return Collection<int, string>
+     */
+    private function excludeSafelyReclaimedSlugs(Article $article, Collection $slugs): Collection
+    {
+        if ($slugs->isEmpty()) {
+            return $slugs;
+        }
+
+        $reclaimingArticles = Article::whereIn('slug', $slugs)
+            ->get(['slug', 'status', 'published_at']);
+
+        $safelyReclaimedSlugs = $reclaimingArticles
+            ->filter(fn (Article $reclaimer) => $this->temporalEligibility->isTargetSafeForSource($article, $reclaimer))
+            ->pluck('slug');
+
+        return $slugs->diff($safelyReclaimedSlugs);
     }
 
     private function plainText(string $html): string

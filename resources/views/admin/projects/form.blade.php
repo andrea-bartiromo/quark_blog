@@ -110,8 +110,13 @@
       </div>
       <div class="form-group">
         <span class="form-label" style="display:block;">Avanzamento</span>
-        <div style="font-weight:700;font-size:1.1rem;padding-top:.35rem;">{{ $project->progress ?? 0 }}%</div>
-        <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Calcolato automaticamente dalle attività completate — non modificabile.</div>
+        @if($project->exists && $project->hasCalculableProgress())
+          <div style="font-weight:700;font-size:1.1rem;padding-top:.35rem;">{{ $project->progress ?? 0 }}%</div>
+          <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Calcolato automaticamente dalle attività completate — non modificabile.</div>
+        @else
+          <div style="font-weight:700;font-size:1.1rem;padding-top:.35rem;color:#9ca3af;">Non calcolabile</div>
+          <div style="font-size:.76rem;color:#9ca3af;margin-top:.25rem;">Nessuna attività ancora — comparirà una volta aggiunte.</div>
+        @endif
       </div>
     </div>
 

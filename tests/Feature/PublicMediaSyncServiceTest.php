@@ -21,8 +21,8 @@ use Tests\TestCase;
 class PublicMediaSyncServiceTest extends TestCase
 {
     use RefreshDatabase;
-    use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use UsesIsolatedPublicPath;
 
     protected function setUp(): void
     {
@@ -439,6 +439,114 @@ class PublicMediaSyncServiceTest extends TestCase
         $this->assertGreaterThan(1, $service->attempts);
         Log::shouldHaveReceived('warning')->once()->withArgs(
             fn (string $message, array $context) => $context['operation'] === 'cleanup_after_failed_create'
+                && $context['path'] === $source
+        );
+    }
+
+    // Riproduce, indipendentemente dal sistema operativo, l'anomalia
+    // osservata su Windows reale (vedi commento di
+    // PublicMediaSyncService::removeFileWithRetry()): unlink() puo'
+    // riportare successo e il file puo' comunque ricomparire subito dopo.
+    // Qui simuliamo un removeFile() che dichiara sempre successo ma
+    // rimuove davvero il file solo dalla terza chiamata in poi — cosi' le
+    // prime due "rimozioni riuscite" devono essere scartate dalla
+    // riverifica post-successo, non prese per buone.
+    public function test_cleanup_after_failed_create_does_not_trust_a_removal_that_the_file_survives(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            public int $reportedSuccesses = 0;
+
+            protected function removeFile(string $path): bool
+            {
+                $this->reportedSuccesses++;
+
+                if ($this->reportedSuccesses >= 3) {
+                    @unlink($path);
+                }
+
+                // Dichiara sempre successo, anche quando il file e'
+                // ancora davvero presente sul disco (le prime due volte):
+                // e' esattamente il comportamento osservato realmente.
+                return true;
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileDoesNotExist($source);
+        $this->assertSame(3, $service->reportedSuccesses);
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    // Complemento del test sopra: se il file ricompare per TUTTI i
+    // tentativi disponibili, il comportamento esistente resta invariato —
+    // nessuna eccezione, un warning loggato, nessun successo silenzioso
+    // dato per scontato solo perche' unlink() aveva riportato true.
+    public function test_cleanup_after_failed_create_logs_a_warning_when_the_file_keeps_reappearing(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            public int $reportedSuccesses = 0;
+
+            protected function removeFile(string $path): bool
+            {
+                $this->reportedSuccesses++;
+
+                // Dichiara sempre successo ma non rimuove mai davvero il
+                // file: la ricomparsa persiste per ogni tentativo.
+                return true;
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileExists($source);
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['operation'] === 'cleanup_after_failed_create'
+                && $context['path'] === $source
+        );
+    }
+
+    // Trovato in review (Codex): la riverifica post-successo confronta solo
+    // l'esistenza del path, non il contenuto — se un'altra richiesta
+    // concorrente scrive legittimamente un proprio file, diverso, allo
+    // stesso identico disk_name durante la breve attesa, quel file
+    // verrebbe scambiato per "il nostro" ricomparso e cancellato di nuovo.
+    // Qui simuliamo esattamente questo: removeFile() rimuove davvero il
+    // file originale e poi, al suo posto, un'altra scrittura (non
+    // correlata) deposita un contenuto diverso allo stesso path.
+    public function test_cleanup_after_failed_create_never_deletes_a_different_file_that_appears_at_the_same_path(): void
+    {
+        $source = $this->sourceFile('foto.jpg', 'contenuto-mai-pubblicato');
+
+        $service = new class extends PublicMediaSyncService
+        {
+            protected function removeFile(string $path): bool
+            {
+                @unlink($path);
+                file_put_contents($path, 'contenuto-di-un-upload-concorrente-non-correlato');
+
+                return true;
+            }
+        };
+
+        Log::spy();
+
+        $service->cleanupAfterFailedCreate($source);
+
+        $this->assertFileExists($source);
+        $this->assertSame('contenuto-di-un-upload-concorrente-non-correlato', file_get_contents($source));
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $context['checkpoint'] === 'remove_file_with_retry:different_file_reappeared'
                 && $context['path'] === $source
         );
     }

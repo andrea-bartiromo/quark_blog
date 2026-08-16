@@ -7,6 +7,9 @@ use App\Models\ArticleLinkSuggestion;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ArticleLinkSuggestionTest extends TestCase
@@ -70,8 +73,9 @@ class ArticleLinkSuggestionTest extends TestCase
         ]);
     }
 
-    // 3. Cancellare l'articolo sorgente o target cancella i suggerimenti collegati
-    public function test_deleting_either_article_cascades_to_the_suggestion(): void
+    // 3. Cancellare l'articolo sorgente cancella il suggerimento collegato
+    // (il body dell'articolo sorgente scompare con esso — nulla da ripulire).
+    public function test_deleting_the_source_article_cascades_to_the_suggestion(): void
     {
         $source = $this->article();
         $target = $this->article();
@@ -86,20 +90,74 @@ class ArticleLinkSuggestionTest extends TestCase
         $source->delete();
 
         $this->assertSame(0, ArticleLinkSuggestion::count());
+    }
 
-        $otherSource = $this->article();
-        $otherTarget = $this->article();
-        ArticleLinkSuggestion::create([
-            'source_article_id' => $otherSource->id,
-            'target_article_id' => $otherTarget->id,
+    // 3b. Codex (PR #165, round 12): cancellare l'articolo TARGET non cancella più
+    // il suggerimento (era cascadeOnDelete()) — la riga sopravvive con
+    // target_article_id azzerato (nullOnDelete()), cosi
+    // ArticleLinkSuggestionService::markAccepted() può ancora ripulire dal body
+    // della sorgente un link già fisicamente inserito prima della cancellazione,
+    // usando lo snapshot target_slug al posto della relazione ormai assente.
+    public function test_deleting_the_target_article_nulls_the_reference_instead_of_deleting_the_suggestion(): void
+    {
+        $source = $this->article();
+        $target = $this->article();
+        $suggestion = ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'target_slug' => $target->slug,
             'anchor_text' => 'termine',
             'reason' => 'motivo',
             'confidence_score' => 50,
         ]);
 
-        $otherTarget->delete();
+        $target->delete();
 
-        $this->assertSame(0, ArticleLinkSuggestion::count());
+        $this->assertSame(1, ArticleLinkSuggestion::count());
+        $this->assertNull($suggestion->fresh()->target_article_id);
+        $this->assertNull($suggestion->fresh()->targetArticle);
+        $this->assertSame($target->slug, $suggestion->fresh()->target_slug);
+    }
+
+    // 3c. Codex (PR #165, round 14): su un'installazione già in produzione, le righe
+    // esistenti al momento del deploy di questa migrazione non passano mai da
+    // analyzeForSource()/analyzeForNewTarget() (l'unico punto che valorizza
+    // target_slug) finché non tornano 'proposed' — la migrazione stessa deve quindi
+    // effettuare il backfill da articles.slug, altrimenti quelle righe restano con
+    // target_slug NULL per sempre e un target eliminato in seguito non è più
+    // ripulibile dal body (né target_article_id né target_slug disponibili).
+    public function test_migration_backfills_target_slug_for_rows_that_predate_the_column(): void
+    {
+        $source = $this->article();
+        $target = $this->article();
+        $targetMigration = '2026_08_11_165128_alter_target_article_id_on_article_link_suggestions_to_null_on_delete';
+        $targetMigrationId = DB::table('migrations')->where('migration', $targetMigration)->value('id');
+
+        $this->assertNotNull($targetMigrationId);
+
+        // Roll back this migration and every migration that was added after it.
+        // Using the actual migration position instead of --step=1 keeps this
+        // regression test valid when unrelated newer migrations are introduced.
+        $rollbackSteps = DB::table('migrations')->where('id', '>=', $targetMigrationId)->count();
+        Artisan::call('migrate:rollback', ['--step' => $rollbackSteps]);
+        $this->assertFalse(Schema::hasColumn('article_link_suggestions', 'target_slug'));
+
+        $suggestionId = DB::table('article_link_suggestions')->insertGetId([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'termine',
+            'reason' => 'motivo',
+            'confidence_score' => 50,
+            'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Il deploy vero e proprio: la migrazione (con il backfill) viene applicata
+        // a dati "preesistenti" già in tabella, non solo a righe create dopo.
+        Artisan::call('migrate');
+
+        $this->assertSame($target->slug, DB::table('article_link_suggestions')->where('id', $suggestionId)->value('target_slug'));
     }
 
     // 4. Scope "proposed" isola solo i suggerimenti ancora da rivedere

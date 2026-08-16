@@ -100,6 +100,10 @@
 
     @include('partials.article-link-suggestions', ['article' => $article, 'linkSuggestions' => $linkSuggestions ?? collect(), 'linkSuggestionRoutePrefix' => 'admin'])
 
+    @if($article && isset($qualityReport))
+      @include('partials.editorial-quality-gate', ['qualityReport' => $qualityReport])
+    @endif
+
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria *</div>
       <select class="form-select" name="category" required>
@@ -423,6 +427,20 @@ document.addEventListener('DOMContentLoaded', function () {
         padding: 0.75rem 1.25rem;
         background: #f0fdfa;
         font-style: italic;
+      }
+
+      a {
+        color: #0d9488;
+        text-decoration: underline;
+      }
+
+      a:hover {
+        color: #0f766e;
+      }
+
+      a:focus-visible {
+        outline: 2px solid #0f766e;
+        outline-offset: 1px;
       }
 
       table {

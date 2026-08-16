@@ -1,0 +1,71 @@
+.ticker-viewport {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 2rem;
+}
+
+.ticker-track,
+.ticker-sequence {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ticker-track {
+  width: max-content;
+  min-width: max-content;
+  gap: 3rem;
+  padding-left: 0;
+  animation: kairus-ticker-loop 40s linear infinite;
+  animation-play-state: running;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.ticker-track:hover,
+.ticker-track:focus-within {
+  animation-play-state: running;
+}
+
+.ticker-sequence {
+  gap: 3rem;
+  flex: 0 0 auto;
+}
+
+@keyframes kairus-ticker-loop {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(calc(-25% - .75rem), 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ticker-viewport {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .ticker-viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ticker-track,
+  .ticker-track:hover,
+  .ticker-track:focus-within {
+    animation: none;
+    animation-play-state: paused;
+    transform: none;
+    padding-right: 2rem;
+    will-change: auto;
+  }
+
+  .ticker-sequence[aria-hidden="true"] {
+    display: none;
+  }
+}

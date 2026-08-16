@@ -59,6 +59,44 @@ class AdminMediaUploadTest extends TestCase
         $this->assertGreaterThan(0, $media->size);
     }
 
+    public function test_a_jpg_upload_is_saved_as_webp_by_default(): void
+    {
+        // FASE 5: politica di default per i nuovi upload editoriali.
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('foto.jpg', 800, 600);
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => $image,
+        ])->assertSessionHasNoErrors();
+
+        $media = Media::latest('id')->firstOrFail();
+
+        $this->assertStringEndsWith('.webp', $media->disk_name);
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertFileExists(public_path('assets/img/'.$media->disk_name));
+        $this->assertFileDoesNotExist(public_path('assets/img/'.str_replace('.webp', '.jpg', $media->disk_name)));
+    }
+
+    public function test_auto_webp_on_upload_can_be_disabled_via_config(): void
+    {
+        // Interruttore di sicurezza reversibile (MEDIA_AUTO_WEBP_ON_UPLOAD):
+        // disattivato, il comportamento torna quello preesistente
+        // (ottimizzazione nello stesso formato del sorgente).
+        config(['media.auto_webp_on_upload' => false]);
+
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('foto.jpg', 800, 600);
+
+        $this->actingAs($editor)->post(route('admin.media.store'), [
+            'image' => $image,
+        ])->assertSessionHasNoErrors();
+
+        $media = Media::latest('id')->firstOrFail();
+
+        $this->assertStringEndsWith('.jpg', $media->disk_name);
+        $this->assertSame('image/jpeg', $media->mime_type);
+    }
+
     public function test_upload_creates_the_destination_directory_when_missing(): void
     {
         // Simula il progetto reale prima di qualunque upload: la cartella
@@ -110,10 +148,16 @@ class AdminMediaUploadTest extends TestCase
             'image' => $png,
         ]);
 
+        // Con la conversione automatica in WebP per i nuovi upload (FASE 5)
+        // un PNG trasparente che supera i 1600px viene salvato come .webp,
+        // non piu' come .png: la trasparenza deve sopravvivere comunque,
+        // quindi si decodifica in base al formato realmente salvato.
         $media = Media::latest('id')->firstOrFail();
         $path = public_path('assets/img/'.$media->disk_name);
 
-        $img = imagecreatefrompng($path);
+        $img = str_ends_with($media->disk_name, '.webp')
+            ? imagecreatefromwebp($path)
+            : imagecreatefrompng($path);
         $rgba = imagecolorat($img, (int) (imagesx($img) / 2), (int) (imagesy($img) / 2));
         $alpha = ($rgba >> 24) & 0x7F;
         imagedestroy($img);
@@ -138,9 +182,12 @@ class AdminMediaUploadTest extends TestCase
     public function test_mime_type_is_detected_from_the_real_file_content_not_the_extension(): void
     {
         // Simula un file PNG salvato erroneamente con estensione .jpg (il
-        // caso reale riscontrato in libreria): l'upload deve registrare il
-        // MIME rilevato dal contenuto reale, non quello dichiarato dal
-        // client in base all'estensione.
+        // caso reale riscontrato in libreria): l'upload deve trattarlo in
+        // base al contenuto reale (PNG), non al MIME/estensione dichiarati
+        // dal client — cosa che si vede anche a valle: un PNG e' eleggibile
+        // per la conversione automatica in WebP (FASE 5), un vero JPEG con
+        // lo stesso nome non lo sarebbe stato diversamente in questo test,
+        // ma qui conta che il rilevamento sia partito dal contenuto reale.
         $editor = $this->editor();
         $image = imagecreatetruecolor(400, 300);
         $tmp = tempnam(sys_get_temp_dir(), 'kairus-mismatch-');
@@ -153,7 +200,8 @@ class AdminMediaUploadTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $media = Media::latest('id')->firstOrFail();
-        $this->assertSame('image/png', $media->mime_type);
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $media->disk_name);
 
         @unlink($tmp);
     }

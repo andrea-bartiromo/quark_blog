@@ -259,16 +259,14 @@ class HttpsCanonicalizationTest extends TestCase
         $response->assertDontSee('/ricerca', false);
     }
 
-    // 6ter. robots.txt (file statico tracciato nel repository) deve
-    // continuare a bloccare la scansione di /ricerca: stessa policy
-    // "noindex,follow" espressa a livello di crawler, non solo di
-    // indicizzazione pagina per pagina. File statico facile da modificare
-    // per errore senza che nessun test se ne accorga.
-    public function test_robots_txt_disallows_the_search_page(): void
+    // 6ter. /ricerca deve restare crawlable: il noindex,follow verificato
+    // sopra deve poter essere letto dal crawler. La policy robots non deve
+    // quindi bloccare la pagina di ricerca.
+    public function test_robots_txt_keeps_the_search_page_crawlable(): void
     {
         $robotsTxt = file_get_contents(public_path('robots.txt'));
 
-        $this->assertStringContainsString('Disallow: /ricerca', $robotsTxt);
+        $this->assertStringNotContainsString('Disallow: /ricerca', $robotsTxt);
     }
 
     // 7. Nessuna regressione sulle route pubbliche principali.

@@ -194,6 +194,6 @@
 
 @once
     @push('scripts')
-        <script src="{{ asset('js/media-viewer.js') }}" defer></script>
+        <script src="{{ \App\Support\VersionedAsset::url('js/media-viewer.js') }}" defer></script>
     @endpush
 @endonce

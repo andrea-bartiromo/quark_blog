@@ -8,7 +8,13 @@ use App\Http\Requests\Admin\UpdateProjectRequest;
 use App\Models\Article;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
+use App\Models\ProjectTask;
 use App\Models\User;
+use App\Services\Editorial\EditorialCalendarNextActionResolver;
+use App\Services\Editorial\EditorialCalendarProgress;
+use App\Services\Editorial\EditorialCalendarReconciliationService;
+use App\Services\ProjectAction\NextActionSuggestion;
+use App\Services\ProjectAction\ProjectHealthResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -19,6 +25,10 @@ class ProjectController extends Controller
     {
         $projects = Project::query()
             ->with('responsible')
+            // withCount, non un'ulteriore query per riga in vista (FASE 5,
+            // missione Dashboard Automation V2): serve solo a distinguere
+            // "0% fatto" da "nessuna attività ancora" nella colonna Avanzamento.
+            ->withCount(['tasks as open_tasks_count' => fn ($q) => $q->where('manual_status', '!=', ProjectTask::STATUS_CANCELLED)])
             ->when($request->filled('status'), fn ($q) => $q->where('operational_status', $request->string('status')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
             ->orderByPrioritySeverity()
@@ -96,6 +106,27 @@ class ProjectController extends Controller
             ? $project->articles()->with('author')->orderByDesc('project_article.created_at')->get()
             : null;
 
+        // Solo se il progetto ha un calendario marcato e solo per la
+        // panoramica: il ricalcolo (parsing + query articoli) non è gratis,
+        // niente lavoro extra sulle altre tab.
+        $editorialProgress = null;
+        if ($activeTab === 'overview' && $project->editorialCalendarDocument() !== null) {
+            $editorialReport = app(EditorialCalendarReconciliationService::class)->reconcile($project);
+            $editorialProgress = EditorialCalendarProgress::fromReport($editorialReport);
+        }
+
+        // FASE 3-4-6, missione Dashboard Automation V2: un solo progetto
+        // qui, mai un elenco — nessun rischio N+1 a differenza della
+        // dashboard (vedi ProjectDashboardController). Calcolato per ogni
+        // tab, non solo la panoramica: il badge di stato in testata alla
+        // pagina è condiviso da tutte le tab. Un solo resolve(): Project
+        // Health::$signals è già la stessa lista completa usata da
+        // ProjectNextActionResolverV2::resolve() — richiamarlo a parte
+        // rieseguirebbe (e per un progetto con calendario, riquerierebbe
+        // Article::all() su tutto il catalogo) esattamente le stesse cose.
+        $projectHealth = app(ProjectHealthResolver::class)->resolve($project);
+        $nextActionSuggestion = $projectHealth->signals[0] ?? NextActionSuggestion::aligned();
+
         $articleOptions = $activeTab === 'articles'
             ? Article::whereNotIn('id', $project->articles()->pluck('articles.id'))->orderByDesc('created_at')->limit(200)->get(['id', 'title'])
             : null;
@@ -121,6 +152,9 @@ class ProjectController extends Controller
             'linkedArticles' => $linkedArticles,
             'articleOptions' => $articleOptions,
             'activityLog' => $activityLog,
+            'editorialProgress' => $editorialProgress,
+            'nextActionSuggestion' => $nextActionSuggestion,
+            'projectHealth' => $projectHealth,
         ]);
     }
 
@@ -129,7 +163,7 @@ class ProjectController extends Controller
         return view('admin.projects.form', [
             'project' => $project,
             'responsibleOptions' => $this->responsibleOptions(),
-            'suggestedNextAction' => $project->suggestedNextAction(),
+            'suggestedNextAction' => app(EditorialCalendarNextActionResolver::class)->resolve($project),
         ]);
     }
 

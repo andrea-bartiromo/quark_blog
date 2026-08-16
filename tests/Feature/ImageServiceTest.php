@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\ImageService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -201,6 +202,59 @@ class ImageServiceTest extends TestCase
         $this->assertFileExists($fullPath);
         $this->assertFileDoesNotExist($sourcePath);
         $this->assertSame('jpg', pathinfo($fullPath, PATHINFO_EXTENSION));
+        $this->assertSame([], glob($destination.'/*.tmp-*'), 'Nessun file temporaneo intermedio deve restare dopo una scrittura riuscita.');
+    }
+
+    /**
+     * Riproduce la causa strutturale reale del "file orfano risuscitato"
+     * osservato ripetutamente su Windows dopo un cleanup riuscito (vedi il
+     * commento di ImageService::upload()): un UploadedFile "fake" di
+     * Laravel (usato da CategoryProfileTuringMediaSyncTest/
+     * MediaPublicSyncTest tramite UploadedFile::fake()->image(), non il
+     * fixture con file reale di InteractsWithTestImages) è scritto su un
+     * handle tmpfile() che resta aperto per tutta la richiesta. Prima del
+     * fix, $file->move() (rename()) legava la destinazione a QUELLA STESSA
+     * identità di storage: scrivere attraverso l'handle residuo e
+     * chiuderlo DOPO che il file di destinazione era già stato rimosso lo
+     * faceva ricomparire. Verificato empiricamente (vedi cronologia PR)
+     * che su Linux l'inode orfano non risorge mai — motivo per cui questo
+     * test da solo non riproduce l'orfano su CI — ma dimostra la
+     * precondizione strutturale corretta: dopo l'upload, l'handle residuo
+     * NON deve più condividere l'identità di storage della destinazione,
+     * quindi scriverci sopra e chiuderlo non deve avere alcun effetto sul
+     * file applicativo.
+     */
+    public function test_upload_fully_decouples_the_destination_from_the_original_upload_handle(): void
+    {
+        $file = UploadedFile::fake()->image('handle-probe.jpg', 40, 40);
+
+        $destination = $this->tempDir.'/assets/img';
+        mkdir($destination, 0775, true);
+
+        $fullPath = $this->service->upload($file, $destination, 'final-name.jpg');
+
+        $this->assertFileExists($fullPath);
+
+        // Simula esattamente il cleanup-dopo-fallimento-sync che i test
+        // Windows falliti esercitano: la destinazione viene rimossa.
+        unlink($fullPath);
+        $this->assertFileDoesNotExist($fullPath);
+
+        // Il file "fake" di Laravel tiene ancora aperto il suo handle
+        // tmpfile() originale (nessun punto del ciclo di vita Laravel/
+        // Symfony lo chiude prima della fine dello script): se fosse
+        // ancora accoppiato alla destinazione, scriverci e chiuderlo ora
+        // la farebbe riapparire.
+        if (property_exists($file, 'tempFile') && is_resource($file->tempFile)) {
+            @fwrite($file->tempFile, 'BYTES_SCRITTI_DOPO_LA_RIMOZIONE');
+            @fclose($file->tempFile);
+        }
+
+        clearstatcache(true, $fullPath);
+        $this->assertFileDoesNotExist(
+            $fullPath,
+            'Il file di destinazione non deve mai ricomparire per un effetto collaterale del file temporaneo originale ormai scollegato.'
+        );
     }
 
     // 6b. Un destination path con separatori misti (riproduce il bug Windows:
@@ -402,6 +456,74 @@ class ImageServiceTest extends TestCase
         $this->assertNotFalse($info);
         $this->assertSame('image/webp', $info['mime']);
         $this->assertSame(1600, $info[0]);
+    }
+
+    // ── 12b. WebP non supportato dal build GD ───────────────────────────
+
+    public function test_webp_resize_degrades_safely_when_gd_lacks_webp_read_support(): void
+    {
+        // Riproduce esattamente il ramo reale di createImageResource() per
+        // 'webp' quando imagecreatefromwebp() non esiste in questo build
+        // GD (`function_exists('imagecreatefromwebp') ? ... : false`): la
+        // sottoclasse restituisce `false` invece di lanciare, cosi' come
+        // farebbe il codice di produzione su quel build, non un errore
+        // generico — vedi anche il test "genuine GD failure" sopra, che
+        // copre invece il caso di un'eccezione realmente sollevata da GD.
+        $service = new class extends ImageService
+        {
+            protected function createImageResource(string $path, string $ext)
+            {
+                return strtolower($ext) === 'webp' ? false : parent::createImageResource($path, $ext);
+            }
+        };
+
+        $file = $this->makeWebpUploadWithoutGdEncoder('photo.webp');
+        $destination = $this->tempDir.'/assets/img';
+        mkdir($destination, 0775, true);
+        $fullPath = $service->upload($file, $destination, 'photo.webp');
+        $originalBytes = file_get_contents($fullPath);
+
+        Log::spy();
+
+        // Preset Admin\MediaController (logErrors=true): l'immagine e' piu'
+        // larga di maxWidth, quindi il ramo di resize chiama davvero
+        // createImageResource() prima di ridimensionare.
+        $service->resizeAndCompress(
+            $fullPath, 'webp', 1600, ['jpg' => 82, 'png' => 7, 'webp' => 82],
+            preserveTransparency: true, alwaysReencode: true, logErrors: true
+        );
+
+        // Nessuna eccezione propagata al chiamante, file originale intatto:
+        // la stessa garanzia di sicurezza degli altri fallimenti GD, non un
+        // comportamento speciale per WebP.
+        $this->assertFileExists($fullPath);
+        $this->assertSame($originalBytes, file_get_contents($fullPath));
+        Log::shouldHaveReceived('warning')->once();
+    }
+
+    /**
+     * Costruisce la fixture WebP SENZA passare da imagewebp(): il test
+     * sopra riproduce cosa succede quando il build GD non supporta WebP, e
+     * un build del genere non ha quasi mai ne' il lettore ne' lo scrittore
+     * WebP (stessa libwebp sottostante) — costruire la fixture con
+     * imagewebp() farebbe fallire il test stesso con un errore fatale
+     * "undefined function" proprio nell'ambiente che intende coprire,
+     * prima ancora di raggiungere l'override del servizio. I byte sono un
+     * WebP lossy valido e minimale (1601x2, a tinta unita), pre-codificato
+     * una tantum e incollato qui come letterale: nessun encoder WebP e'
+     * necessario per leggerlo, solo getimagesize()/RIFF header parsing
+     * (sempre disponibili in GD indipendentemente dal supporto WebP).
+     * Larghezza scelta appena sopra 1600px per attraversare comunque il
+     * ramo di resize di resizeAndCompress().
+     */
+    private function makeWebpUploadWithoutGdEncoder(string $originalName): UploadedFile
+    {
+        $base64 = 'UklGRnwAAABXRUJQVlA4IHAAAAAwCQCdASpBBgIAPm02mkmkIyKhIGgAgA2JaW7hdflwH4AfgAAA7odVSbJiHVUmyYh1VJsmIdVSbJiHVUmyYh1VJsmIdVSbJiHVUmyYh1VJsloAAP79K7//9b/6ggP07P//poowpj7b+ehAAAAAAAAA';
+
+        $path = $this->tempDir.'/'.uniqid('webp-fixture-', true).'.webp';
+        file_put_contents($path, base64_decode($base64));
+
+        return new UploadedFile($path, $originalName, 'image/webp', null, true);
     }
 
     // ── 13. GD non disponibile (limite documentato) ────────────────────

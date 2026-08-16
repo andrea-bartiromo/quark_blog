@@ -11,6 +11,32 @@ class ProjectActivityLog extends Model
 
     public const SOURCE_SYSTEM = 'system';
 
+    /** Collegamento automatico origine sincronizzazione calendario editoriale (EditorialCalendarLinkingService). */
+    public const SOURCE_EDITORIAL_SYNC = 'editorial_sync';
+
+    /**
+     * Origine GitHub (ProjectTaskGithubSyncService — mergiata una pull
+     * request). Distinta da SOURCE_SYSTEM (FASE 8, missione Dashboard
+     * Automation V2): "il sistema ha dedotto qualcosa dallo stato di un
+     * articolo" e "GitHub ha segnalato che una PR è stata mergiata" sono
+     * fatti di natura diversa, anche se entrambi non richiedono un click
+     * umano — mai la stessa etichetta generica per provenienze diverse.
+     */
+    public const SOURCE_GITHUB = 'github';
+
+    /**
+     * Valori di new_value per gli eventi subject_type 'project_article'
+     * (collegamento/scollegamento articolo↔progetto) — un marcatore
+     * strutturato, non il testo libero di 'action', così
+     * EditorialCalendarLinkingService può riconoscere in modo affidabile lo
+     * stato più recente (es. "questo articolo è stato scollegato a mano,
+     * non ricollegarlo automaticamente") senza dipendere da una stringa
+     * che potrebbe cambiare formulazione in futuro.
+     */
+    public const PROJECT_ARTICLE_LINKED = 'linked';
+
+    public const PROJECT_ARTICLE_UNLINKED = 'unlinked';
+
     public $timestamps = false;
 
     protected $fillable = [

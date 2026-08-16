@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Models\SpecialPage;
 use App\Models\User;
@@ -36,6 +37,7 @@ class MediaReferenceService
         $blocking = [];
 
         $this->scanArticleCoverImages($old, $newDiskName, $updatable);
+        $this->scanContentClusterCoverImages($old, $newDiskName, $updatable);
         $this->scanAdBannerImages($old, $newDiskName, $updatable);
         $this->scanUserPhotos($old, $newDiskName, $updatable, $blocking);
         $this->scanCategoryImages($old, $newDiskName, $updatable, $blocking);
@@ -76,6 +78,23 @@ class MediaReferenceService
                     $article->id,
                     'cover_image',
                     'Copertina articolo "'.$article->title.'"',
+                    $old,
+                    $new
+                );
+            }
+        );
+    }
+
+    private function scanContentClusterCoverImages(string $old, string $new, array &$updatable): void
+    {
+        ContentCluster::where('cover_image', $old)->get(['id', 'name'])->each(
+            function (ContentCluster $cluster) use ($old, $new, &$updatable): void {
+                $updatable[] = $this->reference(
+                    'content_cluster_cover_image',
+                    ContentCluster::class,
+                    $cluster->id,
+                    'cover_image',
+                    'Copertina Percorso "'.$cluster->name.'"',
                     $old,
                     $new
                 );
@@ -228,38 +247,106 @@ class MediaReferenceService
 
     private function scanFreeTextFields(string $old, array &$blocking): void
     {
-        $escaped = $this->escapeLike($old);
+        foreach ($this->findFreeTextMentions($old) as $mention) {
+            $blocking[] = $this->reference(
+                $mention['type'],
+                $mention['model'],
+                $mention['record_id'],
+                $mention['field'],
+                $mention['description'],
+                $old,
+                null,
+                $mention['field'] === 'body'
+                    ? 'Il testo libero (body) non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
+                    : 'Il codice HTML libero non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
+            );
+        }
+    }
+
+    /**
+     * Cerca $value come sottostringa letterale nei campi di testo libero
+     * conosciuti (article.body, ad.html_code) — pubblico (non solo uso
+     * interno di scanFreeTextFields()) perche' MediaWebpCleanupService
+     * (FASE 12) deve poter fare la stessa ricerca su un file che non ha
+     * (o non ha piu') un record Media proprio: unica implementazione di
+     * "il nome/percorso potrebbe essere incollato in testo libero", mai
+     * due definizioni.
+     *
+     * @return list<array{type: string, model: class-string, record_id: int, field: string, description: string}>
+     */
+    public function findFreeTextMentions(string $value): array
+    {
+        $escaped = $this->escapeLike($value);
+        $mentions = [];
 
         Article::query()
             ->whereRaw("body LIKE ? ESCAPE '!'", ['%'.$escaped.'%'])
             ->get(['id', 'title'])
-            ->each(function (Article $article) use ($old, &$blocking): void {
-                $blocking[] = $this->reference(
-                    'article_body',
-                    Article::class,
-                    $article->id,
-                    'body',
-                    'Testo libero dell\'articolo "'.$article->title.'"',
-                    $old,
-                    null,
-                    'Il testo libero (body) non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
-                );
+            ->each(function (Article $article) use (&$mentions): void {
+                $mentions[] = [
+                    'type' => 'article_body',
+                    'model' => Article::class,
+                    'record_id' => $article->id,
+                    'field' => 'body',
+                    'description' => 'Testo libero dell\'articolo "'.$article->title.'"',
+                ];
             });
 
         Ad::query()
             ->whereRaw("html_code LIKE ? ESCAPE '!'", ['%'.$escaped.'%'])
             ->get(['id', 'name'])
-            ->each(function (Ad $ad) use ($old, &$blocking): void {
-                $blocking[] = $this->reference(
-                    'ad_html_code',
-                    Ad::class,
-                    $ad->id,
-                    'html_code',
-                    'Codice HTML libero dell\'annuncio "'.$ad->name.'"',
-                    $old,
-                    null,
-                    'Il codice HTML libero non viene modificato automaticamente: potrebbe contenere il nome file o la sua URL.'
-                );
+            ->each(function (Ad $ad) use (&$mentions): void {
+                $mentions[] = [
+                    'type' => 'ad_html_code',
+                    'model' => Ad::class,
+                    'record_id' => $ad->id,
+                    'field' => 'html_code',
+                    'description' => 'Codice HTML libero dell\'annuncio "'.$ad->name.'"',
+                ];
+            });
+
+        return $mentions;
+    }
+
+    /**
+     * Verifica se $diskName e' referenziato da un qualunque campo
+     * strutturato conosciuto (copertina articolo/Percorso, banner
+     * pubblicitario, foto profilo, immagine categoria, contenuto pagina
+     * speciale), indipendentemente dal fatto che esista o meno un Media che
+     * possiede quello stesso disk_name.
+     */
+    public function hasAnyStructuredReference(string $diskName): bool
+    {
+        if (Article::where('cover_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (ContentCluster::where('cover_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (Ad::where('banner_image', $diskName)->exists()) {
+            return true;
+        }
+
+        if (User::where('photo', $diskName)->exists()) {
+            return true;
+        }
+
+        if (dirname($diskName) === 'categories' && Category::where('image', basename($diskName))->exists()) {
+            return true;
+        }
+
+        return SpecialPage::query()
+            ->get(['content'])
+            ->contains(function (SpecialPage $page) use ($diskName): bool {
+                foreach ($this->collectStringLeaves($page->content ?? []) as $leaf) {
+                    if ($leaf['value'] === $diskName) {
+                        return true;
+                    }
+                }
+
+                return false;
             });
     }
 

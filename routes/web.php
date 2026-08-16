@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\AdController;
+use App\Http\Controllers\Admin\AnalyticsExclusionController;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
@@ -171,6 +172,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::put('/profilo', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profilo/foto', [ProfileController::class, 'updatePhoto'])->name('profile.photo');
     Route::put('/profilo/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Analytics Hygiene — esclusione di questo browser da GA4
+    Route::post('/analytics/escludi', [AnalyticsExclusionController::class, 'exclude'])->name('analytics.exclude');
+    Route::post('/analytics/riattiva', [AnalyticsExclusionController::class, 'reactivate'])->name('analytics.reactivate');
 
     // Verifica editoriale
     Route::get('/verifica', [VerificationController::class, 'index'])->name('verification');

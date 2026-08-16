@@ -28,6 +28,7 @@ class ArticleLinkSuggestion extends Model
     protected $fillable = [
         'source_article_id',
         'target_article_id',
+        'target_slug',
         'anchor_text',
         'context_excerpt',
         'reason',

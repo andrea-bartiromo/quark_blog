@@ -18,6 +18,27 @@ return [
         'placeholder-1.svg',
         'hero-placeholder.svg',
         'turing/portraits/alan-turing-portrait.png',
+
+        // Default/fallback hardcoded in TuringPageController (mai in un
+        // campo DB, quindi mai scoperti da MediaReferenceService — sono
+        // gli unici valori realmente statici, distinti dagli eventuali
+        // override "background_image"/"image" salvati in
+        // special_pages.content, quelli si' gia coperti dalla scansione
+        // JSON esistente). Trovati con una ricerca esplicita di
+        // 'turing/' in app/, non per deduzione — vedi
+        // docs/EDITORIAL_MEDIA_WEBP.md.
+        'turing/hero/turing-hero.webp',
+        'turing/hero/turing-intro.webp',
+        'turing/backgrounds/turing-universal-machine-background.webp',
+        'turing/backgrounds/turing-legacy-panel.webp',
+        'turing/backgrounds/turing-test-background.webp',
+        'turing/backgrounds/turing-ai-background.webp',
+        'turing/enigma.webp',
+        'turing/enigma/turing-enigma-background.webp',
+        'turing/enigma/turing-enigma-panel.webp',
+        'turing/universal-machine.webp',
+        'turing/turing-test.webp',
+        'turing/modern-ai.webp',
     ],
 
     /*
@@ -86,5 +107,53 @@ return [
     | PublicMediaSyncService::resolveTarget()).
     */
     'public_root' => env('MEDIA_PUBLIC_ROOT'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conversione WebP
+    |--------------------------------------------------------------------------
+    |
+    | Parametri unici, condivisi da `media:webp-audit` (per le stime) e da
+    | `media:convert-webp` (per la conversione reale): stessa policy per
+    | entrambi, cosi' che l'audit sia un'anteprima fedele di cosa farebbe
+    | davvero la conversione, non solo una stima approssimata.
+    */
+    'webp_quality' => (int) env('MEDIA_WEBP_QUALITY', 82),
+    'webp_max_width' => (int) env('MEDIA_WEBP_MAX_WIDTH', 1600),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conversione automatica in WebP per i nuovi upload
+    |--------------------------------------------------------------------------
+    |
+    | Quando true (default), un nuovo upload JPG/PNG nella Libreria media, in
+    | copertina articolo (Admin e Redazione) o in immagine categoria viene
+    | convertito automaticamente in WebP prima di essere salvato — cosi' i
+    | nuovi upload smettono di crescere lo storage in formati piu' pesanti.
+    | Non riguarda mai i file gia' esistenti (quella e' la migrazione legacy
+    | separata, deliberatamente distinta) ne' i flussi esplicitamente
+    | esclusi (Turing: nessun record Media, alcuni riferimenti hardcoded).
+    |
+    | Interruttore di sicurezza reversibile senza deploy: impostare
+    | MEDIA_AUTO_WEBP_ON_UPLOAD=false in produzione disattiva istantaneamente
+    | la conversione per i nuovi upload (che tornano al comportamento
+    | preesistente: stesso formato del sorgente), senza toccare codice.
+    */
+    'auto_webp_on_upload' => env('MEDIA_AUTO_WEBP_ON_UPLOAD', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Periodo di osservazione minimo per il cleanup degli originali
+    |--------------------------------------------------------------------------
+    |
+    | Usato esclusivamente da `media:webp-cleanup` (FASE 12, sola lettura:
+    | elenca soltanto i candidati, non cancella mai nulla). Un originale
+    | JPG/PNG gia' migrato a WebP entra nell'elenco dei candidati solo se
+    | sono trascorsi almeno questi giorni da quando il Media corrispondente
+    | e' stato aggiornato al disk_name .webp (Media.updated_at del record
+    | WebP: l'unico timestamp di "quando e' stata applicata la migrazione"
+    | gia' disponibile, nessuna nuova colonna introdotta per questo).
+    */
+    'webp_cleanup_min_age_days' => (int) env('MEDIA_WEBP_CLEANUP_MIN_AGE_DAYS', 14),
 
 ];

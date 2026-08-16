@@ -5,9 +5,11 @@ namespace Tests\Feature\Uploads;
 use App\Models\Article;
 use App\Models\Media;
 use App\Models\User;
+use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
 
@@ -68,7 +70,11 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame($author->id, $media->user_id);
         $this->assertSame('cover.jpg', $media->filename);
         $this->assertSame($article->cover_image, $media->disk_name);
-        $this->assertSame('image/jpeg', $media->mime_type);
+        // La copertina viene convertita automaticamente in WebP per i nuovi
+        // upload (FASE 5): il nome file originale resta 'cover.jpg' (solo
+        // un'etichetta), ma il disk_name/mime_type reali sono WebP.
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $article->cover_image);
         $this->assertSame(filesize($fullPath), $media->size);
     }
 
@@ -91,6 +97,28 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $this->assertSame(1600, $w);
         $this->assertSame(800, $h);
+    }
+
+    public function test_updating_the_cover_still_converts_to_webp_by_default(): void
+    {
+        $author = $this->author();
+        $original = UploadedFile::fake()->image('originale.jpg', 800, 600);
+
+        $this->actingAs($author)->post(route('redazione.articles.store'), $this->articlePayload([
+            'cover_image_upload' => $original,
+        ]));
+        $article = Article::where('title', 'Articolo redazione')->firstOrFail();
+
+        $newCover = UploadedFile::fake()->image('nuova.png', 800, 600);
+        $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+            'cover_image_upload' => $newCover,
+        ]));
+
+        $article->refresh();
+        $media = Media::where('disk_name', $article->cover_image)->firstOrFail();
+
+        $this->assertStringEndsWith('.webp', $article->cover_image);
+        $this->assertSame('image/webp', $media->mime_type);
     }
 
     public function test_cover_upload_is_optional(): void
@@ -146,7 +174,8 @@ class RedazioneArticleImageUploadTest extends TestCase
         $this->assertSame($author->id, $media->user_id);
         $this->assertSame('nuova.jpg', $media->filename);
         $this->assertSame($article->cover_image, $media->disk_name);
-        $this->assertSame('image/jpeg', $media->mime_type);
+        $this->assertSame('image/webp', $media->mime_type);
+        $this->assertStringEndsWith('.webp', $article->cover_image);
         $this->assertSame(filesize($fullPath), $media->size);
     }
 
@@ -172,6 +201,87 @@ class RedazioneArticleImageUploadTest extends TestCase
 
         $article->refresh();
         $this->assertSame($oldCover, $article->cover_image);
+    }
+
+    // Codex (PR #165, round 18): stesso principio del test analogo Admin — il caricamento
+    // della nuova copertina avviene PRIMA della transazione attorno a
+    // $article->update()+markAccepted(), quindi un suo fallimento non deve lasciare un
+    // file/riga Media orfani.
+    public function test_update_cleans_up_the_new_cover_if_the_transaction_rolls_back(): void
+    {
+        $author = $this->author();
+
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo redazione',
+            'slug' => 'articolo-redazione-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'review',
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        $newCover = UploadedFile::fake()->image('nuova.jpg', 800, 600);
+
+        try {
+            $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+                'cover_image_upload' => $newCover,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNull($article->fresh()->cover_image);
+        $this->assertSame(0, Media::where('filename', 'nuova.jpg')->count());
+        $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
+    }
+
+    // Codex (PR #165, round 19): stesso principio del test analogo Admin — il ritiro sul
+    // rollback (round 18) deve limitarsi a un disk_name DAVVERO caricato in questa
+    // richiesta, mai a un cover_image già esistente arrivato da $request->validated()
+    // senza alcun cover_image_upload allegato.
+    public function test_update_never_retires_an_unrelated_existing_cover_image_on_rollback(): void
+    {
+        $author = $this->author();
+
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo redazione',
+            'slug' => 'articolo-redazione-'.uniqid(),
+            'excerpt' => 'Sommario di prova',
+            'body' => 'Corpo articolo di prova.',
+            'category' => 'energia',
+            'status' => 'review',
+        ]);
+
+        $libraryDiskName = 'libreria-esistente.webp';
+        file_put_contents(public_path('assets/img/'.$libraryDiskName), 'contenuto finto');
+        $libraryMedia = Media::create([
+            'user_id' => $author->id,
+            'filename' => 'libreria-esistente.webp',
+            'disk_name' => $libraryDiskName,
+            'mime_type' => 'image/webp',
+            'size' => 100,
+        ]);
+
+        $this->mock(ArticleLinkSuggestionService::class, function ($mock) {
+            $mock->shouldReceive('markAccepted')->andThrow(new RuntimeException('guasto simulato'));
+        });
+
+        try {
+            $this->actingAs($author)->put(route('redazione.articles.update', $article), $this->articlePayload([
+                'cover_image' => $libraryDiskName,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertNotNull(Media::find($libraryMedia->id));
+        $this->assertFileExists(public_path('assets/img/'.$libraryDiskName));
     }
 
     public function test_the_article_stays_in_review_status_after_creation_and_update(): void

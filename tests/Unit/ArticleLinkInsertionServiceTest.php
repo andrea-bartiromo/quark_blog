@@ -306,4 +306,40 @@ class ArticleLinkInsertionServiceTest extends TestCase
 
         $this->assertFalse($previous);
     }
+
+    // ── internalArticleLinkOccurrences() (Internal Linking V2, audit) ──
+
+    public function test_occurrences_returns_slug_and_anchor_text_for_each_article_link(): void
+    {
+        $html = '<p><a href="/articolo/uno">Primo link</a> e <a href="/articolo/due">Secondo link</a></p>';
+
+        $occurrences = $this->service->internalArticleLinkOccurrences($html);
+
+        $this->assertSame([
+            ['slug' => 'uno', 'anchorText' => 'Primo link'],
+            ['slug' => 'due', 'anchorText' => 'Secondo link'],
+        ], $occurrences);
+    }
+
+    public function test_occurrences_are_not_deduplicated_unlike_linked_article_slugs_in_body(): void
+    {
+        $html = '<p><a href="/articolo/ripetuto">a</a> e ancora <a href="/articolo/ripetuto">b</a></p>';
+
+        $occurrences = $this->service->internalArticleLinkOccurrences($html);
+
+        $this->assertCount(2, $occurrences);
+        $this->assertCount(1, $this->service->linkedArticleSlugsInBody($html));
+    }
+
+    public function test_occurrences_excludes_external_links(): void
+    {
+        $html = '<p><a href="https://example.com/pagina">esterno</a></p>';
+
+        $this->assertSame([], $this->service->internalArticleLinkOccurrences($html));
+    }
+
+    public function test_occurrences_returns_empty_array_for_empty_body(): void
+    {
+        $this->assertSame([], $this->service->internalArticleLinkOccurrences(''));
+    }
 }

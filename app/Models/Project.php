@@ -114,6 +114,21 @@ class Project extends Model
     }
 
     /**
+     * ProjectProgressService::recalculate() restituisce 0 anche quando non
+     * esiste alcuna task non annullata — "0% fatto" e "non c'è ancora
+     * nulla da misurare" sono fatti diversi, e presentarli con lo stesso
+     * numero sarebbe fuorviante (FASE 5, missione Dashboard Automation V2).
+     * Non cambia il valore persistito in progress, solo cosa la UI mostra:
+     * cambiare la semantica della colonna stessa richiederebbe una
+     * migrazione e toccherebbe ogni lettore esistente, per un beneficio
+     * che la sola presentazione già ottiene.
+     */
+    public function hasCalculableProgress(): bool
+    {
+        return $this->tasks()->where('manual_status', '!=', ProjectTask::STATUS_CANCELLED)->exists();
+    }
+
+    /**
      * Genera uno slug univoco appendendo un suffisso numerico in caso di
      * collisione (es. "speciale-enigma" -> "speciale-enigma-2"), invece di
      * lasciare che il vincolo UNIQUE del DB sollevi un errore 500 grezzo
@@ -164,6 +179,11 @@ class Project extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(ProjectDocument::class);
+    }
+
+    public function editorialCalendarDocument(): ?ProjectDocument
+    {
+        return $this->documents()->editorialCalendar()->first();
     }
 
     public function prompts(): HasMany

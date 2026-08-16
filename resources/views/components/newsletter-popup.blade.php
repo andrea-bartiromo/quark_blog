@@ -4,7 +4,9 @@
      id="newsletter-popup"
      role="dialog"
      aria-modal="true"
-     aria-labelledby="newsletter-popup-title">
+     aria-labelledby="newsletter-popup-title"
+     hidden
+     inert>
 
     {{-- Overlay --}}
     <div class="newsletter-popup__overlay"

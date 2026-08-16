@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -18,16 +19,43 @@ class SendNewsletterJob implements ShouldQueue
 
     public Newsletter $subscriber;
 
-    public function __construct(Newsletter $subscriber)
+    public function __construct(Newsletter $subscriber, public ?string $deliveryKey = null)
     {
         $this->subscriber = $subscriber;
     }
 
+    /**
+     * Perché Cache::add() e non il ledger CommunicationDelivery: quel
+     * ledger vincola subscriber_id a una foreign key NOT NULL su
+     * comm_subscribers, popolata da `newsletter` (questa tabella, la
+     * fonte reale dei destinatari qui) solo tramite una copia manuale
+     * one-shot (communication:migrate-subscribers) — non c'è alcuna
+     * sincronizzazione continua tra le due tabelle. Instradare la
+     * consegna sul ledger avrebbe richiesto o inventare al volo righe
+     * comm_subscribers per iscritti `newsletter` non ancora migrati
+     * (una scrittura collaterale mai richiesta, fuori scope) o escludere
+     * dall'invio chi non è stato migrato (una modifica reale ai
+     * destinatari, esplicitamente vietata). Cache::add() resta quindi la
+     * primitiva corretta finché i destinatari della newsletter restano
+     * il modello `Newsletter`: è un'operazione atomica reale sia sul
+     * driver 'database' (insertOrIgnore contro la PRIMARY KEY di
+     * `cache`) sia su 'file' (flock esclusivo), non un check-then-act.
+     */
     public function handle(): void
     {
+        $cacheKey = $this->deliveryKey ? 'newsletter:delivery:'.$this->deliveryKey : null;
+
+        if ($cacheKey && ! Cache::add($cacheKey, true, now()->addDays(14))) {
+            return;
+        }
+
         $articles = $this->getArticles();
 
         if ($articles->isEmpty()) {
+            if ($cacheKey) {
+                Cache::forget($cacheKey);
+            }
+
             return;
         }
 
@@ -58,6 +86,10 @@ class SendNewsletterJob implements ShouldQueue
                     ->html($fullHtml);
             });
         } catch (\Throwable $e) {
+            if ($cacheKey) {
+                Cache::forget($cacheKey);
+            }
+
             Log::error("Errore newsletter {$this->subscriber->email}: ".$e->getMessage());
 
             throw $e;

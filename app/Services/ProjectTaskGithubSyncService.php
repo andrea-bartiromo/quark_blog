@@ -217,7 +217,7 @@ class ProjectTaskGithubSyncService
             subjectTitle: $task->title,
             action: "Pull request #{$prNumber} mergiata — attività completata automaticamente",
             userId: null,
-            source: ProjectActivityLog::SOURCE_SYSTEM,
+            source: ProjectActivityLog::SOURCE_GITHUB,
         );
 
         $task->prompts()

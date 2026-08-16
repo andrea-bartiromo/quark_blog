@@ -46,6 +46,16 @@
     </div>
 
     <div class="form-group">
+      <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.82rem;font-weight:600;color:#111827;">
+        <input type="checkbox" name="is_editorial_calendar" value="1" {{ old('is_editorial_calendar', $document->is_editorial_calendar) ? 'checked' : '' }} style="width:16px;height:16px;accent-color:#0d9488;">
+        Questo è il calendario editoriale del progetto
+      </label>
+      <div style="font-size:.76rem;color:#9ca3af;margin-top:.35rem;">
+        Usato dalla sincronizzazione automatica (project:sync-editorial-calendar) per collegare gli articoli pubblicati alle voci pianificate. Al più un documento alla volta può esserlo per progetto — vedi docs/PROJECT_EDITORIAL_AUTOMATION.md.
+      </div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label" for="media_id">Allegato dalla libreria Media</label>
       <select class="form-select" id="media_id" name="media_id">
         <option value="">Nessuno</option>
