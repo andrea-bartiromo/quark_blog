@@ -53,7 +53,51 @@ class ContentClusterPublicTest extends TestCase
             ->assertDontSee('Bozza segreta');
     }
 
-    public function test_cluster_cover_uses_public_media_root_thumbnail_class_and_social_metadata(): void
+    public function test_homepage_discovers_only_active_paths_with_published_articles(): void
+    {
+        $visible = ContentCluster::factory()->create([
+            'name' => 'Percorso homepage',
+            'slug' => 'percorso-homepage',
+            'is_active' => true,
+            'sort_order' => 10,
+        ]);
+        $empty = ContentCluster::factory()->create([
+            'name' => 'Percorso vuoto',
+            'slug' => 'percorso-vuoto',
+            'is_active' => true,
+            'sort_order' => 20,
+        ]);
+        $scheduledOnly = ContentCluster::factory()->create([
+            'name' => 'Percorso futuro',
+            'slug' => 'percorso-futuro',
+            'is_active' => true,
+            'sort_order' => 30,
+        ]);
+        $inactive = ContentCluster::factory()->create([
+            'name' => 'Percorso inattivo',
+            'slug' => 'percorso-inattivo',
+            'is_active' => false,
+            'sort_order' => 40,
+        ]);
+
+        $visible->articles()->attach($this->article('Homepage pubblico', Article::STATUS_PUBLISHED, now()->subHour())->id, ['position' => 10]);
+        $visible->articles()->attach($this->article('Homepage bozza segreta', Article::STATUS_DRAFT)->id, ['position' => 20]);
+        $scheduledOnly->articles()->attach($this->article('Homepage futuro segreto', Article::STATUS_SCHEDULED, now()->addHour())->id, ['position' => 10]);
+        $inactive->articles()->attach($this->article('Homepage inattivo articolo', Article::STATUS_PUBLISHED, now()->subHour())->id, ['position' => 10]);
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('Percorso homepage')
+            ->assertSee('1 articolo')
+            ->assertSee(route('percorsi.index'), false)
+            ->assertDontSee($empty->name)
+            ->assertDontSee($scheduledOnly->name)
+            ->assertDontSee($inactive->name)
+            ->assertDontSee('Homepage bozza segreta')
+            ->assertDontSee('Homepage futuro segreto');
+    }
+
+    public function test_cluster_cover_uses_public_media_root_path_card_social_metadata_and_shared_viewer(): void
     {
         $cluster = ContentCluster::factory()->create([
             'name' => 'Percorso con cover',
@@ -67,14 +111,32 @@ class ContentClusterPublicTest extends TestCase
 
         $this->get(route('percorsi.index'))
             ->assertOk()
-            ->assertSee('class="article-card__thumb"', false)
+            ->assertSee('class="path-card__media"', false)
+            ->assertDontSee('article-card__thumb', false)
             ->assertSee('src="'.$expected.'"', false)
             ->assertDontSee('src="'.asset('articles/covers/percorso.webp').'"', false);
 
-        $this->get(route('percorsi.show', $cluster->slug))
+        $response = $this->get(route('percorsi.show', $cluster->slug));
+        $response
             ->assertOk()
             ->assertSee('property="og:image" content="'.$expected.'"', false)
-            ->assertSee('name="twitter:image" content="'.$expected.'"', false);
+            ->assertSee('name="twitter:image" content="'.$expected.'"', false)
+            ->assertSee('css/media-lightbox.css', false)
+            ->assertSee('data-media-viewer-target="path-cover-viewer-'.$cluster->id.'"', false)
+            ->assertSee('aria-haspopup="dialog"', false)
+            ->assertSee('role="dialog"', false)
+            ->assertSee('data-media-viewer-image', false)
+            ->assertSee('js/media-viewer.js', false);
+
+        $html = $response->getContent();
+        preg_match('/<button\b[^>]*class="path-hero__view-trigger"[^>]*data-media-viewer-target="([^"]+)"/s', $html, $trigger);
+        preg_match('/<img\b[^>]*src="([^"]+)"[^>]*data-media-viewer-image/s', $html, $dialogImage);
+
+        $this->assertNotEmpty($trigger, 'Il trigger della cover Percorso non e\' stato trovato.');
+        $this->assertNotEmpty($dialogImage, 'L\'immagine del viewer condiviso non e\' stata trovata.');
+        $this->assertSame($expected, $dialogImage[1]);
+        $this->assertSame('path-cover-viewer-'.$cluster->id, $trigger[1]);
+        $this->assertStringContainsString('background-image: url(\''.$expected.'\')', $html);
     }
 
     public function test_detail_filters_non_public_articles_preserves_manual_order_and_hides_non_public_pillar(): void

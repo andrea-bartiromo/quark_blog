@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Http\Request;
@@ -66,6 +67,41 @@ class ContentClusterController extends Controller
         });
 
         return redirect()->route('admin.content-clusters.edit', $cluster)->with('success', 'Percorso creato. Ora puoi aggiungere gli articoli dal catalogo paginato.');
+    }
+
+    public function mediaPicker(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $search = trim((string) ($validated['q'] ?? ''));
+
+        $media = Media::query()
+            ->images()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($builder) use ($search) {
+                    $builder
+                        ->where('filename', 'like', '%'.$search.'%')
+                        ->orWhere('disk_name', 'like', '%'.$search.'%')
+                        ->orWhere('alt_text', 'like', '%'.$search.'%');
+                });
+            })
+            ->latest()
+            ->paginate(24);
+
+        return response()->json([
+            'data' => $media->getCollection()->map(fn (Media $item) => [
+                'id' => $item->id,
+                'filename' => $item->filename,
+                'disk_name' => $item->disk_name,
+                'url' => $item->url,
+                'alt_text' => $item->alt_text,
+            ])->values(),
+            'current_page' => $media->currentPage(),
+            'last_page' => $media->lastPage(),
+            'total' => $media->total(),
+        ]);
     }
 
     public function edit(Request $request, ContentCluster $contentCluster)
@@ -148,10 +184,23 @@ class ContentClusterController extends Controller
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],
             'is_active' => ['nullable', 'boolean'],
+            'lifecycle_status' => ['nullable', Rule::in([ContentCluster::LIFECYCLE_UPDATING, ContentCluster::LIFECYCLE_COMPLETE])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
+            'takeaways' => ['nullable', 'array', 'max:4'],
+            'takeaways.*' => ['nullable', 'string', 'max:320'],
+            'guiding_questions' => ['nullable', 'array', 'max:4'],
+            'guiding_questions.*' => ['nullable', 'string', 'max:320'],
+            'closing_title' => ['nullable', 'string', 'max:255'],
+            'closing_text' => ['nullable', 'string', 'max:2000'],
+            'curator_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+        $data['takeaways'] = $this->normalizeEditorialList($data['takeaways'] ?? []);
+        $data['guiding_questions'] = $this->normalizeEditorialList($data['guiding_questions'] ?? []);
+        $data['closing_title'] = $this->nullableTrimmed($data['closing_title'] ?? null);
+        $data['closing_text'] = $this->nullableTrimmed($data['closing_text'] ?? null);
+        $data['curator_note'] = $this->nullableTrimmed($data['curator_note'] ?? null);
 
         return $data;
     }
@@ -166,6 +215,7 @@ class ContentClusterController extends Controller
             'memberships.*' => ['array'],
             'memberships.*.position' => ['nullable', 'integer', 'min:0'],
             'memberships.*.is_primary' => ['nullable', 'boolean'],
+            'memberships.*.transition_text' => ['nullable', 'string', 'max:1000'],
             'remove_article_id' => ['nullable', 'integer', 'exists:articles,id'],
         ]);
     }
@@ -185,9 +235,27 @@ class ContentClusterController extends Controller
                     'article_id' => $articleId,
                     'position' => isset($metadata['position']) && $metadata['position'] !== '' ? (int) $metadata['position'] : null,
                     'is_primary' => (bool) ($metadata['is_primary'] ?? false),
+                    'transition_text' => $this->nullableTrimmed($metadata['transition_text'] ?? null),
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /** @return list<string> */
+    private function normalizeEditorialList(array $items): array
+    {
+        return collect($items)
+            ->map(fn ($item) => trim((string) $item))
+            ->filter(fn (string $item) => $item !== '')
+            ->values()
+            ->all();
+    }
+
+    private function nullableTrimmed(mixed $value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return $value === '' ? null : $value;
     }
 }

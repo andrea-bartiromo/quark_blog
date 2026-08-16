@@ -473,6 +473,46 @@ class ImageWebpConversionTest extends TestCase
         );
     }
 
+    // Riproduce, per il sorgente JPG/PNG dei flussi WebP, la stessa
+    // anomalia Windows reale gia' coperta per PublicMediaSyncService (vedi
+    // PublicMediaSyncServiceTest::test_cleanup_after_failed_create_does_not_trust_a_removal_that_the_file_survives):
+    // unlink() puo' riportare successo mentre il file e' ancora davvero
+    // presente. Prima di ConfirmsFileDeletion, removeSourceWithRetry()
+    // tornava immediatamente su removeFile() === true, senza mai
+    // riverificare — questo test fallirebbe con la vecchia implementazione
+    // (result['webp_applied'] sarebbe true nonostante il sorgente non sia
+    // mai stato davvero rimosso la prima volta).
+    public function test_auto_convert_does_not_trust_a_source_removal_that_the_file_survives(): void
+    {
+        $service = new class extends ImageService
+        {
+            public int $reportedSuccesses = 0;
+
+            protected function removeFile(string $path): bool
+            {
+                $this->reportedSuccesses++;
+
+                if ($this->reportedSuccesses >= 3) {
+                    @unlink($path);
+                }
+
+                // Dichiara sempre successo, anche quando il file e' ancora
+                // davvero presente sul disco (le prime due volte): e'
+                // esattamente il comportamento osservato realmente.
+                return true;
+            }
+        };
+
+        $source = $this->solidJpeg('photo.jpg', 100, 100);
+
+        $result = $service->autoConvertToWebpIfEligible($source, 'jpg', 82, 1600);
+
+        $this->assertTrue($result['webp_applied']);
+        $this->assertSame(3, $service->reportedSuccesses);
+        $this->assertFileDoesNotExist($source, 'il sorgente deve risultare davvero rimosso, non solo dichiarato tale.');
+        $this->assertFileExists($result['full_path']);
+    }
+
     public function test_auto_convert_respects_the_configured_max_width(): void
     {
         $source = $this->solidJpeg('wide.jpg', 2000, 1000);

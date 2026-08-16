@@ -123,10 +123,39 @@ jobs:
           php artisan db:show --database=mariadb
           php artisan migrate:fresh --force
           php artisan test tests/Feature/ContentClusterAdminTest.php tests/Feature/ContentClusterPublicTest.php tests/Feature/ContentClusterPhase2ATest.php tests/Feature/ContentClusterPhase2BTest.php tests/Feature/ArticlePathNavigationTest.php
-      - name: Incremental migration from populated pre-Phase-1A schema
+      - name: Incremental migration from populated pre-Phase-1A schema (incl. content_cluster_subscribers)
         run: |
+          set -eu
           php artisan migrate:fresh --force
-          php artisan migrate:rollback --force --step=4
-          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]);"
+          php artisan tinker --execute="App\\Models\\User::query()->firstOrCreate(['email'=>'incremental@example.test'], ['name'=>'Incremental','password'=>bcrypt('test')]); App\\Models\\Article::query()->create(['user_id'=>App\\Models\\User::query()->where('email','incremental@example.test')->value('id'),'title'=>'Existing article','slug'=>'existing-article','body'=>'Existing body','excerpt'=>'Existing','category'=>'fisica','status'=>'published','read_minutes'=>1,'published_at'=>now()->subDay()]); App\\Models\\CommunicationSubscriber::create(['email'=>'incremental-path@example.test','status'=>App\\Models\\CommunicationSubscriber::STATUS_CONFIRMED,'unsubscribe_token'=>bin2hex(random_bytes(16)),'confirmed_at'=>now()]);"
+          # --step=N assumed Phase 1A's 4 migrations were always the most
+          # recent N on main; that broke as soon as later migrations (the
+          # lifecycle/curator-note columns, and content_cluster_subscribers'
+          # FK to content_clusters) started depending on content_clusters —
+          # --step=4 silently rolled back the WRONG (most recent) 4
+          # migrations instead, and this step's own hasTable() checks kept
+          # passing without ever proving anything real.
+          #
+          # --path targets migrations by file regardless of how many others
+          # exist after them. Every migration that currently creates,
+          # alters, or has a foreign key into content_clusters must be
+          # listed here together — content_clusters can't be dropped while
+          # anything still references it, and reapplying content_clusters'
+          # base CREATE alone would leave it missing the columns those
+          # ALTER migrations added, since Laravel would still consider them
+          # already applied. Add any future migration that touches
+          # content_clusters (new columns, or new FKs into it) to this list.
+          php artisan migrate:rollback \
+            --path=database/migrations/2026_08_13_080610_create_content_clusters_table.php \
+            --path=database/migrations/2026_08_13_080620_create_article_content_cluster_table.php \
+            --path=database/migrations/2026_08_13_080630_add_pillar_article_to_content_clusters_table.php \
+            --path=database/migrations/2026_08_13_104700_create_content_cluster_suggestions_table.php \
+            --path=database/migrations/2026_08_15_060000_add_editorial_narrative_to_content_clusters.php \
+            --path=database/migrations/2026_08_15_103500_add_lifecycle_status_to_content_clusters.php \
+            --path=database/migrations/2026_08_15_140000_create_content_cluster_subscribers_table.php \
+            --path=database/migrations/2026_08_16_080345_add_curator_note_to_content_clusters.php \
+            --force
+          php artisan tinker --execute="foreach (['content_clusters','article_content_cluster','content_cluster_suggestions','content_cluster_subscribers'] as \$t) { if (Illuminate\\Support\\Facades\\Schema::hasTable(\$t)) { throw new RuntimeException(\$t.' still present after targeted rollback'); } }"
           php artisan migrate --force
-          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_suggestions') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists() || Illuminate\\Support\\Facades\\DB::table('content_cluster_suggestions')->exists()) { throw new RuntimeException('Incremental migration verification failed'); }"
+          php artisan tinker --execute="\$article=App\\Models\\Article::query()->where('slug','existing-article')->first(); if (!\$article || \$article->title !== 'Existing article' || !Illuminate\\Support\\Facades\\Schema::hasTable('content_clusters') || !Illuminate\\Support\\Facades\\Schema::hasTable('article_content_cluster') || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_suggestions') || App\\Models\\ContentCluster::query()->exists() || Illuminate\\Support\\Facades\\DB::table('article_content_cluster')->exists() || Illuminate\\Support\\Facades\\DB::table('content_cluster_suggestions')->exists()) { throw new RuntimeException('Phase 1A incremental migration verification failed'); }"
+          php artisan tinker --execute="\$subscriber=App\\Models\\CommunicationSubscriber::where('email','incremental-path@example.test')->first(); if (!\$subscriber || !Illuminate\\Support\\Facades\\Schema::hasTable('content_cluster_subscribers')) { throw new RuntimeException('content_cluster_subscribers incremental migration verification failed'); } \$cluster=App\\Models\\ContentCluster::create(['name'=>'Incremental Percorso CI','slug'=>'incremental-percorso-ci','is_active'=>true,'lifecycle_status'=>App\\Models\\ContentCluster::LIFECYCLE_UPDATING]); \$subscription=App\\Models\\ContentClusterSubscriber::create(['subscriber_id'=>\$subscriber->id,'content_cluster_id'=>\$cluster->id,'status'=>'active','unsubscribe_token'=>bin2hex(random_bytes(16))]); if (!\$subscription->id) { throw new RuntimeException('content_cluster_subscribers table not usable after incremental migration'); }"

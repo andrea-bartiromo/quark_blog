@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Models\SpecialPage;
 use App\Models\User;
@@ -13,11 +14,11 @@ use App\Services\Concerns\ScansJsonContentLeaves;
 /**
  * Rileva dove un Media e effettivamente utilizzato nel sito, riusando la
  * stessa mappa di campi gia censita da MediaReferenceService (copertine
- * articolo, banner annunci, foto autore, immagini categoria, contenuti JSON
- * delle pagine speciali) ma con una forma pensata per la griglia della
- * Libreria media: una singola chiamata batch copre l'intera pagina corrente
- * (una query per modello coinvolto, mai una per card) invece del preflight
- * per-singolo-file pensato per lo spostamento.
+ * articolo e Percorso, banner annunci, foto autore, immagini categoria,
+ * contenuti JSON delle pagine speciali) ma con una forma pensata per la
+ * griglia della Libreria media: una singola chiamata batch copre l'intera
+ * pagina corrente (una query per modello coinvolto, mai una per card) invece
+ * del preflight per-singolo-file pensato per lo spostamento.
  *
  * Il confronto e sempre per uguaglianza esatta sul disk_name (o sul suo
  * valore virtuale ricostruito, es. "categories/{image}"): non vengono mai
@@ -77,6 +78,7 @@ class MediaUsageService
         }
 
         $this->scanArticleCoverImages($diskNames, $usages);
+        $this->scanContentClusterCoverImages($diskNames, $usages);
         $this->scanArticleBodies($diskNames, $usages);
         $this->scanAdBannerImages($diskNames, $usages);
         $this->scanAdHtmlCode($diskNames, $usages);
@@ -104,6 +106,27 @@ class MediaUsageService
                     $article->title,
                     $this->articleStatusLabel($article->status),
                     route('admin.articles.edit', $article)
+                );
+            });
+    }
+
+    /**
+     * @param  list<string>  $diskNames
+     * @param  array<string, list<array<string, mixed>>>  $usages
+     */
+    private function scanContentClusterCoverImages(array $diskNames, array &$usages): void
+    {
+        ContentCluster::query()
+            ->whereIn('cover_image', $diskNames)
+            ->get(['id', 'name', 'is_active', 'cover_image'])
+            ->each(function (ContentCluster $cluster) use (&$usages): void {
+                $usages[$cluster->cover_image][] = $this->record(
+                    'content_cluster_cover_image',
+                    'Copertina Percorso',
+                    'Percorso',
+                    $cluster->name,
+                    $cluster->is_active ? 'Attivo' : 'Non attivo',
+                    route('admin.content-clusters.edit', $cluster)
                 );
             });
     }

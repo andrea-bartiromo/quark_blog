@@ -8,6 +8,7 @@ Route::middleware(['web', 'auth', 'editor'])->prefix('admin')->name('admin.')->g
     Route::get('/percorsi', [ContentClusterController::class, 'index'])->name('content-clusters.index');
     Route::get('/percorsi/nuovo', [ContentClusterController::class, 'create'])->name('content-clusters.create');
     Route::post('/percorsi', [ContentClusterController::class, 'store'])->name('content-clusters.store');
+    Route::get('/percorsi/media-picker', [ContentClusterController::class, 'mediaPicker'])->name('content-clusters.media-picker');
 
     Route::get('/percorsi/suggerimenti', [ContentClusterSuggestionController::class, 'index'])->name('content-cluster-suggestions.index');
     Route::post('/percorsi/suggerimenti/rigenera', [ContentClusterSuggestionController::class, 'regenerate'])->name('content-cluster-suggestions.regenerate');
