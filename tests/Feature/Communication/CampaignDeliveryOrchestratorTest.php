@@ -176,6 +176,34 @@ class CampaignDeliveryOrchestratorTest extends TestCase
         $this->assertSame(CommunicationSend::STATUS_FAILED, $send->fresh()->status);
     }
 
+    /**
+     * Colma un gap esplicitamente segnalato dalla missione N2.10: un
+     * timeout/crash del provider stesso (non un DeliveryResult di
+     * fallimento, un'eccezione PHP vera e propria durante la chiamata)
+     * deve propagare, mai essere catturato — la riga resta 'sending'
+     * deliberatamente, la stessa ambiguità reale già documentata nel
+     * docblock della classe e in CommunicationDelivery. Solo
+     * StaleSendRecoveryService (revisione MANUALE, mai automatica) può
+     * sbloccarla in seguito.
+     */
+    public function test_a_provider_exception_propagates_and_leaves_the_row_deliberately_sending(): void
+    {
+        $send = $this->queuedSend($this->sendingCampaign());
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(function () {
+            throw new \RuntimeException('timeout simulato dal provider fake');
+        });
+
+        try {
+            $this->orchestrator()->processSend($send, $provider);
+            $this->fail("Un'eccezione dal provider deve propagare, mai essere catturata silenziosamente.");
+        } catch (\RuntimeException $e) {
+            $this->assertSame('timeout simulato dal provider fake', $e->getMessage());
+        }
+
+        $this->assertSame(CommunicationSend::STATUS_SENDING, $send->fresh()->status);
+    }
+
     public function test_transient_failure_is_retried_and_returns_to_queued(): void
     {
         $send = $this->queuedSend($this->sendingCampaign());

@@ -37,6 +37,27 @@ use Throwable;
  *      reale (il provider potrebbe aver "accettato" prima del crash),
  *      mai risolta automaticamente da questo layer — vedi
  *      StaleSendRecoveryService per la revisione manuale.
+ *
+ * MATRICE DEI FALLIMENTI (N2.10) — fonte canonica, riusata dal report
+ * finale della missione. Ogni riga è coperta da almeno un test in
+ * CampaignDeliveryOrchestratorTest (nome tra parentesi).
+ *
+ * | # | Scenario                                    | Rilevato in     | Esito riga comm_sends      | Ritentabile?              |
+ * |---|----------------------------------------------|-----------------|------------------------------|----------------------------|
+ * | 1 | Riga già 'sending'/terminale (non più queued) | Claim           | invariato (skip)              | n/a — non un fallimento    |
+ * | 2 | Claim perso per corsa reale                   | Claim           | invariato (skip)              | n/a — un altro worker vince|
+ * | 3 | Iscritto non più confermato/eliminato         | Revalidazione   | failed (subscriber_not_eligible) | mai                    |
+ * | 4 | Campagna non più 'sending'/eliminata          | Revalidazione   | failed (campaign_not_sendable)   | mai                    |
+ * | 5 | Mittente assente o archiviato                 | Revalidazione   | failed (sender_invalid)          | mai                    |
+ * | 6 | Eccezione di rendering (contenuto non valido) | Rendering       | failed (render_exception)        | mai (deterministico)   |
+ * | 7 | Provider: accepted                            | Chiamata provider | sent                        | n/a — successo             |
+ * | 8 | Provider: transient_failure, attempts<max     | Chiamata provider | queued (retry, attempts+1)  | sì, entro DEFAULT_MAX_ATTEMPTS |
+ * | 9 | Provider: transient_failure, attempts>=max    | Chiamata provider | failed (max_attempts_exceeded) | mai oltre il limite    |
+ * |10 | Provider: rejected / permanent_failure        | Chiamata provider | failed (motivo del provider)   | mai                    |
+ * |11 | Provider: eccezione PHP (crash/timeout reale) | Chiamata provider | 'sending' invariato — MAI auto-risolto, propaga | solo revisione manuale (StaleSendRecoveryService) |
+ * |12 | Campagna annullata mentre la riga era queued  | cancelCampaign  | cancelled (bulk)               | mai                    |
+ * |13 | Campagna annullata mentre la riga era già sending | Revalidazione (run successivo) | failed (campaign_not_sendable) | mai — il claim in corso si conclude da solo |
+ * |14 | runCampaign() su campagna non transizionabile a sending | canTransition() pre-check | nessuna scrittura, ritorna null | n/a |
  */
 class CampaignDeliveryOrchestrator
 {
