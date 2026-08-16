@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
+use App\Services\ArticlePathNavigation;
 use App\Services\ArticleViewTrackingService;
 
 class ArticleController extends Controller
@@ -90,6 +91,8 @@ class ArticleController extends Controller
                 ->orderByDesc('views')
                 ->limit(5)
                 ->get(),
+
+            'pathNavigation' => app(ArticlePathNavigation::class)->forArticle($article),
         ]);
     }
 }

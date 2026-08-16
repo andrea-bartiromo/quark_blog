@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Models\Article;
+use App\Models\ContentCluster;
+use App\Observers\ContentClusterSuggestionObserver;
 use App\Services\Backup\ProcessDatabaseDumpRunner;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
@@ -23,6 +26,19 @@ class AppServiceProvider extends ServiceProvider
 
         // Imposta la locale italiana per le date
         Carbon::setLocale('it');
+
+        Article::observe(ContentClusterSuggestionObserver::class);
+
+        Article::resolveRelationUsing('contentClusters', fn (Article $article) => $article
+            ->belongsToMany(ContentCluster::class, 'article_content_cluster')
+            ->withPivot(['position', 'is_primary'])
+            ->withTimestamps());
+
+        Article::resolveRelationUsing('primaryContentCluster', fn (Article $article) => $article
+            ->belongsToMany(ContentCluster::class, 'article_content_cluster')
+            ->withPivot(['position', 'is_primary'])
+            ->wherePivot('is_primary', true)
+            ->limit(1));
 
         // Lo schema forzato per route()/url() vive nel middleware
         // ForceHttpsUrlScheme (bootstrap/app.php), non qui: boot() gira una
