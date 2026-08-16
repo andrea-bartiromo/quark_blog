@@ -140,6 +140,46 @@ class RecipientSnapshotTest extends TestCase
         $this->assertDatabaseHas('comm_sends', ['id' => $existingSendId, 'campaign_id' => $campaign->id]);
     }
 
+    public function test_a_soft_deleted_draft_campaign_cannot_be_prepared(): void
+    {
+        // comm_campaigns usa SoftDeletes: 'Elimina campagna' nell'admin è
+        // una UPDATE (deleted_at), non una DELETE — la cascadeOnDelete()
+        // FK su comm_sends.campaign_id non scatta mai per questo percorso.
+        // Il binding di rotta di Laravel esclude di default i modelli
+        // trashed (404), ma canPrepare()/prepare() devono restare sicuri
+        // anche se mai raggiunti con un'istanza trashed caricata
+        // esplicitamente (es. un futuro comando/job), non solo dietro al
+        // 404 della rotta.
+        $campaign = CommunicationCampaign::factory()->draft()->create();
+        $campaign->delete();
+        $this->assertTrue($campaign->trashed());
+
+        $trashed = CommunicationCampaign::withTrashed()->find($campaign->id);
+
+        $service = app(RecipientSnapshotService::class);
+
+        $this->assertFalse($service->canPrepare($trashed));
+        $this->expectException(\RuntimeException::class);
+        $service->prepare($trashed);
+    }
+
+    public function test_deleting_a_campaign_via_the_admin_route_returns_404_and_leaves_existing_sends_untouched(): void
+    {
+        $campaign = CommunicationCampaign::factory()->draft()->create();
+        CommunicationSubscriber::factory()->confirmed()->count(2)->create();
+        app(RecipientSnapshotService::class)->prepare($campaign);
+
+        $this->actingAs($this->editor())
+            ->delete(route('admin.comunicazione.campaigns.destroy', $campaign))
+            ->assertRedirect(route('admin.comunicazione.campaigns.index'));
+
+        $this->assertSame(2, CommunicationSend::where('campaign_id', $campaign->id)->count());
+
+        $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.recipients.prepare', $campaign))
+            ->assertNotFound();
+    }
+
     public function test_a_subscriber_who_unsubscribes_after_the_snapshot_keeps_their_existing_queued_row(): void
     {
         // Comportamento deliberato: lo snapshot è additivo, non

@@ -79,6 +79,17 @@ class RecipientSnapshotService
 
     public function canPrepare(CommunicationCampaign $campaign): bool
     {
+        // comm_campaigns usa SoftDeletes: "Elimina campagna" nell'admin è
+        // una UPDATE (deleted_at), non una DELETE — la cascadeOnDelete()
+        // FK su comm_sends.campaign_id non scatta mai per questo percorso.
+        // Il binding di rotta esclude di default un modello trashed (404),
+        // ma questo controllo resta necessario per qualunque chiamante
+        // futuro che carichi un'istanza trashed esplicitamente (es. un
+        // comando/job), non solo dietro al 404 della rotta admin.
+        if ($campaign->trashed()) {
+            return false;
+        }
+
         return in_array($campaign->status, self::ELIGIBLE_CAMPAIGN_STATUSES, true);
     }
 
