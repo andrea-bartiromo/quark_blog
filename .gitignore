@@ -26,3 +26,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /storage/backups/
+database/database.sqlite
+/test-results
+/playwright-report

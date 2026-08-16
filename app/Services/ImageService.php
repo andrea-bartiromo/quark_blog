@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Concerns\ConfirmsFileDeletion;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -10,6 +11,8 @@ use RuntimeException;
 
 class ImageService
 {
+    use ConfirmsFileDeletion;
+
     /**
      * Numero di tentativi per la rimozione del sorgente originale dopo una
      * conversione WebP riuscita (vedi autoConvertToWebpIfEligible()) e
@@ -21,6 +24,16 @@ class ImageService
     private const SOURCE_REMOVAL_RETRY_ATTEMPTS = 5;
 
     private const SOURCE_REMOVAL_RETRY_DELAY_MICROSECONDS = 100_000;
+
+    /**
+     * Controlli consecutivi (e intervallo tra l'uno e l'altro) per
+     * confermare che il sorgente sia davvero sparito dopo un unlink() che
+     * ha già riportato successo — vedi ConfirmsFileDeletion. Stessi valori
+     * usati da PublicMediaSyncService per lo stesso motivo.
+     */
+    private const SOURCE_REMOVAL_CONFIRMATION_CHECKS = 3;
+
+    private const SOURCE_REMOVAL_CONFIRMATION_DELAY_MICROSECONDS = 100_000;
 
     /**
      * Determina l'estensione sicura a partire dal MIME type
@@ -135,6 +148,37 @@ class ImageService
 
     /**
      * Salva il file nella directory indicata.
+     *
+     * ROOT CAUSE del file orfano "resuscitato" dopo un cleanup riuscito
+     * (osservato ripetutamente su Windows reale nonostante path corretto,
+     * unlink() vincente al primo tentativo e retry — vedi git log di
+     * PublicMediaSyncService per l'intera indagine, PR #121-#124 e #160):
+     * $file->move() — per un UploadedFile "fake" nei test
+     * (Illuminate\Http\Testing\File, usato da UploadedFile::fake()) —
+     * esegue internamente un semplice rename() (Symfony\Component\
+     * HttpFoundation\File\File::move(), nessun fallback copy()+unlink()).
+     * Il file fake e' pero' scritto su un handle tmpfile() che resta
+     * APERTO per il resto della richiesta (nessun punto del ciclo di vita
+     * Laravel/Symfony lo chiude prima della fine dello script): dopo un
+     * rename(), quell'handle continua a riferirsi alla STESSA identita' di
+     * storage del file appena rinominato (stesso inode: verificato
+     * empiricamente — fstat() sull'handle riporta la stessa dimensione del
+     * file di destinazione, ed e' ancora scrivibile anche DOPO che
+     * unlink() sulla destinazione ha gia' avuto successo). Su Windows,
+     * dove la cancellazione di un file con un handle ancora aperto non ha
+     * le stesse garanzie atomiche POSIX, questo e' esattamente lo scenario
+     * gia' osservato: unlink() riporta successo, file_exists() e'
+     * immediatamente false, ma il file torna visibile prima della fine
+     * della richiesta quando quell'handle residuo scrive/si chiude.
+     *
+     * Fix: MAI condividere l'identita' di storage tra il file caricato
+     * (temporaneo, di proprieta' del framework) e il file di destinazione
+     * (di proprieta' di questa applicazione). Si legge il contenuto e lo
+     * si scrive in un file indipendente — stesso effetto finale di
+     * move(), ma senza alcun rename() che leghi le due identita'. Verificato
+     * empiricamente: con questo approccio, scrivere e chiudere l'handle
+     * originale DOPO aver rimosso la destinazione non ha alcun effetto su
+     * quest'ultima (path completamente scollegati).
      */
     public function upload(
         UploadedFile $file,
@@ -145,26 +189,9 @@ class ImageService
 
         $this->ensureDirectoryExists($destinationPath);
 
-        $file->move($destinationPath, $fileName);
-
         $fullPath = $destinationPath.'/'.$fileName;
 
-        // DIAGNOSTICA TEMPORANEA (vedi PublicMediaSyncService::logPathDiagnostics):
-        // registra il path esatto restituito da questo metodo, cosi' da
-        // poterlo confrontare — a partire dai log di una vera esecuzione
-        // Windows — con quello effettivamente ricevuto piu' avanti da
-        // PublicMediaSyncService::cleanupAfterFailedCreate(), per escludere
-        // (o confermare) una qualunque ricostruzione/alterazione del path
-        // nel tragitto tra i due punti.
-        Log::debug('ImageService: diagnostica — path restituito da upload().', [
-            'checkpoint' => 'image_service:upload:returned',
-            'destination_path' => $destinationPath,
-            'file_name' => $fileName,
-            'full_path' => $fullPath,
-            'file_exists' => file_exists($fullPath),
-            'is_file' => is_file($fullPath),
-            'realpath' => realpath($fullPath),
-        ]);
+        $this->materializeUploadedFileIndependently($file, $fullPath);
 
         if (! is_file($fullPath)) {
             throw new RuntimeException(
@@ -173,6 +200,50 @@ class ImageService
         }
 
         return $fullPath;
+    }
+
+    /**
+     * Scrive $destinationPath come file NUOVO e indipendente a partire dal
+     * contenuto del file caricato — mai un rename()/move() diretto da quel
+     * file, che legherebbe le due identita' di storage (vedi il commento
+     * di upload() sopra per il perche'). Scrittura via file temporaneo
+     * nella STESSA directory di destinazione + rename() atomico verso il
+     * nome finale — stesso pattern gia' stabilito da writeWebpAtomically()
+     * per lo stesso motivo (mai un file di destinazione a meta' scritto se
+     * il processo si interrompe a meta' write). Il file temporaneo
+     * intermedio e' creato da questo metodo con file_put_contents(): non
+     * esiste alcun handle PHP residuo legato ad esso dopo la scrittura,
+     * quindi il rename() successivo non reintroduce l'accoppiamento che
+     * questo fix elimina. Il file temporaneo ORIGINALE del caricamento
+     * viene rimosso per ultimo, a promozione confermata: se la sua
+     * rimozione fallisse (best-effort, mai bloccante), il file applicativo
+     * di destinazione resterebbe comunque scritto correttamente e
+     * indipendente da esso.
+     */
+    private function materializeUploadedFileIndependently(UploadedFile $file, string $destinationPath): void
+    {
+        $sourcePath = $file->getPathname();
+        $content = @file_get_contents($sourcePath);
+
+        if ($content === false) {
+            throw new RuntimeException('Impossibile leggere il file caricato: '.$sourcePath);
+        }
+
+        $tempPath = $destinationPath.'.tmp-'.getmypid().'-'.bin2hex(random_bytes(4));
+
+        if (@file_put_contents($tempPath, $content) === false) {
+            @unlink($tempPath);
+
+            throw new RuntimeException('Impossibile scrivere il file caricato in '.$destinationPath);
+        }
+
+        if (! @rename($tempPath, $destinationPath)) {
+            @unlink($tempPath);
+
+            throw new RuntimeException('Impossibile promuovere il file caricato in '.$destinationPath);
+        }
+
+        @unlink($sourcePath);
     }
 
     /**
@@ -559,18 +630,34 @@ class ImageService
      * tentativo fallito cosi' da restare idempotente anche se un unlink()
      * precedente e' in realta' riuscito nonostante un esito riportato come
      * "false".
+     *
+     * Un unlink() che riporta successo non e' trattato come la parola
+     * finale (vedi ConfirmsFileDeletion): lo stesso file puo' ricomparire
+     * poco dopo una rimozione apparentemente riuscita — esattamente il bug
+     * gia' osservato su Windows reale per PublicMediaSyncService, che
+     * senza questo controllo restava aperto qui per il sorgente JPG/PNG
+     * nei flussi di conversione automatica a WebP.
      */
     private function removeSourceWithRetry(string $path): bool
     {
+        $originalContentHash = @hash_file('sha256', $path);
+
         for ($attempt = 1; $attempt <= self::SOURCE_REMOVAL_RETRY_ATTEMPTS; $attempt++) {
             if ($this->removeFile($path)) {
-                return true;
-            }
+                if ($this->confirmFileReallyGone(
+                    $path,
+                    $originalContentHash,
+                    self::SOURCE_REMOVAL_CONFIRMATION_CHECKS,
+                    self::SOURCE_REMOVAL_CONFIRMATION_DELAY_MICROSECONDS,
+                )) {
+                    return true;
+                }
+            } else {
+                clearstatcache(true, $path);
 
-            clearstatcache(true, $path);
-
-            if (! file_exists($path)) {
-                return true;
+                if (! file_exists($path)) {
+                    return true;
+                }
             }
 
             if ($attempt < self::SOURCE_REMOVAL_RETRY_ATTEMPTS) {

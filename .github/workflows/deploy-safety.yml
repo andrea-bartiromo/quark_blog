@@ -1,0 +1,122 @@
+name: Deploy Safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - fix/deployment-mariadb-safety
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy-script-real-execution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    name: deploy.sh real execution (MariaDB 11.4)
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: kairus_deploy_test
+          MARIADB_USER: kairus
+          MARIADB_PASSWORD: kairus_test_password
+          MARIADB_ROOT_PASSWORD: root_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, fileinfo, openssl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Reset tracked files touched by composer/package discovery
+        run: |
+          set -eu
+          # composer install regenerates bootstrap/cache/packages.php (tracked
+          # in this repository) with this runner's own state, which would
+          # otherwise make deploy.sh's "tracked release files are clean" check
+          # fail for a reason unrelated to what each TEST below verifies.
+          git checkout -- .
+          git status --porcelain
+
+      - name: Provision a production-shaped .env against the ephemeral MariaDB service
+        run: |
+          set -eu
+          APP_KEY_VALUE="$(php -r 'echo "base64:".base64_encode(random_bytes(32));')"
+          cat > .env <<EOF
+          APP_NAME="Kairus"
+          APP_ENV=production
+          APP_KEY=${APP_KEY_VALUE}
+          APP_DEBUG=false
+          APP_URL=https://kairus.it
+          APP_LOCALE=it
+          APP_TIMEZONE=Europe/Rome
+
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=kairus_deploy_test
+          DB_USERNAME=kairus
+          DB_PASSWORD=kairus_test_password
+
+          CACHE_STORE=file
+          SESSION_DRIVER=file
+          QUEUE_CONNECTION=sync
+          MAIL_MAILER=array
+          LOG_CHANNEL=stack
+          EOF
+
+      - name: Fresh migration on the ephemeral MariaDB (clean baseline, no pending)
+        run: php artisan migrate:fresh --force
+
+      - name: TEST — wrong SHA must fail before touching the database
+        run: |
+          set -eu
+          if bash deploy.sh 0000000000000000000000000000000000000000; then
+            echo "deploy.sh unexpectedly succeeded with a wrong SHA" >&2
+            exit 1
+          fi
+          test ! -f REVISION
+          test ! -f DEPLOY_INFO
+
+      - name: TEST — pending migration must fail closed without migrating or recording revision
+        run: |
+          set -eu
+          php artisan migrate:rollback --step=1 --force
+          REAL_SHA="$(git rev-parse HEAD)"
+          if bash deploy.sh "$REAL_SHA"; then
+            echo "deploy.sh unexpectedly succeeded with a pending migration" >&2
+            exit 1
+          fi
+          test ! -f REVISION
+          test ! -f DEPLOY_INFO
+          php artisan migrate:status --no-ansi | grep -Eq '[[:space:]]Pending[[:space:]]'
+
+      - name: TEST — valid state (correct SHA, no pending migrations) must succeed and record revision metadata
+        run: |
+          set -eu
+          php artisan migrate --force
+          REAL_SHA="$(git rev-parse HEAD)"
+          bash deploy.sh "$REAL_SHA"
+          test -f REVISION
+          test -f DEPLOY_INFO
+          test "$(cat REVISION)" = "$REAL_SHA"
+          grep -q "revision=$REAL_SHA" DEPLOY_INFO
+          grep -q "database_driver=mysql" DEPLOY_INFO
