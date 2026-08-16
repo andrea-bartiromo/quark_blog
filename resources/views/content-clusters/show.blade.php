@@ -32,6 +32,20 @@
   $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
   $publishedStepCount = $articles->count();
 
+  // Tempo di lettura dell'intero percorso: somma automatica dei
+  // read_minutes degli articoli pubblicati (calcolati da Article stesso,
+  // vedi getReadTimeAttribute) — nessun campo editoriale da gestire a
+  // mano, si aggiorna da sé quando cambia la sequenza pubblicata.
+  $totalReadMinutes = (int) $articles->sum('read_minutes');
+
+  // Etichetta di categoria per singolo articolo: ha senso solo quando la
+  // sequenza pubblicata attraversa davvero più di una categoria (stesso
+  // segnale del "cambio di registro" più sotto) — su un percorso
+  // omogeneo (il caso comune) sarebbe una ripetizione senza informazione.
+  $pathCategories = $articles->pluck('category')->filter()->unique();
+  $isMultiCategoryPath = $pathCategories->count() > 1;
+  $categoryLabels = config('laboratorio.categories', []);
+
   // Kairus Visual Language — due asset SEMANTICI, non un conteggio
   // derivato dal numero di articoli (vedi App\Support\PathVisualLibrary):
   // l'atmosfera d'ingresso è sempre presente, il cambio di registro solo
@@ -67,6 +81,10 @@
         @endif
         <div class="path-hero__meta">
           <span>{{ $articles->count() }} {{ $articles->count() === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span>
+          @if($totalReadMinutes > 0)
+            <span aria-hidden="true">·</span>
+            <span>{{ $totalReadMinutes }} min di lettura</span>
+          @endif
           <span aria-hidden="true">·</span>
           <span>Mappa di lettura curata</span>
         </div>
@@ -100,6 +118,13 @@
         <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
       </div>
     </section>
+
+    @if($cluster->curator_note)
+      <figure class="path-curator-note" aria-labelledby="path-curator-note-title">
+        <figcaption id="path-curator-note-title" class="eyebrow">Nota del curatore</figcaption>
+        <blockquote>{{ $cluster->curator_note }}</blockquote>
+      </figure>
+    @endif
 
     @if($takeaways->isNotEmpty())
       <section class="path-narrative path-narrative--takeaways" aria-labelledby="path-takeaways-title">
@@ -157,6 +182,9 @@
             @endif
             <div class="path-step__body">
               @if($pillar && $article->is($pillar))<span class="path-step__label">Punto di partenza</span>@endif
+              @if($isMultiCategoryPath && $article->category && isset($categoryLabels[$article->category]))
+                <span class="path-step__category">{{ $categoryLabels[$article->category] }}</span>
+              @endif
               <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
               @if($article->excerpt)<p>{{ $article->excerpt }}</p>@endif
               <a class="path-step__cta" href="{{ route('articolo', $article->slug) }}">Leggi l'articolo <span aria-hidden="true">→</span></a>

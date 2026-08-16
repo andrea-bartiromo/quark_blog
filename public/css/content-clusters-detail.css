@@ -427,6 +427,12 @@
   text-transform: uppercase;
 }
 
+.path-detail .path-step__category {
+  border-color: var(--path-rule);
+  background: rgba(18, 63, 56, .06);
+  color: var(--path-ink, #17332f);
+}
+
 /* Tappa fantasma "il percorso continua": stesso filo, nodo aperto e
    tratteggiato — mai un titolo, una data o un numero di articoli futuri
    (Parte 5), solo una metafora grafica di prosecuzione. */
