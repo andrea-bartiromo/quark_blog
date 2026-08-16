@@ -84,7 +84,7 @@ for (const width of viewportWidths) {
         await expect(continuation.getByText('Qui riprenderà il viaggio.')).toBeVisible();
         await expect(page.getByText('3 tappe disponibili')).toHaveCount(0);
         await expect(page.getByText('quando il lavoro editoriale sarà pronto')).toHaveCount(0);
-        await expect(page.getByText('Avvisami quando continua')).toHaveCount(0);
+        await expect(continuation.getByRole('button', { name: 'Avvisami quando continua' })).toBeVisible();
         await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
         await expect(page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first()).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
@@ -212,7 +212,7 @@ for (const width of viewportWidths) {
         await expect(lastBox.getByText('Il prossimo capitolo arriverà qui.')).toBeVisible();
         await expect(lastBox.getByRole('link', { name: /Vedi tutto il percorso.*IA spiegata/ })).toBeVisible();
         await expect(lastBox.getByText('Non siamo ancora arrivati alla fine.')).toHaveCount(0);
-        await expect(lastBox.getByText('Avvisami quando continua')).toHaveCount(0);
+        await expect(lastBox.getByRole('button', { name: 'Avvisami quando continua' })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         await lastBox.getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
@@ -251,4 +251,35 @@ test('homepage Percorsi discovery uses editorial-scale cover on desktop', async 
 test('inactive Percorso returns 404', async ({ page }) => {
     const response = await page.goto('/percorsi/percorso-inattivo-ci');
     expect(response?.status()).toBe(404);
+});
+
+test('"Avvisami quando continua" form expands, submits, and shows a neutral success state', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const errors = watchPage(page);
+
+    await page.goto('/percorsi/ia-spiegata');
+
+    const cta = page.locator('[data-path-continues] [data-path-subscribe-toggle]');
+    const form = page.locator('[data-path-continues] [data-path-subscribe-form]');
+
+    await expect(cta).toBeVisible();
+    await expect(form).toBeHidden();
+    await expect(cta).toHaveAttribute('aria-expanded', 'false');
+
+    await cta.click();
+
+    await expect(form).toBeVisible();
+    await expect(cta).toHaveAttribute('aria-expanded', 'true');
+
+    const emailField = form.locator('input[type="email"]');
+    await expect(emailField).toBeFocused();
+    await emailField.fill('lettore-playwright@example.com');
+    await form.getByRole('button', { name: 'Avvisami' }).click();
+
+    await expect(page).toHaveURL(/\/percorsi\/ia-spiegata$/);
+    await expect(page.getByText("Grazie! Se il tuo indirizzo richiede conferma, riceverai un'email a breve.")).toBeVisible();
+    await expect(page.locator('[data-path-subscribe-toggle]')).toHaveCount(0);
+
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+    expect(errors).toEqual([]);
 });

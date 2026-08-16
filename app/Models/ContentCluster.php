@@ -56,6 +56,22 @@ class ContentCluster extends Model
         return $this->belongsTo(Article::class, 'pillar_article_id');
     }
 
+    public function pathSubscribers()
+    {
+        return $this->hasMany(ContentClusterSubscriber::class, 'content_cluster_id');
+    }
+
+    /**
+     * Unica definizione di "questo Percorso accetta nuove iscrizioni
+     * email adesso" — usata sia dalla UI pubblica (per mostrare o no il
+     * form) sia dal controller di iscrizione (per rifiutare un submit
+     * diretto su un Percorso concluso o inattivo, Parti 14/15).
+     */
+    public function acceptsPathSubscriptions(): bool
+    {
+        return $this->is_active && $this->isUpdating();
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

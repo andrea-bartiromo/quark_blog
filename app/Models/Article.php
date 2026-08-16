@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Services\ContentClusters\PathContinuationNotifier;
 use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\ProjectEditorialLinkService;
 use App\Services\ProjectTaskSyncService;
@@ -109,6 +110,25 @@ class Article extends Model
             // andrebbe rimosso, non lasciato a fare da eco.
             ArticleSlugRedirect::where('old_slug', $article->slug)->delete();
         });
+
+        // "Avvisami quando continua" (Percorsi): il punto reale e comune di
+        // pubblicazione, valido sia per il publish manuale
+        // (Admin\ArticleController::update(), Admin\ReviewController::approve())
+        // sia per quello programmato (PublishScheduledArticles) — entrambi
+        // passano da Eloquent update()/save(), quindi da qui. created()
+        // copre il caso, raro ma possibile dallo stesso form admin, di un
+        // articolo creato già con status=published.
+        static::created(function (Article $article) {
+            if ($article->status === self::STATUS_PUBLISHED) {
+                app(PathContinuationNotifier::class)->notifyIfPublished($article);
+            }
+        });
+
+        static::updated(function (Article $article) {
+            if ($article->wasChanged('status') && $article->status === self::STATUS_PUBLISHED) {
+                app(PathContinuationNotifier::class)->notifyIfPublished($article);
+            }
+        });
     }
 
     // Etichette leggibili per lo stato di verifica
@@ -157,6 +177,13 @@ class Article extends Model
     public function projects()
     {
         return $this->belongsToMany(Project::class, 'project_article')->withTimestamps();
+    }
+
+    public function contentClusters()
+    {
+        return $this->belongsToMany(ContentCluster::class, 'article_content_cluster')
+            ->withPivot(['position', 'is_primary', 'transition_text'])
+            ->withTimestamps();
     }
 
     public function linkSuggestions()

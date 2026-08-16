@@ -21,6 +21,7 @@
             <span class="path-continuation__eyebrow">Il percorso continua</span>
             <strong>Hai raggiunto l'ultima tappa disponibile.</strong>
             <span>Il prossimo capitolo arriverà qui.</span>
+            @include('content-clusters.partials.subscribe-form', ['cluster' => $pathNavigation['cluster']])
         </aside>
     @endif
     <div class="path-continuation__footer"><a class="path-continuation__all" href="{{ $pathNavigation['path_url'] }}" data-path-event="path_view_all_click">Vedi tutto il percorso “{{ $pathNavigation['cluster']->name }}” <span aria-hidden="true">→</span></a></div>

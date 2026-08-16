@@ -60,7 +60,7 @@ class ContentClusterLifecycleTest extends TestCase
             ->assertDontSee('3 tappe disponibili')
             ->assertDontSee('Tappa futura')
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
-            ->assertDontSee('Avvisami quando continua');
+            ->assertSee('Avvisami quando continua');
 
         $detailText = html_entity_decode(strip_tags($detailResponse->getContent()), ENT_QUOTES | ENT_HTML5);
         $this->assertStringContainsString(
@@ -86,7 +86,7 @@ class ContentClusterLifecycleTest extends TestCase
             ->assertSee('Vedi tutto il percorso')
             ->assertDontSee('Tappa futura')
             ->assertDontSee('quando il lavoro editoriale sarà pronto')
-            ->assertDontSee('Avvisami quando continua');
+            ->assertSee('Avvisami quando continua');
         $lastArticleText = html_entity_decode(strip_tags($lastArticleResponse->getContent()), ENT_QUOTES | ENT_HTML5);
         $this->assertStringContainsString(
             "Hai raggiunto l'ultima tappa disponibile.",

@@ -227,6 +227,7 @@
           <p>{{ $publishedStepCount }} {{ $publishedStepCount === 1 ? 'tappa disponibile' : 'tappe disponibili' }} · Percorso in aggiornamento</p>
           <p>Questo Percorso Kairus è ancora in evoluzione. Stiamo preparando nuovi capitoli per continuare l'esplorazione. Torna presto: la prossima tappa arriverà qui.</p>
           <p><em>Qui riprenderà il viaggio.</em></p>
+          @include('content-clusters.partials.subscribe-form', ['cluster' => $cluster])
         @else
           <p class="eyebrow">Continua l'esplorazione</p>
           <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>
