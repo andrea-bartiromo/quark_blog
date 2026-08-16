@@ -11,9 +11,15 @@ use Illuminate\Support\Facades\Schedule;
 
 // ── Newsletter settimanale ─────────────────────────────────────
 // Ogni giovedì alle 9:00 — seleziona articoli e genera intro con AI
+// withoutOverlapping() protegge solo il comando (evita di ri-accodare N
+// job se una run schedulata si sovrappone a un'altra); la protezione
+// reale contro l'invio duplicato per singolo iscritto/settimana è la
+// claim Cache::add dentro SendNewsletterJob, l'unica difesa anche contro
+// l'invio manuale ("Invia ora" in admin), che bypassa lo scheduler.
 Schedule::command('newsletter:send')
     ->weeklyOn(4, '09:00')
     ->timezone('Europe/Rome')
+    ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/newsletter.log'));
 
 // ── Automazione notizie ────────────────────────────────────────

@@ -66,11 +66,13 @@ class SendWeeklyNewsletter extends Command
         }
 
         $queued = 0;
+        $weekKey = now()->startOfWeek()->format('Y-m-d');
 
         foreach ($subscribers as $subscriber) {
+            $deliveryKey = $weekKey.':'.$subscriber->id;
 
-            // Dispatch del job asincrono
-            SendNewsletterJob::dispatch($subscriber);
+            // Dispatch del job asincrono con identità stabile per subscriber/settimana.
+            SendNewsletterJob::dispatch($subscriber, $deliveryKey);
 
             $queued++;
         }
