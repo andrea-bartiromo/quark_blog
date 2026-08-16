@@ -11,13 +11,24 @@ use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
+use App\Services\Communication\CampaignRenderer;
 use App\Services\Communication\RecipientSnapshotService;
 use Illuminate\Http\Request;
 
 class CommunicationCampaignController extends Controller
 {
+    /**
+     * Quanti iscritti confermati proporre nel selettore destinatario
+     * dell'anteprima. Un semplice elenco limitato, non una ricerca/
+     * segmentazione: l'anteprima non è uno strumento di targeting, e non
+     * esiste ancora un'interfaccia admin dedicata alla gestione dei
+     * singoli iscritti da cui riusare un pattern di ricerca.
+     */
+    private const PREVIEW_RECIPIENT_OPTIONS_LIMIT = 50;
+
     public function __construct(
         private readonly RecipientSnapshotService $recipientSnapshot,
+        private readonly CampaignRenderer $campaignRenderer,
     ) {}
 
     /**
@@ -209,9 +220,44 @@ class CommunicationCampaignController extends Controller
         return redirect()->route('admin.comunicazione.campaigns.index')->with('success', 'Campagna eliminata.');
     }
 
-    public function preview(CommunicationCampaign $campaign)
+    /**
+     * Anteprima reale: stesso CampaignRenderer che il futuro invio dovrà
+     * riusare, con un destinatario CONFERMATO reale selezionabile (o un
+     * segnaposto esplicito se la campagna non ne ha ancora nessuno). Solo
+     * lettura: nessuna riga viene creata/modificata/marcata da questa
+     * azione, indipendentemente da quante volte viene aperta.
+     */
+    public function preview(Request $request, CommunicationCampaign $campaign)
     {
-        return view('admin.communication.campaigns.preview', ['campaign' => $campaign]);
+        $recipientOptions = CommunicationSubscriber::confirmed()
+            ->orderByDesc('confirmed_at')
+            ->orderByDesc('id')
+            ->limit(self::PREVIEW_RECIPIENT_OPTIONS_LIMIT)
+            ->get(['id', 'email']);
+
+        $requestedId = $request->integer('subscriber_id') ?: null;
+
+        $subscriber = $requestedId
+            ? CommunicationSubscriber::confirmed()->find($requestedId)
+            : null;
+
+        // Nessuna selezione esplicita valida: rappresentativo = l'iscritto
+        // confermato più recente, così l'anteprima mostra sempre dati reali
+        // quando ne esistono, senza richiedere una scelta manuale.
+        if (! $subscriber) {
+            $subscriber = $recipientOptions->first()
+                ? CommunicationSubscriber::confirmed()->find($recipientOptions->first()->id)
+                : null;
+        }
+
+        $rendering = $this->campaignRenderer->render($campaign, $subscriber);
+
+        return view('admin.communication.campaigns.preview', [
+            'campaign' => $campaign,
+            'rendering' => $rendering,
+            'recipientOptions' => $recipientOptions,
+            'selectedSubscriberId' => $subscriber?->id,
+        ]);
     }
 
     /**
