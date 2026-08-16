@@ -56,3 +56,43 @@ jobs:
 
       - name: Execute tests
         run: php artisan test
+
+  windows-media-safety:
+    runs-on: windows-latest
+
+    name: Windows media safety (PHP 8.4)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pdo, sqlite, pdo_sqlite, fileinfo, openssl, gd, exif
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare test environment
+        shell: pwsh
+        run: |
+          Copy-Item .env.example .env
+          New-Item -ItemType Directory -Force database | Out-Null
+          New-Item -ItemType File -Force database/database.sqlite | Out-Null
+          Add-Content .env "DB_CONNECTION=sqlite"
+          Add-Content .env "DB_DATABASE=${{ github.workspace }}/database/database.sqlite"
+          Add-Content .env "CACHE_STORE=array"
+          Add-Content .env "SESSION_DRIVER=array"
+          Add-Content .env "QUEUE_CONNECTION=sync"
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Clear Laravel caches
+        run: php artisan optimize:clear
+
+      - name: Execute Windows media safety block
+        run: php artisan test tests/Unit/MediaWebpCleanupServiceTest.php tests/Unit/MediaWebpMigrationServiceTest.php tests/Feature/Console/ConvertMediaToWebpCommandTest.php tests/Feature/ImageWebpConversionTest.php tests/Feature/Uploads/CategoryProfileTuringMediaSyncTest.php tests/Feature/Uploads/MediaPublicSyncTest.php tests/Feature/PublicMediaSyncServiceTest.php
