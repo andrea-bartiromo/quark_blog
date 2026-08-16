@@ -9,9 +9,13 @@ use Tests\TestCase;
 class SelectiveDeployBackupScriptTest extends TestCase
 {
     private string $root;
+
     private string $appRoot;
+
     private string $publicRoot;
+
     private string $backupRoot;
+
     private string $script;
 
     protected function setUp(): void
