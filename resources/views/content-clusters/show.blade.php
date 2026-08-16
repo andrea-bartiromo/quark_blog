@@ -36,11 +36,17 @@
   // derivato dal numero di articoli (vedi App\Support\PathVisualLibrary):
   // l'atmosfera d'ingresso è sempre presente, il cambio di registro solo
   // quando la sequenza pubblicata attraversa davvero più di una categoria.
-  $atmosphereUrl = \App\Support\PathVisualLibrary::url(
-      \App\Support\PathVisualLibrary::atmosphereImage($cluster)
-  );
+  //
+  // L'apertura atmosferica di una pagina va nell'HERO stesso, mai altrove
+  // (Manuale di Identità Visiva Kairus/Quark, Vol. I — "una pagina può
+  // permettersi un'apertura atmosferica" — singolare, e lì dove il
+  // lettore la incontra prima ancora di iniziare a leggere): quando il
+  // Percorso non ha una cover propria, l'immagine della Visual Library
+  // diventa lo sfondo cinematografico dell'hero stesso, non un riquadro
+  // separato più in basso.
+  $atmosphereImage = \App\Support\PathVisualLibrary::atmosphereImage($cluster);
+  $heroImageUrl = $pathCoverUrl ?: \App\Support\PathVisualLibrary::url($atmosphereImage);
   $transitionImage = \App\Support\PathVisualLibrary::transitionImage($cluster);
-  $transitionUrl = $transitionImage ? \App\Support\PathVisualLibrary::url($transitionImage) : null;
 @endphp
 
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
@@ -49,7 +55,8 @@
       <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
     </nav>
 
-    <header class="path-hero">
+    <header class="path-hero" style="background-image: url('{{ $heroImageUrl }}')">
+      <div class="path-hero__scrim" aria-hidden="true"></div>
       <div class="path-hero__copy">
         <p class="eyebrow">Percorso Kairus</p>
         <h1 id="percorso-title">{{ $cluster->name }}</h1>
@@ -65,25 +72,15 @@
         </div>
       </div>
 
-      <div class="path-hero__cover {{ $pathCoverUrl ? '' : 'path-hero__cover--fallback' }}">
-        @if($pathCoverUrl)
-          <a
-            class="path-hero__cover-trigger"
-            href="{{ $pathCoverUrl }}"
-            data-media-viewer-target="{{ $pathCoverViewerId }}"
-            aria-haspopup="dialog"
-            aria-label="Visualizza l'immagine completa del percorso {{ $cluster->name }}"
-          >
-            <img src="{{ $pathCoverUrl }}" alt="{{ $pathCoverAlt }}" width="720" height="450">
-            <span class="path-hero__cover-action" aria-hidden="true">Visualizza immagine</span>
-          </a>
-        @else
-          <span class="path-card__fallback" aria-hidden="true">
-            <span>Kairus · Percorso</span>
-            <strong>{{ $cluster->name }}</strong>
-          </span>
-        @endif
-      </div>
+      @if($pathCoverUrl)
+        <button
+          type="button"
+          class="path-hero__view-trigger"
+          data-media-viewer-target="{{ $pathCoverViewerId }}"
+          aria-haspopup="dialog"
+          aria-label="Visualizza l'immagine completa del percorso {{ $cluster->name }}"
+        >Visualizza immagine</button>
+      @endif
     </header>
 
     @if($pathCoverUrl)
@@ -102,9 +99,6 @@
         <h2 id="path-note-title">Perché questo percorso</h2>
         <p>{{ $cluster->description ?: ($cluster->short_description ?: 'Una sequenza curata di approfondimenti per costruire il quadro un passaggio alla volta.') }}</p>
       </div>
-      <figure class="path-entrance__atmosphere" aria-hidden="true">
-        <img src="{{ $atmosphereUrl }}" alt="" loading="lazy" decoding="async" width="1200" height="1500">
-      </figure>
     </section>
 
     @if($takeaways->isNotEmpty())
@@ -193,8 +187,8 @@
       </ol>
     </section>
 
-    @isset($transitionUrl)
-      @include('content-clusters.partials.path-transition', ['src' => $transitionUrl])
+    @isset($transitionImage)
+      @include('content-clusters.partials.path-transition')
     @endisset
 
     <footer class="path-ending {{ $showContinuation ? 'path-ending--continues' : '' }}" @if($showContinuation) data-path-continues @endif>

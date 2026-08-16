@@ -95,31 +95,30 @@
 .path-detail > .container { max-width: var(--max-width); }
 .path-breadcrumb { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1.25rem; color: var(--ink-muted); font-size: .82rem; }
 .path-breadcrumb a:hover { color: var(--primary-dark); text-decoration: underline; }
-.path-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--white); box-shadow: var(--shadow); }
-.path-hero__copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: clamp(1.6rem, 3.2vw, 2.8rem); }
+/* Fallback generico a bassa specificità: .path-detail .path-hero (in
+   content-clusters-detail.css) governa l'unica pagina che usa questa
+   classe e vince sempre. Qui solo un contenitore ragionevole se quel
+   foglio non fosse caricato. */
+.path-hero { position: relative; display: flex; align-items: flex-end; min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--white); box-shadow: var(--shadow); }
+.path-hero__copy { position: relative; display: flex; min-width: 0; flex-direction: column; padding: clamp(1.6rem, 3.2vw, 2.8rem); }
 .path-hero h1 { margin: .35rem 0 1rem; max-width: 760px; font-family: var(--font-display); font-size: clamp(2.45rem, 5vw, 4.35rem); line-height: .98; letter-spacing: -.045em; overflow-wrap: anywhere; }
 .path-hero__copy > p:not(.eyebrow) { max-width: 62ch; color: var(--ink-soft); font-size: clamp(1rem, 1.7vw, 1.14rem); line-height: 1.75; }
 .path-hero__meta { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.3rem; color: var(--primary-dark); font-size: .78rem; font-weight: 800; }
-.path-hero__cover { min-width: 0; min-height: 360px; aspect-ratio: 4 / 3; overflow: hidden; background: var(--primary-dark); }
-.path-hero__cover img { width: 100%; height: 100%; object-fit: cover; }
-.path-hero__cover--fallback .path-card__fallback { min-height: 100%; padding: clamp(1.6rem, 3vw, 2.4rem); }
-.path-hero__cover--fallback .path-card__fallback strong { font-size: clamp(2rem, 4vw, 3.4rem); }
 
-/* L'INGRESSO (Kairus Path Visual Language, Parte 1): un'unica
-   composizione asimmetrica, non un testo seguito da un rettangolo fotografico
-   separato. Il pannello immagine entra lateralmente nel layout — arriva
-   fino al bordo esterno del contenitore, si fonde con l'avorio/verde
-   Kairus nel punto di cucitura invece di finire con uno spigolo netto —
-   mentre il testo resta nel proprio pannello, mai sovrapposto a zone
-   fotografiche complesse. */
+/* "Perché questo percorso" — testo puro, nessuna immagine (Manuale di
+   Identità Visiva Kairus/Quark, Vol. I: l'unica apertura atmosferica
+   della pagina vive nell'hero; un'immagine qui non spiegherebbe,
+   confronterebbe, orienterebbe o renderebbe visibile nulla — sarebbe
+   pura decorazione, rimovibile senza perdita, esattamente ciò che il
+   manuale mette in guardia). Un'unica card editoriale, il motivo
+   orbitale Kairus nell'angolo come unico accento oltre al testo. */
 .path-detail .path-entrance {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.05fr);
-  align-items: stretch;
-  margin: clamp(2.5rem, 5vw, 4rem) 0;
   overflow: hidden;
+  margin: clamp(2.5rem, 5vw, 4rem) 0;
+  padding: clamp(2rem, 4vw, 3rem);
   border: 1px solid var(--path-rule);
+  border-top: 4px solid var(--path-gold, #c9782b);
   border-radius: 26px;
   background: var(--path-green-soft, #dfeae4);
   box-shadow: var(--path-shadow);
@@ -130,10 +129,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: .5rem;
-  padding: clamp(2rem, 4vw, 3rem);
-  border-top: 4px solid var(--path-gold, #c9782b);
 }
 
 /* Colore fisso, non var(--path-gold): la firma visiva varia l'oro dei
@@ -142,7 +138,7 @@
    stabile che superi sempre AA, indipendentemente dal preset. */
 .path-detail .path-entrance__copy .eyebrow { color: #9a4f16; }
 .path-detail .path-entrance__copy h2 {
-  max-width: 20ch;
+  max-width: 24ch;
   margin: 0 0 .3rem;
   color: var(--path-ink, #17332f);
   font-family: var(--font-display, Georgia, serif);
@@ -151,52 +147,26 @@
   letter-spacing: -.025em;
 }
 .path-detail .path-entrance__copy p:last-child {
-  max-width: 42ch;
+  max-width: 60ch;
   margin: 0;
   color: #3d534c;
   font-size: 1rem;
   line-height: 1.7;
 }
 
-.path-detail .path-entrance__atmosphere {
-  position: relative;
-  min-height: 320px;
-  margin: 0;
-  overflow: hidden;
-}
-.path-detail .path-entrance__atmosphere img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-/* Fusione al punto di cucitura: l'immagine sfuma nel pannello di testo
-   invece di terminare con uno spigolo netto (Parte 1 — "fondersi con
-   avorio/verde Kairus tramite gradient"). */
-.path-detail .path-entrance__atmosphere::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, var(--path-green-soft, #dfeae4) 0%, rgba(223, 234, 228, 0) 14%);
-  pointer-events: none;
-}
-
-/* Motivo orbitale che attraversa la cucitura testo/immagine (Parte 1 —
-   "eventualmente attraversata da sottili elementi orbitali"): la stessa
-   identità già usata altrove nel Percorso, qui a cavallo dei due pannelli
-   invece che chiusa in un angolo. */
+/* Motivo orbitale nell'angolo — la stessa identità Kairus usata altrove
+   nel Percorso, qui un accento discreto, mai sovrapposto al testo. */
 .path-detail .path-entrance::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: calc(280px + (100% - 280px - 320px) * (1 / 2.05));
-  z-index: 2;
-  width: clamp(9rem, 16vw, 13rem);
+  right: clamp(-4rem, -3vw, -1rem);
+  bottom: clamp(-5rem, -5vw, -2rem);
+  z-index: 0;
+  width: clamp(12rem, 22vw, 19rem);
   aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(251, 247, 238, .55);
+  border: 1px solid rgba(18, 63, 56, .14);
   border-radius: 50%;
-  background: repeating-radial-gradient(circle at center, transparent 0 22px, rgba(251, 247, 238, .16) 23px 24px);
+  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(18, 63, 56, .07) 28px 29px);
   pointer-events: none;
 }
 
@@ -313,7 +283,6 @@
   .paths-index .path-card__body { padding: 1.35rem 1.2rem 1.5rem; }
   .paths-index .path-card h2 { font-size: clamp(1.7rem, 8vw, 2.15rem); }
   .paths-index .path-card__meta { flex-wrap: wrap; }
-  .path-hero__cover { order: -1; min-height: 0; aspect-ratio: 16 / 9; }
   .path-hero__copy { padding: 1.35rem; }
   .path-pillar { gap: .2rem; }
   .path-pillar__intro { padding: .8rem .65rem 1rem; }

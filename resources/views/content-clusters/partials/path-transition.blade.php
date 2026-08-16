@@ -1,17 +1,16 @@
 {{--
-    "Cambio di registro" (Kairus Path Visual Language, Parte 5) — appare
-    solo quando App\Support\PathVisualLibrary::transitionImage() rileva un
-    vero scarto tematico nella sequenza pubblicata, mai come conteggio di
-    articoli. Struttura editoriale, non un "blocco foto": kicker, crop
-    atmosferico, brevissima frase strutturale (mai un'affermazione
-    inventata sul contenuto — solo il fatto del cambio stesso), segno
-    orbitale. alt="" perché resta decorativa: il testo del kicker/frase
-    porta già il significato che serve.
+    "Cambio di registro" (Kairus Path Visual Language). Manuale di Identità
+    Visiva Kairus/Quark, Vol. I: l'alternanza chiaro/scuro nelle pagine
+    dello Speciale Turing non decora, segnala un cambio di registro
+    narrativo (dal racconto alla sintesi tecnica) — mai una seconda
+    immagine atmosferica. Qui la stessa tecnica: quando la sequenza
+    pubblicata attraversa davvero più di una categoria
+    (App\Support\PathVisualLibrary::transitionImage() non nullo, usato
+    solo come segnale, non come sorgente di un'immagine), il tono della
+    pagina cambia per un momento — nessuna foto, solo tipografia su fondo
+    scuro, la stessa grammatica delle sezioni scure di Enigma e AI.
 --}}
-<section class="path-transition" aria-hidden="true">
+<section class="path-transition">
   <p class="path-transition__kicker">Cambio di registro</p>
-  <figure class="path-transition__crop">
-    <img src="{{ $src }}" alt="" loading="lazy" decoding="async" width="1600" height="900">
-  </figure>
   <p class="path-transition__phrase">Da qui il percorso guarda il tema da un'altra angolazione.</p>
 </section>

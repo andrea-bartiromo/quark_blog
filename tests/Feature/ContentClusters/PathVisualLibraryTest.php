@@ -152,21 +152,28 @@ class PathVisualLibraryTest extends TestCase
         // La cover dell'articolo nella timeline resta quella reale.
         $response->assertSee('path-step__cover', false);
         $response->assertSee('copertina-articolo.jpg', false);
-        // L'ingresso atmosferico appare come composizione distinta.
-        $response->assertSee('path-entrance__atmosphere', false);
+        // L'ingresso atmosferico è lo sfondo cinematografico dell'hero
+        // stesso, mai una seconda composizione più in basso.
+        $response->assertSee('class="path-hero"', false);
         $response->assertSee('assets/img/percorsi/kairus-space-', false);
     }
 
-    public function test_the_entrance_markup_is_decorative_and_never_leaks_unpublished_titles(): void
+    public function test_the_hero_atmosphere_markup_is_decorative_and_never_leaks_unpublished_titles(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
-        $cluster->articles()->attach($this->article('Tappa pubblica', 'salute')->id, ['position' => 10]);
+        $published = $this->article('Tappa pubblica', 'salute');
+        $published->update(['cover_image' => 'copertina-tappa.jpg']);
+        $cluster->articles()->attach($published->id, ['position' => 10]);
         $this->article('Titolo non ancora pubblico', 'salute', Article::STATUS_SCHEDULED);
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertSee('aria-hidden="true"', false);
+        // Lo sfondo atmosferico dell'hero è puramente decorativo: lo
+        // scrim che ne garantisce la leggibilità è marcato aria-hidden.
+        $response->assertSee('path-hero__scrim" aria-hidden="true"', false);
+        // Le cover reali degli articoli nella timeline restano immagini
+        // decorative (alt vuoto), il testo del link porta già il titolo.
         $response->assertSee('alt=""', false);
         $response->assertDontSee('Titolo non ancora pubblico');
     }
@@ -191,7 +198,7 @@ class PathVisualLibraryTest extends TestCase
         $cluster->articles()->attach($this->article('B', 'energia')->id, ['position' => 20]);
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
-        $count = substr_count($response->getContent(), 'path-transition__crop');
+        $count = substr_count($response->getContent(), 'class="path-transition"');
 
         $response->assertOk();
         $this->assertSame(1, $count);
@@ -205,8 +212,8 @@ class PathVisualLibraryTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('path-transition', false);
-        // L'ingresso atmosferico resta comunque presente: è sempre
-        // l'apertura della mappa editoriale, anche senza articoli.
-        $response->assertSee('path-entrance__atmosphere', false);
+        // L'ingresso atmosferico resta comunque presente nell'hero: è
+        // sempre l'apertura della mappa editoriale, anche senza articoli.
+        $response->assertSee('class="path-hero"', false);
     }
 }
