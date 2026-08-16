@@ -19,12 +19,18 @@ Schedule::command('newsletter:send')
 // ── Automazione notizie ────────────────────────────────────────
 // Raccoglie da feed RSS e genera bozze con AI
 // Lunedì e giovedì alle 9:30 (dopo la newsletter)
+// withoutOverlapping() qui protegge solo le due run schedulate fra loro;
+// il comando ha comunque una claim per-source_url interna che è l'unica
+// difesa reale contro il fetch manuale ("Aggiorna ora") in admin, che
+// bypassa lo scheduler.
 Schedule::command('news:fetch')
     ->weeklyOn(1, '09:30')
+    ->withoutOverlapping(60)
     ->appendOutputTo(storage_path('logs/news-fetch.log'));
 
 Schedule::command('news:fetch')
     ->weeklyOn(4, '09:30')
+    ->withoutOverlapping(60)
     ->appendOutputTo(storage_path('logs/news-fetch.log'));
 
 // ── Backup automatico database ─────────────────────────────────
