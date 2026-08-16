@@ -98,9 +98,38 @@ class CampaignDeliveryOrchestrator
     }
 
     /**
-     * Transiziona la campagna a 'sending', elabora la coda, poi
+     * Transiziona la campagna a 'sending', elabora la coda FINO A CHE non
+     * resta più nulla di 'queued' (o fino a $maxAttempts round), poi
      * transiziona a 'completed'. Se la transizione iniziale fallisce
      * (già in un altro stato, corsa persa), non elabora nulla.
+     *
+     * BUG REALE TROVATO E CORRETTO durante la simulazione end-to-end a
+     * 10.000 (N2.14): la versione precedente chiamava processQueue() UNA
+     * SOLA volta e poi transizionava sempre a 'completed', anche se
+     * persistResult() aveva rimesso righe a 'queued' per un retry
+     * (fallimento transitorio sotto $maxAttempts). Quelle righe
+     * restavano bloccate in 'queued' per sempre: una campagna
+     * 'completed' è terminale nella state machine, quindi nessuna
+     * chiamata futura a runCampaign() poteva più rielaborarle — il
+     * criterio di retry documentato ("fino a DEFAULT_MAX_ATTEMPTS poi
+     * failed") non veniva mai rispettato per queste righe, che non
+     * diventavano né 'sent' né 'failed'. Riprodotto con un test minimo
+     * prima della correzione (vedi
+     * CampaignDeliveryOrchestratorTest::test_a_transient_failure_is_fully_retried_within_a_single_run_campaign_call).
+     *
+     * Ogni round rielabora SOLO le righe 'queued' in quel momento — una
+     * riga rimessa in coda nel round N è rielaborata nel round N+1, mai
+     * nello stesso round in cui è stata ri-accodata (stessa garanzia già
+     * presente in processQueue(): uno snapshot degli id preso a inizio
+     * round). Il ciclo termina sempre entro $maxAttempts round: dopo
+     * tanti tentativi nessuna riga può più essere "ancora ritentabile"
+     * (persistResult() la converte in failed/max_attempts_exceeded prima
+     * di raggiungere quella soglia), quindi non è un loop illimitato.
+     * Il conteggio `eligible` del report resta quello del PRIMO round
+     * (il numero di destinatari realmente distinti coinvolti), gli altri
+     * contatori si sommano attraverso i round: una riga ritentata e poi
+     * accettata produce sia un transient_failed sia un accepted, entrambi
+     * eventi reali avvenuti durante l'esecuzione.
      */
     public function runCampaign(CommunicationCampaign $campaign, EmailDeliveryProvider $provider, int $maxAttempts = self::DEFAULT_MAX_ATTEMPTS): ?CampaignRunReport
     {
@@ -117,9 +146,42 @@ class CampaignDeliveryOrchestrator
             return null;
         }
 
-        $report = $this->processQueue($campaign, $provider, $maxAttempts);
+        $report = null;
 
-        $this->campaignMachine->transition($campaign->fresh(), CommunicationCampaign::STATUS_COMPLETED);
+        for ($round = 0; $round < $maxAttempts; $round++) {
+            $freshCampaign = $campaign->fresh();
+
+            // Cancellata (o comunque non più 'sending') tra un round e
+            // l'altro: fermarsi qui, non ha senso continuare a elaborare
+            // — le righe ancora 'queued' sono già state cancellate in
+            // blocco da cancelCampaign(), quelle già reclamate si
+            // risolveranno da sole via revalidazione al prossimo giro,
+            // fuori da questo ciclo.
+            if ($freshCampaign->status !== CommunicationCampaign::STATUS_SENDING) {
+                break;
+            }
+
+            $roundReport = $this->processQueue($freshCampaign, $provider, $maxAttempts);
+            $report = $report === null ? $roundReport : $report->mergeOutcomes($roundReport);
+
+            if (! CommunicationSend::where('campaign_id', $campaign->id)->where('status', CommunicationSend::STATUS_QUEUED)->exists()) {
+                break;
+            }
+        }
+
+        $report ??= new CampaignRunReport;
+
+        // Se il ciclo si è fermato perché la campagna è stata cancellata
+        // nel frattempo, 'cancelled' è già terminale: nessuna transizione
+        // a 'completed' è ammessa da lì (cancelCampaign() ha già portato
+        // la campagna al suo stato finale corretto), quindi va saltata
+        // qui invece di far lanciare RuntimeException a transition() per
+        // una transizione che, in questo scenario, non è affatto un
+        // errore di programmazione.
+        $finalCampaign = $campaign->fresh();
+        if ($this->campaignMachine->canTransition($finalCampaign, CommunicationCampaign::STATUS_COMPLETED)) {
+            $this->campaignMachine->transition($finalCampaign, CommunicationCampaign::STATUS_COMPLETED);
+        }
 
         return $report;
     }

@@ -118,11 +118,19 @@ class CampaignDryRunTest extends TestCase
         $this->assertSame(4, $report->eligible);
         $this->assertSame(0, $report->skipped);
         $this->assertSame(1, $report->accepted);
-        $this->assertSame(1, $report->transientFailed);
+        // Il resolver risponde SEMPRE transient_failure per questo
+        // iscritto: il dry-run ora rielabora la coda round dopo round
+        // (correzione N2.14 di runCampaign(), la stessa macchina usata
+        // dal dry-run) esattamente come un invio reale — 2 tentativi
+        // ritentati (round 1 e 2) prima di esaurire i tentativi al
+        // round 3, dove diventa un fallimento definitivo.
+        $this->assertSame(2, $report->transientFailed);
         // Il fallimento esplicito del provider (rejected) + il fallimento
-        // di revalidazione (iscritto non più confermato) sommano a due.
-        $this->assertSame(2, $report->permanentFailed);
+        // di revalidazione (iscritto non più confermato) + il transient
+        // esaurito (max_attempts_exceeded) sommano a tre.
+        $this->assertSame(3, $report->permanentFailed);
         $this->assertSame(CommunicationSend::STATUS_QUEUED, $revalidationFailure->fresh()->status);
+        $this->assertSame(CommunicationSend::STATUS_QUEUED, $transient->fresh()->status);
     }
 
     public function test_dry_run_never_persists_any_mutation_to_campaign_or_sends(): void

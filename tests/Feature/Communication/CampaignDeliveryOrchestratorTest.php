@@ -369,6 +369,104 @@ class CampaignDeliveryOrchestratorTest extends TestCase
         $this->assertSame(0, $provider->attemptCount());
     }
 
+    /**
+     * BUG REALE trovato durante la simulazione end-to-end a 10.000
+     * (N2.14) e corretto qui: runCampaign() chiamava processQueue() una
+     * sola volta, poi transizionava SEMPRE a 'completed' — anche quando
+     * un fallimento transitorio aveva rimesso una riga a 'queued' per un
+     * retry. Quella riga restava bloccata per sempre sotto una campagna
+     * ormai terminale, senza mai diventare né 'sent' né 'failed'.
+     * runCampaign() ora rielabora la coda in più round finché non resta
+     * più nulla di 'queued' (o fino a $maxAttempts round), esattamente
+     * come farebbe un invio reale con più tentativi sullo stesso
+     * destinatario.
+     */
+    public function test_a_transient_failure_is_fully_retried_within_a_single_run_campaign_call(): void
+    {
+        $campaign = CommunicationCampaign::factory()->draft()->create([
+            'sender_profile_id' => CommunicationSenderProfile::factory()->create()->id,
+        ]);
+        $subscriber = CommunicationSubscriber::factory()->confirmed()->create();
+        $this->queuedSend($campaign, $subscriber);
+
+        $provider = (new RecordingEmailProvider)->willReturn(
+            new DeliveryResult(status: DeliveryResult::STATUS_TRANSIENT_FAILURE, reason: 'timeout simulato'),
+            new DeliveryResult(status: DeliveryResult::STATUS_TRANSIENT_FAILURE, reason: 'timeout simulato'),
+            new DeliveryResult(status: DeliveryResult::STATUS_ACCEPTED, providerMessageId: 'ok-al-terzo-tentativo'),
+        );
+
+        $report = $this->orchestrator()->runCampaign($campaign, $provider);
+
+        $this->assertNotNull($report);
+        $this->assertSame(1, $report->eligible);
+        $this->assertSame(1, $report->accepted);
+        $this->assertSame(2, $report->transientFailed);
+        $this->assertSame(0, $report->permanentFailed);
+        $this->assertSame(3, $provider->attemptCount());
+
+        $send = CommunicationSend::where('campaign_id', $campaign->id)->firstOrFail();
+        $this->assertSame(CommunicationSend::STATUS_SENT, $send->status);
+        $this->assertSame(3, $send->attempts);
+        $this->assertSame(CommunicationCampaign::STATUS_COMPLETED, $campaign->fresh()->status);
+    }
+
+    public function test_a_transient_failure_exhausting_all_attempts_becomes_permanently_failed_within_run_campaign(): void
+    {
+        $campaign = CommunicationCampaign::factory()->draft()->create([
+            'sender_profile_id' => CommunicationSenderProfile::factory()->create()->id,
+        ]);
+        $this->queuedSend($campaign);
+
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(fn () => new DeliveryResult(
+            status: DeliveryResult::STATUS_TRANSIENT_FAILURE,
+            reason: 'timeout persistente simulato',
+        ));
+
+        $report = $this->orchestrator()->runCampaign($campaign, $provider, maxAttempts: 3);
+
+        $this->assertNotNull($report);
+        $this->assertSame(0, $report->accepted);
+        $this->assertSame(2, $report->transientFailed);
+        $this->assertSame(1, $report->permanentFailed);
+        $this->assertSame(3, $provider->attemptCount());
+
+        $send = CommunicationSend::where('campaign_id', $campaign->id)->firstOrFail();
+        $this->assertSame(CommunicationSend::STATUS_FAILED, $send->status);
+        $this->assertSame('max_attempts_exceeded', $send->failure_reason);
+        $this->assertSame(3, $send->attempts);
+        $this->assertSame(CommunicationCampaign::STATUS_COMPLETED, $campaign->fresh()->status);
+    }
+
+    public function test_a_campaign_cancelled_mid_run_never_crashes_transitioning_at_the_end(): void
+    {
+        // Se runCampaign() viene interrotto (in questo test, simulando
+        // una cancellazione avvenuta tra un round e l'altro) la
+        // campagna è già 'cancelled' — terminale, come 'completed'. La
+        // transizione finale deve limitarsi a non fare nulla, mai
+        // lanciare RuntimeException per una transizione cancelled->completed
+        // genuinamente non ammessa dalla tabella.
+        $campaign = CommunicationCampaign::factory()->draft()->create([
+            'sender_profile_id' => CommunicationSenderProfile::factory()->create()->id,
+        ]);
+        $this->queuedSend($campaign);
+
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(function ($message) use ($campaign) {
+            // Cancella la campagna DURANTE la chiamata al provider, per
+            // simulare un attore concorrente — il round corrente
+            // completa comunque il processSend() in corso.
+            $this->orchestrator()->cancelCampaign($campaign->fresh());
+
+            return new DeliveryResult(status: DeliveryResult::STATUS_TRANSIENT_FAILURE, reason: 'timeout');
+        });
+
+        $report = $this->orchestrator()->runCampaign($campaign, $provider, maxAttempts: 3);
+
+        $this->assertNotNull($report);
+        $this->assertSame(CommunicationCampaign::STATUS_CANCELLED, $campaign->fresh()->status);
+    }
+
     public function test_delivered_message_carries_the_canonical_idempotency_key(): void
     {
         $subscriber = CommunicationSubscriber::factory()->confirmed()->create();

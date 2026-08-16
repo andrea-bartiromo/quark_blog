@@ -45,6 +45,27 @@ final class CampaignRunReport
     }
 
     /**
+     * Somma i contatori di evento di un altro report (skipped/rendered/
+     * accepted/transientFailed/permanentFailed) mantenendo l'eligible di
+     * QUESTO report — usato da runCampaign() per accorpare più round di
+     * elaborazione (una riga ritentata e poi accettata deve produrre sia
+     * un transient_failed sia un accepted: entrambi sono eventi reali
+     * avvenuti, non un unico "stato finale" da collassare), senza
+     * moltiplicare il conteggio di destinatari realmente distinti.
+     */
+    public function mergeOutcomes(self $other): self
+    {
+        return new self(
+            $this->eligible,
+            $this->skipped + $other->skipped,
+            $this->rendered + $other->rendered,
+            $this->accepted + $other->accepted,
+            $this->transientFailed + $other->transientFailed,
+            $this->permanentFailed + $other->permanentFailed,
+        );
+    }
+
+    /**
      * @return array{eligible:int, skipped:int, rendered:int, accepted:int, transient_failed:int, permanent_failed:int}
      */
     public function toArray(): array
