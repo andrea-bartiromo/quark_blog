@@ -105,48 +105,99 @@
 .path-hero__cover--fallback .path-card__fallback { min-height: 100%; padding: clamp(1.6rem, 3vw, 2.4rem); }
 .path-hero__cover--fallback .path-card__fallback strong { font-size: clamp(2rem, 4vw, 3.4rem); }
 
-/* Existing editorial note becomes the single Kairus statement on detail.
-   Toni chiari (non lo stesso verde profondo dell'hero appena sopra): due
-   pannelli scuri consecutivi a tutta larghezza si fondevano in un'unica
-   massa, perdendo ritmo — qui la stessa identità (bordo oro, motivo
-   orbitale) regge su un verde-avorio chiaro, dando respiro reale. */
-.path-detail .path-editorial-note.path-brand-statement {
+/* L'INGRESSO (Kairus Path Visual Language, Parte 1): un'unica
+   composizione asimmetrica, non un testo seguito da un rettangolo fotografico
+   separato. Il pannello immagine entra lateralmente nel layout — arriva
+   fino al bordo esterno del contenitore, si fonde con l'avorio/verde
+   Kairus nel punto di cucitura invece di finire con uno spigolo netto —
+   mentre il testo resta nel proprio pannello, mai sovrapposto a zone
+   fotografiche complesse. */
+.path-detail .path-entrance {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.05fr);
+  align-items: stretch;
+  margin: clamp(2.5rem, 5vw, 4rem) 0;
   overflow: hidden;
-  border-color: rgba(201, 120, 43, .32);
-  border-top: 4px solid var(--path-gold, #c9782b);
+  border: 1px solid var(--path-rule);
+  border-radius: 26px;
   background: var(--path-green-soft, #dfeae4);
-  color: var(--path-ink, #17332f);
+  box-shadow: var(--path-shadow);
 }
-.path-detail .path-editorial-note.path-brand-statement::after {
+
+.path-detail .path-entrance__copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: .5rem;
+  padding: clamp(2rem, 4vw, 3rem);
+  border-top: 4px solid var(--path-gold, #c9782b);
+}
+
+/* Colore fisso, non var(--path-gold): la firma visiva varia l'oro dei
+   bordi/decorazioni, ma su testo piccolo alcuni preset scendono sotto
+   4.5:1 contro l'avorio (misurato, non presunto) — qui serve un valore
+   stabile che superi sempre AA, indipendentemente dal preset. */
+.path-detail .path-entrance__copy .eyebrow { color: #9a4f16; }
+.path-detail .path-entrance__copy h2 {
+  max-width: 20ch;
+  margin: 0 0 .3rem;
+  color: var(--path-ink, #17332f);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -.025em;
+}
+.path-detail .path-entrance__copy p:last-child {
+  max-width: 42ch;
+  margin: 0;
+  color: #3d534c;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.path-detail .path-entrance__atmosphere {
+  position: relative;
+  min-height: 320px;
+  margin: 0;
+  overflow: hidden;
+}
+.path-detail .path-entrance__atmosphere img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Fusione al punto di cucitura: l'immagine sfuma nel pannello di testo
+   invece di terminare con uno spigolo netto (Parte 1 — "fondersi con
+   avorio/verde Kairus tramite gradient"). */
+.path-detail .path-entrance__atmosphere::before {
   content: "";
   position: absolute;
-  /* Angolo del motivo orbitale: valore di fallback in basso a destra,
-     sovrascritto per preset di firma qui sotto (Pass 2, Parte 2 —
-     "posizione degli elementi decorativi" come tratto distintivo). */
-  inset: auto clamp(-4rem, -3vw, -1rem) clamp(-5rem, -5vw, -2rem) auto;
-  width: clamp(12rem, 22vw, 19rem);
-  aspect-ratio: 1;
-  border: 1px solid rgba(18, 63, 56, .14);
-  border-radius: 50%;
-  background: repeating-radial-gradient(circle at center, transparent 0 27px, rgba(18, 63, 56, .07) 28px 29px);
+  inset: 0;
+  background: linear-gradient(90deg, var(--path-green-soft, #dfeae4) 0%, rgba(223, 234, 228, 0) 14%);
   pointer-events: none;
 }
-.path-detail .path-editorial-note.path-brand-statement .eyebrow { position: relative; z-index: 1; color: var(--path-gold, #9a4f16); }
-.path-detail .path-editorial-note.path-brand-statement h2 { position: relative; z-index: 1; color: var(--path-ink, #17332f); }
-.path-detail .path-editorial-note.path-brand-statement > p:last-child { position: relative; z-index: 1; color: #3d534c; }
 
-/* Angolo del motivo orbitale per preset — stessa firma applicata
-   all'intera .path-detail (vedi content-clusters-detail.css). */
-.path-detail.path-signature-1 .path-brand-statement::after,
-.path-detail.path-signature-4 .path-brand-statement::after {
-  inset: clamp(-5rem, -5vw, -2rem) auto auto clamp(-4rem, -3vw, -1rem);
-}
-.path-detail.path-signature-2 .path-brand-statement::after {
-  inset: auto auto clamp(-6rem, -6vw, -3rem) 45%;
-}
-.path-detail.path-signature-3 .path-brand-statement::after {
-  inset: clamp(-5rem, -5vw, -2rem) clamp(-4rem, -3vw, -1rem) auto auto;
+/* Motivo orbitale che attraversa la cucitura testo/immagine (Parte 1 —
+   "eventualmente attraversata da sottili elementi orbitali"): la stessa
+   identità già usata altrove nel Percorso, qui a cavallo dei due pannelli
+   invece che chiusa in un angolo. */
+.path-detail .path-entrance::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(280px + (100% - 280px - 320px) * (1 / 2.05));
+  z-index: 2;
+  width: clamp(9rem, 16vw, 13rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(251, 247, 238, .55);
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, transparent 0 22px, rgba(251, 247, 238, .16) 23px 24px);
+  pointer-events: none;
 }
 
 .path-pillar { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: .85rem; align-items: stretch; margin: 1.5rem 0 3rem; padding: .85rem; border: 1px solid #fed7aa; border-radius: var(--radius-lg); background: #fffaf5; box-shadow: var(--shadow-sm); }

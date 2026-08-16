@@ -196,42 +196,6 @@
   padding: clamp(2rem, 4vw, 3rem);
 }
 
-/* Independent editorial note: contained, but deliberately lighter than hero/pillar. */
-.path-detail .path-editorial-note {
-  display: grid;
-  grid-template-columns: minmax(180px, .38fr) minmax(0, 1.62fr);
-  gap: 1rem 3rem;
-  align-items: start;
-  margin: clamp(2.5rem, 5vw, 4rem) 0;
-  padding: clamp(2rem, 3.5vw, 2.8rem);
-  border: 1px solid var(--path-rule);
-  border-radius: 22px;
-  background: rgba(251, 247, 238, .94);
-  box-shadow: var(--path-shadow);
-}
-
-.path-detail .path-editorial-note .eyebrow {
-  margin-top: .4rem;
-}
-
-.path-detail .path-editorial-note h2 {
-  max-width: 24ch;
-  margin: 0 0 .8rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(1.9rem, 3vw, 2.75rem);
-  line-height: 1.08;
-  letter-spacing: -.025em;
-}
-
-.path-detail .path-editorial-note > p:last-child {
-  grid-column: 2;
-  max-width: 68ch;
-  margin: 0;
-  color: #4c5e58;
-  font-size: 1rem;
-  line-height: 1.75;
-}
-
 /* Chapter zero — warm editorial card, not a nested SaaS panel. */
 .path-detail .path-pillar {
   position: relative;
@@ -373,11 +337,12 @@
 }
 
 .path-detail .path-step:has(.path-step__cover) {
-  /* Cover editoriale, non thumbnail (feedback smoke umano su
-     /percorsi/intelligenza-artificiale): più presenza rispetto al
-     precedente minmax(140px, 190px), ma ancora una colonna subordinata
-     al numero e al corpo — mai una card fotografica a sé stante. */
-  grid-template-columns: 116px minmax(170px, 230px) minmax(0, 1fr);
+  /* Cover editoriale, target ~30-36% della larghezza della tappa
+     (Kairus Path Visual Language, Parte 3) — una componente importante
+     della tappa, non una normale card da magazine: resta comunque una
+     colonna subordinata al numero e al corpo, mai una card fotografica
+     a sé stante. */
+  grid-template-columns: 116px minmax(260px, 340px) minmax(0, 1fr);
   grid-template-areas: "number cover body";
 }
 
@@ -411,6 +376,10 @@
 
 .path-detail .path-step--pillar .path-step__number {
   color: rgba(201, 120, 43, .72);
+  /* Variazione sottile di scala (Kairus Path Visual Language, Parte 2):
+     il punto di partenza pesa leggermente di più nella sequenza, non
+     solo per colore — una mappa, non un elenco uniforme. */
+  font-size: clamp(2.75rem, 5.5vw, 4.85rem);
 }
 
 /* Nodo: un piccolo cerchio ancorato al battistrada del numero. */
@@ -572,28 +541,71 @@
   color: #9a4f16;
 }
 
-/* Pausa narrativa dalla Visual Library (Parte 3/4) — l'immagine porta già
-   profondità, luce e composizione proprie: nessuna cornice dorata,
-   nessun motivo orbitale sovrapposto (Parte 11 — "l'immagine deve far
-   parte del design, non essere appoggiata sopra"). Contenuta nella
-   colonna del Percorso, mai a piena larghezza di viewport: un momento
-   cinematografico, non un blocco da landing page. */
-.path-detail .path-visual-break {
+/* "Cambio di registro" (Kairus Path Visual Language, Parte 5) — mai un
+   blocco foto isolato: kicker + crop atmosferico + brevissima frase +
+   segno orbitale, la stessa grammatica editoriale del resto del
+   Percorso. Presente solo quando PathVisualLibrary::transitionImage()
+   rileva un vero scarto tematico nella sequenza — vedi show.blade.php. */
+.path-detail .path-transition {
+  display: grid;
+  justify-items: start;
+  gap: .9rem;
   margin: clamp(2.5rem, 5vw, 4rem) 0;
+}
+
+.path-detail .path-transition__kicker {
+  margin: 0;
+  /* Colore fisso, non var(--path-gold): misurato contro l'avorio, alcuni
+     preset della firma scendono sotto 4.5:1 su testo di questa taglia. */
+  color: #9a4f16;
+  font-size: .76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.path-detail .path-transition__crop {
+  position: relative;
+  width: 100%;
+  margin: 0;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 18px;
   aspect-ratio: 21 / 9;
   box-shadow: var(--path-shadow);
 }
 
-.path-detail .path-visual-break img {
+.path-detail .path-transition__crop img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+/* Segno orbitale minimo nell'angolo del crop — mai un motivo grande, solo
+   un accenno che lega la sezione al resto del linguaggio visivo Kairus. */
+.path-detail .path-transition__crop::after {
+  content: "";
+  position: absolute;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  width: 3rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(251, 247, 238, .6);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.path-detail .path-transition__phrase {
+  max-width: 46ch;
+  margin: 0;
+  color: #4c5e58;
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.65;
+}
+
 .path-detail .path-ending {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2rem;
@@ -614,6 +626,43 @@
 .path-detail .path-ending--continues {
   border-top-style: dashed;
   border-top-color: var(--path-gold);
+}
+
+/* Stessa geografia della timeline (Kairus Path Visual Language, Parte 6):
+   un piccolo filo/nodo nello spazio fra la sequenza e la chiusura,
+   identico linguaggio del nodo fantasma dentro la timeline (aperto e
+   tratteggiato per un Percorso ancora aperto, pieno per uno concluso) —
+   così il bordo della chiusura non è un accento isolato ma la
+   prosecuzione visiva dello stesso filo. Solo grafica statica, nessuna
+   animazione. */
+.path-detail .path-ending::before {
+  content: "";
+  position: absolute;
+  top: -1.75rem;
+  left: clamp(2rem, 4vw, 3rem);
+  width: 2px;
+  height: 1.75rem;
+  background: var(--path-rule);
+}
+.path-detail .path-ending--continues::before {
+  background-image: repeating-linear-gradient(to bottom, var(--path-gold) 0 4px, transparent 4px 9px);
+}
+
+.path-detail .path-ending::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: calc(clamp(2rem, 4vw, 3rem) - 5px);
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--path-green);
+  border-radius: 50%;
+  background: var(--path-cream);
+}
+.path-detail .path-ending--continues::after {
+  border-style: dashed;
+  border-color: var(--path-gold);
+  background: transparent;
 }
 
 .path-detail .path-ending h2 {
@@ -650,7 +699,7 @@
   .path-detail .path-hero,
   .path-detail .path-pillar,
   .path-detail .path-steps__header,
-  .path-detail .path-editorial-note,
+  .path-detail .path-entrance,
   .path-detail .path-ending {
     grid-template-columns: 1fr;
   }
@@ -659,7 +708,33 @@
     min-height: 0;
   }
 
-  .path-detail .path-visual-break {
+  .path-detail .path-entrance__atmosphere {
+    order: -1;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+  }
+
+  .path-detail .path-entrance__atmosphere::before {
+    /* L'immagine ora sta sopra il testo: la cucitura è orizzontale in
+       basso, non più verticale a sinistra. */
+    background: linear-gradient(180deg, rgba(223, 234, 228, 0) 80%, var(--path-green-soft, #dfeae4) 100%);
+  }
+
+  .path-detail .path-entrance::after {
+    top: auto;
+    bottom: 0;
+    left: 50%;
+  }
+
+  /* La riga della tappa è più stretta qui: lo stesso tetto assoluto del
+     desktop (340px) sforerebbe oltre il 50% della larghezza della tappa.
+     Un tetto proprio per questa fascia mantiene la cover proporzionata
+     (~30-33%) senza schiacciare titolo/estratto. */
+  .path-detail .path-step:has(.path-step__cover) {
+    grid-template-columns: 116px minmax(190px, 220px) minmax(0, 1fr);
+  }
+
+  .path-detail .path-transition__crop {
     aspect-ratio: 16 / 10;
     border-radius: 16px;
   }
@@ -687,10 +762,6 @@
 
   .path-detail .path-hero h1 {
     max-width: 14ch;
-  }
-
-  .path-detail .path-editorial-note > p:last-child {
-    grid-column: 1;
   }
 
   .path-detail .path-pillar__link {
@@ -722,10 +793,17 @@
     border-radius: 18px;
   }
 
-  .path-detail .path-visual-break {
+  .path-detail .path-transition {
     margin: 2rem 0;
+  }
+
+  .path-detail .path-transition__crop {
     aspect-ratio: 4 / 3;
     border-radius: 14px;
+  }
+
+  .path-detail .path-entrance__atmosphere {
+    aspect-ratio: 4 / 3;
   }
 
   .path-detail .path-hero__cover {
@@ -757,7 +835,6 @@
     font-size: .66rem;
   }
 
-  .path-detail .path-editorial-note,
   .path-detail .path-pillar,
   .path-detail .path-steps,
   .path-detail .path-ending {
@@ -765,12 +842,17 @@
     border-radius: 16px;
   }
 
-  .path-detail .path-editorial-note {
+  .path-detail .path-entrance {
     margin: 2.2rem 0;
-    gap: .5rem;
+    border-radius: 16px;
   }
 
-  .path-detail .path-editorial-note h2 {
+  .path-detail .path-entrance__copy {
+    gap: .5rem;
+    padding: 1.45rem 1.2rem;
+  }
+
+  .path-detail .path-entrance__copy h2 {
     font-size: 1.75rem;
   }
 
@@ -872,9 +954,7 @@
    sottile e dentro il DNA Kairus: solo la tonalità dell'oro controllato
    e la posizione del glow cambiano, mai il verde profondo o l'avorio di
    base, mai una tinta estranea alla famiglia (Parte 3 — "non IA=blu
-   neon"). Il preset di chiusura del motivo orbitale (path-brand-statement)
-   vive invece in content-clusters.css, accanto alla regola base che
-   sovrascrive. */
+   neon"). */
 .path-detail.path-signature-0 { --path-gold: #c9782b; --path-glow-x: 32%; }
 .path-detail.path-signature-1 { --path-gold: #b6672a; --path-glow-x: 68%; }
 .path-detail.path-signature-2 { --path-gold: #ad7f3f; --path-glow-x: 50%; }

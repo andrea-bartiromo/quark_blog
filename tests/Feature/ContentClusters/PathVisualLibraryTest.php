@@ -11,10 +11,12 @@ use Tests\TestCase;
 
 /**
  * Integrazione reale della Kairus Editorial Visual Library (Missione
- * PERCORSI WOW, Pass 2/3). Copre: quante pause (Parte 4), selezione
- * semantica senza hardcode (Parte 9), i casi di stress della Parte 15, e
- * che le cover articolo nella timeline restino intatte (Parte 1 — mai una
- * seconda serie di thumbnail al loro posto).
+ * KAIRUS PATH VISUAL LANGUAGE). Copre i due asset SEMANTICI —
+ * atmosphereImage() sempre presente, transitionImage() solo quando la
+ * sequenza pubblicata attraversa davvero più di una categoria — mai un
+ * conteggio derivato dal numero di articoli, e che le cover articolo
+ * nella timeline restino intatte (mai una seconda serie di thumbnail al
+ * loro posto).
  */
 class PathVisualLibraryTest extends TestCase
 {
@@ -37,87 +39,106 @@ class PathVisualLibraryTest extends TestCase
         ]);
     }
 
-    public function test_break_count_follows_the_article_count_philosophy(): void
-    {
-        $this->assertSame(0, PathVisualLibrary::breakCountFor(0));
-        $this->assertSame(1, PathVisualLibrary::breakCountFor(1));
-        $this->assertSame(1, PathVisualLibrary::breakCountFor(2));
-        $this->assertSame(1, PathVisualLibrary::breakCountFor(3));
-        $this->assertSame(2, PathVisualLibrary::breakCountFor(4));
-        $this->assertSame(2, PathVisualLibrary::breakCountFor(11));
-    }
-
-    public function test_images_are_selected_from_the_dominant_published_article_category(): void
+    public function test_the_atmosphere_image_is_selected_from_the_dominant_published_article_category(): void
     {
         $cluster = ContentCluster::factory()->create();
         $cluster->articles()->attach($this->article('A', 'spazio')->id, ['position' => 10]);
         $cluster->articles()->attach($this->article('B', 'spazio')->id, ['position' => 20]);
         $cluster->articles()->attach($this->article('C', 'energia')->id, ['position' => 30]);
 
-        $images = PathVisualLibrary::imagesFor($cluster->fresh(), 1);
+        $image = PathVisualLibrary::atmosphereImage($cluster->fresh());
 
-        $this->assertCount(1, $images);
-        $this->assertStringStartsWith('kairus-space-', $images[0]);
+        $this->assertStringStartsWith('kairus-space-', $image);
     }
 
-    public function test_unpublished_articles_never_influence_the_selection(): void
+    public function test_unpublished_articles_never_influence_the_atmosphere_selection(): void
     {
         $cluster = ContentCluster::factory()->create();
         $cluster->articles()->attach($this->article('Pubblicato', 'ambiente')->id, ['position' => 10]);
         $cluster->articles()->attach($this->article('Bozza', 'energia', Article::STATUS_DRAFT)->id, ['position' => 20]);
         $cluster->articles()->attach($this->article('Programmato', 'salute', Article::STATUS_SCHEDULED)->id, ['position' => 30]);
 
-        $images = PathVisualLibrary::imagesFor($cluster->fresh(), 1);
+        $image = PathVisualLibrary::atmosphereImage($cluster->fresh());
 
         $this->assertTrue(
-            str_starts_with($images[0], 'kairus-nature-')
-            || str_starts_with($images[0], 'kairus-environment-')
-            || str_starts_with($images[0], 'kairus-climate-'),
-            "L'unica categoria pubblicata (ambiente) deve determinare la selezione: {$images[0]}"
+            str_starts_with($image, 'kairus-nature-')
+            || str_starts_with($image, 'kairus-environment-')
+            || str_starts_with($image, 'kairus-climate-'),
+            "L'unica categoria pubblicata (ambiente) deve determinare la selezione: {$image}"
         );
     }
 
-    public function test_two_images_for_the_same_path_are_always_distinct(): void
-    {
-        $cluster = ContentCluster::factory()->create();
-        $cluster->articles()->attach($this->article('A', 'intelligenza-artificiale')->id, ['position' => 10]);
-        $cluster->articles()->attach($this->article('B', 'intelligenza-artificiale')->id, ['position' => 20]);
-        $cluster->articles()->attach($this->article('C', 'intelligenza-artificiale')->id, ['position' => 30]);
-        $cluster->articles()->attach($this->article('D', 'intelligenza-artificiale')->id, ['position' => 40]);
-
-        $images = PathVisualLibrary::imagesFor($cluster->fresh(), 2);
-
-        $this->assertCount(2, $images);
-        $this->assertNotSame($images[0], $images[1]);
-    }
-
-    public function test_a_future_path_with_no_articles_still_gets_a_deterministic_image_never_an_exception(): void
+    public function test_a_future_path_with_no_articles_still_gets_a_deterministic_atmosphere_never_an_exception(): void
     {
         $cluster = ContentCluster::factory()->create([
             'slug' => 'percorso-futuro-senza-articoli-'.bin2hex(random_bytes(4)),
         ]);
 
-        $imagesA = PathVisualLibrary::imagesFor($cluster, 1);
-        $imagesB = PathVisualLibrary::imagesFor($cluster->fresh(), 1);
+        $imageA = PathVisualLibrary::atmosphereImage($cluster);
+        $imageB = PathVisualLibrary::atmosphereImage($cluster->fresh());
 
-        $this->assertCount(1, $imagesA);
-        $this->assertSame($imagesA, $imagesB, 'Stesso Percorso, stessa selezione, sempre.');
+        $this->assertSame($imageA, $imageB, 'Stesso Percorso, stessa selezione, sempre.');
     }
 
-    public function test_a_path_without_an_obvious_semantic_match_still_resolves_to_a_valid_image(): void
+    public function test_a_path_without_an_obvious_semantic_match_still_resolves_the_atmosphere_to_a_valid_image(): void
     {
         // Nessun articolo, categoria indeterminabile: deve comunque
         // ricadere su una categoria valida della libreria, mai una
         // eccezione o un file inesistente.
         $cluster = ContentCluster::factory()->create();
 
-        $images = PathVisualLibrary::imagesFor($cluster, 1);
-        $file = public_path('assets/img/percorsi/'.$images[0]);
+        $image = PathVisualLibrary::atmosphereImage($cluster);
+        $file = public_path('assets/img/percorsi/'.$image);
 
         $this->assertFileExists($file);
     }
 
-    public function test_the_detail_page_renders_visual_breaks_without_touching_article_covers_in_the_timeline(): void
+    public function test_a_thematically_homogeneous_path_has_no_transition_image(): void
+    {
+        // Il caso comune: ogni Percorso reale corrisponde già a una
+        // categoria. Nessuno scarto da segnalare, nessuna immagine.
+        $cluster = ContentCluster::factory()->create();
+        foreach (['A', 'B', 'C'] as $i => $title) {
+            $cluster->articles()->attach($this->article($title, 'ambiente')->id, ['position' => ($i + 1) * 10]);
+        }
+
+        $this->assertNull(PathVisualLibrary::transitionImage($cluster->fresh()));
+    }
+
+    public function test_a_path_that_shifts_category_mid_sequence_gets_a_transition_image_from_the_shift(): void
+    {
+        $cluster = ContentCluster::factory()->create();
+        $cluster->articles()->attach($this->article('A', 'spazio')->id, ['position' => 10]);
+        $cluster->articles()->attach($this->article('B', 'spazio')->id, ['position' => 20]);
+        $cluster->articles()->attach($this->article('C', 'energia')->id, ['position' => 30]);
+
+        $transition = PathVisualLibrary::transitionImage($cluster->fresh());
+
+        $this->assertNotNull($transition);
+        $this->assertStringStartsWith('kairus-energy-', $transition);
+    }
+
+    public function test_the_transition_image_is_never_the_same_role_as_the_atmosphere_image(): void
+    {
+        $cluster = ContentCluster::factory()->create();
+        $cluster->articles()->attach($this->article('A', 'spazio')->id, ['position' => 10]);
+        $cluster->articles()->attach($this->article('B', 'energia')->id, ['position' => 20]);
+        $cluster = $cluster->fresh();
+
+        $atmosphere = PathVisualLibrary::atmosphereImage($cluster);
+        $transition = PathVisualLibrary::transitionImage($cluster);
+
+        $this->assertNotSame($atmosphere, $transition);
+    }
+
+    public function test_a_path_with_no_published_articles_has_no_transition_image(): void
+    {
+        $cluster = ContentCluster::factory()->create();
+
+        $this->assertNull(PathVisualLibrary::transitionImage($cluster));
+    }
+
+    public function test_the_detail_page_renders_the_atmosphere_without_touching_article_covers_in_the_timeline(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
         $withCover = $this->article('Con copertina', 'spazio');
@@ -131,12 +152,12 @@ class PathVisualLibraryTest extends TestCase
         // La cover dell'articolo nella timeline resta quella reale.
         $response->assertSee('path-step__cover', false);
         $response->assertSee('copertina-articolo.jpg', false);
-        // La Visual Library appare come pausa narrativa distinta.
-        $response->assertSee('path-visual-break', false);
+        // L'ingresso atmosferico appare come composizione distinta.
+        $response->assertSee('path-entrance__atmosphere', false);
         $response->assertSee('assets/img/percorsi/kairus-space-', false);
     }
 
-    public function test_visual_break_markup_is_decorative_and_never_leaks_unpublished_titles(): void
+    public function test_the_entrance_markup_is_decorative_and_never_leaks_unpublished_titles(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
         $cluster->articles()->attach($this->article('Tappa pubblica', 'salute')->id, ['position' => 10]);
@@ -150,7 +171,7 @@ class PathVisualLibraryTest extends TestCase
         $response->assertDontSee('Titolo non ancora pubblico');
     }
 
-    public function test_a_complete_path_gets_exactly_one_break_for_three_articles(): void
+    public function test_a_homogeneous_path_shows_no_transition_section_on_the_detail_page(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'complete']);
         foreach (['A', 'B', 'C'] as $i => $title) {
@@ -158,19 +179,34 @@ class PathVisualLibraryTest extends TestCase
         }
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
-        $count = substr_count($response->getContent(), 'path-visual-break');
+
+        $response->assertOk();
+        $response->assertDontSee('path-transition', false);
+    }
+
+    public function test_a_shifting_path_shows_exactly_one_transition_section_on_the_detail_page(): void
+    {
+        $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'updating']);
+        $cluster->articles()->attach($this->article('A', 'spazio')->id, ['position' => 10]);
+        $cluster->articles()->attach($this->article('B', 'energia')->id, ['position' => 20]);
+
+        $response = $this->get(route('percorsi.show', $cluster->slug));
+        $count = substr_count($response->getContent(), 'path-transition__crop');
 
         $response->assertOk();
         $this->assertSame(1, $count);
     }
 
-    public function test_a_path_with_no_published_articles_shows_no_visual_break(): void
+    public function test_a_path_with_no_published_articles_shows_no_transition_section(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => 'complete']);
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertDontSee('path-visual-break', false);
+        $response->assertDontSee('path-transition', false);
+        // L'ingresso atmosferico resta comunque presente: è sempre
+        // l'apertura della mappa editoriale, anche senza articoli.
+        $response->assertSee('path-entrance__atmosphere', false);
     }
 }
