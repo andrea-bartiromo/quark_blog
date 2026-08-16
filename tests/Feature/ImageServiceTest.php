@@ -202,6 +202,59 @@ class ImageServiceTest extends TestCase
         $this->assertFileExists($fullPath);
         $this->assertFileDoesNotExist($sourcePath);
         $this->assertSame('jpg', pathinfo($fullPath, PATHINFO_EXTENSION));
+        $this->assertSame([], glob($destination.'/*.tmp-*'), 'Nessun file temporaneo intermedio deve restare dopo una scrittura riuscita.');
+    }
+
+    /**
+     * Riproduce la causa strutturale reale del "file orfano risuscitato"
+     * osservato ripetutamente su Windows dopo un cleanup riuscito (vedi il
+     * commento di ImageService::upload()): un UploadedFile "fake" di
+     * Laravel (usato da CategoryProfileTuringMediaSyncTest/
+     * MediaPublicSyncTest tramite UploadedFile::fake()->image(), non il
+     * fixture con file reale di InteractsWithTestImages) è scritto su un
+     * handle tmpfile() che resta aperto per tutta la richiesta. Prima del
+     * fix, $file->move() (rename()) legava la destinazione a QUELLA STESSA
+     * identità di storage: scrivere attraverso l'handle residuo e
+     * chiuderlo DOPO che il file di destinazione era già stato rimosso lo
+     * faceva ricomparire. Verificato empiricamente (vedi cronologia PR)
+     * che su Linux l'inode orfano non risorge mai — motivo per cui questo
+     * test da solo non riproduce l'orfano su CI — ma dimostra la
+     * precondizione strutturale corretta: dopo l'upload, l'handle residuo
+     * NON deve più condividere l'identità di storage della destinazione,
+     * quindi scriverci sopra e chiuderlo non deve avere alcun effetto sul
+     * file applicativo.
+     */
+    public function test_upload_fully_decouples_the_destination_from_the_original_upload_handle(): void
+    {
+        $file = UploadedFile::fake()->image('handle-probe.jpg', 40, 40);
+
+        $destination = $this->tempDir.'/assets/img';
+        mkdir($destination, 0775, true);
+
+        $fullPath = $this->service->upload($file, $destination, 'final-name.jpg');
+
+        $this->assertFileExists($fullPath);
+
+        // Simula esattamente il cleanup-dopo-fallimento-sync che i test
+        // Windows falliti esercitano: la destinazione viene rimossa.
+        unlink($fullPath);
+        $this->assertFileDoesNotExist($fullPath);
+
+        // Il file "fake" di Laravel tiene ancora aperto il suo handle
+        // tmpfile() originale (nessun punto del ciclo di vita Laravel/
+        // Symfony lo chiude prima della fine dello script): se fosse
+        // ancora accoppiato alla destinazione, scriverci e chiuderlo ora
+        // la farebbe riapparire.
+        if (property_exists($file, 'tempFile') && is_resource($file->tempFile)) {
+            @fwrite($file->tempFile, 'BYTES_SCRITTI_DOPO_LA_RIMOZIONE');
+            @fclose($file->tempFile);
+        }
+
+        clearstatcache(true, $fullPath);
+        $this->assertFileDoesNotExist(
+            $fullPath,
+            'Il file di destinazione non deve mai ricomparire per un effetto collaterale del file temporaneo originale ormai scollegato.'
+        );
     }
 
     // 6b. Un destination path con separatori misti (riproduce il bug Windows:
