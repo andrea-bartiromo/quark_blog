@@ -229,15 +229,30 @@ class CampaignPreviewTest extends TestCase
         $response->assertSee('redazione@kairus.it');
     }
 
-    public function test_preview_does_not_render_a_working_unsubscribe_link_that_does_not_exist_yet(): void
+    public function test_preview_renders_a_real_working_unsubscribe_link_for_a_real_subscriber(): void
     {
         $campaign = $this->campaignWithBody();
         $subscriber = CommunicationSubscriber::factory()->confirmed()->create();
 
         $rendering = app(CampaignRenderer::class)->render($campaign, $subscriber);
 
+        $expectedUrl = route('comunicazione.disiscrizione.conferma', $subscriber->unsubscribe_token);
+        $this->assertSame($expectedUrl, $rendering->unsubscribeUrl);
+        $this->assertStringContainsString('href="'.$expectedUrl.'"', $rendering->html);
+
+        // Il link deve essere davvero raggiungibile, non solo presente nel
+        // markup: la stessa rotta pubblica costruita in N2.2.
+        $this->get($expectedUrl)->assertOk();
+    }
+
+    public function test_preview_does_not_render_an_unsubscribe_link_for_a_placeholder_recipient(): void
+    {
+        $campaign = $this->campaignWithBody();
+
+        $rendering = app(CampaignRenderer::class)->render($campaign, null);
+
+        $this->assertNull($rendering->unsubscribeUrl);
         $this->assertStringNotContainsString('href="http', $rendering->html);
-        $this->assertStringContainsString('non ancora disponibile', $rendering->html);
     }
 
     public function test_preview_requires_editor_role(): void

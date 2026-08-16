@@ -33,7 +33,7 @@
       @if($isPlaceholderRecipient)
         Link di disiscrizione: non disponibile per un destinatario segnaposto.
       @else
-        Link di disiscrizione: non ancora disponibile in questo blocco (token iscritto: {{ \Illuminate\Support\Str::limit($subscriber->unsubscribe_token, 12) }}…).
+        <a href="{{ $unsubscribeUrl }}" style="color:#9ca3af;">Disiscriviti</a>
       @endif
     </p>
   </div>
