@@ -1,9 +1,18 @@
-# Gate dedicato al ledger di consegna generico (comunicazioni Kairus).
+# Gate dedicato al sottosistema Comunicazione/Newsletter (Kairus).
 # Perché un workflow separato e non un'estensione di
 # content-clusters-mariadb.yml: quel workflow è scoped tramite `paths:` ai
 # soli file di Content Clusters e non si attiverebbe mai su queste
-# modifiche — questo file segue la stessa convenzione per-feature, scoped
-# ai soli file toccati da questa missione.
+# modifiche — questo file segue la stessa convenzione per-feature.
+#
+# Nato per il solo ledger di consegna generico (CommunicationDelivery),
+# esteso qui (Newsletter 2.0) a tutto ciò che il sottosistema ha
+# acquisito da allora: state machine campagna/invio, rendering/preview,
+# ricerca destinatari, provider fake, orchestrazione di invio,
+# preflight, dry-run, disiscrizione pubblica — nome del file/job e
+# `name:` in cima lasciati invariati per non rompere un eventuale
+# branch protection già configurato su questo check, solo lo scope
+# (`paths:` e lista Pint) è stato allargato. Nessun nuovo workflow
+# creato: sarebbe stata una duplicazione, non un gate aggiuntivo utile.
 name: Communication Delivery MariaDB
 
 on:
@@ -12,13 +21,21 @@ on:
       - main
   pull_request:
     paths:
-      - 'app/Models/CommunicationDelivery.php'
-      - 'app/Models/CommunicationSubscriber.php'
-      - 'app/Services/Communication/CommunicationDeliveryService.php'
-      - 'database/factories/CommunicationDeliveryFactory.php'
-      - 'database/migrations/2026_08_15_111755_create_communication_deliveries_table.php'
-      - 'tests/Unit/Communication/CommunicationDeliveryServiceTest.php'
-      - 'tests/Feature/Communication/CommunicationDeliveryConcurrencyTest.php'
+      - 'app/Models/Communication*.php'
+      - 'app/Http/Controllers/Admin/Communication/**'
+      - 'app/Http/Controllers/CommunicationUnsubscribeController.php'
+      - 'app/Services/Communication/**'
+      - 'app/Contracts/EmailDeliveryProvider.php'
+      - 'app/Console/Commands/Communication*.php'
+      - 'database/factories/Communication*.php'
+      - 'database/migrations/*comm*'
+      - 'database/migrations/*communication*'
+      - 'resources/views/admin/communication/**'
+      - 'resources/views/communication/**'
+      - 'resources/views/emails/communication/**'
+      - 'tests/Unit/Communication/**'
+      - 'tests/Feature/Communication/**'
+      - 'tests/Feature/Admin/Communication/**'
       - '.github/workflows/communication-delivery-mariadb.yml'
 
 permissions:
@@ -72,11 +89,23 @@ jobs:
           vendor/bin/pint --test
           app/Models/CommunicationDelivery.php
           app/Models/CommunicationSubscriber.php
-          app/Services/Communication/CommunicationDeliveryService.php
+          app/Models/CommunicationCampaign.php
+          app/Models/CommunicationSend.php
+          app/Models/CommunicationSenderProfile.php
+          app/Http/Controllers/Admin/Communication
+          app/Http/Controllers/CommunicationUnsubscribeController.php
+          app/Services/Communication
+          app/Contracts/EmailDeliveryProvider.php
+          app/Console/Commands/CommunicationReviewStaleSends.php
+          app/Http/Requests/Admin/StoreCommunicationCampaignRequest.php
+          app/Http/Requests/Admin/UpdateCommunicationCampaignRequest.php
+          app/Http/Requests/Admin/StoreCommunicationSenderProfileRequest.php
+          app/Http/Requests/Admin/UpdateCommunicationSenderProfileRequest.php
           database/factories/CommunicationDeliveryFactory.php
           database/migrations/2026_08_15_111755_create_communication_deliveries_table.php
-          tests/Unit/Communication/CommunicationDeliveryServiceTest.php
-          tests/Feature/Communication/CommunicationDeliveryConcurrencyTest.php
+          tests/Unit/Communication
+          tests/Feature/Communication
+          tests/Feature/Admin/Communication
       - run: cp .env.example .env && php artisan key:generate && php artisan optimize:clear
       - name: Fresh MariaDB migration and idempotency/concurrency tests
         run: |
