@@ -25,7 +25,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
 
     public function test_generation_failure_is_not_persisted_and_returns_failure(): void
     {
-        $tester = $this->testerForRss($this->rss([
+        $tester = $this->commandTesterForRss($this->rss([
             ['title' => 'Nuova ricerca scientifica', 'url' => 'https://example.test/news/one'],
         ]));
 
@@ -43,7 +43,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
             ['title' => 'Nuova ricerca energia da ritentare', 'url' => $url],
         ]);
 
-        $first = $this->testerForRss($rss);
+        $first = $this->commandTesterForRss($rss);
         $this->assertSame(SymfonyCommand::FAILURE, $first->execute([]));
         $this->assertDatabaseCount('news_suggestions', 0);
 
@@ -51,7 +51,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
         $this->assertTrue($claim->get());
         $claim->release();
 
-        $retry = $this->testerForRss($rss);
+        $retry = $this->commandTesterForRss($rss);
         $this->assertSame(SymfonyCommand::FAILURE, $retry->execute([]));
         $this->assertStringContainsString('ANTHROPIC_API_KEY non configurata', $retry->getDisplay());
         $this->assertDatabaseCount('news_suggestions', 0);
@@ -64,7 +64,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
         $this->assertTrue($lock->get());
 
         try {
-            $tester = $this->testerForRss($this->rss([
+            $tester = $this->commandTesterForRss($this->rss([
                 ['title' => 'Ricerca energia già in lavorazione', 'url' => $url],
             ]));
 
@@ -80,7 +80,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
 
     public function test_generation_failure_does_not_stop_later_items_in_the_batch(): void
     {
-        $tester = $this->testerForRss($this->rss([
+        $tester = $this->commandTesterForRss($this->rss([
             ['title' => 'Prima ricerca energia', 'url' => 'https://example.test/news/first'],
             ['title' => 'Seconda ricerca energia', 'url' => 'https://example.test/news/second'],
         ]));
@@ -102,7 +102,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
             'fetched_at' => now(),
         ]);
 
-        $tester = $this->testerForRss($this->rss([
+        $tester = $this->commandTesterForRss($this->rss([
             ['title' => 'Ricerca energia già presente', 'url' => 'https://example.test/news/existing'],
         ]));
 
@@ -111,7 +111,7 @@ class FetchNewsAndGenerateDraftsTest extends TestCase
         $this->assertStringNotContainsString('ANTHROPIC_API_KEY non configurata', $tester->getDisplay());
     }
 
-    private function testerForRss(string $rss): CommandTester
+    private function commandTesterForRss(string $rss): CommandTester
     {
         $command = app(FetchNewsAndGenerateDrafts::class);
         $command->setLaravel(app());
