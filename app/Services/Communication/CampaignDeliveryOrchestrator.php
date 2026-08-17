@@ -58,6 +58,7 @@ use Throwable;
  * |12 | Campagna annullata mentre la riga era queued  | cancelCampaign  | cancelled (bulk)               | mai                    |
  * |13 | Campagna annullata mentre la riga era già sending | Revalidazione (run successivo) | failed (campaign_not_sendable) | mai — il claim in corso si conclude da solo |
  * |14 | runCampaign() su campagna non transizionabile a sending | canTransition() pre-check | nessuna scrittura, ritorna null | n/a |
+ * |15 | Stato riga cambiato da un attore concorrente TRA il claim e la persistenza dell'esito (es. StaleSendRecoveryService::release() invocato da un operatore su una riga giudicata erroneamente stale MENTRE il worker originale la sta ancora processando) — BUG REALE trovato e corretto nel red-team pre-merge (vedi persistResult()) | Persistenza esito, dopo la chiamata al provider | riga lasciata nello stato imposto dall'attore concorrente (tipicamente 'queued') — MAI silenziosamente sovrascritta con un esito inventato | n/a — RuntimeException esplicita, mai un esito pulito silenzioso; revisione manuale necessaria prima di qualunque ulteriore tentativo |
  */
 class CampaignDeliveryOrchestrator
 {
@@ -285,14 +286,43 @@ class CampaignDeliveryOrchestrator
         return ['subscriber' => $subscriber, 'campaign' => $campaign, 'failureReason' => null];
     }
 
+    /**
+     * BUG REALE trovato e corretto durante il red-team pre-merge (FASE 3/4):
+     * transition() può perdere una corsa e restituire false — non
+     * un'ipotesi, è la sua garanzia documentata contro un altro processo
+     * che ha già cambiato la riga (es. StaleSendRecoveryService::release()
+     * invocato da un operatore su una riga giudicata erroneamente stale
+     * MENTRE il worker originale la sta ancora processando). La versione
+     * precedente ignorava completamente questo valore di ritorno: il
+     * provider veniva chiamato (per un provider reale, un invio
+     * irreversibile), il tentativo di persistere l'esito falliva in
+     * silenzio (0 righe affette), e il metodo restituiva comunque un
+     * esito "pulito" (sent/retried/failed) — la riga restava nello stato
+     * lasciato dall'attore concorrente (tipicamente 'queued'),
+     * disponibile per essere rielaborata, con il provider richiamato UNA
+     * SECONDA VOLTA per lo stesso destinatario: un vero doppio invio,
+     * la stessa garanzia di "zero duplicati" che questo intero
+     * sottosistema esiste per proteggere.
+     *
+     * Riprodotto con un test minimo prima della correzione. Ora, esattamente
+     * come l'eccezione del provider non viene mai catturata (ambiguità
+     * reale, mai risolta silenziosamente), una transizione persa DOPO
+     * aver già interpellato il provider non viene mai spacciata per un
+     * esito pulito: lancia un'eccezione esplicita, visibile, mai un
+     * conteggio silenzioso e sbagliato nel report.
+     */
     private function persistResult(CommunicationSend $send, DeliveryResult $result, int $maxAttempts): SendProcessingOutcome
     {
         if ($result->isAccepted()) {
-            $this->sendMachine->transition($send, CommunicationSend::STATUS_SENT, [
+            $persisted = $this->sendMachine->transition($send, CommunicationSend::STATUS_SENT, [
                 'sent_at' => now(),
                 'provider_message_id' => $result->providerMessageId,
                 'attempts' => $send->attempts + 1,
             ]);
+
+            if (! $persisted) {
+                $this->throwLostRaceAfterProviderCall($send, 'accepted');
+            }
 
             return SendProcessingOutcome::sent();
         }
@@ -300,22 +330,44 @@ class CampaignDeliveryOrchestrator
         $attempts = $send->attempts + 1;
 
         if ($result->isTransientFailure() && $attempts < $maxAttempts) {
-            $this->sendMachine->transition($send, CommunicationSend::STATUS_QUEUED, [
+            $persisted = $this->sendMachine->transition($send, CommunicationSend::STATUS_QUEUED, [
                 'attempts' => $attempts,
                 'failure_reason' => $result->reason,
             ]);
+
+            if (! $persisted) {
+                $this->throwLostRaceAfterProviderCall($send, 'transient_failure (retry)');
+            }
 
             return SendProcessingOutcome::retried($result->reason ?? 'transient_failure');
         }
 
         $reason = $result->isTransientFailure() ? 'max_attempts_exceeded' : ($result->reason ?? 'permanent_failure');
 
-        $this->sendMachine->transition($send, CommunicationSend::STATUS_FAILED, [
+        $persisted = $this->sendMachine->transition($send, CommunicationSend::STATUS_FAILED, [
             'attempts' => $attempts,
             'failed_at' => now(),
             'failure_reason' => $reason,
         ]);
 
+        if (! $persisted) {
+            $this->throwLostRaceAfterProviderCall($send, $reason);
+        }
+
         return SendProcessingOutcome::failed($reason);
+    }
+
+    /**
+     * @return never
+     */
+    private function throwLostRaceAfterProviderCall(CommunicationSend $send, string $providerOutcome): void
+    {
+        throw new \RuntimeException(
+            "Esito di consegna ({$providerOutcome}) per la riga comm_sends #{$send->id} perso: lo ".
+            "stato è cambiato da un attore concorrente tra il claim e la persistenza dell'esito ".
+            "(stato attuale dopo refresh: '{$send->status}'). Il provider è già stato interpellato — ".
+            'revisione manuale necessaria prima di qualunque ulteriore tentativo su questa riga, per '.
+            'evitare una seconda chiamata al provider per lo stesso destinatario.'
+        );
     }
 }

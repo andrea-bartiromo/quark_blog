@@ -13,6 +13,7 @@ use App\Services\Communication\RecordingEmailProvider;
 use App\Services\Communication\SendProcessingOutcome;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -202,6 +203,54 @@ class CampaignDeliveryOrchestratorTest extends TestCase
         }
 
         $this->assertSame(CommunicationSend::STATUS_SENDING, $send->fresh()->status);
+    }
+
+    /**
+     * BUG REALE trovato durante il red-team pre-merge: persistResult()
+     * ignorava completamente il valore di ritorno di
+     * SendStateMachine::transition() — se un attore concorrente (in
+     * pratica: un operatore che esegue StaleSendRecoveryService::release()
+     * su una riga giudicata erroneamente stale MENTRE il worker
+     * originale la sta ancora processando) cambia lo stato della riga
+     * tra il claim e questo momento, il tentativo di persistere l'esito
+     * falliva in silenzio (0 righe affette) e il metodo restituiva
+     * comunque un esito "sent" pulito — nonostante il provider fosse
+     * già stato interpellato e la riga fosse rimasta 'queued',
+     * disponibile per una SECONDA chiamata reale allo stesso
+     * destinatario. Riprodotto qui esattamente come nella simulazione
+     * originale, prima della correzione: ora lancia un'eccezione
+     * esplicita invece di mentire con un contatore di successo.
+     */
+    public function test_a_lost_race_after_a_successful_provider_call_never_reports_a_clean_success(): void
+    {
+        $send = $this->queuedSend($this->sendingCampaign());
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(function () use ($send) {
+            // Simula un attore concorrente (es. una recovery manuale su
+            // una riga non realmente stale) che sposta la riga sotto al
+            // worker corrente, tra il claim e la persistenza dell'esito.
+            DB::table('comm_sends')->where('id', $send->id)->update(['status' => CommunicationSend::STATUS_QUEUED]);
+
+            return new DeliveryResult(status: DeliveryResult::STATUS_ACCEPTED, providerMessageId: 'ok');
+        });
+
+        try {
+            $this->orchestrator()->processSend($send, $provider);
+            $this->fail('Una transizione persa dopo una chiamata al provider riuscita deve lanciare, mai restituire un esito pulito.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('perso', $e->getMessage());
+        }
+
+        // Il provider È STATO chiamato una sola volta qui — l'eccezione
+        // rende visibile l'ambiguità, non impedisce la chiamata già
+        // avvenuta (impossibile "annullarla" a posteriori). Quello che
+        // conta è che il chiamante NON possa credere erroneamente che
+        // tutto sia andato liscio: nessun ulteriore automatismo di
+        // questo sottosistema deve poter richiamare il provider una
+        // seconda volta per questa stessa riga senza una revisione
+        // manuale esplicita.
+        $this->assertSame(1, $provider->attemptCount());
+        $this->assertSame(CommunicationSend::STATUS_QUEUED, $send->fresh()->status);
     }
 
     public function test_transient_failure_is_retried_and_returns_to_queued(): void
