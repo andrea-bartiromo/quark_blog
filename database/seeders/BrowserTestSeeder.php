@@ -30,6 +30,16 @@ class BrowserTestSeeder extends Seeder
             'email' => 'browser-tests@example.test',
             'password' => Hash::make('browser-tests'),
             'bio' => 'Autore deterministico usato esclusivamente dalla suite Playwright.',
+            'role' => 'author',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $editorId = DB::table('users')->insertGetId([
+            'name' => 'Browser Test Editor',
+            'email' => 'browser-admin@example.test',
+            'password' => Hash::make('browser-tests'),
+            'bio' => 'Editor deterministico usato esclusivamente dai browser test admin.',
             'role' => 'editor',
             'created_at' => $now,
             'updated_at' => $now,
@@ -106,7 +116,7 @@ class BrowserTestSeeder extends Seeder
         $adminRows = [];
         for ($i = 1; $i <= 26; $i++) {
             $adminRows[] = [
-                'user_id' => $authorId,
+                'user_id' => $editorId,
                 'title' => $i === 1
                     ? 'Titolo browser molto lungo per verificare che le azioni restino raggiungibili anche quando il contenuto editoriale supera ampiamente la lunghezza normale della tabella amministrativa'
                     : 'Bozza browser amministrativa '.$i,
