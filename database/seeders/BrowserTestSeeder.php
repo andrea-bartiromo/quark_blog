@@ -30,7 +30,7 @@ class BrowserTestSeeder extends Seeder
             'email' => 'browser-tests@example.test',
             'password' => Hash::make('browser-tests'),
             'bio' => 'Autore deterministico usato esclusivamente dalla suite Playwright.',
-            'role' => 'author',
+            'role' => 'editor',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -102,6 +102,29 @@ class BrowserTestSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        $adminRows = [];
+        for ($i = 1; $i <= 26; $i++) {
+            $adminRows[] = [
+                'user_id' => $authorId,
+                'title' => $i === 1
+                    ? 'Titolo browser molto lungo per verificare che le azioni restino raggiungibili anche quando il contenuto editoriale supera ampiamente la lunghezza normale della tabella amministrativa'
+                    : 'Bozza browser amministrativa '.$i,
+                'slug' => 'browser-admin-draft-'.$i,
+                'excerpt' => 'Fixture admin deterministica '.$i.'.',
+                'body' => '<p>Contenuto admin browser '.$i.'.</p>',
+                'category' => 'intelligenza-artificiale',
+                'cover_image' => null,
+                'status' => 'draft',
+                'featured' => false,
+                'read_minutes' => 1,
+                'views' => $i,
+                'published_at' => null,
+                'created_at' => $now->copy()->subMinutes($i),
+                'updated_at' => $now,
+            ];
+        }
+        DB::table('articles')->insert($adminRows);
 
         $clusterId = DB::table('content_clusters')->insertGetId([
             'name' => 'IA spiegata',
