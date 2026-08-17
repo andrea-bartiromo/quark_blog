@@ -12,7 +12,10 @@
     eventuali titoli lunghi vengono gestiti solo via wrapping CSS.
 --}}
 @php
-    $breadcrumbCategoryOptions = \App\Models\Category::options(false);
+    // Passato dal controller (ArticleController::show()) e già usato anche
+    // da articolo.blade.php e structured-data.blade.php: prima ciascuno dei
+    // tre rieseguiva la stessa query "select name, slug from categories".
+    $breadcrumbCategoryOptions = $categoryOptions;
     $breadcrumbCategoryRecognized = array_key_exists($article->category, $breadcrumbCategoryOptions);
 @endphp
 <nav class="article-premium__breadcrumb" aria-label="Percorso di navigazione">

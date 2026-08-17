@@ -72,7 +72,10 @@
     // con fallback a config('laboratorio.categories'), risolta una sola
     // volta e riusata sia per l'etichetta sia per il controllo di
     // riconoscimento del breadcrumb.
-    $articleCategoryOptions = \App\Models\Category::options(false);
+    // Passato dal controller (ArticleController::show()) e già usato anche
+    // da articolo.blade.php e breadcrumb.blade.php: prima ciascuno dei tre
+    // rieseguiva la stessa query "select name, slug from categories".
+    $articleCategoryOptions = $categoryOptions;
     $articleCategoryRecognized = array_key_exists($article->category, $articleCategoryOptions);
 
     $articleBreadcrumbItems = [
