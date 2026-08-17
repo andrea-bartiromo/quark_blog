@@ -23,7 +23,7 @@ class HomeCategoryCarouselTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertDontSee('Solo Bozze')
-            ->assertDontSee(route('categoria', $category), false);
+            ->assertDontSee(route('categoria', $category->slug), false);
     }
 
     #[DataProvider('categoryCounts')]
@@ -47,7 +47,7 @@ class HomeCategoryCarouselTest extends TestCase
         $response->assertDontSee($draftOnly->name);
 
         foreach (Category::ordered()->where('slug', '!=', $draftOnly->slug)->get() as $category) {
-            $response->assertSee(route('categoria', $category), false);
+            $response->assertSee(route('categoria', $category->slug), false);
         }
     }
 
