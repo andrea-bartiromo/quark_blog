@@ -5,6 +5,7 @@
 @section('home_css')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-premium.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-fix.css') }}">
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/home-category-carousel.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 @endsection
 
