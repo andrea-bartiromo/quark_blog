@@ -34,6 +34,7 @@ use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\ArticleLinkSuggestionController;
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CommunicationUnsubscribeController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NewsletterController;
@@ -77,6 +78,17 @@ Route::get('/newsletter/click/{subscriber}/{article}', [NewsletterTrackingContro
 
 Route::get('/newsletter/open/{subscriber}', [NewsletterTrackingController::class, 'open'])
     ->name('newsletter.open');
+
+// ── Comunicazione: disiscrizione pubblica (comm_subscribers) ────
+// GET = sola pagina di conferma, nessun effetto collaterale. Solo la
+// POST disiscrive davvero — vedi il docblock del controller.
+Route::get('/comunicazione/disiscrizione/{token}', [CommunicationUnsubscribeController::class, 'confirm'])
+    ->middleware('throttle:20,1')
+    ->name('comunicazione.disiscrizione.conferma');
+
+Route::post('/comunicazione/disiscrizione/{token}', [CommunicationUnsubscribeController::class, 'unsubscribe'])
+    ->middleware('throttle:20,1')
+    ->name('comunicazione.disiscrizione.submit');
 
 // ── Commenti pubblici ──────────────────────────────────────────
 Route::post('/commenti', [CommentController::class, 'store'])
@@ -273,6 +285,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::post('/campagne/{campaign}/duplica', [CommunicationCampaignController::class, 'duplicate'])->name('campaigns.duplicate');
         Route::delete('/campagne/{campaign}', [CommunicationCampaignController::class, 'destroy'])->name('campaigns.destroy');
         Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
+        Route::post('/campagne/{campaign}/destinatari/prepara', [CommunicationCampaignController::class, 'prepareRecipients'])->name('campaigns.recipients.prepare');
+        Route::get('/campagne/{campaign}/verifica-pre-invio', [CommunicationCampaignController::class, 'preflight'])->name('campaigns.preflight');
+        Route::post('/campagne/{campaign}/dry-run', [CommunicationCampaignController::class, 'dryRun'])->name('campaigns.dry-run');
 
         // Template
         Route::get('/template', [CommunicationTemplateController::class, 'index'])->name('templates.index');

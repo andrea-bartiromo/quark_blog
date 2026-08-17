@@ -8,12 +8,35 @@ use App\Http\Requests\Admin\UpdateCommunicationCampaignRequest;
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
 use App\Models\CommunicationSenderProfile;
+use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
+use App\Services\Communication\CampaignDryRunService;
+use App\Services\Communication\CampaignPreflightService;
+use App\Services\Communication\CampaignRenderer;
+use App\Services\Communication\RecipientSnapshotService;
+use App\Services\Communication\RecordingEmailProvider;
 use Illuminate\Http\Request;
 
 class CommunicationCampaignController extends Controller
 {
+    /**
+     * Dimensione pagina del selettore destinatario dell'anteprima
+     * (ricerca server-side per email parziale, N2.1) — mai un preload di
+     * tutti gli iscritti confermati, indipendentemente dalla scala.
+     * L'anteprima resta uno strumento di anteprima, non di targeting/
+     * segmentazione: la ricerca serve solo a trovare UN destinatario per
+     * cui vedere il rendering reale.
+     */
+    private const PREVIEW_RECIPIENT_OPTIONS_LIMIT = 20;
+
+    public function __construct(
+        private readonly RecipientSnapshotService $recipientSnapshot,
+        private readonly CampaignRenderer $campaignRenderer,
+        private readonly CampaignPreflightService $campaignPreflight,
+        private readonly CampaignDryRunService $campaignDryRun,
+    ) {}
+
     /**
      * Elenco Campagne. Ricerca/filtri/ordinamento/paginazione sono quelli
      * introdotti in sola lettura nel Blocco 1 (B1); qui si aggiungono solo
@@ -92,12 +115,21 @@ class CommunicationCampaignController extends Controller
             ? $campaign->activityLogs()->with('user')->orderByDesc('created_at')->orderByDesc('id')->get()
             : null;
 
+        $recipientCounts = $activeTab === 'sends'
+            ? [
+                'prepared' => $campaign->sends()->count(),
+                'eligible_total' => CommunicationSubscriber::confirmed()->count(),
+            ]
+            : null;
+
         return view('admin.communication.campaigns.show', [
             'campaign' => $campaign,
             'activeTab' => $activeTab,
             'typeOptions' => CommunicationCampaign::typeOptions(),
             'statusOptions' => CommunicationCampaign::statusOptions(),
             'activityLog' => $activityLog,
+            'recipientCounts' => $recipientCounts,
+            'canPrepareRecipients' => $this->recipientSnapshot->canPrepare($campaign),
         ]);
     }
 
@@ -194,9 +226,135 @@ class CommunicationCampaignController extends Controller
         return redirect()->route('admin.comunicazione.campaigns.index')->with('success', 'Campagna eliminata.');
     }
 
-    public function preview(CommunicationCampaign $campaign)
+    /**
+     * Anteprima reale: stesso CampaignRenderer che il futuro invio dovrà
+     * riusare, con un destinatario CONFERMATO reale selezionabile (o un
+     * segnaposto esplicito se la campagna non ne ha ancora nessuno). Solo
+     * lettura: nessuna riga viene creata/modificata/marcata da questa
+     * azione, indipendentemente da quante volte viene aperta.
+     *
+     * Selettore ricerca (N2.1): server-side, per email parziale, paginato
+     * — mai un preload di tutti gli iscritti confermati. `q` è limitato
+     * alla lunghezza della colonna email e i metacaratteri LIKE (% _ \)
+     * sono escapati esplicitamente, così un carattere `%` digitato
+     * dall'admin resta letterale invece di comportarsi da wildcard.
+     */
+    public function preview(Request $request, CommunicationCampaign $campaign)
     {
-        return view('admin.communication.campaigns.preview', ['campaign' => $campaign]);
+        $query = trim((string) $request->string('q'));
+        $query = mb_substr($query, 0, 190);
+
+        $recipientOptions = CommunicationSubscriber::confirmed()
+            ->when($query !== '', fn ($q) => $q->whereRaw(
+                'email LIKE ? ESCAPE ?',
+                ['%'.addcslashes($query, '%_\\').'%', '\\']
+            ))
+            ->orderByDesc('confirmed_at')
+            ->orderByDesc('id')
+            ->paginate(self::PREVIEW_RECIPIENT_OPTIONS_LIMIT, ['id', 'email'])
+            ->withQueryString();
+
+        $requestedId = $request->integer('subscriber_id') ?: null;
+
+        $subscriber = $requestedId
+            ? CommunicationSubscriber::confirmed()->find($requestedId)
+            : null;
+
+        // Nessuna selezione esplicita valida: rappresentativo = l'iscritto
+        // confermato più recente TRA I RISULTATI CORRENTI (rispetta un
+        // 'q' attivo), così l'anteprima mostra sempre dati reali coerenti
+        // con la ricerca in corso, senza richiedere una scelta manuale.
+        if (! $subscriber) {
+            $subscriber = $recipientOptions->first()
+                ? CommunicationSubscriber::confirmed()->find($recipientOptions->first()->id)
+                : null;
+        }
+
+        $rendering = $this->campaignRenderer->render($campaign, $subscriber);
+
+        return view('admin.communication.campaigns.preview', [
+            'campaign' => $campaign,
+            'rendering' => $rendering,
+            'recipientOptions' => $recipientOptions,
+            'selectedSubscriberId' => $subscriber?->id,
+            'recipientQuery' => $query,
+        ]);
+    }
+
+    /**
+     * Newsletter 2.0, primo incremento: crea lo snapshot dei destinatari
+     * (comm_sends, status=queued) SENZA inviare alcuna email — vedi
+     * RecipientSnapshotService per idempotenza/eleggibilità/concorrenza.
+     * Rieseguibile a piacere: ogni run aggiunge solo gli iscritti confermati
+     * non ancora presenti, non tocca mai le righe già create.
+     */
+    public function prepareRecipients(CommunicationCampaign $campaign)
+    {
+        if (! $this->recipientSnapshot->canPrepare($campaign)) {
+            return back()->withErrors([
+                'recipients' => 'Impossibile preparare i destinatari per una campagna con stato "'.
+                    (CommunicationCampaign::statusOptions()[$campaign->status] ?? $campaign->status).'".',
+            ]);
+        }
+
+        $result = $this->recipientSnapshot->prepare($campaign);
+
+        CommunicationCampaignActivityLog::record(
+            campaign: $campaign,
+            subjectType: 'recipients',
+            subjectId: $campaign->id,
+            subjectTitle: $campaign->title,
+            action: "Destinatari preparati: {$result['added']} nuovi, {$result['already_present']} già presenti (totale iscritti confermati: {$result['eligible_total']})",
+            userId: auth()->id(),
+        );
+
+        return redirect()
+            ->route('admin.comunicazione.campaigns.show', [$campaign, 'tab' => 'sends'])
+            ->with('success', "{$result['added']} nuovi destinatari aggiunti. {$result['already_present']} erano già presenti.");
+    }
+
+    /**
+     * N2.8 — verifica pre-invio: sola lettura, nessuna azione. Ultima
+     * schermata prima di un eventuale futuro dry-run (N2.9); qui non
+     * esiste né esisterà mai un bottone "Invia" — vedi il docblock di
+     * CampaignPreflightService per cosa distingue un blocco da un avviso.
+     */
+    public function preflight(CommunicationCampaign $campaign)
+    {
+        return view('admin.communication.campaigns.preflight', [
+            'campaign' => $campaign,
+            'report' => $this->campaignPreflight->assess($campaign),
+            'statusOptions' => CommunicationCampaign::statusOptions(),
+        ]);
+    }
+
+    /**
+     * N2.9 — dry-run: esegue l'intera pipeline di invio reale con un
+     * RecordingEmailProvider, dentro una transazione SEMPRE annullata da
+     * CampaignDryRunService — zero email reali, zero righe modificate,
+     * indipendentemente da quante volte viene eseguito. Richiede lo
+     * stesso "nessun blocco" della verifica pre-invio: eseguire un
+     * dry-run su una campagna senza mittente/oggetto/destinatari non
+     * produrrebbe un numero significativo.
+     */
+    public function dryRun(CommunicationCampaign $campaign)
+    {
+        $preflight = $this->campaignPreflight->assess($campaign);
+
+        if (! $preflight->isReady()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.preflight', $campaign)
+                ->withErrors(['dry_run' => 'Risolvi i blocchi della verifica pre-invio prima di eseguire un dry-run.']);
+        }
+
+        $provider = new RecordingEmailProvider;
+        $report = $this->campaignDryRun->run($campaign, $provider);
+
+        return view('admin.communication.campaigns.dry-run', [
+            'campaign' => $campaign,
+            'report' => $report,
+            'attempts' => $provider->attempts(),
+        ]);
     }
 
     /**

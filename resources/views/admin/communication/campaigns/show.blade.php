@@ -13,7 +13,7 @@
     'stats' => 'Statistiche',
     'history' => 'Cronologia',
   ];
-  $placeholderTabs = ['articles', 'segments', 'sends', 'stats'];
+  $placeholderTabs = ['articles', 'segments', 'stats'];
 @endphp
 
 <div class="admin-topbar">
@@ -23,6 +23,7 @@
   </div>
   <div style="display:flex;gap:.5rem;">
     <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary">👁️ Anteprima</a>
+    <a href="{{ route('admin.comunicazione.campaigns.preflight', $campaign) }}" class="btn btn--secondary">✅ Verifica pre-invio</a>
     <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
@@ -161,6 +162,46 @@
       @endforeach
     </div>
   @endif
+@elseif($activeTab === 'sends')
+  <div class="admin-card">
+    <h3 style="margin-top:0;">Destinatari</h3>
+    <p style="color:#9ca3af;font-size:.85rem;">
+      Prepara lo snapshot dei destinatari (iscritti confermati) per questa campagna. Questa azione NON invia alcuna email:
+      crea solo l'elenco di chi riceverà la campagna quando l'invio reale sarà disponibile in un blocco successivo.
+    </p>
+
+    <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:1.25rem 0;">
+      <div>
+        <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Destinatari pronti</dt>
+        <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($recipientCounts['prepared']) }}</dd>
+      </div>
+      <div>
+        <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Iscritti confermati totali</dt>
+        <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($recipientCounts['eligible_total']) }}</dd>
+      </div>
+    </dl>
+
+    @if($canPrepareRecipients)
+      <form method="POST" action="{{ route('admin.comunicazione.campaigns.recipients.prepare', $campaign) }}">
+        @csrf
+        <button type="submit" class="btn btn--primary">
+          {{ $recipientCounts['prepared'] > 0 ? '🔄 Aggiorna destinatari' : '📋 Prepara destinatari' }}
+        </button>
+      </form>
+      <p style="color:#9ca3af;font-size:.78rem;margin-top:.5rem;">
+        Puoi rieseguire in sicurezza in qualunque momento: aggiunge solo i nuovi iscritti confermati da allora, non duplica né rimuove nulla.
+      </p>
+    @else
+      <p style="color:#9ca3af;font-size:.85rem;">
+        Non disponibile per una campagna con stato «{{ $statusOptions[$campaign->status] ?? $campaign->status }}».
+      </p>
+    @endif
+
+    <p style="color:#9ca3af;font-size:.8rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
+      Invio reale, code e statistiche di consegna arrivano in un blocco successivo del Sistema Comunicazione.
+      <span class="status" style="background:#f3f4f6;color:#9ca3af;">In arrivo</span>
+    </p>
+  </div>
 @elseif(in_array($activeTab, $placeholderTabs, true))
   <div class="admin-card project-empty-state">
     <div class="project-empty-state__icon">🚧</div>

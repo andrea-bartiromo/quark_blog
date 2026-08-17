@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin\Communication;
 
 use App\Models\CommunicationCampaign;
 use App\Models\CommunicationCampaignActivityLog;
+use App\Models\CommunicationSend;
 use App\Models\CommunicationSenderProfile;
 use App\Models\Project;
 use App\Models\User;
@@ -191,6 +192,35 @@ class CommunicationCampaignCrudTest extends TestCase
         $response->assertSessionHasErrors('subject');
     }
 
+    /**
+     * N2.11 — audit di sicurezza: subject/preheader diventeranno header
+     * email veri quando un provider reale verrà collegato. Un \r o \n al
+     * loro interno è un vettore classico di CRLF/header injection
+     * (iniezione di header aggiuntivi come Bcc), rifiutato già qui in
+     * ingresso invece di essere solo ripulito più a valle nel rendering.
+     */
+    public function test_subject_cannot_contain_a_newline(): void
+    {
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.store'), $this->validPayload([
+                'subject' => "Oggetto\r\nBcc: attacker@example.com",
+            ]));
+
+        $response->assertSessionHasErrors('subject');
+        $this->assertDatabaseCount('comm_campaigns', 0);
+    }
+
+    public function test_preheader_cannot_contain_a_newline(): void
+    {
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.store'), $this->validPayload([
+                'preheader' => "Anteprima\nX-Injected: true",
+            ]));
+
+        $response->assertSessionHasErrors('preheader');
+        $this->assertDatabaseCount('comm_campaigns', 0);
+    }
+
     public function test_type_must_be_one_of_the_known_options(): void
     {
         $response = $this->actingAs($this->editor())
@@ -356,7 +386,7 @@ class CommunicationCampaignCrudTest extends TestCase
     public function test_duplicating_a_campaign_does_not_copy_its_sends(): void
     {
         $original = CommunicationCampaign::factory()->create();
-        \App\Models\CommunicationSend::factory()->for($original, 'campaign')->create();
+        CommunicationSend::factory()->for($original, 'campaign')->create();
 
         $this->actingAs($this->editor())->post(route('admin.comunicazione.campaigns.duplicate', $original));
 

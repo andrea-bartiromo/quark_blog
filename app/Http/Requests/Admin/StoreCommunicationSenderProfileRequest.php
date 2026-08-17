@@ -20,7 +20,11 @@ class StoreCommunicationSenderProfileRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'from_name' => 'required|string|max:255',
+            // Niente \r/\n: from_name diventa il display-name dell'header
+            // From di un'email reale quando un provider verrà collegato —
+            // stesso vettore di CRLF header injection già bloccato su
+            // subject/preheader della campagna.
+            'from_name' => ['required', 'string', 'max:255', 'regex:/^[^\r\n]*$/'],
             'from_email' => 'required|email|max:255',
             'reply_to' => 'nullable|email|max:255',
             'provider' => ['required', Rule::in(array_keys(CommunicationSenderProfile::providerOptions()))],
