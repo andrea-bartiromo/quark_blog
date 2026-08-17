@@ -52,10 +52,16 @@ class HomeCategoriesTest extends TestCase
      * confonderla con la sezione "Esplora le categorie" (che mostra solo le
      * categorie con almeno un articolo pubblicato), le assertion isolano il
      * contenuto del solo carosello home-category-carousel.
+     *
+     * L'ancora usata per individuare l'inizio della sezione è il tag di
+     * apertura <section class="home-category-section" ...> (non la stringa
+     * "home-category-carousel", che compare anche prima, nell'head, nel link
+     * al foglio di stile home-category-carousel.css — usarla come ancora
+     * farebbe iniziare l'estrazione dall'head invece che dalla sezione).
      */
     private function categoryGridHtml(string $fullHtml): string
     {
-        $start = strpos($fullHtml, 'home-category-carousel');
+        $start = strpos($fullHtml, 'home-category-section');
         $end = strpos($fullHtml, '</section>', $start);
 
         $this->assertNotFalse($start, 'Sezione "Esplora le categorie" non trovata nella home.');
