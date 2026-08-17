@@ -127,9 +127,21 @@ test('categories beyond the sixth remain reachable with JavaScript disabled', as
         await expect(seventh).toBeAttached();
         await expect(tenth).toBeAttached();
 
-        await track.focus();
-        await expect(track).toBeFocused();
-        await page.keyboard.press('ArrowRight');
+        // Senza JavaScript gli handler che animano lo scroll via bottoni/
+        // frecce non si attivano mai (sono aggiunti da <script>): la reale
+        // garanzia di raggiungibilità con sola tastiera è quella nativa del
+        // browser, che porta in vista (scrollIntoView) l'elemento figlio
+        // che riceve il focus — esattamente ciò che accade tabulando fino
+        // al link di una categoria oltre la sesta. Il carosello stesso non
+        // è più raggiunto via ArrowRight (nessun listener senza JS): quel
+        // tasto non è un meccanismo di scroll nativo garantito su un
+        // contenitore overflow-x, a differenza del focus-scroll.
+        await seventh.focus();
+        await expect(seventh).toBeFocused();
+        await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
+
+        await tenth.focus();
+        await expect(tenth).toBeFocused();
         await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
     } finally {
         await context.close();
