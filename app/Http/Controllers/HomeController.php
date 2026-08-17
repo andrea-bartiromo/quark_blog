@@ -54,9 +54,17 @@ class HomeController extends Controller
             // contenuto pubblicato (la tile mostra la categoria, non
             // l'articolo). Escluderlo può far sparire l'intera categoria
             // quando il suo unico articolo pubblicato è quello in evidenza.
+            //
+            // Nessun ->with('author'): $byCategory alimenta solo
+            // $categoryHighlights (collect($byCategory)->map(fn($a) =>
+            // $a->first())) in home.blade.php, a sua volta consumato da
+            // home/partials/category-grid.blade.php — che legge solo
+            // $art->category (URL, switch etichetta) e lo passa a
+            // $imageForCategory()/$categoryLabel(), nessuno dei quali
+            // accede mai ->author. Era una query aggiuntiva per ogni
+            // categoria con almeno un articolo, mai utilizzata.
             $arts = Article::published()
                 ->byCategory($slug)
-                ->with('author')
                 ->orderByDesc('published_at')
                 ->limit(3)
                 ->get();
