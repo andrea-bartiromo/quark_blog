@@ -85,11 +85,13 @@ Any failure here resolves immediately to `failed` with an explicit reason — th
 
 ## Failure matrix
 
-The canonical, test-backed matrix (14 scenarios: claim races, revalidation failures, render exceptions, all four provider outcomes including a genuine PHP exception, retries, max-attempts, cancellation timing) lives in the docblock of `App\Services\Communication\CampaignDeliveryOrchestrator` — read it there rather than duplicating it here, since code comments drift from reality less than a separate document does. Every row is covered by at least one test in `CampaignDeliveryOrchestratorTest`.
+The canonical, test-backed matrix (15 scenarios: claim races, revalidation failures, render exceptions, all four provider outcomes including a genuine PHP exception, retries, max-attempts, cancellation timing, a lost concurrent-state-change race) lives in the docblock of `App\Services\Communication\CampaignDeliveryOrchestrator` — read it there rather than duplicating it here, since code comments drift from reality less than a separate document does. Every row is covered by at least one test in `CampaignDeliveryOrchestratorTest`.
 
-Retry policy: transient failures retry up to `CampaignDeliveryOrchestrator::DEFAULT_MAX_ATTEMPTS` (3) then convert to permanent `failed`. Rejected/permanent failures never retry.
+Retry policy: transient failures retry up to `CampaignDeliveryOrchestrator::DEFAULT_MAX_ATTEMPTS` (3) then convert to permanent `failed`. Rejected/permanent failures never retry. `runCampaign()` reprocesses the queue in internal rounds (bounded by `DEFAULT_MAX_ATTEMPTS`) until nothing is left `queued` — a retried row is fully resolved (sent or permanently failed) within one `runCampaign()` call, no separate manual re-run is needed for retries to actually happen.
 
 **Deliberately never auto-resolved**: an exception thrown *by the provider itself* (a real timeout/crash, not a `DeliveryResult` failure) leaves the row `sending` — the only ambiguous state in this design, matching the same honesty already established for `CommunicationDelivery`. Recovery is `App\Console\Commands\CommunicationReviewStaleSends`, a **manual-only** Artisan command (`--minutes`, `--release-all`), never scheduled — verified by a regression test that greps `routes/console.php` for the command name and asserts it is absent.
+
+**Operational warning, found during pre-merge red-team review**: only release a row that is genuinely abandoned (its worker process is confirmed dead), never merely slow. Releasing a row a live worker is still processing is now caught loudly — the original worker's attempt to persist its outcome throws a `RuntimeException` instead of silently reporting success — but the underlying ambiguity (the provider may already have been called) still requires manual judgment before touching that row again. The `--minutes` threshold is a heuristic, not a guarantee; when in doubt, wait longer before releasing rather than risk a real double send once a provider is connected.
 
 ## Security
 
@@ -102,6 +104,8 @@ Audited in this phase (N2.11):
 - **IDOR**: the preview page's `subscriber_id` parameter is always scoped through `CommunicationSubscriber::confirmed()`, never an unscoped `find()`.
 - **Token enumeration / PII leakage**: unsubscribe returns a uniform generic 404 for malformed and nonexistent tokens alike; the token itself is never logged. The stale-send review command logs only numeric IDs, never subscriber emails.
 - **Mass assignment**: no new fillable surface introduced beyond what each model already exposed.
+
+Re-audited adversarially in a follow-up pre-merge red-team pass: real `<script>`/SVG-onload/`javascript:`/`data:` payloads fired through the actual HTTP preview render (not just a static grep for `{!! !!}`) confirmed the campaign body is escaped twice by construction (once by the email template, again when that already-escaped HTML is embedded into the preview iframe's `srcdoc` attribute) — no live markup ever reaches the DOM. Found and fixed one real concurrency bug in this pass (see Failure matrix). Also proved, and accepted as a residual risk rather than a bug, a TOCTOU window: `revalidate()` reads subscriber consent fresh right before rendering/delivery, but there is no second check *after* the provider call — a message already in flight when a subscriber unsubscribes still delivers that one message. Closing it would require holding a DB lock across an external network call, which is a worse anti-pattern than the narrow window it would close; every real bulk-email system has the same structural window.
 
 ## Performance
 
