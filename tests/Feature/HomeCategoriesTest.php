@@ -51,11 +51,11 @@ class HomeCategoriesTest extends TestCase
      * tutte le categorie di config('laboratorio.categories'). Per non
      * confonderla con la sezione "Esplora le categorie" (che mostra solo le
      * categorie con almeno un articolo pubblicato), le assertion isolano il
-     * contenuto della sola sezione home-category-grid.
+     * contenuto del solo carosello home-category-carousel.
      */
     private function categoryGridHtml(string $fullHtml): string
     {
-        $start = strpos($fullHtml, 'home-category-grid');
+        $start = strpos($fullHtml, 'home-category-carousel');
         $end = strpos($fullHtml, '</section>', $start);
 
         $this->assertNotFalse($start, 'Sezione "Esplora le categorie" non trovata nella home.');
