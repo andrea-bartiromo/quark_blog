@@ -13,7 +13,7 @@ jobs:
   quality:
     if: github.event.pull_request.number == 212
     runs-on: ubuntu-latest
-    name: Pint and diff check
+    name: PR 212 validation
 
     steps:
       - name: Checkout code
@@ -31,7 +31,22 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Prepare SQLite test environment
+        run: |
+          cp .env.example .env
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=${{ github.workspace }}/database/database.sqlite" >> .env
+          mkdir -p database
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate --force
+          php artisan optimize:clear
+
+      - name: Feature tests
+        run: php artisan test tests/Feature/HomeCategoryCarouselTest.php
+
       - name: Pint changed PHP files
+        if: always()
         run: vendor/bin/pint --test tests/Feature/HomeCategoryCarouselTest.php database/seeders/BrowserTestSeeder.php
 
       - name: Diff check
