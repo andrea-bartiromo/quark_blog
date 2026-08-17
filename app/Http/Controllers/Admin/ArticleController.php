@@ -56,13 +56,18 @@ class ArticleController extends Controller
     public function index(Request $request)
     {
         // Sanitizzazione manuale invece di $request->validate(): un valore
-        // sconosciuto o non ammesso (status inesistente, author non
-        // numerico, parametro extra mai definito) deve solo essere
-        // ignorato — il filtro corrispondente semplicemente non si
-        // applica — mai interrompere una GET con un redirect/422. La
-        // pagina resta sempre renderizzabile qualunque sia la query
-        // string ricevuta.
-        $search = trim((string) $request->input('q', ''));
+        // sconosciuto o non ammesso deve solo essere ignorato, mai
+        // interrompere una GET con redirect/422. La ricerca replica inoltre
+        // lato server il maxlength=150 della UI, Unicode-safe, cosi una URL
+        // costruita manualmente non puo generare LIKE arbitrariamente grandi.
+        $searchInput = $request->input('q', '');
+        $search = is_string($searchInput)
+            ? mb_substr(trim($searchInput), 0, 150)
+            : '';
+
+        if ($request->has('q')) {
+            $request->query->set('q', $search);
+        }
 
         $status = $request->input('status');
         if (! is_string($status) || ! array_key_exists($status, Article::statusOptions())) {
@@ -74,8 +79,17 @@ class ArticleController extends Controller
             $category = null;
         }
 
-        $authorId = $request->input('author');
-        $authorId = is_numeric($authorId) ? (int) $authorId : null;
+        $authorInput = $request->input('author');
+        $authorId = null;
+
+        if (is_string($authorInput) && preg_match('/^[1-9][0-9]*$/D', $authorInput) === 1) {
+            $validatedAuthorId = filter_var(
+                $authorInput,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            );
+            $authorId = $validatedAuthorId === false ? null : $validatedAuthorId;
+        }
 
         $query = Article::query()->latest()->with('author');
 
@@ -109,6 +123,21 @@ class ArticleController extends Controller
         }
 
         $articles = $query->paginate(self::PER_PAGE)->withQueryString();
+
+        // Una pagina oltre l'ultima disponibile non rappresenta un vero
+        // empty state editoriale. Canonicalizziamo quindi all'ultima pagina
+        // valida, preservando la query string gia sanitizzata. Con una sola
+        // pagina si torna alla URL senza ?page=1.
+        if ($articles->total() > 0 && $articles->currentPage() > $articles->lastPage()) {
+            $redirectQuery = $request->query();
+            unset($redirectQuery['page']);
+
+            if ($articles->lastPage() > 1) {
+                $redirectQuery['page'] = $articles->lastPage();
+            }
+
+            return redirect()->route('admin.articles', $redirectQuery);
+        }
 
         // Indicatore "collegamenti ad articoli": limitato ai soli articoli
         // programmati (il caso d'uso richiesto — capire prima della
