@@ -42,7 +42,20 @@ jobs:
           php artisan migrate --force
           php artisan optimize:clear
 
+      - name: Full PHP suite diagnostic
+        run: |
+          set -o pipefail
+          php artisan test 2>&1 | tee php-suite.log
+
+      - name: Upload PHP diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr212-php-suite-log
+          path: php-suite.log
+
       - name: Feature tests
+        if: always()
         run: php artisan test tests/Feature/HomeCategoryCarouselTest.php
 
       - name: Pint changed PHP files
