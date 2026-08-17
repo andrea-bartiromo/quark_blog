@@ -144,4 +144,53 @@ class CampaignStateMachineTest extends TestCase
         $this->assertSame(CommunicationCampaign::STATUS_COMPLETED, $staleCopy->status);
         $this->assertSame(CommunicationCampaign::STATUS_COMPLETED, $campaign->fresh()->status);
     }
+
+    /**
+     * Red-team pre-merge (FASE 9, fuzzing esaustivo) — stesso principio
+     * di SendStateMachineTest::allStatusPairs(): l'intero prodotto
+     * cartesiano N×N degli stati, non i soli casi curati a mano sopra.
+     * Dimostra meccanicamente che completed/failed/cancelled non
+     * tornano mai a 'sending', in un solo test.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function allStatusPairs(): array
+    {
+        $statuses = [
+            CommunicationCampaign::STATUS_DRAFT,
+            CommunicationCampaign::STATUS_SCHEDULED,
+            CommunicationCampaign::STATUS_SENDING,
+            CommunicationCampaign::STATUS_COMPLETED,
+            CommunicationCampaign::STATUS_FAILED,
+            CommunicationCampaign::STATUS_CANCELLED,
+        ];
+
+        $pairs = [];
+        foreach ($statuses as $from) {
+            foreach ($statuses as $to) {
+                if ($from !== $to) {
+                    $pairs["{$from} -> {$to}"] = [$from, $to];
+                }
+            }
+        }
+
+        return $pairs;
+    }
+
+    #[DataProvider('allStatusPairs')]
+    public function test_exhaustive_transition_matrix_never_silently_succeeds_for_an_undeclared_pair(string $from, string $to): void
+    {
+        $campaign = CommunicationCampaign::factory()->create(['status' => $from]);
+        $machine = new CampaignStateMachine;
+
+        if ($machine->canTransition($campaign, $to)) {
+            $this->assertTrue($machine->transition($campaign, $to));
+            $this->assertSame($to, $campaign->fresh()->status);
+
+            return;
+        }
+
+        $this->expectException(RuntimeException::class);
+        $machine->transition($campaign, $to);
+    }
 }

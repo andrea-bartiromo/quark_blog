@@ -108,4 +108,19 @@ class CampaignDryRunControllerTest extends TestCase
             ->get(route('admin.comunicazione.campaigns.preflight', $notReady));
         $notReadyResponse->assertDontSee('Esegui dry-run');
     }
+
+    /**
+     * Red-team pre-merge (FASE 8): stessa verifica esplicita di
+     * CampaignPreflightTest per la rotta dry-run.
+     */
+    public function test_a_soft_deleted_campaign_returns_404_on_dry_run(): void
+    {
+        $campaign = $this->readyCampaign();
+        $campaign->delete();
+
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.comunicazione.campaigns.dry-run', $campaign));
+
+        $response->assertNotFound();
+    }
 }

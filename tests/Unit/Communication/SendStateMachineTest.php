@@ -135,4 +135,55 @@ class SendStateMachineTest extends TestCase
         $this->assertSame(CommunicationSend::STATUS_SENT, $staleCopy->status);
         $this->assertSame(CommunicationSend::STATUS_SENT, $send->fresh()->status);
     }
+
+    /**
+     * Red-team pre-merge (FASE 9, fuzzing esaustivo): copre l'INTERO
+     * prodotto cartesiano N×N degli stati conosciuti, non i soli casi
+     * curati a mano in validTransitions()/invalidTransitions() qui
+     * sopra — elimina il rischio che una coppia sia stata dimenticata
+     * in ENTRAMBE le liste per errore umano. Per costruzione dimostra
+     * anche che nessuno stato terminale (sent/failed/cancelled) può mai
+     * essere riaperto verso alcuno stato, in un solo test invece di tre
+     * verifiche separate.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function allStatusPairs(): array
+    {
+        $statuses = [
+            CommunicationSend::STATUS_QUEUED,
+            CommunicationSend::STATUS_SENDING,
+            CommunicationSend::STATUS_SENT,
+            CommunicationSend::STATUS_FAILED,
+            CommunicationSend::STATUS_CANCELLED,
+        ];
+
+        $pairs = [];
+        foreach ($statuses as $from) {
+            foreach ($statuses as $to) {
+                if ($from !== $to) {
+                    $pairs["{$from} -> {$to}"] = [$from, $to];
+                }
+            }
+        }
+
+        return $pairs;
+    }
+
+    #[DataProvider('allStatusPairs')]
+    public function test_exhaustive_transition_matrix_never_silently_succeeds_for_an_undeclared_pair(string $from, string $to): void
+    {
+        $send = $this->send($from);
+        $machine = new SendStateMachine;
+
+        if ($machine->canTransition($send, $to)) {
+            $this->assertTrue($machine->transition($send, $to));
+            $this->assertSame($to, $send->fresh()->status);
+
+            return;
+        }
+
+        $this->expectException(RuntimeException::class);
+        $machine->transition($send, $to);
+    }
 }

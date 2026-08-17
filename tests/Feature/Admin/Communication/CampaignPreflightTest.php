@@ -166,4 +166,21 @@ class CampaignPreflightTest extends TestCase
 
         $response->assertRedirect(route('redazione.dashboard'));
     }
+
+    /**
+     * Red-team pre-merge (FASE 8): il route binding implicito deve
+     * escludere una campagna soft-deleted (404), non solo per le rotte
+     * preesistenti ma anche per questa nuova — verificato esplicitamente
+     * invece di assumerlo dal comportamento di default di Laravel.
+     */
+    public function test_a_soft_deleted_campaign_returns_404_on_preflight(): void
+    {
+        $campaign = $this->readyCampaign();
+        $campaign->delete();
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.comunicazione.campaigns.preflight', $campaign));
+
+        $response->assertNotFound();
+    }
 }
