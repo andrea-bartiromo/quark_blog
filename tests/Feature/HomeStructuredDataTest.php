@@ -116,6 +116,15 @@ class HomeStructuredDataTest extends TestCase
         $this->assertArrayNotHasKey('potentialAction', $website);
     }
 
+    public function test_json_ld_cannot_be_broken_out_of_by_a_site_name_containing_a_closing_script_tag(): void
+    {
+        config(['laboratorio.name' => 'Kairus </script><script>alert(1)</script>']);
+
+        $html = $this->get(route('home'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('</script><script>alert(1)</script>', $html);
+    }
+
     public function test_organization_and_website_only_appear_on_the_home_page(): void
     {
         $this->get(route('home'))->assertOk()->assertSee('application/ld+json', false);
