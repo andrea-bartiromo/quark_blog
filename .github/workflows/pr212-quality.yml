@@ -60,7 +60,7 @@ jobs:
 
       - name: Pint changed PHP files
         if: always()
-        run: vendor/bin/pint --test tests/Feature/HomeCategoryCarouselTest.php database/seeders/BrowserTestSeeder.php
+        run: vendor/bin/pint --test tests/Feature/HomeCategoriesTest.php tests/Feature/HomeCategoryCarouselTest.php database/seeders/BrowserTestSeeder.php
 
       - name: Diff check
         if: always()
