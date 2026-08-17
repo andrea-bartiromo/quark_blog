@@ -45,32 +45,50 @@ class HomeController extends Controller
         $categoryRecords = Category::ordered()->get()->keyBy('slug');
         $categoryOptions = Category::options();
 
-        // Articoli per categoria
+        // Articoli per categoria: dopo la rimozione dell'eager load author
+        // inutilizzato (commit precedente), il costo era comunque ancora
+        // O(N) — una query "select * from articles where category = ?" per
+        // ciascuna categoria (Q(N) = 10 + N, misurato con 0/1/6/10/25
+        // categorie). Sostituita da un'unica query con ROW_NUMBER() OVER
+        // (PARTITION BY category ORDER BY published_at DESC) — sintassi SQL
+        // standard, verificata su entrambi i driver del progetto (SQLite
+        // 3.45+, MariaDB 10.11 locali; supportata anche da MySQL 8+ e
+        // PostgreSQL) — che porta il costo di questa sezione a una costante
+        // indipendente da N. Stesso risultato esatto: fino a 3 articoli
+        // pubblicati più recenti per categoria, nessuna esclusione
+        // dell'articolo featured (la tile mostra la categoria, non
+        // l'articolo — escluderlo farebbe sparire l'intera categoria quando
+        // il suo unico articolo pubblicato è quello in evidenza).
+        $categorySlugs = array_keys($categoryOptions);
         $byCategory = [];
 
-        foreach ($categoryOptions as $slug => $label) {
-            // Niente esclusione dell'articolo featured qui: a differenza di
-            // $latest, questa query serve solo a stabilire se la categoria ha
-            // contenuto pubblicato (la tile mostra la categoria, non
-            // l'articolo). Escluderlo può far sparire l'intera categoria
-            // quando il suo unico articolo pubblicato è quello in evidenza.
-            //
-            // Nessun ->with('author'): $byCategory alimenta solo
-            // $categoryHighlights (collect($byCategory)->map(fn($a) =>
-            // $a->first())) in home.blade.php, a sua volta consumato da
-            // home/partials/category-grid.blade.php — che legge solo
-            // $art->category (URL, switch etichetta) e lo passa a
-            // $imageForCategory()/$categoryLabel(), nessuno dei quali
-            // accede mai ->author. Era una query aggiuntiva per ogni
-            // categoria con almeno un articolo, mai utilizzata.
-            $arts = Article::published()
-                ->byCategory($slug)
+        if ($categorySlugs !== []) {
+            $rankedByCategory = Article::query()
+                ->fromSub(
+                    Article::published()
+                        ->whereIn('category', $categorySlugs)
+                        ->selectRaw('articles.*, ROW_NUMBER() OVER (PARTITION BY category ORDER BY published_at DESC) as category_rank'),
+                    'articles'
+                )
+                ->where('category_rank', '<=', 3)
+                ->orderBy('category')
                 ->orderByDesc('published_at')
-                ->limit(3)
-                ->get();
+                ->get()
+                ->groupBy('category');
 
-            if ($arts->count() > 0) {
-                $byCategory[$slug] = $arts;
+            // Ripercorsa nell'ordine di $categoryOptions (sort_order, non
+            // alfabetico): il GROUP BY sopra restituisce le categorie in
+            // ordine alfabetico di slug (serviva solo a raggruppare i
+            // risultati di un'unica query), ma home.blade.php costruisce
+            // $categoryHighlights direttamente da collect($byCategory), che
+            // preserva l'ordine di inserimento dell'array associativo —
+            // deve quindi rispettare lo stesso sort_order del loop che
+            // sostituisce (vedi HomeCategoriesTest::
+            // test_categories_appear_in_sort_order).
+            foreach ($categoryOptions as $slug => $label) {
+                if ($rankedByCategory->has($slug)) {
+                    $byCategory[$slug] = $rankedByCategory->get($slug)->values();
+                }
             }
         }
 
