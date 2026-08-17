@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 const viewportWidths = [390, 768, 1440];
 const loginPath = '/admin-05dbc57764bf/login';
 const articlesPath = '/admin/articoli';
-const editorEmail = 'browser-tests@example.test';
+const editorEmail = 'browser-admin@example.test';
 const editorPassword = 'browser-tests';
 const longTitle = 'Titolo browser molto lungo per verificare che le azioni restino raggiungibili anche quando il contenuto editoriale supera ampiamente la lunghezza normale della tabella amministrativa';
 
