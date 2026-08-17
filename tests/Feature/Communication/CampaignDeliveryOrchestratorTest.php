@@ -253,6 +253,102 @@ class CampaignDeliveryOrchestratorTest extends TestCase
         $this->assertSame(CommunicationSend::STATUS_QUEUED, $send->fresh()->status);
     }
 
+    /**
+     * Review manuale mirata richiesta sul commit 3298098 (requisito 6):
+     * dimostra esplicitamente che nessun meccanismo AUTOMATICO richiama
+     * mai il provider una seconda volta dopo l'eccezione — né dentro
+     * processSend() stesso, né attraverso processQueue()/runCampaign()
+     * (nessuno dei due cattura né ritenta questa eccezione al loro
+     * interno: si limitano a propagarla). Solo una chiamata SEPARATA ed
+     * ESPLICITA a un livello più alto (qui: un secondo processQueue(),
+     * come farebbe un futuro run manuale/operatore) può rielaborare la
+     * riga — che a quel punto è legittimamente 'queued' (lasciata così
+     * dall'attore concorrente), esattamente come qualunque altro retry
+     * legittimo di questo sottosistema. Le due chiamate usano provider
+     * DISTINTI per rendere inequivocabile che la seconda è un'azione
+     * indipendente, non una continuazione automatica della prima.
+     */
+    public function test_no_automatic_second_provider_call_happens_after_a_lost_race_only_a_separate_explicit_run_reprocesses_the_row(): void
+    {
+        $campaign = $this->sendingCampaign();
+        $send = $this->queuedSend($campaign);
+
+        $firstProvider = new RecordingEmailProvider;
+        $firstProvider->resolveUsing(function () use ($send) {
+            DB::table('comm_sends')->where('id', $send->id)->update(['status' => CommunicationSend::STATUS_QUEUED]);
+
+            return new DeliveryResult(status: DeliveryResult::STATUS_ACCEPTED, providerMessageId: 'first-attempt');
+        });
+
+        try {
+            $this->orchestrator()->processSend($send, $firstProvider);
+            $this->fail('Doveva lanciare RuntimeException.');
+        } catch (\RuntimeException) {
+            // atteso
+        }
+
+        // Nessun automatismo tra l'eccezione e questo punto.
+        $this->assertSame(1, $firstProvider->attemptCount());
+        $this->assertSame(CommunicationSend::STATUS_QUEUED, $send->fresh()->status);
+
+        // Una chiamata SEPARATA ed ESPLICITA, con un provider diverso,
+        // rielabora legittimamente la riga ora 'queued' — comportamento
+        // corretto e atteso (identico a un qualunque altro retry), non
+        // una prosecuzione automatica della prima chiamata.
+        $secondProvider = new RecordingEmailProvider;
+        $secondReport = $this->orchestrator()->processQueue($campaign->fresh(), $secondProvider);
+
+        $this->assertSame(1, $secondProvider->attemptCount());
+        $this->assertSame(1, $secondReport->accepted);
+        $this->assertSame(CommunicationSend::STATUS_SENT, $send->fresh()->status);
+
+        // Il provider della PRIMA chiamata non viene mai più toccato da
+        // nulla dopo l'eccezione, indipendentemente da cosa succede dopo.
+        $this->assertSame(1, $firstProvider->attemptCount());
+    }
+
+    /**
+     * Review manuale mirata sul commit 3298098 (requisito 7): il
+     * messaggio dell'eccezione deve restare operativamente utile (id
+     * riga, motivo, stato attuale) senza MAI includere email, token di
+     * disiscrizione o contenuto della campagna — anche quando questi
+     * dati esistono realmente sulla riga coinvolta.
+     */
+    public function test_the_lost_race_exception_message_never_leaks_pii_or_campaign_content(): void
+    {
+        $subscriber = CommunicationSubscriber::factory()->confirmed()->create([
+            'email' => 'segreto-pii-marker@example.com',
+        ]);
+        $campaign = $this->sendingCampaign();
+        $campaign->update(['content' => ['body' => 'CORPO-SEGRETO-DELLA-CAMPAGNA-NON-DEVE-MAI-COMPARIRE']]);
+        $send = $this->queuedSend($campaign, $subscriber);
+
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(function () use ($send) {
+            DB::table('comm_sends')->where('id', $send->id)->update(['status' => CommunicationSend::STATUS_QUEUED]);
+
+            return new DeliveryResult(status: DeliveryResult::STATUS_ACCEPTED, providerMessageId: 'ok');
+        });
+
+        try {
+            $this->orchestrator()->processSend($send, $provider);
+            $this->fail('Doveva lanciare RuntimeException.');
+        } catch (\RuntimeException $e) {
+            $message = $e->getMessage();
+
+            $this->assertStringNotContainsString($subscriber->email, $message);
+            $this->assertStringNotContainsString($subscriber->unsubscribe_token, $message);
+            $this->assertStringNotContainsString('CORPO-SEGRETO-DELLA-CAMPAGNA', $message);
+
+            // Utile operativamente: id riga, esito del provider, stato
+            // attuale dopo il refresh — sufficiente per un operatore per
+            // agire, senza esporre alcun dato personale.
+            $this->assertStringContainsString((string) $send->id, $message);
+            $this->assertStringContainsString('accepted', $message);
+            $this->assertStringContainsString(CommunicationSend::STATUS_QUEUED, $message);
+        }
+    }
+
     public function test_transient_failure_is_retried_and_returns_to_queued(): void
     {
         $send = $this->queuedSend($this->sendingCampaign());

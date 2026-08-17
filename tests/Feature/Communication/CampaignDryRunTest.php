@@ -11,6 +11,7 @@ use App\Services\Communication\DeliveryResult;
 use App\Services\Communication\RecordingEmailProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use ReflectionMethod;
@@ -193,5 +194,40 @@ class CampaignDryRunTest extends TestCase
         foreach (['Mail::', 'Notification::', 'Bus::', 'Http::', 'curl_', 'fsockopen', 'Swift_', 'Symfony\\Component\\Mailer'] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $source);
         }
+    }
+
+    /**
+     * Review manuale mirata sul commit 3298098 (requisito 4): l'unico
+     * chiamante di produzione di runCampaign() è questo servizio, e non
+     * cattura l'eccezione da nessuna parte — solo un `finally` per il
+     * rollback (sempre eseguito, esito compreso) e il refresh
+     * dell'istanza in memoria. L'eccezione deve risalire fino al
+     * chiamante (il controller admin, poi la risposta HTTP) senza
+     * essere mai trasformata in un esito pulito né ritentata qui.
+     */
+    public function test_a_lost_race_during_dry_run_propagates_uncaught_while_the_transaction_still_rolls_back(): void
+    {
+        $campaign = $this->draftCampaignWithQueuedRecipients(1);
+        $send = CommunicationSend::where('campaign_id', $campaign->id)->firstOrFail();
+
+        $provider = new RecordingEmailProvider;
+        $provider->resolveUsing(function () use ($send) {
+            DB::table('comm_sends')->where('id', $send->id)->update(['status' => CommunicationSend::STATUS_QUEUED]);
+
+            return new DeliveryResult(status: DeliveryResult::STATUS_ACCEPTED, providerMessageId: 'dry-run-race');
+        });
+
+        try {
+            $this->dryRunService()->run($campaign, $provider);
+            $this->fail("Il dry-run deve propagare l'eccezione, mai catturarla o restituire un report pulito.");
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('perso', $e->getMessage());
+        }
+
+        // Il rollback (finally) avviene comunque: nessuno stato fantasma
+        // resta visibile, la campagna in memoria riflette il DB reale.
+        $this->assertSame(CommunicationCampaign::STATUS_DRAFT, $campaign->status);
+        $this->assertSame(CommunicationCampaign::STATUS_DRAFT, $campaign->fresh()->status);
+        $this->assertSame(1, $provider->attemptCount());
     }
 }
