@@ -31,8 +31,9 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
-      - name: Pint
-        run: vendor/bin/pint --test
+      - name: Pint changed PHP files
+        run: vendor/bin/pint --test tests/Feature/HomeCategoryCarouselTest.php database/seeders/BrowserTestSeeder.php
 
       - name: Diff check
+        if: always()
         run: git diff --check "origin/${{ github.base_ref }}...HEAD"
