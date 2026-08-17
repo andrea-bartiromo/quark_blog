@@ -14,6 +14,7 @@ use App\Services\MediaReferenceService;
 use App\Services\MediaStatsService;
 use App\Services\MediaUsageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class MediaController extends Controller
         private readonly MediaUsageService $mediaUsageService,
         private readonly MediaStatsService $mediaStatsService,
         private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index(Request $request)
@@ -160,138 +162,145 @@ class MediaController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
-        'alt_text' => 'nullable|string|max:200',
-        'media_folder_id' => 'nullable|integer|exists:media_folders,id',
-    ]);
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:5120',
+            'alt_text' => 'nullable|string|max:200',
+            'media_folder_id' => 'nullable|integer|exists:media_folders,id',
+        ]);
 
-    $folder = $request->exists('media_folder_id')
-        ? (
-            $request->filled('media_folder_id')
-                ? MediaFolder::findOrFail($request->integer('media_folder_id'))
-                : null
-        )
-        : $this->mediaFolderService->defaultUploadFolder($request->user());
+        $folder = $request->exists('media_folder_id')
+            ? (
+                $request->filled('media_folder_id')
+                    ? MediaFolder::findOrFail($request->integer('media_folder_id'))
+                    : null
+            )
+            : $this->mediaFolderService->defaultUploadFolder($request->user());
 
-    $file = $request->file('image');
+        $file = $request->file('image');
 
-    $original = $file->getClientOriginalName();
+        $original = $file->getClientOriginalName();
 
-    /*
-     * L'estensione viene ricavata dal MIME rilevato dal server,
-     * non dal nome originale inviato dal browser.
-     */
-    $ext = $this->imageService->safeExtension(
-        $file,
-        allowGif: true
-    );
-
-    $mimeType = $file->getMimeType();
-
-    $diskName = $this->imageService->buildFileName(
-        $file,
-        $ext,
-        now()->format('YmdHis').'-'.Str::random(6)
-    );
-
-    $uploadPath = $this->mediaFolderService->ensureDirectoryFor($folder);
-
-    $fullPath = $this->imageService->upload(
-        $file,
-        $uploadPath,
-        $diskName
-    );
-
-    $diskName = $this->mediaFolderService->diskName(
-        $folder,
-        $diskName
-    );
-
-    /*
-     * FASE 5 (missione WebP): un nuovo upload JPG/PNG viene convertito
-     * automaticamente in WebP prima di essere pubblicato, cosi' i nuovi
-     * upload smettono di far crescere lo storage in formati piu'
-     * pesanti. GIF e WebP restano invariati (autoConvertToWebpIfEligible
-     * e' un no-op sicuro per entrambi); se la conversione fallisce per
-     * qualunque motivo, si ricade sul comportamento preesistente
-     * (ottimizzazione nello stesso formato).
-     */
-    $webpApplied = false;
-
-    if (config('media.auto_webp_on_upload', true)) {
-        $conversion = $this->imageService->autoConvertToWebpIfEligible(
-            $fullPath,
-            $ext,
-            (int) config('media.webp_quality', 82),
-            (int) config('media.webp_max_width', 1600)
+        /*
+         * L'estensione viene ricavata dal MIME rilevato dal server,
+         * non dal nome originale inviato dal browser.
+         */
+        $ext = $this->imageService->safeExtension(
+            $file,
+            allowGif: true
         );
 
-        $webpApplied = $conversion['webp_applied'];
+        $mimeType = $file->getMimeType();
 
-        if ($webpApplied) {
-            $fullPath = $conversion['full_path'];
-            $ext = $conversion['ext'];
-            $mimeType = $conversion['mime_type'];
-            $diskName = $this->imageService->changeExtension($diskName, 'webp');
+        $diskName = $this->imageService->buildFileName(
+            $file,
+            $ext,
+            now()->format('YmdHis').'-'.Str::random(6)
+        );
+
+        $uploadPath = $this->mediaFolderService->ensureDirectoryFor($folder);
+
+        $fullPath = $this->imageService->upload(
+            $file,
+            $uploadPath,
+            $diskName
+        );
+
+        $diskName = $this->mediaFolderService->diskName(
+            $folder,
+            $diskName
+        );
+
+        /*
+         * FASE 5 (missione WebP): un nuovo upload JPG/PNG viene convertito
+         * automaticamente in WebP prima di essere pubblicato, cosi' i nuovi
+         * upload smettono di far crescere lo storage in formati piu'
+         * pesanti. GIF e WebP restano invariati (autoConvertToWebpIfEligible
+         * e' un no-op sicuro per entrambi); se la conversione fallisce per
+         * qualunque motivo, si ricade sul comportamento preesistente
+         * (ottimizzazione nello stesso formato).
+         */
+        $webpApplied = false;
+
+        if (config('media.auto_webp_on_upload', true)) {
+            $conversion = $this->imageService->autoConvertToWebpIfEligible(
+                $fullPath,
+                $ext,
+                (int) config('media.webp_quality', 82),
+                (int) config('media.webp_max_width', 1600)
+            );
+
+            $webpApplied = $conversion['webp_applied'];
+
+            if ($webpApplied) {
+                $fullPath = $conversion['full_path'];
+                $ext = $conversion['ext'];
+                $mimeType = $conversion['mime_type'];
+                $diskName = $this->imageService->changeExtension($diskName, 'webp');
+            }
         }
-    }
 
-    if (! $webpApplied) {
-        $this->imageService->resizeAndCompress(
-            $fullPath,
-            $ext,
-            1600,
-            [
-                'jpg' => 82,
-                'png' => 7,
-                'webp' => 82,
-            ],
-            preserveTransparency: true,
-            alwaysReencode: true,
-            logErrors: true
-        );
-    }
+        if (! $webpApplied) {
+            $this->imageService->resizeAndCompress(
+                $fullPath,
+                $ext,
+                1600,
+                [
+                    'jpg' => 82,
+                    'png' => 7,
+                    'webp' => 82,
+                ],
+                preserveTransparency: true,
+                alwaysReencode: true,
+                logErrors: true
+            );
+        }
 
-    try {
-        $this->publicMediaSync->create($fullPath, $diskName);
-    } catch (RuntimeException $exception) {
-        $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
-        report($exception);
+        try {
+            $this->publicMediaSync->create($fullPath, $diskName);
+        } catch (RuntimeException $exception) {
+            $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+            report($exception);
 
-        $message = 'Impossibile pubblicare il file caricato. Riprova o contatta l\'assistenza.';
+            $message = 'Impossibile pubblicare il file caricato. Riprova o contatta l\'assistenza.';
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['ok' => false, 'error' => $message], 500);
+            }
+
+            return back()->with('error', $message);
+        }
+
+        /*
+         * FASE 5 (missione S2 responsive images): accessoria e best-effort,
+         * eseguita DOPO che il file principale e' gia' pubblicato e verificato
+         * — un suo fallimento non deve mai impedire la registrazione del Media.
+         */
+        $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
+
+        $media = Media::create([
+            'user_id' => auth()->id(),
+            'filename' => $original,
+            'disk_name' => $diskName,
+            'mime_type' => $mimeType,
+            'size' => filesize($fullPath) ?: 0,
+            'alt_text' => $request->input('alt_text'),
+        ]);
 
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['ok' => false, 'error' => $message], 500);
+            return response()->json([
+                'ok' => true,
+                'filename' => $diskName,
+                'url' => asset('assets/img/'.$diskName),
+                'id' => $media->id,
+            ]);
         }
 
-        return back()->with('error', $message);
+        return back()->with(
+            'success',
+            "Immagine \"{$original}\" caricata con successo."
+        );
     }
-
-    $media = Media::create([
-        'user_id' => auth()->id(),
-        'filename' => $original,
-        'disk_name' => $diskName,
-        'mime_type' => $mimeType,
-        'size' => filesize($fullPath) ?: 0,
-        'alt_text' => $request->input('alt_text'),
-    ]);
-
-    if ($request->expectsJson() || $request->ajax()) {
-        return response()->json([
-            'ok' => true,
-            'filename' => $diskName,
-            'url' => asset('assets/img/'.$diskName),
-            'id' => $media->id,
-        ]);
-    }
-
-    return back()->with(
-        'success',
-        "Immagine \"{$original}\" caricata con successo."
-    );
-}
 
     public function update(UpdateMediaRequest $request, Media $media)
     {
@@ -326,6 +335,12 @@ class MediaController extends Controller
         if (file_exists($path)) {
             unlink($path);
         }
+
+        // Le varianti responsive non hanno un proprio record Media (vedi
+        // ResponsiveImageVariantService): vanno ripulite esplicitamente qui,
+        // altrimenti sopravviverebbero come orfani permanenti mai
+        // referenziati da nulla.
+        $this->responsiveImageVariants->deleteForDiskName($media->disk_name);
 
         $media->delete();
 

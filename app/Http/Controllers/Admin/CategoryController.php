@@ -9,6 +9,7 @@ use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -19,7 +20,8 @@ class CategoryController extends Controller
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
         private readonly PublicMediaSyncService $publicMediaSync,
-        private readonly MediaRetirementService $mediaRetirement
+        private readonly MediaRetirementService $mediaRetirement,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index()
@@ -121,15 +123,15 @@ class CategoryController extends Controller
 
     /**
      * @return array{0: array<string, mixed>, 1: ?string} i dati aggiornati e,
-     *                                                     se presente, il
-     *                                                     disk_name
-     *                                                     dell'immagine
-     *                                                     precedente da
-     *                                                     ritirare (solo
-     *                                                     dopo che la
-     *                                                     categoria è stata
-     *                                                     salvata: vedi
-     *                                                     store()/update()).
+     *                                                    se presente, il
+     *                                                    disk_name
+     *                                                    dell'immagine
+     *                                                    precedente da
+     *                                                    ritirare (solo
+     *                                                    dopo che la
+     *                                                    categoria è stata
+     *                                                    salvata: vedi
+     *                                                    store()/update()).
      */
     private function handleImageUpload(Request $request, array $data, ?Category $category = null): array
     {
@@ -179,6 +181,13 @@ class CategoryController extends Controller
 
                 throw $exception;
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione
+             * dell'immagine categoria principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, 'categories/'.$fileName);
 
             $this->mediaService->register(
                 $request->user(),
