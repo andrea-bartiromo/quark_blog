@@ -70,7 +70,7 @@ test('desktop exposes all categories and supports controls and arrow keys', asyn
     await track.focus();
     await expect(track).toBeFocused();
     await page.keyboard.press('ArrowRight');
-    const afterRight = await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
+    await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
 
     const rightPosition = (await carouselState(page)).scrollLeft;
     await page.keyboard.press('ArrowLeft');
@@ -127,10 +127,9 @@ test('categories beyond the sixth remain reachable with JavaScript disabled', as
         await expect(seventh).toBeAttached();
         await expect(tenth).toBeAttached();
 
-        const box = await track.boundingBox();
-        expect(box).not.toBeNull();
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.wheel(700, 0);
+        await track.focus();
+        await expect(track).toBeFocused();
+        await page.keyboard.press('ArrowRight');
         await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
     } finally {
         await context.close();
