@@ -104,3 +104,36 @@ SVG;
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+document.querySelectorAll('[data-category-carousel]').forEach((carousel) => {
+    const track = carousel.querySelector('[data-category-track]');
+    const previous = carousel.querySelector('[data-category-prev]');
+    const next = carousel.querySelector('[data-category-next]');
+
+    if (!track || !previous || !next) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const behavior = () => reducedMotion.matches ? 'auto' : 'smooth';
+    const step = () => Math.max(track.clientWidth * 0.85, 240);
+    const updateControls = () => {
+        const maxScroll = Math.max(0, track.scrollWidth - track.clientWidth);
+        previous.disabled = track.scrollLeft <= 2;
+        next.disabled = track.scrollLeft >= maxScroll - 2;
+    };
+    const scrollByPage = (direction) => track.scrollBy({ left: direction * step(), behavior: behavior() });
+
+    previous.addEventListener('click', () => scrollByPage(-1));
+    next.addEventListener('click', () => scrollByPage(1));
+    track.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        scrollByPage(event.key === 'ArrowRight' ? 1 : -1);
+    });
+    track.addEventListener('scroll', updateControls, { passive: true });
+    window.addEventListener('resize', updateControls);
+    updateControls();
+});
+</script>
+@endpush
