@@ -25,6 +25,7 @@ use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -111,11 +112,23 @@ class ArticleController extends Controller
                 ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
         }
 
-        Article::create(
-            $data + [
-                'user_id' => auth()->id(),
-            ]
-        );
+        $payload = $data + ['user_id' => auth()->id()];
+
+        // S6 FASE 4 — Article::uniqueSlug() (applicato dentro
+        // applyBusinessRules(), vedi sopra) copre il caso normale, ma
+        // lascia comunque una finestra reale sotto vera concorrenza tra il
+        // SELECT di controllo e questa INSERT (due editor che salvano lo
+        // stesso titolo nello stesso istante). Il catch-and-retry è quindi
+        // l'unica vera garanzia: se la INSERT urta comunque contro il
+        // vincolo UNIQUE, si rigenera uno slug (che non può più collidere
+        // con la riga appena inserita dall'altro processo) e si ritenta
+        // UNA sola volta — mai un retry-loop illimitato.
+        try {
+            Article::create($payload);
+        } catch (UniqueConstraintViolationException) {
+            $payload['slug'] = Article::uniqueSlug($data['title']);
+            Article::create($payload);
+        }
 
         return redirect()
             ->route('admin.articles')
@@ -338,7 +351,12 @@ class ArticleController extends Controller
 
         unset($data['cover_image_upload']);
 
-        $data['slug'] = Str::slug($data['title']);
+        // S6 FASE 4 — Str::slug() da solo non garantiva unicità: due
+        // articoli con lo stesso titolo collidevano sulla colonna UNIQUE
+        // articles.slug con una QueryException non gestita (500 grezzo).
+        // Vedi anche il catch-and-retry in store() per la vera finestra di
+        // concorrenza che questo controllo da solo non copre.
+        $data['slug'] = Article::uniqueSlug($data['title']);
         $data['featured'] = $request->boolean('featured');
 
         $data['published_at'] = match ($data['status']) {
@@ -395,14 +413,27 @@ class ArticleController extends Controller
         $newArticle = $article->replicate();
 
         $newArticle->title = 'Copia di — '.$article->title;
-        $newArticle->slug = Str::slug($newArticle->title).'-'.time();
+        // S6 FASE 4 — un suffisso time() (granularità di 1 secondo) non
+        // garantisce unicità: due doppi-click ravvicinati su "Duplica"
+        // dello stesso articolo entro lo stesso secondo collidevano sulla
+        // colonna UNIQUE articles.slug con una QueryException non gestita.
+        // Article::uniqueSlug() copre il caso normale; il catch-and-retry
+        // sotto copre la vera finestra di concorrenza (due richieste
+        // simultanee che leggono lo stesso "slug libero" prima che una
+        // delle due abbia effettivamente scritto).
+        $newArticle->slug = Article::uniqueSlug($newArticle->title);
         $newArticle->status = 'draft';
         $newArticle->featured = false;
         $newArticle->views = 0;
         $newArticle->published_at = null;
         $newArticle->verification_status = 'unverified';
 
-        $newArticle->push();
+        try {
+            $newArticle->push();
+        } catch (UniqueConstraintViolationException) {
+            $newArticle->slug = Article::uniqueSlug($newArticle->title);
+            $newArticle->push();
+        }
 
         ActivityLog::record(
             'Articolo duplicato',
