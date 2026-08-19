@@ -8,6 +8,7 @@ use App\Http\Requests\Redazione\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\User;
+use App\Services\ArticleBodySanitizer;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
@@ -26,6 +27,7 @@ class ArticleController extends Controller
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
         private readonly MediaRetirementService $mediaRetirementService,
+        private readonly ArticleBodySanitizer $bodySanitizer,
     ) {}
 
     public function index()
@@ -47,6 +49,14 @@ class ArticleController extends Controller
     public function store(StoreArticleRequest $request)
     {
         $data = $request->validated();
+
+        // S7 CONFIRMED — StoreArticleRequest valida 'body' solo come
+        // 'required': un ruolo 'author' (meno fidato di editor/admin, vedi
+        // il gate di revisione sotto) poteva inviare <script>/onerror/...
+        // che sopravvivevano fino alla pagina pubblica una volta approvati
+        // (Admin\ReviewController::approve() non tocca mai `body`) — vedi
+        // ArticleBodySanitizerTest e ArticleBodyStoredXssTest.
+        $data['body'] = $this->bodySanitizer->sanitize($data['body']);
 
         if (
             $request->hasFile('cover_image_upload')
@@ -212,6 +222,9 @@ class ArticleController extends Controller
         Article $article
     ) {
         $data = $request->validated();
+
+        // S7 CONFIRMED — stessa sanificazione di store(), vedi il suo commento.
+        $data['body'] = $this->bodySanitizer->sanitize($data['body']);
 
         // Codex (PR #165, round 19): usato dal catch della transazione sotto per
         // decidere se $data['cover_image'] sia davvero un disk_name appena generato da
