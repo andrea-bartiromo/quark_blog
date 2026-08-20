@@ -45,6 +45,39 @@ class BrowserTestSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        for ($index = 2; $index <= 10; $index++) {
+            $slug = 'browser-category-'.$index;
+
+            DB::table('categories')->updateOrInsert(
+                ['slug' => $slug],
+                [
+                    'name' => 'Browser Category '.$index,
+                    'description' => 'Categoria deterministica per il carosello browser.',
+                    'sort_order' => $index - 1,
+                    'is_active' => true,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+
+            DB::table('articles')->insert([
+                'user_id' => $authorId,
+                'title' => 'Browser carousel article '.$index,
+                'slug' => 'browser-carousel-article-'.$index,
+                'excerpt' => 'Fixture deterministica per il carosello categorie.',
+                'body' => '<p>Contenuto browser deterministico.</p>',
+                'category' => $slug,
+                'cover_image' => null,
+                'status' => 'published',
+                'featured' => false,
+                'read_minutes' => 1,
+                'views' => 0,
+                'published_at' => $now->copy()->subDays(30 + $index),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
         $publishedArticleId = DB::table('articles')->insertGetId([
             'user_id' => $authorId,
             'title' => 'Turing e il browser regression harness',
