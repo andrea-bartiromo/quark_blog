@@ -21,11 +21,14 @@
 
     @if($categoryImage)
     <section class="category-premium-hero">
-      <img src="{{ asset('assets/img/categories/'.$categoryImage) }}"
-           alt="{{ $categoryLabel }}"
-           loading="eager"
-           decoding="async"
-           onerror="this.onerror=null;this.src='{{ asset('assets/img/hero-placeholder.svg') }}';">
+      <x-responsive-image
+          :diskName="'categories/'.$categoryImage"
+          :alt="$categoryLabel"
+          loading="eager"
+          fetchpriority="high"
+          :sizes="'(max-width: 900px) 100vw, 1240px'"
+          :onerrorSrc="asset('assets/img/hero-placeholder.svg')"
+      />
 
       <div class="category-premium-hero__content">
         <span class="public-hero__kicker">Kairus Category</span>
@@ -83,11 +86,13 @@
           <a href="{{ route('articolo', $article->slug) }}" class="public-card">
 
             <div class="public-card__media">
-              <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
-                   alt="{{ $article->title }}"
-                   loading="lazy"
-                   decoding="async"
-                   onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
+              <x-responsive-image
+                  :diskName="$article->cover_image ?: null"
+                  :src="asset('assets/img/placeholder-1.svg')"
+                  :onerrorSrc="asset('assets/img/placeholder-1.svg')"
+                  :alt="$article->title"
+                  :sizes="'(max-width: 900px) 100vw, 33vw'"
+              />
 
               <span class="public-card__badge">
                 {{ $categoryLabel }}

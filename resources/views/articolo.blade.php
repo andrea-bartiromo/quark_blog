@@ -16,9 +16,17 @@
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <meta property="article:published_time" content="{{ $article->published_at->toIso8601String() }}">
-<meta property="article:modified_time" content="{{ $article->updated_at->toIso8601String() }}">
+{{--
+    article:modified_time volutamente assente: stessa motivazione già
+    documentata per lastmod (sitemap) e dateModified (JSON-LD NewsArticle,
+    articles/partials/structured-data.blade.php) — updated_at non è un
+    segnale editoriale affidabile, viene toccato anche da
+    $article->increment('views') e dal salvataggio del flusso di verifica
+    editoriale senza alcuna modifica al contenuto. Prima di questa modifica
+    il tag lo pubblicava comunque, incoerente con le altre due superfici.
+--}}
 <meta property="article:author" content="{{ $article->author->name }}">
-<meta property="article:section" content="{{ \App\Models\Category::options(false)[$article->category] ?? $article->category }}">
+<meta property="article:section" content="{{ $categoryOptions[$article->category] ?? $article->category }}">
 @include('articles.partials.structured-data')
 
 <style>
@@ -79,7 +87,7 @@
 <div class="reading-progress" id="reading-progress"></div>
 
 @php
-    $categoryLabel = \App\Models\Category::options(false)[$article->category] ?? $article->category;
+    $categoryLabel = $categoryOptions[$article->category] ?? $article->category;
     $cover = asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg'));
     $bodyParts = explode('---', (string) $article->body);
     $mainBody = $bodyParts[0] ?? (string) $article->body;

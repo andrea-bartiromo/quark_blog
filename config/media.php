@@ -156,4 +156,35 @@ return [
     */
     'webp_cleanup_min_age_days' => (int) env('MEDIA_WEBP_CLEANUP_MIN_AGE_DAYS', 14),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Varianti responsive (missione S2)
+    |--------------------------------------------------------------------------
+    |
+    | Larghezze aggiuntive generate ACCANTO al file gia' prodotto dalla
+    | pipeline esistente (upload + auto-WebP/resize, gia' limitato a
+    | webp_max_width qui sopra), mai al posto suo: quel file resta sempre
+    | disponibile come limite superiore del srcset. Valori derivati da una
+    | misura reale con Playwright a 390/768/1440 sulle card (home, categoria,
+    | correlati, Percorsi) e sugli hero (categoria, articolo): la larghezza
+    | REALMENTE renderizzata osservata va da ~197px (card strette) a ~1208px
+    | (hero desktop) — vedi il report della missione per i dati completi.
+    | Due varianti bastano a coprire quell'intervallo (incluso 2x DPR) senza
+    | moltiplicare le copie per immagine:
+    |   - 480w  copre le card (mobile e desktop) a 1x e a 2x fino a ~480px
+    |   - 960w  copre tablet/hero mobile a 2x e le card desktop a 2x
+    | Una larghezza >= alla larghezza reale del sorgente viene sempre saltata
+    | (mai upscale): un'immagine caricata piu' piccola di 480px non genera
+    | varianti spurie piu' grandi di se stessa.
+    |
+    | Interruttore di sicurezza reversibile senza deploy: MEDIA_RESPONSIVE_WIDTHS=""
+    | disattiva la generazione di nuove varianti (i soli file gia' generati in
+    | precedenza restano validi e continuano a essere serviti: vedi
+    | ResponsiveImageVariantService).
+    */
+    'responsive_widths' => array_values(array_filter(array_map(
+        'intval',
+        array_filter(explode(',', (string) env('MEDIA_RESPONSIVE_WIDTHS', '480,960')))
+    ), fn (int $w) => $w > 0)),
+
 ];

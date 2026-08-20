@@ -55,6 +55,16 @@ if (config('database.default') === 'sqlite') {
 Schedule::command('cache:prune-stale-tags')
     ->weeklyOn(0, '03:00');
 
+// ── Pulizia failed_jobs ──────────────────────────────────────────
+// Comando nativo Laravel (docs/STORAGE_AUDIT.md, sezione interventi
+// sicuri, gap già identificato: "failed_jobs mai ripulita, nessun
+// comando di prune schedulato"). 30 giorni di retention (non il default
+// nativo di 24 ore): un job fallito deve restare diagnosticabile per un
+// tempo ragionevole prima di sparire, non solo fino al giorno dopo.
+Schedule::command('queue:prune-failed --hours=720')
+    ->weeklyOn(0, '03:15')
+    ->appendOutputTo(storage_path('logs/queue-prune-failed.log'));
+
 // ── Sitemap: rigenerazione ─────────────────────────────────────
 // La sitemap è generata dinamicamente, nessuna azione necessaria
 Schedule::call(function () {})->dailyAt('04:00')->name('sitemap-refresh');

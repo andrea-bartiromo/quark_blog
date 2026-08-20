@@ -447,10 +447,14 @@ class Article extends Model
 
     public function related(int $limit = 3)
     {
+        // Nessun ->with('author'): l'unico consumer di questo metodo
+        // (ArticleController::show() -> resources/views/articles/partials/
+        // related-articles.blade.php) mostra solo title/excerpt/cover_image/
+        // slug, mai l'autore — l'eager load era una query sprecata a ogni
+        // caricamento di pagina articolo con almeno un correlato.
         return static::published()
             ->byCategory($this->category)
             ->where('id', '!=', $this->id)
-            ->with('author')
             ->limit($limit)
             ->get();
     }
