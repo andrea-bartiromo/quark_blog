@@ -209,6 +209,33 @@ class ArticleStructuredDataTest extends TestCase
         $this->assertArrayNotHasKey('citation', $node);
     }
 
+    public function test_json_ld_cannot_be_broken_out_of_by_a_title_containing_a_closing_script_tag(): void
+    {
+        $article = $this->publishedArticle([
+            'title' => 'Titolo con </script><script>alert(1)</script> iniettato',
+        ]);
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('</script><script>alert(1)</script>', $html);
+
+        $node = $this->newsArticleNodeFor($article);
+        $this->assertSame($article->title, $node['headline']);
+    }
+
+    public function test_meta_tags_do_not_expose_article_modified_time_from_the_unreliable_updated_at_timestamp(): void
+    {
+        // Stessa motivazione già coperta per lastmod/dateModified (Fase 5):
+        // updated_at viene toccato anche da una semplice pageview e dal
+        // flusso di verifica editoriale, quindi non è un segnale affidabile
+        // di modifica editoriale del contenuto.
+        $article = $this->publishedArticle();
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('article:modified_time', $html);
+    }
+
     public function test_structured_data_only_appears_on_article_pages(): void
     {
         $article = $this->publishedArticle();
