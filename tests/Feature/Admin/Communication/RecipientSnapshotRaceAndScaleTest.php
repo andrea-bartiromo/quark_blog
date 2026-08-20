@@ -68,22 +68,34 @@ class RecipientSnapshotRaceAndScaleTest extends TestCase
     public function test_10000_subscribers_completes_without_a_query_placeholder_limit(): void
     {
         // Stessa guardia di scala di test_1000_subscribers_..., a un
-        // ordine di grandezza oltre: il chunk(500) sull'insert e le due
-        // pluck() (eligibili/già presenti) restano l'unico punto dove un
-        // volume elevato di iscritti potrebbe avvicinarsi a un limite di
+        // ordine di grandezza oltre: il chunk(500) sull'insert applicativo
+        // (RecipientSnapshotService::prepare()) e le due pluck()
+        // (eligibili/già presenti) restano l'unico punto dove un volume
+        // elevato di iscritti potrebbe avvicinarsi a un limite di
         // parametri driver — verificato qui end-to-end, non solo stimato.
+        //
+        // Il seeding qui sotto (fixture di test, non codice applicativo)
+        // deve invece essere spezzato in blocchi: un singolo insert() con
+        // 10.000 righe x 6 colonne genera 60.000 bind variable in una sola
+        // query — oltre il limite di default di SQLite dalle versioni
+        // >=3.32 (32.766), a differenza di MariaDB/produzione dove lo
+        // stesso insert singolo non pone problemi (verificato: la stessa
+        // scala passa su MariaDB reale anche senza chunking qui). Stesso
+        // chunk(500) già usato dal servizio applicativo, per coerenza.
         $campaign = CommunicationCampaign::factory()->draft()->create();
 
-        DB::table('comm_subscribers')->insert(
-            collect(range(1, 10000))->map(fn ($i) => [
-                'email' => "scale-sub{$i}@example.com",
-                'status' => 'confirmed',
-                'unsubscribe_token' => Str::random(32),
-                'confirmed_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ])->all()
-        );
+        foreach (array_chunk(range(1, 10000), 500) as $chunk) {
+            DB::table('comm_subscribers')->insert(
+                collect($chunk)->map(fn ($i) => [
+                    'email' => "scale-sub{$i}@example.com",
+                    'status' => 'confirmed',
+                    'unsubscribe_token' => Str::random(32),
+                    'confirmed_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->all()
+            );
+        }
 
         $result = app(RecipientSnapshotService::class)->prepare($campaign);
 
