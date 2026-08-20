@@ -18,6 +18,7 @@ use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
@@ -26,6 +27,7 @@ use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -33,6 +35,15 @@ use RuntimeException;
 
 class ArticleController extends Controller
 {
+    /**
+     * Dimensione pagina dell'elenco Articoli admin. Stesso ordine di
+     * grandezza di MediaController (24) e più larga della paginazione
+     * Campagne (15): la tabella articoli è più densa per riga (poche
+     * colonne, nessuna card), quindi tollera più righe per pagina senza
+     * diventare illeggibile.
+     */
+    private const PER_PAGE = 25;
+
     public function __construct(
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
@@ -46,28 +57,97 @@ class ArticleController extends Controller
 
     public function index(Request $request)
     {
-        $search = trim((string) $request->input('q', ''));
+        // Sanitizzazione manuale invece di $request->validate(): un valore
+        // sconosciuto o non ammesso deve solo essere ignorato, mai
+        // interrompere una GET con redirect/422. La ricerca replica inoltre
+        // lato server il maxlength=150 della UI, Unicode-safe, cosi una URL
+        // costruita manualmente non puo generare LIKE arbitrariamente grandi.
+        $searchInput = $request->input('q', '');
+        $search = is_string($searchInput)
+            ? mb_substr(trim($searchInput), 0, 150)
+            : '';
 
-        $query = Article::latest()->with('author');
+        if ($request->has('q')) {
+            $request->query->set('q', $search);
+        }
+
+        $status = $request->input('status');
+        if (! is_string($status) || ! array_key_exists($status, Article::statusOptions())) {
+            $status = null;
+        }
+
+        $category = $request->input('category');
+        if (! is_string($category) || $category === '' || mb_strlen($category) > 100) {
+            $category = null;
+        }
+
+        $authorInput = $request->input('author');
+        $authorId = null;
+
+        if (is_string($authorInput) && preg_match('/^[1-9][0-9]*$/D', $authorInput) === 1) {
+            $validatedAuthorId = filter_var(
+                $authorInput,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            );
+            $authorId = $validatedAuthorId === false ? null : $validatedAuthorId;
+        }
+
+        $query = Article::query()->latest()->with('author');
 
         if ($search !== '') {
-            $query->where(function ($query) use ($search) {
+            // LIKE con escaping esplicito di %, _ e del carattere di escape
+            // stesso (stesso schema di MediaController::escapeLike()):
+            // senza questo, una ricerca letterale come "50%" o "nome_file"
+            // verrebbe interpretata come un pattern SQL invece che come
+            // testo, restituendo corrispondenze inattese o mancanti.
+            $escapedSearch = $this->escapeLike($search);
+            $likeTerm = '%'.$escapedSearch.'%';
+
+            $query->where(function (Builder $query) use ($likeTerm) {
                 $query
-                    ->where('title', 'like', "%{$search}%")
-                    ->orWhere('excerpt', 'like', "%{$search}%")
-                    ->orWhere('body', 'like', "%{$search}%");
+                    ->whereRaw("title LIKE ? ESCAPE '!'", [$likeTerm])
+                    ->orWhereRaw("excerpt LIKE ? ESCAPE '!'", [$likeTerm])
+                    ->orWhereRaw("body LIKE ? ESCAPE '!'", [$likeTerm]);
             });
         }
 
-        $articles = $query->get();
+        if ($status !== null) {
+            $query->where('status', $status);
+        }
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        if ($authorId !== null) {
+            $query->where('user_id', $authorId);
+        }
+
+        $articles = $query->paginate(self::PER_PAGE)->withQueryString();
+
+        // Una pagina oltre l'ultima disponibile non rappresenta un vero
+        // empty state editoriale. Canonicalizziamo quindi all'ultima pagina
+        // valida, preservando la query string gia sanitizzata. Con una sola
+        // pagina si torna alla URL senza ?page=1.
+        if ($articles->total() > 0 && $articles->currentPage() > $articles->lastPage()) {
+            $redirectQuery = $request->query();
+            unset($redirectQuery['page']);
+
+            if ($articles->lastPage() > 1) {
+                $redirectQuery['page'] = $articles->lastPage();
+            }
+
+            return redirect()->route('admin.articles', $redirectQuery);
+        }
 
         // Indicatore "collegamenti ad articoli": limitato ai soli articoli
         // programmati (il caso d'uso richiesto — capire prima della
         // pubblicazione se un pezzo ha già collegato altri articoli
         // Kairus). Il parsing DOM del body ha un costo per riga non
         // trascurabile su liste grandi (vedi PR #141); qui resta limitato
-        // al sottoinsieme "programmato", tipicamente poche unità, non
-        // all'intera lista (che oggi non è paginata). Nessuna query
+        // al sottoinsieme "programmato" DELLA SOLA PAGINA CORRENTE (al
+        // massimo PER_PAGE righe, mai l'intero archivio). Nessuna query
         // aggiuntiva: countArticleLinks() opera sul body già caricato
         // dalla query principale sopra.
         //
@@ -85,9 +165,81 @@ class ArticleController extends Controller
             }
         }
 
+        $hasActiveFilters = $search !== '' || $status !== null || $category !== null || $authorId !== null;
+
+        // Il messaggio di stato vuoto deve distinguere "l'archivio è
+        // davvero vuoto" da "nessun articolo corrisponde ai filtri
+        // scelti": la seconda situazione suggerisce di azzerare i filtri,
+        // la prima suggerisce di crearne uno. Interrogato SOLO quando la
+        // pagina corrente è vuota — nel caso comune (risultati presenti)
+        // non aggiunge alcuna query.
+        $articlesExistAtAll = ! $articles->isEmpty() || Article::query()->exists();
+
         return view('admin.articles', [
             'articles' => $articles,
+            'search' => $search,
+            'status' => $status,
+            'category' => $category,
+            'authorId' => $authorId,
+            'statusOptions' => Article::statusOptions(),
+            'categoryOptions' => $this->categoryFilterOptions(),
+            'authorOptions' => $this->authorFilterOptions(),
+            'hasActiveFilters' => $hasActiveFilters,
+            'articlesExistAtAll' => $articlesExistAtAll,
         ]);
+    }
+
+    /**
+     * Categorie realmente presenti tra gli articoli esistenti (non l'intero
+     * catalogo config/Category::options()): un filtro deve proporre solo
+     * valori che possono davvero restituire risultati. 'category' su
+     * articles è una stringa libera senza vincolo FK verso categories
+     * (vedi migrazione create_articles_table), quindi una categoria
+     * presente sugli articoli ma nel frattempo rinominata/disattivata in
+     * Category resta comunque un'opzione valida qui, con la sua etichetta
+     * leggibile se ancora risolvibile o lo slug grezzo altrimenti.
+     *
+     * Query economica: DISTINCT su una colonna indicizzata (indice
+     * 'category' già presente dalla migrazione originale), cardinalità
+     * tipica nell'ordine delle unità/decine — non cresce con il numero di
+     * articoli.
+     *
+     * @return array<string, string> slug => etichetta leggibile
+     */
+    private function categoryFilterOptions(): array
+    {
+        $labels = Category::options(false);
+
+        return Article::query()
+            ->select('category')
+            ->distinct()
+            ->orderBy('category')
+            ->pluck('category')
+            ->mapWithKeys(fn (string $slug) => [$slug => $labels[$slug] ?? $slug])
+            ->all();
+    }
+
+    /**
+     * Autori che hanno realmente scritto almeno un articolo (non l'intero
+     * elenco utenti): un filtro "Autore" con centinaia di nomi mai apparsi
+     * in nessun articolo sarebbe rumore puro per la redazione.
+     *
+     * @return array<int, string> user_id => nome
+     */
+    private function authorFilterOptions(): array
+    {
+        $authorIds = Article::query()->select('user_id')->distinct()->pluck('user_id');
+
+        return User::query()
+            ->whereIn('id', $authorIds)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 
     public function create()

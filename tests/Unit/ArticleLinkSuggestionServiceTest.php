@@ -851,6 +851,36 @@ class ArticleLinkSuggestionServiceTest extends TestCase
     }
 
     /**
+     * V2.2 — stesso principio già validato per i termini singoli (V2): con
+     * un pool di candidati troppo piccolo per essere statisticamente
+     * significativo (sotto MIN_CORPUS_SIZE_FOR_SPECIFICITY), un concetto
+     * condiviso resta SEMPRE a punteggio pieno — un sito con pochi articoli
+     * pubblicati non deve comportarsi peggio di V1/V2. Qui il pool ha un
+     * solo candidato (il target stesso), ben sotto la soglia.
+     */
+    public function test_a_shared_concept_keeps_full_score_when_the_candidate_pool_is_too_small_to_classify(): void
+    {
+        $target = $this->article([
+            'title' => 'Intelligenza artificiale: uno sguardo di insieme',
+            'excerpt' => 'Cos\'è davvero l\'intelligenza artificiale.',
+            'body' => '<p>L\'intelligenza artificiale è un campo in forte crescita.</p>',
+            'category' => 'intelligenza-artificiale',
+        ]);
+
+        $source = $this->article([
+            'title' => 'Un nuovo passo per la robotica',
+            'body' => '<p>Un robot che sfrutta l\'intelligenza artificiale per muoversi in autonomia.</p>',
+            'category' => 'intelligenza-artificiale',
+        ]);
+
+        $suggestions = $this->service->analyzeForSource($source);
+        $suggestion = $suggestions->firstWhere('target_article_id', $target->id);
+
+        $this->assertNotNull($suggestion);
+        $this->assertGreaterThanOrEqual(60, $suggestion->confidence_score, 'Concetto (20) + termini condivisi a punteggio pieno + categoria (10): ben oltre la soglia, nessuna classificazione generico/specifico con un pool così piccolo.');
+    }
+
+    /**
      * Internal Linking V2.1 — FASE 7: allargare la candidate selection agli
      * scheduled temporalmente sicuri non deve introdurre una query per
      * candidato (N+1) né far crescere il costo con la dimensione del
