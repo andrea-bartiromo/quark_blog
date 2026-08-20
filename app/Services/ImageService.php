@@ -545,9 +545,18 @@ class ImageService
      * una cancellazione o una sostituzione (vedi ResponsiveImageVariantService)
      * puo' ricalcolare esattamente questi stessi percorsi, quindi trovarle
      * e cancellarle, senza doverle prima leggere da qualche parte.
+     *
+     * $path passa da normalizePath() prima di dirname()/pathinfo(): su
+     * Windows dirname() preserva i backslash del path in input, e senza
+     * questo passaggio il prefisso di directory restava a backslash
+     * mentre il "/" prima del suffisso "-{width}w" era comunque hardcoded
+     * qui sotto — un path a separatori misti che rompeva l'assertSame()
+     * sul valore di ritorno rispetto a writeWebpAtomically() (che invece
+     * normalizza gia'), pur riferendosi allo stesso file valido.
      */
     public function responsiveVariantPath(string $path, int $width): string
     {
+        $path = $this->normalizePath($path);
         $dir = dirname($path);
         $base = pathinfo($path, PATHINFO_FILENAME);
         $ext = pathinfo($path, PATHINFO_EXTENSION);
