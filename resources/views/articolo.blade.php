@@ -26,7 +26,7 @@
     il tag lo pubblicava comunque, incoerente con le altre due superfici.
 --}}
 <meta property="article:author" content="{{ $article->author->name }}">
-<meta property="article:section" content="{{ \App\Models\Category::options(false)[$article->category] ?? $article->category }}">
+<meta property="article:section" content="{{ $categoryOptions[$article->category] ?? $article->category }}">
 @include('articles.partials.structured-data')
 
 <style>
@@ -87,7 +87,7 @@
 <div class="reading-progress" id="reading-progress"></div>
 
 @php
-    $categoryLabel = \App\Models\Category::options(false)[$article->category] ?? $article->category;
+    $categoryLabel = $categoryOptions[$article->category] ?? $article->category;
     $cover = asset('assets/img/'.($article->cover_image ?? 'hero-placeholder.svg'));
     $bodyParts = explode('---', (string) $article->body);
     $mainBody = $bodyParts[0] ?? (string) $article->body;

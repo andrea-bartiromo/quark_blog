@@ -16,11 +16,6 @@ class ArticleController extends Controller
             'articles' => Article::published()
                 ->with('author')
                 ->paginate(12),
-
-            'mostRead' => Article::published()
-                ->orderByDesc('views')
-                ->limit(5)
-                ->get(),
         ]);
     }
 
@@ -43,19 +38,18 @@ class ArticleController extends Controller
                 ->byCategory($slug)
                 ->with('author')
                 ->paginate(12),
-
-            'mostRead' => Article::published()
-                ->orderByDesc('views')
-                ->limit(5)
-                ->get(),
         ]);
     }
 
     public function show(string $slug)
     {
+        // Nessun eager load di 'comments': i commenti non vengono mai
+        // renderizzati sulla pagina pubblica articolo (solo in moderazione
+        // admin, resources/views/admin/comments.blade.php) — caricarli qui
+        // era una query sprecata a ogni richiesta.
         $article = Article::published()
             ->where('slug', $slug)
-            ->with('author', 'comments')
+            ->with('author')
             ->first();
 
         if (! $article) {
@@ -87,10 +81,13 @@ class ArticleController extends Controller
 
             'related' => $article->related(),
 
-            'mostRead' => Article::published()
-                ->orderByDesc('views')
-                ->limit(5)
-                ->get(),
+            // Calcolato una sola volta qui e riusato da articolo.blade.php,
+            // articles/partials/structured-data.blade.php e
+            // articles/partials/breadcrumb.blade.php (unici consumer di
+            // questo partial, vedi grep): prima ciascuno rieseguiva la
+            // stessa query "select name, slug from categories" per conto
+            // proprio, 4 query identiche per singola pagina articolo.
+            'categoryOptions' => Category::options(false),
 
             'pathNavigation' => app(ArticlePathNavigation::class)->forArticle($article),
         ]);
