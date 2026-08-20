@@ -406,6 +406,40 @@ class Article extends Model
 
     // ── Metodi ────────────────────────────────────────────────
 
+    /**
+     * S6 FASE 4 — slug derivato con GARANZIA di unicità: Str::slug($title)
+     * da solo (usato prima da Admin\ArticleController::store() e
+     * duplicate(), quest'ultimo con un suffisso time() a granularità di
+     * 1 secondo) non garantiva nulla — due articoli con lo stesso titolo,
+     * o un doppio invio dello stesso form, collidevano sulla colonna UNIQUE
+     * articles.slug con una QueryException non gestita (500 grezzo, non un
+     * errore leggibile). Qui: prova lo slug "pulito", poi -2/-3/... finché
+     * non trova un valore libero. Questo loop da solo NON è sufficiente
+     * sotto vera concorrenza (finestra tra il SELECT e l'INSERT) — vedi
+     * anche il catch-and-retry attorno alla persistenza effettiva nei
+     * chiamanti, che resta l'unica vera garanzia contro la race, con questo
+     * metodo come percorso comune per il caso normale (nessuna collisione)
+     * e per il retry dopo un urto reale.
+     */
+    public static function uniqueSlug(string $title, ?int $excludeId = null): string
+    {
+        $base = Str::slug($title);
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            static::query()
+                ->where('slug', $slug)
+                ->when($excludeId, fn (Builder $q) => $q->where('id', '!=', $excludeId))
+                ->exists()
+        ) {
+            $slug = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
     public function incrementViews(): void
     {
         $this->increment('views');
