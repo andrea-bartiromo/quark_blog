@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Article;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -190,7 +191,7 @@ class CollaboratorController extends Controller
             Mail::send([], [], function ($message) use ($user, $password, $loginUrl) {
                 $message
                     ->to($user->email)
-                    ->subject('Password reimpostata — Kairus')
+                    ->subject('Password reimpostata ï¿½ Kairus')
                     ->html("
                         <div style='font-family:Arial,sans-serif;max-width:480px;padding:1.5rem;'>
                             <h2 style='color:#0d9488;'>
@@ -198,7 +199,7 @@ class CollaboratorController extends Controller
                             </h2>
 
                             <p style='color:#374151;'>
-                                Ciao {$user->name}, la tua password è stata reimpostata dall'editor.
+                                Ciao {$user->name}, la tua password ï¿½ stata reimpostata dall'editor.
                             </p>
 
                             <div style='background:#f0fdfa;border-radius:8px;padding:1rem;margin:1rem 0;'>
@@ -251,6 +252,19 @@ class CollaboratorController extends Controller
 
         if ($editor) {
             Article::where('user_id', $user->id)
+                ->update([
+                    'user_id' => $editor->id,
+                ]);
+
+            // S9 â€” media.user_id ha un vincolo FK con onDelete('cascade')
+            // (a differenza di articles.user_id, gia' riassegnato sopra):
+            // senza questa riassegnazione, eliminare il collaboratore
+            // cancellerebbe silenziosamente dal DB ogni riga Media che
+            // aveva caricato â€” non un file orfano, una vera perdita della
+            // voce di catalogo per file che restano sul disco e possono
+            // essere ancora attivamente in uso come copertina di un
+            // articolo pubblicato.
+            Media::where('user_id', $user->id)
                 ->update([
                     'user_id' => $editor->id,
                 ]);

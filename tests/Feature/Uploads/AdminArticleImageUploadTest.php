@@ -291,4 +291,39 @@ class AdminArticleImageUploadTest extends TestCase
         $this->assertNotNull(Media::find($libraryMedia->id));
         $this->assertFileExists(public_path('assets/img/'.$libraryDiskName));
     }
+
+    // S9 — applyBusinessRules() carica e registra la nuova copertina PRIMA
+    // che Article::create() venga chiamato in store(): a differenza di
+    // update() (Codex, PR #165, round 18), store() non aveva ALCUNA
+    // protezione equivalente — un fallimento di Article::create() (DB
+    // irraggiungibile, vincolo violato, ecc.) dopo che il file e la riga
+    // Media erano gia' stati creati e pubblicati lasciava un file live,
+    // pubblicamente raggiungibile, mai riferito da alcun articolo.
+    public function test_store_cleans_up_the_new_cover_if_article_creation_fails(): void
+    {
+        $editor = $this->editor();
+
+        Article::creating(function () {
+            throw new RuntimeException('guasto simulato');
+        });
+
+        $newCover = UploadedFile::fake()->image('nuova-store.jpg', 800, 600);
+
+        try {
+            $this->actingAs($editor)->post(route('admin.articles.store'), $this->articlePayload([
+                'title' => 'Articolo mai creato',
+                'cover_image_upload' => $newCover,
+            ]));
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertSame(0, Article::where('title', 'Articolo mai creato')->count());
+
+        // Senza la pulizia, il file caricato e la sua riga Media
+        // sopravvivrebbero orfani, live e pubblicamente raggiungibili,
+        // senza che alcun articolo li referenzi mai.
+        $this->assertSame(0, Media::where('filename', 'nuova-store.jpg')->count());
+        $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
+    }
 }

@@ -278,14 +278,37 @@ class MediaController extends Controller
      */
     $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
-    $media = Media::create([
-        'user_id' => auth()->id(),
-        'filename' => $original,
-        'disk_name' => $diskName,
-        'mime_type' => $mimeType,
-        'size' => filesize($fullPath) ?: 0,
-        'alt_text' => $request->input('alt_text'),
-    ]);
+    // S9 — a questo punto il file e' gia' scritto, ottimizzato e pubblicato
+    // (locale + eventuale radice pubblica secondaria), e le eventuali
+    // varianti responsive sono gia' state generate: un fallimento di
+    // Media::create() lascerebbe un file live, pubblicamente raggiungibile
+    // via URL (piu' le sue varianti), senza ALCUNA riga Media che lo
+    // referenzi — non gestibile ne' individuabile dalla Libreria media.
+    // Stessa pulizia gia' usata sopra per un fallimento di
+    // publicMediaSync->create(), estesa qui anche alle varianti responsive:
+    // senza questa riga le varianti resterebbero orfane sul filesystem
+    // anche dopo il rollback del file principale.
+    try {
+        $media = Media::create([
+            'user_id' => auth()->id(),
+            'filename' => $original,
+            'disk_name' => $diskName,
+            'mime_type' => $mimeType,
+            'size' => filesize($fullPath) ?: 0,
+            'alt_text' => $request->input('alt_text'),
+        ]);
+    } catch (\Throwable $exception) {
+        $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+        $this->responsiveImageVariants->deleteForDiskName($diskName);
+
+        try {
+            $this->publicMediaSync->delete($diskName);
+        } catch (RuntimeException $syncDeleteException) {
+            report($syncDeleteException);
+        }
+
+        throw $exception;
+    }
 
     if ($request->expectsJson() || $request->ajax()) {
         return response()->json([

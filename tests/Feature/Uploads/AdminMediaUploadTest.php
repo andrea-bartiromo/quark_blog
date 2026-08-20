@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Tests\Concerns\InteractsWithTestImages;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
@@ -318,6 +319,38 @@ class AdminMediaUploadTest extends TestCase
         // che, coerentemente, non venga scritto alcun log di errore.
         $this->assertDatabaseHas('media', ['id' => $media->id]);
         Log::shouldNotHaveReceived('warning');
+    }
+
+    // S9 — MediaController::store() scrive il file (imageService->upload()),
+    // lo converte/ottimizza e lo sincronizza nella radice pubblica secondaria
+    // PRIMA di chiamare Media::create(): un fallimento di quella create()
+    // (DB irraggiungibile, ecc.) lasciava un file live, gia' pubblicato e
+    // raggiungibile via URL, senza ALCUNA riga Media che lo referenzi — non
+    // gestibile ne' individuabile dalla Libreria media.
+    public function test_upload_cleans_up_the_file_if_media_record_creation_fails(): void
+    {
+        $editor = $this->editor();
+        $image = UploadedFile::fake()->image('fallisce.jpg', 400, 300);
+
+        Media::creating(function () {
+            throw new RuntimeException('guasto simulato');
+        });
+
+        try {
+            $this->actingAs($editor)->post(route('admin.media.store'), [
+                'image' => $image,
+            ]);
+        } catch (RuntimeException $exception) {
+            $this->assertSame('guasto simulato', $exception->getMessage());
+        }
+
+        $this->assertSame(0, Media::count());
+
+        // Senza la pulizia, il file caricato sopravvivrebbe orfano, live e
+        // pubblicamente raggiungibile in public/assets/img, senza alcuna
+        // riga Media che lo referenzi o lo renda gestibile dalla Libreria.
+        $this->assertSame([], glob(public_path('assets/img/*.webp')) ?: []);
+        $this->assertSame([], glob(public_path('assets/img/_da-classificare/*.webp')) ?: []);
     }
 
     private function deleteDirectoryForTest(string $dir): void

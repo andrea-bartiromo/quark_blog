@@ -253,6 +253,16 @@ class ArticleController extends Controller
 
     public function store(StoreArticleRequest $request)
     {
+        // S9 — stesso finestra di fallimento gia' protetta in update() (Codex,
+        // PR #165, round 18): applyBusinessRules() carica la nuova copertina,
+        // la sincronizza sulla radice pubblica secondaria e registra il Media
+        // PRIMA che Article::create() venga anche solo tentato. Un fallimento
+        // di quella create() (DB irraggiungibile, vincolo violato, ecc.)
+        // lascerebbe altrimenti un file live, pubblicamente raggiungibile, e
+        // la sua riga Media, mai referenziati da alcun articolo.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
         try {
             $data = $this->applyBusinessRules(
                 $request,
@@ -268,20 +278,40 @@ class ArticleController extends Controller
 
         $payload = $data + ['user_id' => auth()->id()];
 
-        // S6 FASE 4 — Article::uniqueSlug() (applicato dentro
-        // applyBusinessRules(), vedi sopra) copre il caso normale, ma
-        // lascia comunque una finestra reale sotto vera concorrenza tra il
-        // SELECT di controllo e questa INSERT (due editor che salvano lo
-        // stesso titolo nello stesso istante). Il catch-and-retry è quindi
-        // l'unica vera garanzia: se la INSERT urta comunque contro il
-        // vincolo UNIQUE, si rigenera uno slug (che non può più collidere
-        // con la riga appena inserita dall'altro processo) e si ritenta
-        // UNA sola volta — mai un retry-loop illimitato.
+        // S10 — integrazione #221 + #224: il blocco interno (S6 FASE 4)
+        // resta invariato e resta l'unica vera garanzia contro la finestra
+        // di concorrenza reale sotto vero carico simultaneo (due editor che
+        // salvano lo stesso titolo nello stesso istante) — SELECT di
+        // controllo + retry-una-sola-volta con slug rigenerato. Il try/catch
+        // esterno (S9) non sostituisce questa protezione, la avvolge: se la
+        // create() iniziale O il retry falliscono per QUALSIASI motivo (non
+        // solo per collisione slug), la copertina appena caricata non deve
+        // restare un file live orfano, mai referenziato da alcun articolo.
         try {
-            Article::create($payload);
-        } catch (UniqueConstraintViolationException) {
-            $payload['slug'] = Article::uniqueSlug($data['title']);
-            Article::create($payload);
+            try {
+                // S6 FASE 4 — Article::uniqueSlug() (applicato dentro
+                // applyBusinessRules(), vedi sopra) copre il caso normale, ma
+                // lascia comunque una finestra reale sotto vera concorrenza tra il
+                // SELECT di controllo e questa INSERT (due editor che salvano lo
+                // stesso titolo nello stesso istante). Il catch-and-retry è quindi
+                // l'unica vera garanzia: se la INSERT urta comunque contro il
+                // vincolo UNIQUE, si rigenera uno slug (che non può più collidere
+                // con la riga appena inserita dall'altro processo) e si ritenta
+                // UNA sola volta — mai un retry-loop illimitato.
+                Article::create($payload);
+            } catch (UniqueConstraintViolationException) {
+                $payload['slug'] = Article::uniqueSlug($data['title']);
+                Article::create($payload);
+            }
+        } catch (\Throwable $exception) {
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
+                $this->mediaRetirementService->retireIfUnused(
+                    $data['cover_image'],
+                    'article_store_failed'
+                );
+            }
+
+            throw $exception;
         }
 
         return redirect()

@@ -6,6 +6,7 @@ use App\Models\Ad;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Media;
+use App\Models\ProjectDocument;
 use App\Models\SpecialPage;
 use App\Models\User;
 use App\Services\MediaUsageService;
@@ -233,6 +234,43 @@ class MediaUsageServiceTest extends TestCase
         $media = $this->media('hero-placeholder.svg');
 
         $this->assertTrue($this->service->isProtected($media));
+        $this->assertSame([], $this->service->usageFor($media));
+    }
+
+    // S9 — un asset allegato a un ProjectDocument (project_documents.media_id,
+    // FK con nullOnDelete()) non era mai censito qui: MediaController::destroy()
+    // si fida esclusivamente di usageFor() per bloccare l'eliminazione, quindi
+    // un Media realmente allegato a un documento di progetto veniva eliminato
+    // senza alcun avviso, azzerando silenziosamente il riferimento in
+    // project_documents (nullOnDelete non solleva errore) e perdendo
+    // l'allegato senza che l'operatore ne sapesse nulla.
+    public function test_project_document_attachment_is_detected_as_usage(): void
+    {
+        $media = $this->media('allegato-progetto.pdf');
+        $document = ProjectDocument::factory()->create([
+            'title' => 'Brief editoriale',
+            'type' => ProjectDocument::TYPE_ASSET,
+            'media_id' => $media->id,
+        ]);
+
+        $usage = $this->service->usageFor($media);
+
+        $this->assertCount(1, $usage);
+        $this->assertSame('project_document_attachment', $usage[0]['type']);
+        $this->assertSame('Allegato', $usage[0]['usage_type_label']);
+        $this->assertSame('Documento di progetto', $usage[0]['content_type']);
+        $this->assertSame('Brief editoriale', $usage[0]['title']);
+        $this->assertSame($document->id, $document->id);
+    }
+
+    public function test_project_document_without_a_media_attachment_does_not_produce_a_false_positive(): void
+    {
+        $media = $this->media('non-allegato.pdf');
+        ProjectDocument::factory()->create([
+            'title' => 'Nota senza allegato',
+            'media_id' => null,
+        ]);
+
         $this->assertSame([], $this->service->usageFor($media));
     }
 }
