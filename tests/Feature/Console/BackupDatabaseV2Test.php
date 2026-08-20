@@ -132,10 +132,19 @@ class BackupDatabaseV2Test extends TestCase
         $this->assertSame('periodic', $metadata['mode']);
         $this->assertMatchesRegularExpression('/^[0-9a-f]{16}$/', $metadata['database_identity']);
         $this->assertStringNotContainsString('super-secret-test-password', file_get_contents($artifacts[0].'.json'));
-        $this->assertSame(0600, $runner->optionMode);
         $this->assertFalse(file_exists($runner->optionPath));
 
+        // $runner->optionMode e' letto via fileperms() dentro RecordingDumpRunner::dump()
+        // (vedi sotto) — permessi POSIX reali, stessa natura di quelli verificati qui
+        // sotto su $artifacts[0]/.json. Su Windows fileperms() non riflette mai un
+        // valore POSIX-style come 0600 (PHP lo sintetizza da solo l'attributo
+        // "read-only", tipicamente 0666), quindi va verificato solo su POSIX — esattamente
+        // come MariaDbBackupService::setPrivatePermissions() gia' fa nel codice reale
+        // (stesso guard PHP_OS_FAMILY !== 'Windows', vedi app/Services/Backup/
+        // MariaDbBackupService.php): la chmod(0600) e' comunque sempre tentata, solo la
+        // sua verifica stretta e' condizionata alla piattaforma.
         if (PHP_OS_FAMILY !== 'Windows') {
+            $this->assertSame(0600, $runner->optionMode);
             $this->assertSame(0600, fileperms($artifacts[0]) & 0777);
             $this->assertSame(0600, fileperms($artifacts[0].'.json') & 0777);
         }
