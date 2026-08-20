@@ -20,13 +20,15 @@
     aria-labelledby="home-category-heading"
     tabindex="0">
     @foreach($categoryHighlights as $art)
+    @php $categoryTileRecord = $categoryRecords[$art->category ?? ''] ?? null; @endphp
       <a href="{{ route('categoria', $art->category) }}" class="home-category-tile">
-        <img
-          src="{{ $imageForCategory($art, $loop->index) }}"
-          onerror="this.onerror=null;this.src='{{ $visualFor($art) }}';"
-          alt="{{ $categoryLabel($art) }}"
-          loading="lazy"
-          decoding="async">
+        <x-responsive-image
+          :diskName="filled($categoryTileRecord?->image) ? 'categories/'.$categoryTileRecord->image : null"
+          :src="$imageForCategory($art, $loop->index)"
+          :onerrorSrc="$visualFor($art)"
+          :alt="$categoryLabel($art)"
+          :sizes="'(max-width: 640px) 100vw, (max-width: 820px) 50vw, 33vw'"
+        />
         <div>
           <strong>{{ $categoryLabel($art) }} →</strong>
           <small>

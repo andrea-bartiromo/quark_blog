@@ -11,12 +11,13 @@
     @foreach($latest->take(6) as $article)
     <a href="{{ route('articolo', $article->slug) }}" class="home-editorial-card {{ $loop->first ? 'home-editorial-card--lead' : '' }}">
       <div class="home-editorial-card__media">
-        <img
-          src="{{ $imageForArticle($article, $loop->index + 1) }}"
-          onerror="this.onerror=null;this.src='{{ $visualFor($article) }}';"
-          alt="{{ $article->title }}"
-          loading="lazy"
-          decoding="async">
+        <x-responsive-image
+          :diskName="$article->cover_image ?: null"
+          :src="$visualFor($article)"
+          :onerrorSrc="$visualFor($article)"
+          :alt="$article->title"
+          :sizes="'(max-width: 640px) 100vw, (max-width: 820px) 50vw, 33vw'"
+        />
       </div>
       <div class="home-editorial-card__body">
         <span>{{ $categoryLabel($article) }}</span>

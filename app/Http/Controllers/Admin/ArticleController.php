@@ -26,6 +26,7 @@ use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +52,7 @@ class ArticleController extends Controller
         private readonly ArticleLinkInsertionService $linkInsertionService,
         private readonly EditorialQualityChecker $qualityChecker,
         private readonly MediaRetirementService $mediaRetirementService,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index(Request $request)
@@ -476,6 +478,13 @@ class ArticleController extends Controller
 
                 throw $exception;
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione della
+             * copertina principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),

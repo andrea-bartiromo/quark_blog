@@ -20,6 +20,7 @@ class MediaMoveService
         private readonly MediaFolderService $folderService,
         private readonly MediaReferenceService $referenceService,
         private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function move(int $mediaId, ?int $destinationFolderId, ?int $actingUserId = null): MediaMoveResult
@@ -164,6 +165,31 @@ class MediaMoveService
                 'user_id' => $actingUserId,
                 'updated_references' => count($preflight['updatable_references']),
             ]);
+
+            /*
+             * FASE 9 (missione S2 responsive images): le varianti responsive
+             * (vedi ResponsiveImageVariantService) non hanno un proprio
+             * record Media e non seguono $oldDiskName -> $newDiskName da
+             * sole — senza questo, resterebbero al vecchio nome (orfane,
+             * mai piu' referenziate da nulla) mentre il file principale e'
+             * ormai raggiungibile solo col nuovo nome. Eseguito qui, DOPO
+             * che lo spostamento e' gia' pienamente riuscito (file, DB,
+             * radice pubblica secondaria, riferimenti): un fallimento in
+             * questo blocco best-effort non deve mai annullare uno
+             * spostamento gia' completato con successo, quindi non
+             * propaga mai l'eccezione verso l'esterno della transazione.
+             */
+            try {
+                $this->responsiveImageVariants->deleteForDiskName($oldDiskName);
+                $this->responsiveImageVariants->generateForUpload($newAbsolute, $newDiskName);
+            } catch (Throwable $variantException) {
+                Log::warning('MediaMoveService: ricalcolo delle varianti responsive fallito dopo uno spostamento riuscito.', [
+                    'media_id' => $media->id,
+                    'old_disk_name' => $oldDiskName,
+                    'new_disk_name' => $newDiskName,
+                    'error' => $variantException->getMessage(),
+                ]);
+            }
 
             return MediaMoveResult::moved($media, $oldDiskName, $newDiskName, $preflight);
         });

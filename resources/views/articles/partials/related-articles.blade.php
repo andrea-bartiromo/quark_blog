@@ -11,7 +11,13 @@
     @foreach($relatedItems as $item)
     <a href="{{ route('articolo', $item->slug) }}" class="public-card">
       <div class="public-card__media">
-        <img src="{{ asset('assets/img/'.($item->cover_image ?? 'placeholder-1.svg')) }}" alt="{{ $item->title }}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
+        <x-responsive-image
+            :diskName="$item->cover_image ?: null"
+            :src="asset('assets/img/placeholder-1.svg')"
+            :onerrorSrc="asset('assets/img/placeholder-1.svg')"
+            :alt="$item->title"
+            :sizes="'(max-width: 900px) 100vw, 33vw'"
+        />
       </div>
       <div class="public-card__body">
         <h3>{{ $item->title }}</h3>

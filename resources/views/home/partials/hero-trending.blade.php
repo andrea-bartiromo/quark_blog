@@ -4,13 +4,16 @@
     <div class="home-premium-hero__grid">
       <article class="home-lead-story">
         <a href="{{ route('articolo', $featured->slug) }}" class="home-lead-story__media">
-          <img
-            src="{{ $imageForArticle($featured, 0) }}"
-            onerror="this.onerror=null;this.src='{{ $visualFor($featured) }}';"
-            alt="{{ $featured->title }}"
+          <x-responsive-image
+            :diskName="$featured->cover_image ?: null"
+            :src="$visualFor($featured)"
+            :onerrorSrc="$visualFor($featured)"
+            :alt="$featured->title"
+            :sizes="'(max-width: 900px) 100vw, 62vw'"
             class="home-lead-story__hero-image"
             loading="eager"
-            decoding="async">
+            fetchpriority="high"
+          />
 
           <span>In evidenza</span>
         </a>

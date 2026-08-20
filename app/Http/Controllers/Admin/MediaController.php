@@ -14,6 +14,7 @@ use App\Services\MediaReferenceService;
 use App\Services\MediaStatsService;
 use App\Services\MediaUsageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class MediaController extends Controller
         private readonly MediaUsageService $mediaUsageService,
         private readonly MediaStatsService $mediaStatsService,
         private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index(Request $request)
@@ -269,6 +271,13 @@ class MediaController extends Controller
         return back()->with('error', $message);
     }
 
+    /*
+     * FASE 5 (missione S2 responsive images): accessoria e best-effort,
+     * eseguita DOPO che il file principale e' gia' pubblicato e verificato
+     * — un suo fallimento non deve mai impedire la registrazione del Media.
+     */
+    $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
+
     $media = Media::create([
         'user_id' => auth()->id(),
         'filename' => $original,
@@ -326,6 +335,12 @@ class MediaController extends Controller
         if (file_exists($path)) {
             unlink($path);
         }
+
+        // Le varianti responsive non hanno un proprio record Media (vedi
+        // ResponsiveImageVariantService): vanno ripulite esplicitamente qui,
+        // altrimenti sopravviverebbero come orfani permanenti mai
+        // referenziati da nulla.
+        $this->responsiveImageVariants->deleteForDiskName($media->disk_name);
 
         $media->delete();
 
