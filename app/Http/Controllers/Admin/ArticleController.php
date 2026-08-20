@@ -98,6 +98,16 @@ class ArticleController extends Controller
 
     public function store(StoreArticleRequest $request)
     {
+        // S9 — stesso finestra di fallimento gia' protetta in update() (Codex,
+        // PR #165, round 18): applyBusinessRules() carica la nuova copertina,
+        // la sincronizza sulla radice pubblica secondaria e registra il Media
+        // PRIMA che Article::create() venga anche solo tentato. Un fallimento
+        // di quella create() (DB irraggiungibile, vincolo violato, ecc.)
+        // lascerebbe altrimenti un file live, pubblicamente raggiungibile, e
+        // la sua riga Media, mai referenziati da alcun articolo.
+        $newCoverWasUploaded = $request->hasFile('cover_image_upload')
+            && $request->file('cover_image_upload')->isValid();
+
         try {
             $data = $this->applyBusinessRules(
                 $request,
@@ -111,11 +121,22 @@ class ArticleController extends Controller
                 ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
         }
 
-        Article::create(
-            $data + [
-                'user_id' => auth()->id(),
-            ]
-        );
+        try {
+            Article::create(
+                $data + [
+                    'user_id' => auth()->id(),
+                ]
+            );
+        } catch (\Throwable $exception) {
+            if ($newCoverWasUploaded && array_key_exists('cover_image', $data)) {
+                $this->mediaRetirementService->retireIfUnused(
+                    $data['cover_image'],
+                    'article_store_failed'
+                );
+            }
+
+            throw $exception;
+        }
 
         return redirect()
             ->route('admin.articles')
