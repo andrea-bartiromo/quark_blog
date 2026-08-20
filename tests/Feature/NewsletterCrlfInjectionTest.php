@@ -15,9 +15,13 @@ use Tests\TestCase;
  * ->email)) era la superficie reale: un local-part quoted contenente
  * CR/LD grezzi, se accettato dal validatore RFC822 come indirizzo
  * valido, avrebbe permesso di iniettare header aggiuntivi (es. Bcc:) nel
- * messaggio inviato. La versione corretta rifiuta qualunque valore che
- * contenga \r o \n prima ancora di interpellare il parser RFC822 (vedi
- * Illuminate\Validation\Concerns\ValidatesAttributes::validateEmail()).
+ * messaggio inviato.
+ *
+ * NewsletterController::subscribe() applica ORA una guardia esplicita
+ * (preg_match su \r|\n) indipendente dalla versione esatta di
+ * laravel/framework risolta da composer.lock — non ci si affida più
+ * soltanto al fix interno di ValidatesAttributes::validateEmail(), la
+ * cui presenza dipende dalla versione vendored esattamente installata.
  */
 class NewsletterCrlfInjectionTest extends TestCase
 {
@@ -34,6 +38,7 @@ class NewsletterCrlfInjectionTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
+        $response->assertRedirect('/');
         $this->assertDatabaseCount('newsletter', 0);
         Mail::assertNothingSent();
     }
@@ -49,6 +54,23 @@ class NewsletterCrlfInjectionTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
+        $response->assertRedirect('/');
+        $this->assertDatabaseCount('newsletter', 0);
+        Mail::assertNothingSent();
+    }
+
+    public function test_an_email_containing_a_bare_cr_injection_payload_is_rejected(): void
+    {
+        Mail::fake();
+
+        $payload = "\"attacker\rBcc: victim@evil.test\"@example.com";
+
+        $response = $this->from('/')->post('/newsletter/subscribe', [
+            'email' => $payload,
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $response->assertRedirect('/');
         $this->assertDatabaseCount('newsletter', 0);
         Mail::assertNothingSent();
     }

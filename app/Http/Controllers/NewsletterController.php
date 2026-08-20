@@ -16,7 +16,25 @@ class NewsletterController extends Controller
         }
 
         $request->validate([
-            'email' => 'required|email|max:150',
+            'email' => [
+                'required',
+                'max:150',
+                // Guardia esplicita, indipendente dalla versione di
+                // laravel/framework installata: la regola 'email' rifiuta
+                // CR/LF solo a partire dal fix di GHSA-5vg9-5847-vvmq
+                // (>=13.10.0/<=12.60.0, vedi ValidatesAttributes::
+                // validateEmail()) — un local-part quoted contenente CR/LF
+                // grezzi è altrimenti sintatticamente valido per il parser
+                // RFC822 e passerebbe come indirizzo "valido". Qui il
+                // rifiuto non dipende dalla riga esatta del vendor
+                // risolta da composer.lock su una data macchina.
+                function ($attribute, $value, $fail) {
+                    if (is_string($value) && preg_match('/[\r\n]/', $value) === 1) {
+                        $fail('The :attribute field must be a valid email address.');
+                    }
+                },
+                'email',
+            ],
         ]);
 
         $subscriber = Newsletter::subscribe($request->input('email'));
