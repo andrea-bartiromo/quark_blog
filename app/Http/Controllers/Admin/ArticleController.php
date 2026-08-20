@@ -82,7 +82,20 @@ class ArticleController extends Controller
             $category = null;
         }
 
-        $authorInput = $request->input('author');
+        // NON usare $request->input('author'): il middleware globale
+        // TrimStrings ha gia' tolto gli spazi da ogni stringa di input PRIMA
+        // che il controller la veda, quindi " 1 " arriverebbe qui gia'
+        // trasformato nel valido "1" — esattamente l'opposto del contratto
+        // "solo un intero positivo canonico" che questo filtro deve
+        // applicare. QUERY_STRING (server bag) non e' mai toccato da
+        // TrimStrings: e' il valore grezzo cosi' come arrivato nell'URL,
+        // usato qui solo per riconoscere e scartare un author con
+        // whitespace prima/dopo, che altrimenti sarebbe indistinguibile
+        // dallo stesso ID digitato senza spazi (verificato: entrambi
+        // producono lo stesso $request->input('author') dopo il trim).
+        $rawQueryParams = [];
+        parse_str((string) $request->server->get('QUERY_STRING', ''), $rawQueryParams);
+        $authorInput = $rawQueryParams['author'] ?? null;
         $authorId = null;
 
         if (is_string($authorInput) && preg_match('/^[1-9][0-9]*$/D', $authorInput) === 1) {
