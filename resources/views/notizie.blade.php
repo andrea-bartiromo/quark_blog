@@ -17,6 +17,14 @@
 @include('collections.partials.structured-data', ['collectionName' => 'Tutti gli articoli'])
 @endsection
 
+@php
+    // Calcolato una sola volta fuori dal loop sottostante: prima veniva
+    // rieseguito (stessa query "select name, slug from categories") una
+    // volta per ciascun articolo della pagina — fino a 12 query identiche
+    // per singola richiesta a /notizie, invece di una sola.
+    $categoryOptions = \App\Models\Category::options(false);
+@endphp
+
 @section('content')
 <div class="public-shell">
   <div class="container container--wide">
@@ -56,7 +64,7 @@
                    alt="{{ $article->title }}" loading="lazy" decoding="async"
                    onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
               <span class="public-card__badge">
-                {{ \App\Models\Category::options(false)[$article->category] ?? $article->category }}
+                {{ $categoryOptions[$article->category] ?? $article->category }}
               </span>
             </div>
 

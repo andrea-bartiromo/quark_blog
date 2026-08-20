@@ -534,6 +534,29 @@ class ImageService
     }
 
     /**
+     * Percorso deterministico di una variante responsive per una data
+     * larghezza, derivato dal percorso originale senza alcuno stato
+     * esterno (nessun registro/colonna da consultare): stesso schema sia
+     * per un percorso assoluto sul filesystem sia per un disk_name
+     * relativo, esattamente come changeExtension(). Esempio:
+     * "articles/covers/foto.webp" + 480 -> "articles/covers/foto-480w.webp".
+     *
+     * Deterministico per costruzione: chi deve ripulire le varianti dopo
+     * una cancellazione o una sostituzione (vedi ResponsiveImageVariantService)
+     * puo' ricalcolare esattamente questi stessi percorsi, quindi trovarle
+     * e cancellarle, senza doverle prima leggere da qualche parte.
+     */
+    public function responsiveVariantPath(string $path, int $width): string
+    {
+        $dir = dirname($path);
+        $base = pathinfo($path, PATHINFO_FILENAME);
+        $ext = pathinfo($path, PATHINFO_EXTENSION);
+        $prefix = ($dir === '.' || $dir === '') ? '' : $dir.'/';
+
+        return $prefix.$base.'-'.$width.'w.'.$ext;
+    }
+
+    /**
      * Politica per i NUOVI upload editoriali (FASE 5): se il formato lo
      * consente (JPG/PNG, mai WebP-gia'-tale ne' GIF), converte il file
      * appena caricato in WebP e sostituisce l'originale sullo stesso
@@ -948,5 +971,151 @@ class ImageService
         }
 
         return $destinationPath;
+    }
+
+    /**
+     * FASE 5 (missione S2 responsive images): genera, ACCANTO a un'immagine
+     * gia' presente sul filesystem (tipicamente l'esito di upload() seguito
+     * da autoConvertToWebpIfEligible()/resizeAndCompress() nello stesso
+     * upload), un piccolo insieme di copie WebP piu' strette — mai al posto
+     * del file sorgente, che resta sempre il limite superiore disponibile.
+     *
+     * Nessuna nuova pipeline: riusa la stessa lettura del formato reale
+     * (detectImageType), la stessa correzione EXIF per i JPEG
+     * (applyExifOrientation), la stessa preservazione alfa
+     * (preserveAlphaChannel) e la stessa scrittura atomica
+     * (writeWebpAtomically, temp file + validazione + rename) gia' usate da
+     * convertToWebp() per il file principale.
+     *
+     * Mai upscale: una larghezza target >= alla larghezza reale del
+     * sorgente viene sempre saltata (il sorgente stesso e' gia' la
+     * variante piu' grande disponibile per quel target). Le GIF sono
+     * escluse (stessa politica di resizeAndCompress(): GD non le elabora,
+     * per non perdere l'animazione).
+     *
+     * Idempotente: se il file di destinazione esiste gia' ed e' un WebP
+     * valido, non viene rigenerato. Best-effort per singola larghezza: un
+     * fallimento su UN target (encoder assente, larghezza non valida) viene
+     * loggato e non impedisce agli altri target di essere generati — non
+     * deve mai bloccare l'upload principale, di cui questa e' solo
+     * un'ottimizzazione accessoria.
+     *
+     * @param  list<int>  $targetWidths  Larghezze desiderate (es. da
+     *                                   config('media.responsive_widths')).
+     * @return list<array{width: int, path: string}> Varianti realmente
+     *                                               scritte in QUESTA
+     *                                               chiamata o gia'
+     *                                               presenti e valide
+     *                                               (sorgente escluso).
+     */
+    public function generateResponsiveVariants(
+        string $sourceAbsolutePath,
+        array $targetWidths,
+        int $quality = 82,
+    ): array {
+        if (! extension_loaded('gd') || ! function_exists('imagewebp') || ! is_file($sourceAbsolutePath)) {
+            return [];
+        }
+
+        try {
+            $type = $this->detectImageType($sourceAbsolutePath);
+        } catch (RuntimeException) {
+            return [];
+        }
+
+        if ($type === IMAGETYPE_GIF) {
+            return [];
+        }
+
+        $imageInfo = @getimagesize($sourceAbsolutePath);
+        if ($imageInfo === false || $imageInfo[0] <= 0) {
+            return [];
+        }
+
+        $sourceWidth = $imageInfo[0];
+        $sourceHeight = $imageInfo[1];
+
+        $widths = array_values(array_unique(array_filter(
+            $targetWidths,
+            fn (int $w) => $w > 0 && $w < $sourceWidth
+        )));
+        sort($widths);
+
+        $written = [];
+
+        foreach ($widths as $width) {
+            $variantPath = $this->responsiveVariantPath($sourceAbsolutePath, $width);
+
+            if ($this->isValidExistingWebp($variantPath, $width)) {
+                $written[] = ['width' => $width, 'path' => $variantPath];
+
+                continue;
+            }
+
+            try {
+                $written[] = [
+                    'width' => $width,
+                    'path' => $this->renderResponsiveVariant($sourceAbsolutePath, $type, $sourceWidth, $sourceHeight, $width, $variantPath, $quality),
+                ];
+            } catch (\Throwable $exception) {
+                Log::warning('ImageService: generazione variante responsive fallita, il file principale resta invariato.', [
+                    'source' => $sourceAbsolutePath,
+                    'target_width' => $width,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        return $written;
+    }
+
+    private function isValidExistingWebp(string $path, int $expectedWidth): bool
+    {
+        if (! is_file($path)) {
+            return false;
+        }
+
+        $info = @getimagesize($path);
+
+        return $info !== false && $info[2] === IMAGETYPE_WEBP && $info[0] === $expectedWidth;
+    }
+
+    private function renderResponsiveVariant(
+        string $sourceAbsolutePath,
+        int $type,
+        int $sourceWidth,
+        int $sourceHeight,
+        int $targetWidth,
+        string $destinationPath,
+        int $quality,
+    ): string {
+        $source = $this->createResourceFromDetectedType($sourceAbsolutePath, $type);
+
+        if (! $source) {
+            throw new RuntimeException('Impossibile leggere l\'immagine sorgente per la variante responsive: '.$sourceAbsolutePath);
+        }
+
+        try {
+            if ($type === IMAGETYPE_JPEG) {
+                $source = $this->applyExifOrientation($source, $sourceAbsolutePath);
+            }
+
+            $targetHeight = max(1, (int) round($sourceHeight * ($targetWidth / $sourceWidth)));
+
+            $resized = imagecreatetruecolor($targetWidth, $targetHeight);
+            if ($resized === false) {
+                throw new RuntimeException('Impossibile allocare il buffer per la variante responsive.');
+            }
+
+            $this->preserveAlphaChannel($resized);
+            imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+
+            return $this->writeWebpAtomically($resized, $destinationPath, $quality);
+        } finally {
+            imagedestroy($source);
+            if (isset($resized) && $resized !== false) {
+                imagedestroy($resized);
+            }
+        }
     }
 }

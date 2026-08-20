@@ -8,11 +8,13 @@ use App\Http\Requests\Redazione\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\User;
+use App\Services\ArticleBodySanitizer;
 use App\Services\ArticleLinkSuggestionService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -26,6 +28,8 @@ class ArticleController extends Controller
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
         private readonly MediaRetirementService $mediaRetirementService,
+        private readonly ArticleBodySanitizer $bodySanitizer,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index()
@@ -47,6 +51,14 @@ class ArticleController extends Controller
     public function store(StoreArticleRequest $request)
     {
         $data = $request->validated();
+
+        // S7 CONFIRMED — StoreArticleRequest valida 'body' solo come
+        // 'required': un ruolo 'author' (meno fidato di editor/admin, vedi
+        // il gate di revisione sotto) poteva inviare <script>/onerror/...
+        // che sopravvivevano fino alla pagina pubblica una volta approvati
+        // (Admin\ReviewController::approve() non tocca mai `body`) — vedi
+        // ArticleBodySanitizerTest e ArticleBodyStoredXssTest.
+        $data['body'] = $this->bodySanitizer->sanitize($data['body']);
 
         if (
             $request->hasFile('cover_image_upload')
@@ -123,6 +135,13 @@ class ArticleController extends Controller
                     ->withInput()
                     ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione della
+             * copertina principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),
@@ -213,6 +232,9 @@ class ArticleController extends Controller
     ) {
         $data = $request->validated();
 
+        // S7 CONFIRMED — stessa sanificazione di store(), vedi il suo commento.
+        $data['body'] = $this->bodySanitizer->sanitize($data['body']);
+
         // Codex (PR #165, round 19): usato dal catch della transazione sotto per
         // decidere se $data['cover_image'] sia davvero un disk_name appena generato da
         // questa richiesta (sicuro da ritirare in caso di rollback) o un valore già
@@ -293,6 +315,13 @@ class ArticleController extends Controller
                     ->withInput()
                     ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione della
+             * copertina principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),

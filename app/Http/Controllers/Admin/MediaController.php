@@ -14,6 +14,7 @@ use App\Services\MediaReferenceService;
 use App\Services\MediaStatsService;
 use App\Services\MediaUsageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class MediaController extends Controller
         private readonly MediaUsageService $mediaUsageService,
         private readonly MediaStatsService $mediaStatsService,
         private readonly PublicMediaSyncService $publicMediaSync,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index(Request $request)
@@ -269,12 +271,23 @@ class MediaController extends Controller
         return back()->with('error', $message);
     }
 
+    /*
+     * FASE 5 (missione S2 responsive images): accessoria e best-effort,
+     * eseguita DOPO che il file principale e' gia' pubblicato e verificato
+     * — un suo fallimento non deve mai impedire la registrazione del Media.
+     */
+    $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
+
     // S9 — a questo punto il file e' gia' scritto, ottimizzato e pubblicato
-    // (locale + eventuale radice pubblica secondaria): un fallimento di
+    // (locale + eventuale radice pubblica secondaria), e le eventuali
+    // varianti responsive sono gia' state generate: un fallimento di
     // Media::create() lascerebbe un file live, pubblicamente raggiungibile
-    // via URL, senza ALCUNA riga Media che lo referenzi — non gestibile ne'
-    // individuabile dalla Libreria media. Stessa pulizia gia' usata sopra
-    // per un fallimento di publicMediaSync->create().
+    // via URL (piu' le sue varianti), senza ALCUNA riga Media che lo
+    // referenzi — non gestibile ne' individuabile dalla Libreria media.
+    // Stessa pulizia gia' usata sopra per un fallimento di
+    // publicMediaSync->create(), estesa qui anche alle varianti responsive:
+    // senza questa riga le varianti resterebbero orfane sul filesystem
+    // anche dopo il rollback del file principale.
     try {
         $media = Media::create([
             'user_id' => auth()->id(),
@@ -286,6 +299,7 @@ class MediaController extends Controller
         ]);
     } catch (\Throwable $exception) {
         $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
+        $this->responsiveImageVariants->deleteForDiskName($diskName);
 
         try {
             $this->publicMediaSync->delete($diskName);
@@ -344,6 +358,12 @@ class MediaController extends Controller
         if (file_exists($path)) {
             unlink($path);
         }
+
+        // Le varianti responsive non hanno un proprio record Media (vedi
+        // ResponsiveImageVariantService): vanno ripulite esplicitamente qui,
+        // altrimenti sopravviverebbero come orfani permanenti mai
+        // referenziati da nulla.
+        $this->responsiveImageVariants->deleteForDiskName($media->disk_name);
 
         $media->delete();
 

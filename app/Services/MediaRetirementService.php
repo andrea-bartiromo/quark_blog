@@ -27,6 +27,7 @@ class MediaRetirementService
     public function __construct(
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly MediaUsageService $mediaUsageService,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     /**
@@ -80,6 +81,13 @@ class MediaRetirementService
 
             return false;
         }
+
+        // Best-effort, come il resto di questo servizio (vedi la
+        // classdoc): le varianti responsive non hanno un proprio record
+        // Media, quindi non seguono l'eliminazione di $media da sole —
+        // vanno ripulite esplicitamente qui, altrimenti sopravviverebbero
+        // come orfani permanenti dopo il ritiro dell'originale.
+        $this->responsiveImageVariants->deleteForDiskName($diskName);
 
         $media?->delete();
 

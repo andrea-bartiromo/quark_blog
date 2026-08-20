@@ -35,6 +35,49 @@ class BrowserTestSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        $editorId = DB::table('users')->insertGetId([
+            'name' => 'Browser Test Editor',
+            'email' => 'browser-admin@example.test',
+            'password' => Hash::make('browser-tests'),
+            'bio' => 'Editor deterministico usato esclusivamente dai browser test admin.',
+            'role' => 'editor',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        for ($index = 2; $index <= 10; $index++) {
+            $slug = 'browser-category-'.$index;
+
+            DB::table('categories')->updateOrInsert(
+                ['slug' => $slug],
+                [
+                    'name' => 'Browser Category '.$index,
+                    'description' => 'Categoria deterministica per il carosello browser.',
+                    'sort_order' => $index - 1,
+                    'is_active' => true,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+
+            DB::table('articles')->insert([
+                'user_id' => $authorId,
+                'title' => 'Browser carousel article '.$index,
+                'slug' => 'browser-carousel-article-'.$index,
+                'excerpt' => 'Fixture deterministica per il carosello categorie.',
+                'body' => '<p>Contenuto browser deterministico.</p>',
+                'category' => $slug,
+                'cover_image' => null,
+                'status' => 'published',
+                'featured' => false,
+                'read_minutes' => 1,
+                'views' => 0,
+                'published_at' => $now->copy()->subDays(30 + $index),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
         $publishedArticleId = DB::table('articles')->insertGetId([
             'user_id' => $authorId,
             'title' => 'Turing e il browser regression harness',
@@ -102,6 +145,29 @@ class BrowserTestSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        $adminRows = [];
+        for ($i = 1; $i <= 26; $i++) {
+            $adminRows[] = [
+                'user_id' => $editorId,
+                'title' => $i === 1
+                    ? 'Titolo browser molto lungo per verificare che le azioni restino raggiungibili anche quando il contenuto editoriale supera ampiamente la lunghezza normale della tabella amministrativa'
+                    : 'Bozza browser amministrativa '.$i,
+                'slug' => 'browser-admin-draft-'.$i,
+                'excerpt' => 'Fixture admin deterministica '.$i.'.',
+                'body' => '<p>Contenuto admin browser '.$i.'.</p>',
+                'category' => 'intelligenza-artificiale',
+                'cover_image' => null,
+                'status' => 'draft',
+                'featured' => false,
+                'read_minutes' => 1,
+                'views' => $i,
+                'published_at' => null,
+                'created_at' => $now->copy()->subMinutes($i),
+                'updated_at' => $now,
+            ];
+        }
+        DB::table('articles')->insert($adminRows);
 
         $clusterId = DB::table('content_clusters')->insertGetId([
             'name' => 'IA spiegata',

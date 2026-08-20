@@ -1,5 +1,12 @@
 <header class="article-premium__hero">
-  <img src="{{ $cover }}" alt="{{ $article->cover_alt ?: $article->title }}" loading="eager" decoding="async">
+  <x-responsive-image
+      :diskName="$article->cover_image ?: null"
+      :src="$cover"
+      :alt="$article->cover_alt ?: $article->title"
+      loading="eager"
+      fetchpriority="high"
+      :sizes="'(max-width: 900px) 100vw, 1240px'"
+  />
   <div class="article-premium__overlay"></div>
 
   <x-media.image-viewer

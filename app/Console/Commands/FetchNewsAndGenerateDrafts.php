@@ -15,6 +15,7 @@ namespace App\Console\Commands;
 use App\Models\NewsSuggestion;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -244,7 +245,18 @@ class FetchNewsAndGenerateDrafts extends Command
                 ];
             }
         } catch (\Exception $e) {
-            // Feed non raggiungibile
+            // Prima di questa modifica: completamente silenzioso (nessun
+            // output console, nessun log) — a differenza del ramo
+            // "!$xmlContent" sopra, la cui riga vuota il chiamante segnala
+            // comunque con "Feed non raggiungibile" (news-fetch.log via
+            // appendOutputTo). Un feed che rompe il parsing XML lasciava
+            // quindi zero traccia diagnosticabile, indistinguibile da un
+            // feed semplicemente senza notizie nella finestra di 7 giorni.
+            Log::warning('news:fetch — feed RSS non elaborabile.', [
+                'operation' => 'news_fetch.rss_feed',
+                'feed_url' => $url,
+                'exception_class' => $e::class,
+            ]);
         }
 
         return $items;

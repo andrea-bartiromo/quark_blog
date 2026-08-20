@@ -177,7 +177,12 @@
             <div class="path-step__number" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</div>
             @if($stepCoverUrl)
               <a class="path-step__cover" href="{{ route('articolo', $article->slug) }}" tabindex="-1" aria-hidden="true">
-                <img src="{{ $stepCoverUrl }}" alt="" loading="lazy" decoding="async" width="320" height="240">
+                <x-responsive-image
+                    :diskName="$article->cover_image ?: null"
+                    :src="$stepCoverUrl"
+                    alt=""
+                    :sizes="'(max-width: 768px) 100vw, 480px'"
+                />
               </a>
             @endif
             <div class="path-step__body">

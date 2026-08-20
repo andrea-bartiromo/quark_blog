@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -128,6 +129,20 @@ class CollectionPageStructuredDataTest extends TestCase
         $node = $this->collectionPageNodeFrom($html);
 
         $this->assertSame('Salute & Biotech', $node['name']);
+    }
+
+    public function test_json_ld_cannot_be_broken_out_of_by_a_category_name_containing_a_closing_script_tag(): void
+    {
+        Category::create([
+            'name' => 'Fisica </script><script>alert(1)</script>',
+            'slug' => 'fisica-iniettata',
+            'is_active' => true,
+        ]);
+        $this->publishedArticle(['category' => 'fisica-iniettata']);
+
+        $html = $this->get(route('categoria', 'fisica-iniettata'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('</script><script>alert(1)</script>', $html);
     }
 
     public function test_page_two_describes_the_url_actually_served_not_page_one(): void

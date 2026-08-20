@@ -264,6 +264,34 @@ class ArticleLinkSuggestionService
     /** Al più questi concetti contano ai fini del punteggio — "un buon segnale forte" è sufficiente, non serve premiare la ripetizione dello stesso tipo di segnale (stessa filosofia di MAX_SCORED_TERM_MATCHES). */
     private const MAX_SCORED_CONCEPTS = 2;
 
+    /**
+     * V2.2 (Internal Linking — qualità contestuale, Ago 2026) — caso reale
+     * osservato in admin: per l'anchor "intelligenza artificiale", 5
+     * articoli della stessa categoria ricevevano punteggi quasi identici
+     * (~40-75/100), quasi tutti riconducibili a "concetto scientifico
+     * riconosciuto" + "stessa categoria", NON a una reale pertinenza
+     * contestuale del paragrafo. Causa: CONCEPT_MATCH_SCORE era un bonus
+     * FISSO, mai passato dal segnale di specificità (document frequency,
+     * vedi GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO) già applicato ai singoli
+     * termini condivisi da V2 — un concetto ampio come "intelligenza
+     * artificiale", che compare per costruzione in quasi ogni articolo
+     * della propria categoria, si comportava così come un segnale forte e
+     * distintivo anche quando, nel pool di candidati di QUESTA analisi, non
+     * lo è affatto (è in pratica un sinonimo della categoria stessa).
+     *
+     * Stesso principio già validato per i termini, esteso ai concetti: un
+     * concetto condiviso che compare in troppi candidati del pool corrente
+     * (vedi buildConceptDocumentFrequency(), stessa soglia
+     * GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO/MIN_CORPUS_SIZE_FOR_SPECIFICITY
+     * — è la stessa domanda statistica, non una nuova regola) vale questo
+     * punteggio ridotto invece del pieno CONCEPT_MATCH_SCORE. Non zero:
+     * resta comunque un segnale debole di argomento condiviso, non un
+     * errore — stessa filosofia di TERM_MATCH_SCORE_GENERIC, e per
+     * coerenza lo stesso valore (un segnale generico, di qualunque tipo,
+     * vale lo stesso credito ridotto).
+     */
+    private const CONCEPT_MATCH_SCORE_GENERIC = 5;
+
     public function __construct(
         private readonly ArticleLinkInsertionService $insertionService,
         private readonly ScientificConceptMatcher $conceptMatcher = new ScientificConceptMatcher,
@@ -366,6 +394,10 @@ class ArticleLinkSuggestionService
         // del segnale di specificità lessicale usato da scoreLink() più
         // sotto (vedi GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO).
         $documentFrequency = $this->buildDocumentFrequency($candidates);
+        // V2.2 — stessa idea, applicata ai concetti scientifici multi-parola
+        // (vedi CONCEPT_MATCH_SCORE_GENERIC): una seconda passata separata
+        // sulla STESSA Collection già in memoria, nessuna query aggiuntiva.
+        $conceptDocumentFrequency = $this->buildConceptDocumentFrequency($candidates);
         $corpusSize = $candidates->count();
 
         // targetArticle:id,status,published_at eager-caricato qui (non in
@@ -415,7 +447,7 @@ class ArticleLinkSuggestionService
                 continue;
             }
 
-            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $sourceConceptMatches, $documentFrequency, $corpusSize);
+            $match = $this->scoreLink($source->category, (string) $source->body, $sourcePlainBody, $sourceTerms, $candidate, $sourceConceptMatches, $documentFrequency, $corpusSize, $conceptDocumentFrequency);
 
             if ($match === null) {
                 // Un suggerimento "proposed" che non passa più la soglia
@@ -578,10 +610,11 @@ class ArticleLinkSuggestionService
      * @param  object{id:int,title:string,slug:string,excerpt:?string,category:string,body?:?string}  $candidateTarget
      * @param  array<int, ConceptCandidate>  $sourceConceptMatches  V2 — concetti trovati in $sourcePlainBody, calcolato dal chiamante UNA VOLTA (non qui): $sourcePlainBody resta lo stesso per ogni candidato dentro analyzeForSource(), ricalcolarlo per ciascuno dei fino a MAX_CANDIDATES candidati sarebbe lavoro ripetuto e sprecato (stesso principio già applicato a $sourceTerms).
      * @param  array<string,int>  $documentFrequency  V2 — quanti candidati del pool corrente contengono ciascun termine (vedi buildDocumentFrequency()). Vuoto = nessuna classificazione generico/specifico, tutti i termini condivisi restano a punteggio pieno (fallback usato da analyzeForNewTarget(), che itera i candidati via cursor() e non può costruire questa mappa senza una seconda passata sul DB — vedi docblock di analyzeForNewTarget()).
-     * @param  int  $corpusSize  Dimensione del pool usato per calcolare $documentFrequency — 0 disabilita la classificazione (stesso motivo sopra).
+     * @param  int  $corpusSize  Dimensione del pool usato per calcolare $documentFrequency/$conceptDocumentFrequency — 0 disabilita entrambe le classificazioni (stesso motivo sopra).
+     * @param  array<string,int>  $conceptDocumentFrequency  V2.2 — quanti candidati del pool corrente contengono ciascun concetto scientifico (vedi buildConceptDocumentFrequency()). Vuoto = nessuna classificazione, ogni concetto condiviso resta a punteggio pieno — stesso fallback e stesso motivo di $documentFrequency.
      * @return array{score:int,anchor:string,context:?string,reason:string}|null
      */
-    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $sourceConceptMatches, array $documentFrequency = [], int $corpusSize = 0): ?array
+    private function scoreLink(string $sourceCategory, string $sourceBodyHtml, string $sourcePlainBody, array $sourceTerms, object $candidateTarget, array $sourceConceptMatches, array $documentFrequency = [], int $corpusSize = 0, array $conceptDocumentFrequency = []): ?array
     {
         $score = 0;
         $titleMatched = false;
@@ -635,7 +668,19 @@ class ArticleLinkSuggestionService
             0,
             self::MAX_SCORED_CONCEPTS
         );
-        $score += count($sharedConceptCanonicals) * self::CONCEPT_MATCH_SCORE;
+
+        // V2.2 — stesso principio di rankSharedTerms(): un concetto condiviso
+        // vale il punteggio pieno solo se non è comparso in troppi altri
+        // candidati di QUESTO pool ($corpusSize === 0, fallback di
+        // analyzeForNewTarget(), classifica invece ogni concetto come
+        // sempre specifico — stesso comportamento V1/V2 preesistente).
+        $score += array_sum(array_map(function (string $canonical) use ($conceptDocumentFrequency, $corpusSize) {
+            $frequency = $conceptDocumentFrequency[$canonical] ?? 0;
+            $isGeneric = $corpusSize >= self::MIN_CORPUS_SIZE_FOR_SPECIFICITY
+                && ($frequency / $corpusSize) >= self::GENERIC_TERM_DOCUMENT_FREQUENCY_RATIO;
+
+            return $isGeneric ? self::CONCEPT_MATCH_SCORE_GENERIC : self::CONCEPT_MATCH_SCORE;
+        }, $sharedConceptCanonicals));
 
         $categoryMatched = $sourceCategory === $candidateTarget->category;
 
@@ -767,6 +812,34 @@ class ArticleLinkSuggestionService
         foreach ($candidates as $candidate) {
             foreach (array_unique($this->extractTargetTerms($candidate)) as $term) {
                 $frequency[$term] = ($frequency[$term] ?? 0) + 1;
+            }
+        }
+
+        return $frequency;
+    }
+
+    /**
+     * V2.2 — stessa idea di buildDocumentFrequency(), applicata ai concetti
+     * scientifici multi-parola invece che ai singoli termini: "canonical
+     * concept => in quanti candidati del pool corrente compare". Una sola
+     * passata sulla stessa Collection già caricata (nessuna query
+     * aggiuntiva) — funzione separata da buildDocumentFrequency() perché i
+     * due segnali restano concettualmente distinti nel resto della classe
+     * (mai un unico "vocabolario" indifferenziato tra parole singole e
+     * concetti multi-parola), non per duplicazione di codice.
+     *
+     * @param  Collection<int, object>  $candidates
+     * @return array<string, int>
+     */
+    private function buildConceptDocumentFrequency(Collection $candidates): array
+    {
+        $frequency = [];
+
+        foreach ($candidates as $candidate) {
+            $canonicals = $this->conceptMatcher->canonicalTermsPresentIn($this->targetPlainText($candidate));
+
+            foreach (array_unique($canonicals) as $canonical) {
+                $frequency[$canonical] = ($frequency[$canonical] ?? 0) + 1;
             }
         }
 
