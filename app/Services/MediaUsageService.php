@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\Category;
 use App\Models\ContentCluster;
 use App\Models\Media;
+use App\Models\ProjectDocument;
 use App\Models\SpecialPage;
 use App\Models\User;
 use App\Services\Concerns\ScansJsonContentLeaves;
@@ -85,8 +86,50 @@ class MediaUsageService
         $this->scanUserPhotos($diskNames, $usages);
         $this->scanCategoryImages($diskNames, $usages);
         $this->scanSpecialPageContents($diskNames, $usages);
+        $this->scanProjectDocumentAttachments($diskNames, $usages);
 
         return $usages;
+    }
+
+    /**
+     * S9 — project_documents.media_id (FK con nullOnDelete()) e' l'unico
+     * riferimento a Media basato su un ID anziche' su disk_name: senza
+     * questo censimento, MediaController::destroy() (che si fida
+     * esclusivamente di usageFor() per bloccare l'eliminazione) lasciava
+     * eliminare un Media davvero allegato a un documento di progetto senza
+     * alcun avviso — il vincolo nullOnDelete() non solleva errore, azzera
+     * solo silenziosamente project_documents.media_id, perdendo l'allegato
+     * senza che l'operatore ne sapesse nulla.
+     *
+     * @param  list<string>  $diskNames
+     * @param  array<string, list<array<string, mixed>>>  $usages
+     */
+    private function scanProjectDocumentAttachments(array $diskNames, array &$usages): void
+    {
+        $mediaIdsByDiskName = Media::query()
+            ->whereIn('disk_name', $diskNames)
+            ->pluck('disk_name', 'id');
+
+        if ($mediaIdsByDiskName->isEmpty()) {
+            return;
+        }
+
+        ProjectDocument::query()
+            ->whereIn('media_id', $mediaIdsByDiskName->keys())
+            ->with('project:id,title')
+            ->get(['id', 'project_id', 'title', 'media_id', 'status'])
+            ->each(function (ProjectDocument $document) use ($mediaIdsByDiskName, &$usages): void {
+                $diskName = $mediaIdsByDiskName[$document->media_id];
+
+                $usages[$diskName][] = $this->record(
+                    'project_document_attachment',
+                    'Allegato',
+                    'Documento di progetto',
+                    $document->title,
+                    ProjectDocument::statusOptions()[$document->status] ?? $document->status,
+                    route('admin.progettazione.projects.documents.edit', [$document->project_id, $document->id])
+                );
+            });
     }
 
     /**
