@@ -3,12 +3,15 @@
 namespace App\Providers;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Listeners\CheckApplicationHealth;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Observers\ContentClusterSuggestionObserver;
 use App\Services\Backup\ProcessDatabaseDumpRunner;
 use Carbon\Carbon;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('it');
 
         Article::observe(ContentClusterSuggestionObserver::class);
+
+        // Estende /up (health check nativo, bootstrap/app.php) da liveness
+        // a readiness reale — vedi il docblock di CheckApplicationHealth.
+        Event::listen(DiagnosingHealth::class, CheckApplicationHealth::class);
 
         Article::resolveRelationUsing('contentClusters', fn (Article $article) => $article
             ->belongsToMany(ContentCluster::class, 'article_content_cluster')

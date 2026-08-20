@@ -14,6 +14,7 @@ use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -28,6 +29,7 @@ class ArticleController extends Controller
         private readonly ArticleLinkSuggestionService $linkSuggestionService,
         private readonly MediaRetirementService $mediaRetirementService,
         private readonly ArticleBodySanitizer $bodySanitizer,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
     public function index()
@@ -133,6 +135,13 @@ class ArticleController extends Controller
                     ->withInput()
                     ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione della
+             * copertina principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),
@@ -306,6 +315,13 @@ class ArticleController extends Controller
                     ->withInput()
                     ->withErrors(['cover_image_upload' => 'Impossibile pubblicare la nuova copertina. Riprova o contatta l\'assistenza.']);
             }
+
+            /*
+             * FASE 5 (missione S2 responsive images): accessoria e
+             * best-effort, mai bloccante per la pubblicazione della
+             * copertina principale.
+             */
+            $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
             $this->mediaService->register(
                 $request->user(),

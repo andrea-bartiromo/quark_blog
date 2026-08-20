@@ -1,20 +1,34 @@
-<section class="home-category-section">
+<section class="home-category-section" data-category-carousel>
   <div class="home-section-head">
     <div>
       <span>Explore</span>
-      <h2>Esplora le categorie</h2>
+      <h2 id="home-category-heading">Esplora le categorie</h2>
     </div>
+
+    @if($categoryHighlights->count() > 1)
+      <div class="home-category-controls" aria-label="Navigazione categorie">
+        <button type="button" class="home-category-control" data-category-prev aria-label="Categorie precedenti" disabled>←</button>
+        <button type="button" class="home-category-control" data-category-next aria-label="Categorie successive">→</button>
+      </div>
+    @endif
   </div>
 
-  <div class="home-category-grid">
-    @foreach($categoryHighlights->take(6) as $art)
+  <div
+    class="home-category-carousel"
+    data-category-track
+    role="region"
+    aria-labelledby="home-category-heading"
+    tabindex="0">
+    @foreach($categoryHighlights as $art)
+    @php $categoryTileRecord = $categoryRecords[$art->category ?? ''] ?? null; @endphp
       <a href="{{ route('categoria', $art->category) }}" class="home-category-tile">
-        <img
-          src="{{ $imageForCategory($art, $loop->index) }}"
-          onerror="this.onerror=null;this.src='{{ $visualFor($art) }}';"
-          alt="{{ $categoryLabel($art) }}"
-          loading="lazy"
-          decoding="async">
+        <x-responsive-image
+          :diskName="filled($categoryTileRecord?->image) ? 'categories/'.$categoryTileRecord->image : null"
+          :src="$imageForCategory($art, $loop->index)"
+          :onerrorSrc="$visualFor($art)"
+          :alt="$categoryLabel($art)"
+          :sizes="'(max-width: 640px) 100vw, (max-width: 820px) 50vw, 33vw'"
+        />
         <div>
           <strong>{{ $categoryLabel($art) }} →</strong>
           <small>

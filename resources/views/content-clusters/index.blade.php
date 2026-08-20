@@ -32,7 +32,11 @@
         <article class="path-card {{ \App\Support\PathVisualSignature::cssClass($cluster) }}">
           <a class="path-card__media" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
             @if($cluster->cover_image)
-              <img src="{{ asset('assets/img/'.ltrim($cluster->cover_image, '/')) }}" alt="" loading="lazy" width="720" height="450">
+              <x-responsive-image
+                  :diskName="ltrim($cluster->cover_image, '/')"
+                  alt=""
+                  :sizes="'(max-width: 768px) 100vw, 50vw'"
+              />
             @else
               <span class="path-card__fallback" aria-hidden="true"><span>Kairus</span><strong>{{ $cluster->name }}</strong></span>
             @endif

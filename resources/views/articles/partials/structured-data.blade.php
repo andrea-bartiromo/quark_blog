@@ -72,7 +72,10 @@
     // con fallback a config('laboratorio.categories'), risolta una sola
     // volta e riusata sia per l'etichetta sia per il controllo di
     // riconoscimento del breadcrumb.
-    $articleCategoryOptions = \App\Models\Category::options(false);
+    // Passato dal controller (ArticleController::show()) e già usato anche
+    // da articolo.blade.php e breadcrumb.blade.php: prima ciascuno dei tre
+    // rieseguiva la stessa query "select name, slug from categories".
+    $articleCategoryOptions = $categoryOptions;
     $articleCategoryRecognized = array_key_exists($article->category, $articleCategoryOptions);
 
     $articleBreadcrumbItems = [
@@ -133,4 +136,4 @@
         ],
     ];
 @endphp
-<script type="application/ld+json">{!! json_encode($articleStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}</script>
+<script type="application/ld+json">{!! json_encode($articleStructuredData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}</script>

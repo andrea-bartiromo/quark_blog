@@ -209,6 +209,18 @@
 
   <main class="admin-main" id="admin-main-content" tabindex="-1">
 
+    {{--
+        Scorciatoia "vai a un articolo" da qualunque pagina admin — nascosta
+        SOLO sulla pagina Articoli stessa (match esatto sulla route
+        'admin.articles', non sul gruppo 'admin.articles*' usato più sopra
+        per evidenziare la voce di menu, che include anche nuovo/modifica):
+        lì la toolbar dedicata (ricerca + stato + categoria + autore) copre
+        già lo stesso scopo con un'etichetta propria — due caselle "Cerca"
+        sulla stessa pagina, entrambe verso lo stesso parametro "q", sarebbero
+        ridondanti e confuse. Su ogni altra pagina admin il comportamento
+        resta invariato.
+    --}}
+    @unless(request()->routeIs('admin.articles'))
     <div style="margin-bottom:1.25rem;" x-data>
       <form method="GET" action="{{ route('admin.articles') }}"
             style="display:flex;gap:.5rem;max-width:400px;">
@@ -222,6 +234,7 @@
         <button type="submit" class="btn btn--secondary btn--sm">Cerca</button>
       </form>
     </div>
+    @endunless
 
     @if(session('success'))
     <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
