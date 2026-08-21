@@ -24,17 +24,16 @@ class CategoryController extends Controller
         private readonly ResponsiveImageVariantService $responsiveImageVariants,
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
+        if ($request->filled('modifica')) {
+            $category = Category::withCount('articles')->findOrFail($request->integer('modifica'));
+
+            return view('admin.categories-edit', compact('category'));
+        }
+
         return view('admin.categories', [
             'categories' => Category::ordered()->withCount('articles')->get(),
-        ]);
-    }
-
-    public function edit(Category $category)
-    {
-        return view('admin.categories-edit', [
-            'category' => $category->loadCount('articles'),
         ]);
     }
 
@@ -46,7 +45,6 @@ class CategoryController extends Controller
             [$data, $imageToRetire] = $this->handleImageUpload($request, $data);
         } catch (RuntimeException $exception) {
             report($exception);
-
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
 
@@ -64,7 +62,6 @@ class CategoryController extends Controller
             [$data, $imageToRetire] = $this->handleImageUpload($request, $data, $category);
         } catch (RuntimeException $exception) {
             report($exception);
-
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
 
@@ -77,7 +74,7 @@ class CategoryController extends Controller
 
         $this->retirePreviousImage($imageToRetire);
 
-        return redirect()->route('admin.categories.edit', $category)->with('success', 'Categoria aggiornata.');
+        return redirect()->route('admin.categories', ['modifica' => $category->id])->with('success', 'Categoria aggiornata.');
     }
 
     public function destroy(Category $category)
