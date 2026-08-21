@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
 use App\Services\ArticlePathNavigation;
+use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
 
 class ArticleController extends Controller
@@ -86,7 +87,9 @@ class ArticleController extends Controller
         return view('articolo', [
             'article' => $article,
 
-            'related' => $article->related(),
+            // Correlati multi-categoria: condivide almeno una categoria
+            // principale o secondaria con l'articolo corrente.
+            'related' => app(ArticleRelatedService::class)->forArticle($article),
 
             // Calcolato una sola volta qui e riusato da articolo.blade.php,
             // articles/partials/structured-data.blade.php e
