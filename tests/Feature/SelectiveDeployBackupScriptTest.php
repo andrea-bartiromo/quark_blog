@@ -107,7 +107,14 @@ class SelectiveDeployBackupScriptTest extends TestCase
 
     protected function tearDown(): void
     {
-        File::deleteDirectory($this->root);
+        // markTestSkipped() in ensureBashAvailable() (called from setUp(),
+        // before $this->root is assigned) throws immediately — PHPUnit
+        // still runs tearDown() afterwards, so $root can reach here
+        // uninitialized. Only clean up what setUp() actually created.
+        if (isset($this->root)) {
+            File::deleteDirectory($this->root);
+        }
+
         parent::tearDown();
     }
 
