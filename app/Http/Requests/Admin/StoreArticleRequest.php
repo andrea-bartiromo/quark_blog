@@ -62,6 +62,19 @@ class StoreArticleRequest extends FormRequest
         ];
     }
 
+    /**
+     * Il controller persiste direttamente l'array validato sull'Article.
+     * Le categorie secondarie vivono invece nella pivot e vengono sincronizzate
+     * dall'observer, quindi non devono entrare nel payload mass-assignable.
+     */
+    public function validated($key = null, $default = null)
+    {
+        $data = parent::validated();
+        unset($data['secondary_categories']);
+
+        return $key === null ? $data : data_get($data, $key, $default);
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
@@ -114,12 +127,7 @@ class StoreArticleRequest extends FormRequest
 
         $primarySlug = (string) $this->input('category');
 
-        $duplicatesPrimary = Category::query()
-            ->whereIn('id', $secondaryIds)
-            ->where('slug', $primarySlug)
-            ->exists();
-
-        if ($duplicatesPrimary) {
+        if (Category::query()->whereIn('id', $secondaryIds)->where('slug', $primarySlug)->exists()) {
             $validator->errors()->add(
                 'secondary_categories',
                 'La categoria principale non può essere selezionata anche come categoria secondaria.'
