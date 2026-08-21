@@ -34,8 +34,15 @@ class ArticleController extends Controller
             'categoryImage' => $categoryModel?->image,
             'category' => $slug,
 
+            // Discovery multi-categoria: la pagina mostra gli articoli che
+            // hanno questa categoria come principale oppure come secondaria.
+            // whereHas() usa EXISTS e quindi non duplica le righe anche se
+            // un articolo soddisfacesse entrambe le condizioni.
             'articles' => Article::published()
-                ->byCategory($slug)
+                ->where(function ($query) use ($slug) {
+                    $query->where('category', $slug)
+                        ->orWhereHas('secondaryCategories', fn ($secondaryQuery) => $secondaryQuery->where('categories.slug', $slug));
+                })
                 ->with('author')
                 ->paginate(12),
         ]);
