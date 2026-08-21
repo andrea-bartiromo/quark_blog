@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Article;
+use App\Models\Category;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -24,6 +25,12 @@ class StoreArticleRequest extends FormRequest
             'excerpt' => 'nullable|max:300',
             'body' => 'required',
             'category' => 'required',
+            'secondary_categories' => ['nullable', 'array', 'max:2'],
+            'secondary_categories.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('categories', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'cover_image' => 'nullable|max:255',
             'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:16384',
             'cover_alt' => 'nullable|string|max:255',
@@ -55,31 +62,76 @@ class StoreArticleRequest extends FormRequest
         ];
     }
 
+    /**
+     * Il controller persiste direttamente l'array validato sull'Article.
+     * Le categorie secondarie vivono invece nella pivot e vengono sincronizzate
+     * dall'observer, quindi non devono entrare nel payload mass-assignable.
+     */
+    public function validated($key = null, $default = null)
+    {
+        $data = parent::validated();
+        unset($data['secondary_categories']);
+
+        return $key === null ? $data : data_get($data, $key, $default);
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($this->input('status') !== Article::STATUS_SCHEDULED) {
-                return;
-            }
-
-            $date = $this->input('published_date');
-            $time = $this->input('published_time');
-
-            if (! $date || ! $time || $validator->errors()->hasAny(['published_date', 'published_time'])) {
-                return;
-            }
-
-            try {
-                $scheduledAt = Article::scheduledAtFromEditorialInput($date, $time);
-            } catch (\Throwable) {
-                $validator->errors()->add('published_date', 'Data o ora non valide.');
-
-                return;
-            }
-
-            if ($scheduledAt->isPast()) {
-                $validator->errors()->add('published_date', 'La data e l\'ora di pubblicazione programmata devono essere nel futuro.');
-            }
+            $this->validateSchedule($validator);
+            $this->validateSecondaryCategories($validator);
         });
+    }
+
+    private function validateSchedule(Validator $validator): void
+    {
+        if ($this->input('status') !== Article::STATUS_SCHEDULED) {
+            return;
+        }
+
+        $date = $this->input('published_date');
+        $time = $this->input('published_time');
+
+        if (! $date || ! $time || $validator->errors()->hasAny(['published_date', 'published_time'])) {
+            return;
+        }
+
+        try {
+            $scheduledAt = Article::scheduledAtFromEditorialInput($date, $time);
+        } catch (\Throwable) {
+            $validator->errors()->add('published_date', 'Data o ora non valide.');
+
+            return;
+        }
+
+        if ($scheduledAt->isPast()) {
+            $validator->errors()->add('published_date', 'La data e l\'ora di pubblicazione programmata devono essere nel futuro.');
+        }
+    }
+
+    private function validateSecondaryCategories(Validator $validator): void
+    {
+        if ($validator->errors()->hasAny(['category', 'secondary_categories', 'secondary_categories.*'])) {
+            return;
+        }
+
+        $secondaryIds = collect((array) $this->input('secondary_categories', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($secondaryIds->isEmpty()) {
+            return;
+        }
+
+        $primarySlug = (string) $this->input('category');
+
+        if (Category::query()->whereIn('id', $secondaryIds)->where('slug', $primarySlug)->exists()) {
+            $validator->errors()->add(
+                'secondary_categories',
+                'La categoria principale non può essere selezionata anche come categoria secondaria.'
+            );
+        }
     }
 }
