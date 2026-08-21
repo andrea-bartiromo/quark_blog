@@ -11,6 +11,7 @@ use App\Models\ArticleLinkSuggestion;
 use App\Models\Category;
 use App\Models\ContentCluster;
 use App\Observers\ArticleLinkSuggestionCategoryAffinityObserver;
+use App\Observers\ArticleLinkSuggestionQualityObserver;
 use App\Observers\ArticleSecondaryCategoryObserver;
 use App\Observers\ContentClusterSuggestionObserver;
 use App\Services\Backup\ProcessDatabaseDumpRunner;
@@ -40,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
         Article::observe(ContentClusterSuggestionObserver::class);
         Article::observe(ArticleSecondaryCategoryObserver::class);
         ArticleLinkSuggestion::observe(ArticleLinkSuggestionCategoryAffinityObserver::class);
+        ArticleLinkSuggestion::observe(ArticleLinkSuggestionQualityObserver::class);
 
         // Estende /up (health check nativo, bootstrap/app.php) da liveness
         // a readiness reale — vedi il docblock di CheckApplicationHealth.
