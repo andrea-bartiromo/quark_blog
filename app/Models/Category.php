@@ -22,9 +22,17 @@ class Category extends Model
         'sort_order' => 'integer',
     ];
 
+    /** Categoria principale: relazione storica basata sullo slug. */
     public function articles()
     {
         return $this->hasMany(Article::class, 'category', 'slug');
+    }
+
+    /** Articoli che usano questa categoria come associazione secondaria. */
+    public function secondaryArticles()
+    {
+        return $this->belongsToMany(Article::class, 'article_category')
+            ->withTimestamps();
     }
 
     public function publishedArticles()
