@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Contracts\DatabaseDumpRunner;
 use App\Listeners\CheckApplicationHealth;
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\ContentCluster;
+use App\Observers\ArticleSecondaryCategoryObserver;
 use App\Observers\ContentClusterSuggestionObserver;
 use App\Services\Backup\ProcessDatabaseDumpRunner;
 use Carbon\Carbon;
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         Carbon::setLocale('it');
 
         Article::observe(ContentClusterSuggestionObserver::class);
+        Article::observe(ArticleSecondaryCategoryObserver::class);
 
         // Estende /up (health check nativo, bootstrap/app.php) da liveness
         // a readiness reale — vedi il docblock di CheckApplicationHealth.
@@ -46,6 +49,14 @@ class AppServiceProvider extends ServiceProvider
             ->withPivot(['position', 'is_primary'])
             ->wherePivot('is_primary', true)
             ->limit(1));
+
+        // Relazione dinamica: `articles.category` resta la categoria
+        // principale; la pivot contiene esclusivamente le secondarie.
+        // La relazione è disponibile come `$article->secondaryCategories`
+        // senza alterare il contratto storico del model Article.
+        Article::resolveRelationUsing('secondaryCategories', fn (Article $article) => $article
+            ->belongsToMany(Category::class, 'article_category')
+            ->withTimestamps());
 
         // Lo schema forzato per route()/url() vive nel middleware
         // ForceHttpsUrlScheme (bootstrap/app.php), non qui: boot() gira una
