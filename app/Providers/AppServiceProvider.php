@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
+use App\Http\Controllers\Admin\ArticleDiscoveryController;
 use App\Listeners\CheckApplicationHealth;
 use App\Models\Article;
 use App\Models\Category;
@@ -21,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(DatabaseDumpRunner::class, ProcessDatabaseDumpRunner::class);
+        $this->app->bind(AdminArticleController::class, ArticleDiscoveryController::class);
     }
 
     public function boot(): void
