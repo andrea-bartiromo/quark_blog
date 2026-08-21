@@ -40,15 +40,23 @@ class ArticleLinkSuggestionQualityObserver
     ];
 
     /**
-     * Una proposta non viene mai scartata se dispone di un segnale forte
-     * (titolo completo o concetto scientifico riconosciuto). Nel caso
-     * puramente lessicale, invece, almeno uno dei termini che hanno
-     * contribuito allo score deve contenere informazione tematica reale.
+     * Quality Gate V2. Il motore a monte ordina e quota gia' i termini con
+     * document-frequency (specifici prima dei generici) e salva nel motivo
+     * solo quelli che hanno effettivamente contribuito al punteggio. Il test
+     * reale sul corpus Kairus ha mostrato pero' che un termine raro non e'
+     * necessariamente informativo: parole editoriali casualmente rare
+     * possono ancora produrre terne da 45/100.
      *
-     * L'observer gira dopo quello di affinità categoria: il bonus categoria
-     * non salva un match lessicale composto esclusivamente da parole
-     * generiche. La categoria resta un bonus, mai una prova di pertinenza.
+     * Per una proposta PURAMENTE lessicale richiediamo quindi una densita'
+     * minima di evidenza: tutti e tre gli slot lessicali disponibili devono
+     * contenere termini informativi. Non alziamo la soglia globale e non
+     * tocchiamo i segnali forti (titolo/concetto scientifico), cosi' un vero
+     * collegamento cross-category con tre termini specifici continua a
+     * passare mentre una categoria condivisa non puo' compensare evidenza
+     * lessicale debole.
      */
+    private const MIN_INFORMATIVE_LEXICAL_TERMS = 3;
+
     public function saved(ArticleLinkSuggestion $suggestion): void
     {
         if ($suggestion->status !== ArticleLinkSuggestion::STATUS_PROPOSED) {
@@ -69,10 +77,11 @@ class ArticleLinkSuggestionQualityObserver
             return;
         }
 
-        $hasInformativeTerm = collect($terms)
-            ->contains(fn (string $term) => ! in_array($term, self::LOW_INFORMATION_TERMS, true));
+        $informativeTerms = collect($terms)
+            ->reject(fn (string $term) => in_array($term, self::LOW_INFORMATION_TERMS, true))
+            ->values();
 
-        if ($hasInformativeTerm) {
+        if ($informativeTerms->count() >= self::MIN_INFORMATIVE_LEXICAL_TERMS) {
             return;
         }
 
