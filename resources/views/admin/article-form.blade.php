@@ -105,7 +105,7 @@
     @endif
 
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
-      <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria *</div>
+      <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria principale *</div>
       <select class="form-select" name="category" required>
         <option value="">Seleziona categoria…</option>
         @foreach($categories as $slug => $label)
@@ -115,6 +115,8 @@
           </option>
         @endforeach
       </select>
+
+      @include('admin.partials.article-secondary-categories')
     </div>
 
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
@@ -479,9 +481,6 @@ document.addEventListener('DOMContentLoaded', function () {
     license: document.getElementById('cover_license'),
   };
 
-  // Precompila i campi copertina con i metadati già salvati sul file della
-  // libreria media, ma solo quando il campo dell'articolo e' ancora vuoto:
-  // non deve mai sovrascrivere dati che la redazione ha già personalizzato.
   coverImageInput.addEventListener('change', function () {
     const diskName = coverImageInput.value.trim();
     if (! diskName) {
@@ -524,8 +523,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const isScheduled = statusSelect.value === 'scheduled';
     scheduleFields.hidden = ! isScheduled;
 
-    // Il banner riepiloga la programmazione salvata: se lo stato scelto non
-    // e' (più) "Programmato", nasconderlo evita che contraddica il select.
     if (scheduleNote) {
       scheduleNote.hidden = ! isScheduled;
     }
