@@ -8,6 +8,18 @@ use Tests\TestCase;
 
 class SelectiveDeployBackupScriptTest extends TestCase
 {
+    /**
+     * Memoized across the whole run: a "bash.exe exists on PATH" check is
+     * not the same thing as "a real Bash shell can execute a command" —
+     * on Windows without an installed WSL distribution, bash.exe is
+     * present (the WSL launcher stub) but every invocation fails with
+     * "Windows Subsystem for Linux has no installed distributions."
+     * scripts/selective-deploy-backup.sh is Linux/production-shell
+     * tooling; these tests must therefore be skipped, not failed, when
+     * no Bash capable of actually running a command exists.
+     */
+    private static ?bool $bashAvailable = null;
+
     private string $root;
 
     private string $appRoot;
@@ -22,6 +34,8 @@ class SelectiveDeployBackupScriptTest extends TestCase
     {
         parent::setUp();
 
+        $this->ensureBashAvailable();
+
         $this->root = storage_path('framework/testing/selective-deploy-backup-'.bin2hex(random_bytes(6)));
         $this->appRoot = $this->root.'/app';
         $this->publicRoot = $this->root.'/public';
@@ -31,6 +45,64 @@ class SelectiveDeployBackupScriptTest extends TestCase
         File::ensureDirectoryExists($this->appRoot);
         File::ensureDirectoryExists($this->publicRoot);
         File::ensureDirectoryExists($this->backupRoot);
+    }
+
+    private function ensureBashAvailable(): void
+    {
+        if (self::$bashAvailable === null) {
+            self::$bashAvailable = $this->probeBashCapability();
+        }
+
+        if (! self::$bashAvailable) {
+            $this->markTestSkipped(
+                'No functional Bash shell is available in this environment '.
+                '(bash executable missing, or present but unable to run a '.
+                'command — e.g. the Windows WSL launcher stub with no '.
+                'installed distribution). scripts/selective-deploy-backup.sh '.
+                'is Linux deploy tooling exercised via a real bash process; '.
+                'skipping rather than failing.'
+            );
+        }
+    }
+
+    private function probeBashCapability(): bool
+    {
+        try {
+            $process = new Process(['bash', '-lc', 'printf ok']);
+            $process->setTimeout(5);
+            $process->run();
+
+            return $process->isSuccessful() && trim($process->getOutput()) === 'ok';
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function ensureSymlinkSupported(): void
+    {
+        $probeTarget = $this->root.'/symlink-capability-probe-target';
+        $probeLink = $this->root.'/symlink-capability-probe-link';
+        File::ensureDirectoryExists($probeTarget);
+
+        $supported = false;
+
+        try {
+            $supported = @symlink($probeTarget, $probeLink);
+        } catch (\Throwable) {
+            $supported = false;
+        }
+
+        if ($supported) {
+            @unlink($probeLink);
+        }
+
+        if (! $supported) {
+            $this->markTestSkipped(
+                'symlink() is not permitted in this environment (e.g. '.
+                'Windows without Developer Mode / SeCreateSymbolicLinkPrivilege) — '.
+                'skipping the symlinked-ancestor escape regression.'
+            );
+        }
     }
 
     protected function tearDown(): void
@@ -192,6 +264,8 @@ class SelectiveDeployBackupScriptTest extends TestCase
 
     public function test_symlinked_ancestor_cannot_escape_destination_root(): void
     {
+        $this->ensureSymlinkSupported();
+
         $outside = $this->root.'/outside';
         File::ensureDirectoryExists($outside);
         File::put($outside.'/secret.php', "secret\n");
