@@ -56,7 +56,31 @@ class InternalLinkSuggestionLowInformationQualityTest extends TestCase
         $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->status);
     }
 
-    public function test_one_informative_term_is_enough_to_keep_the_suggestion(): void
+    public function test_one_or_two_informative_terms_are_not_enough_for_a_purely_lexical_suggestion(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $source = $this->article($author, 'Sorgente', 'sorgente');
+        $target = $this->article($author, 'Target', 'target');
+
+        $one = $this->suggestion(
+            $source,
+            $target,
+            'Termini in comune: sorprendente, gravitazione, attraversare'
+        );
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $one->status);
+
+        $targetTwo = $this->article($author, 'Target due', 'target-due');
+        $two = $this->suggestion(
+            $source,
+            $targetTwo,
+            'Termini in comune: gravitazione, quantistica, attraversare'
+        );
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $two->status);
+    }
+
+    public function test_three_informative_terms_keep_a_purely_lexical_suggestion(): void
     {
         $author = User::factory()->create(['role' => 'editor']);
         $source = $this->article($author, 'Sorgente', 'sorgente');
@@ -65,7 +89,7 @@ class InternalLinkSuggestionLowInformationQualityTest extends TestCase
         $suggestion = $this->suggestion(
             $source,
             $target,
-            'Termini in comune: sorprendente, gravitazione, attraversare'
+            'Termini in comune: relativita, gravitazione, quantistica'
         );
 
         $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->status);
@@ -86,7 +110,7 @@ class InternalLinkSuggestionLowInformationQualityTest extends TestCase
         $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->status);
     }
 
-    public function test_category_bonus_does_not_rescue_a_low_information_lexical_match(): void
+    public function test_title_match_remains_a_strong_signal_even_with_sparse_lexical_evidence(): void
     {
         $author = User::factory()->create(['role' => 'editor']);
         $source = $this->article($author, 'Sorgente', 'sorgente');
@@ -95,7 +119,22 @@ class InternalLinkSuggestionLowInformationQualityTest extends TestCase
         $suggestion = $this->suggestion(
             $source,
             $target,
-            'Termini in comune: immaginiamo, profonde, sembrare; stessa categoria: Spazio'
+            'Il titolo dell\'articolo collegato compare nel testo; termini in comune: sorprendente'
+        );
+
+        $this->assertSame(ArticleLinkSuggestion::STATUS_PROPOSED, $suggestion->status);
+    }
+
+    public function test_category_bonus_does_not_rescue_sparse_lexical_evidence(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $source = $this->article($author, 'Sorgente', 'sorgente');
+        $target = $this->article($author, 'Target', 'target');
+
+        $suggestion = $this->suggestion(
+            $source,
+            $target,
+            'Termini in comune: gravitazione, quantistica, attraversare; stessa categoria: Spazio'
         );
 
         $this->assertSame(ArticleLinkSuggestion::STATUS_SUPERSEDED, $suggestion->status);
