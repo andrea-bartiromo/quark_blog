@@ -31,6 +31,13 @@ class CategoryController extends Controller
         ]);
     }
 
+    public function edit(Category $category)
+    {
+        return view('admin.categories-edit', [
+            'category' => $category->loadCount('articles'),
+        ]);
+    }
+
     public function store(Request $request)
     {
         $data = $this->validated($request);
@@ -44,10 +51,6 @@ class CategoryController extends Controller
         }
 
         Category::create($data);
-
-        // Ritirata solo ora che non è più una categoria a puntarci: una
-        // categoria appena creata non aveva comunque un'immagine precedente,
-        // ma manteniamo lo stesso ordine di update() per coerenza.
         $this->retirePreviousImage($imageToRetire);
 
         return back()->with('success', 'Categoria creata con successo.');
@@ -66,23 +69,15 @@ class CategoryController extends Controller
         }
 
         $oldSlug = $category->slug;
-
         $category->update($data);
 
         if ($oldSlug !== $category->slug) {
-            Article::where('category', $oldSlug)
-                ->update(['category' => $category->slug]);
+            Article::where('category', $oldSlug)->update(['category' => $category->slug]);
         }
 
-        /*
-         * Ritirata solo dopo che la categoria è già stata salvata con il
-         * nuovo valore (o null): a questo punto il controllo "è ancora
-         * referenziata?" non troverà più questa stessa categoria puntare
-         * all'immagine precedente.
-         */
         $this->retirePreviousImage($imageToRetire);
 
-        return back()->with('success', 'Categoria aggiornata.');
+        return redirect()->route('admin.categories.edit', $category)->with('success', 'Categoria aggiornata.');
     }
 
     public function destroy(Category $category)
@@ -92,9 +87,7 @@ class CategoryController extends Controller
         }
 
         $imageToRetire = $category->image;
-
         $category->delete();
-
         $this->retirePreviousImage($imageToRetire);
 
         return back()->with('success', 'Categoria eliminata.');
@@ -114,25 +107,12 @@ class CategoryController extends Controller
         ]);
 
         unset($validated['image_upload'], $validated['remove_image']);
-
         $validated['slug'] = Str::slug($validated['slug'] ?: $validated['name']);
         $validated['is_active'] = $request->boolean('is_active');
 
         return $validated;
     }
 
-    /**
-     * @return array{0: array<string, mixed>, 1: ?string} i dati aggiornati e,
-     *                                                    se presente, il
-     *                                                    disk_name
-     *                                                    dell'immagine
-     *                                                    precedente da
-     *                                                    ritirare (solo
-     *                                                    dopo che la
-     *                                                    categoria è stata
-     *                                                    salvata: vedi
-     *                                                    store()/update()).
-     */
     private function handleImageUpload(Request $request, array $data, ?Category $category = null): array
     {
         $imageToRetire = null;
@@ -151,64 +131,28 @@ class CategoryController extends Controller
             $originalName = $file->getClientOriginalName();
             $mimeType = $file->getMimeType();
             $ext = strtolower($file->getClientOriginalExtension());
-            $fileName = $this->imageService->buildFileName(
-                $file,
-                $ext,
-                date('YmdHis').'-'.substr(md5((string) microtime(true)), 0, 6)
-            );
+            $fileName = $this->imageService->buildFileName($file, $ext, date('YmdHis').'-'.substr(md5((string) microtime(true)), 0, 6));
             $uploadPath = public_path('assets/img/categories');
 
             $this->imageService->ensureDirectoryExists($uploadPath, 0755);
-
             $fullPath = $this->imageService->upload($file, $uploadPath, $fileName);
-            $this->imageService->resizeAndCompress(
-                $fullPath,
-                $ext,
-                1200,
-                ['jpg' => 84, 'png' => 7, 'webp' => 84]
-            );
+            $this->imageService->resizeAndCompress($fullPath, $ext, 1200, ['jpg' => 84, 'png' => 7, 'webp' => 84]);
 
-            /*
-             * Come per le copertine articolo: sincronizza verso la
-             * document root pubblica secondaria prima di registrare il
-             * Media, cosi' un fallimento qui non lascia un riferimento
-             * a un file non davvero raggiungibile.
-             */
             try {
                 $this->publicMediaSync->create($fullPath, 'categories/'.$fileName);
             } catch (RuntimeException $exception) {
                 $this->publicMediaSync->cleanupAfterFailedCreate($fullPath);
-
                 throw $exception;
             }
 
-            /*
-             * FASE 5 (missione S2 responsive images): accessoria e
-             * best-effort, mai bloccante per la pubblicazione
-             * dell'immagine categoria principale.
-             */
             $this->responsiveImageVariants->generateForUpload($fullPath, 'categories/'.$fileName);
-
-            $this->mediaService->register(
-                $request->user(),
-                $originalName,
-                'categories/'.$fileName,
-                $mimeType,
-                filesize($fullPath)
-            );
-
+            $this->mediaService->register($request->user(), $originalName, 'categories/'.$fileName, $mimeType, filesize($fullPath));
             $data['image'] = $fileName;
         }
 
         return [$data, $imageToRetire];
     }
 
-    /**
-     * Ritira, se non più referenziata da nessun'altra categoria/articolo/
-     * pagina, l'immagine categoria sostituita o rimossa. Best-effort (vedi
-     * MediaRetirementService): un fallimento non blocca mai l'azione
-     * principale già completata sulla categoria.
-     */
     private function retirePreviousImage(?string $fileName): void
     {
         if (! $fileName) {
