@@ -31,9 +31,6 @@ class Article extends Model
 
     public const STATUS_PUBLISHED = 'published';
 
-    // Fuso orario in cui la redazione imposta e legge le date di pubblicazione.
-    // Tutte le conversioni Europe/Rome <-> UTC passano da qui: nessun altro
-    // punto del codice deve applicare ->timezone() "a mano".
     public const EDITORIAL_TIMEZONE = 'Europe/Rome';
 
     protected $fillable = [
@@ -55,12 +52,6 @@ class Article extends Model
         'verified_at' => 'datetime',
     ];
 
-    /**
-     * Garantisce ovunque (form Admin, approvazione Redazione, comando
-     * artisan, tinker, factory...) l'invariante: published_at è NULL per
-     * draft/review, valorizzato per scheduled/published. Centralizzare la
-     * regola qui evita che un singolo controller dimenticato la violi.
-     */
     protected static function booted(): void
     {
         static::saving(function (Article $article) {
@@ -76,18 +67,9 @@ class Article extends Model
         });
 
         static::saved(fn (Article $article) => app(ProjectTaskSyncService::class)->syncForArticle($article));
-
         static::deleted(fn (Article $article) => app(ProjectTaskSyncService::class)->invalidateForDeletedArticle($article->id));
-
-        // Piano Editoriale automatico (Blocco F): solo alla creazione, mai
-        // sui salvataggi successivi — un collegamento rimosso a mano non
-        // deve poter essere ripristinato automaticamente da una modifica.
         static::created(fn (Article $article) => app(ProjectEditorialLinkService::class)->linkToDefaultProject($article));
 
-        // Registra lo slug precedente per un redirect 301 (vedi
-        // ArticleSlugRedirect e ArticleController::show()) invece di
-        // lasciare che un link esterno o un risultato di ricerca non
-        // ancora ricrawlato punti a un 404 dopo una rinomina.
         static::updated(function (Article $article) {
             if (! $article->wasChanged('slug')) {
                 return;
@@ -104,20 +86,9 @@ class Article extends Model
                 ['article_id' => $article->id]
             );
 
-            // Il nuovo slug potrebbe essere stato, in passato, lo slug di
-            // un'altra rinomina: un redirect che punterebbe da uno slug
-            // ora di nuovo "attivo" verso se stesso non ha senso e
-            // andrebbe rimosso, non lasciato a fare da eco.
             ArticleSlugRedirect::where('old_slug', $article->slug)->delete();
         });
 
-        // "Avvisami quando continua" (Percorsi): il punto reale e comune di
-        // pubblicazione, valido sia per il publish manuale
-        // (Admin\ArticleController::update(), Admin\ReviewController::approve())
-        // sia per quello programmato (PublishScheduledArticles) — entrambi
-        // passano da Eloquent update()/save(), quindi da qui. created()
-        // copre il caso, raro ma possibile dallo stesso form admin, di un
-        // articolo creato già con status=published.
         static::created(function (Article $article) {
             if ($article->status === self::STATUS_PUBLISHED) {
                 app(PathContinuationNotifier::class)->notifyIfPublished($article);
@@ -131,7 +102,6 @@ class Article extends Model
         });
     }
 
-    // Etichette leggibili per lo stato di verifica
     public static array $verificationLabels = [
         'unverified' => 'Non verificato',
         'in_progress' => 'In verifica',
@@ -139,7 +109,6 @@ class Article extends Model
         'needs_update' => 'Aggiornamento necessario',
     ];
 
-    // Colori badge per lo stato di verifica
     public static array $verificationColors = [
         'unverified' => '#ef4444',
         'in_progress' => '#f59e0b',
@@ -156,8 +125,6 @@ class Article extends Model
     {
         return $this->verification_status === 'verified';
     }
-
-    // ── Relazioni ─────────────────────────────────────────────
 
     public function author()
     {
@@ -186,51 +153,28 @@ class Article extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Categorie editoriali aggiuntive. `category` resta la categoria
+     * principale e la fonte di verita per badge, breadcrumb e compatibilita
+     * con il codice storico; questa relazione contiene solo le secondarie.
+     */
+    public function secondaryCategories()
+    {
+        return $this->belongsToMany(Category::class, 'article_category')
+            ->withTimestamps();
+    }
+
     public function linkSuggestions()
     {
         return $this->hasMany(ArticleLinkSuggestion::class, 'source_article_id');
     }
 
-    /**
-     * Suggerimenti di collegamento interno ancora da rivedere per questo
-     * articolo, pronti per il pannello "Collegamenti interni suggeriti" —
-     * stessa query condivisa da Admin e Redazione, per evitare che le due
-     * aree mostrino elenchi diversi se la query dovesse cambiare.
-     */
     public function proposedLinkSuggestions()
     {
-        // Codex (PR #165, P2 round 9): la riga resta 'proposed' in DB finché
-        // non parte una nuova "Analizza" (o "Inserisci"/il salvataggio la
-        // rivalutano) — ma tra quel momento e l'apertura di QUESTA pagina il
-        // target può essere diventato non più sicuro (riprogrammato dopo la
-        // source, o retrocesso). Senza questo filtro il form la mostrerebbe
-        // comunque con l'etichetta "sarà pubblico prima di questo articolo"
-        // (ArticleLinkSuggestionController::serializeSuggestions()) — una
-        // dichiarazione di sicurezza ormai falsa, prima ancora che la
-        // redazione clicchi qualunque cosa. Nessuna scrittura qui: è un
-        // filtro di sola lettura per il rendering, lo stato 'proposed' in DB
-        // resta quello che era finché un'azione esplicita (Analizza/
-        // Inserisci/Salva) non lo aggiorna davvero.
-        //
-        // Codex, PR #165, P2 round 10: il filtro va applicato PRIMA del
-        // limite MAX_PROPOSED_RESULTS, non dopo. Se le righe con punteggio
-        // più alto sono proprio quelle diventate non sicure, un
-        // ->limit()->get()->filter() le include nella finestra del LIMIT e
-        // le scarta dopo — restituendo un pannello vuoto anche quando
-        // esistono altri suggerimenti sicuri appena sotto in classifica.
-        // Nessun limite SQL qui: il numero di righe 'proposed' per un
-        // singolo articolo è comunque piccolo (soglia di punteggio +
-        // MAX_PROPOSED_RESULTS già applicati da analyzeForSource()), il
-        // taglio ai primi MAX_PROPOSED_RESULTS avviene in PHP DOPO il
-        // filtro, sull'ordinamento per punteggio già applicato dalla query.
         $temporalEligibility = app(InternalLinkTemporalEligibility::class);
 
         return $this->linkSuggestions()
             ->proposed()
-            // status/published_at (V2.1): il pannello "Collegamenti interni
-            // suggeriti" deve poter mostrare che un target è ancora
-            // programmato (mai come se fosse già pubblico senza contesto —
-            // vedi ArticleLinkSuggestionController::serializeSuggestions()).
             ->with('targetArticle:id,title,slug,status,published_at')
             ->orderByDesc('confidence_score')
             ->get()
@@ -238,8 +182,6 @@ class Article extends Model
             ->take(ArticleLinkSuggestion::MAX_PROPOSED_RESULTS)
             ->values();
     }
-
-    // ── Scope ─────────────────────────────────────────────────
 
     public function scopePublished(Builder $q): Builder
     {
@@ -264,31 +206,6 @@ class Article extends Model
             ->orderBy('published_at');
     }
 
-    /**
-     * Internal Linking V2.1 — pre-filtro SQL per SOLO il ramo "scheduled
-     * temporalmente sicuro" della candidate selection del suggeritore
-     * (App\Services\ArticleLinkSuggestionService::analyzeForSource()):
-     * stessa regola di App\Services\InternalLinking\
-     * InternalLinkTemporalEligibility::isTargetSafeForSource() ramo B, qui
-     * a livello DB per evitare di caricare in memoria candidati che non
-     * potrebbero mai essere eleggibili (draft/review, o scheduled con
-     * published_at non strettamente precedente a quello di $source).
-     *
-     * Interrogato SEPARATAMENTE dai candidati pubblicati (scopePublished()),
-     * ciascuno con una propria quota LIMIT indipendente (Codex, PR #165, P2
-     * round 4 e round 5): un'unica query con ORDER BY/LIMIT condiviso tra i
-     * due gruppi non può restare corretta in entrambe le direzioni — un
-     * gruppo abbastanza numeroso scalza sempre l'altro dalla finestra dei
-     * candidati, qualunque sia il criterio di ordinamento scelto tra i due.
-     *
-     * Il chiamante invoca questo scope solo quando $source stessa è
-     * 'scheduled' con published_at valorizzato (altrimenti il ramo B non si
-     * applica mai — vedi isTargetSafeForSource()); lo scope non ripete qui
-     * quel controllo. La fonte di verità applicativa resta comunque
-     * isTargetSafeForSource(), riapplicata subito dopo il fetch in
-     * analyzeForSource() come garanzia definitiva indipendente da questa
-     * query (vedi commento lì).
-     */
     public function scopeScheduledSafeAsLinkTargetFor(Builder $q, self $source): Builder
     {
         return $q->where('status', self::STATUS_SCHEDULED)
@@ -296,12 +213,6 @@ class Article extends Model
             ->where('published_at', '<', $source->published_at);
     }
 
-    // ── Stato ─────────────────────────────────────────────────
-
-    /**
-     * @return array<string, string> Valore enum => etichetta leggibile, nell'ordine
-     *                               in cui vanno proposte nel select "Stato articolo".
-     */
     public static function statusOptions(): array
     {
         return [
@@ -332,59 +243,26 @@ class Article extends Model
         return $this->status === self::STATUS_PUBLISHED;
     }
 
-    /**
-     * Un articolo 'scheduled' il cui orario è già passato: lo scheduler non
-     * è ancora transitato (in ritardo) o è momentaneamente fermo.
-     */
     public function isScheduleOverdue(): bool
     {
         return $this->isScheduled() && $this->published_at !== null && $this->published_at->isPast();
     }
 
-    // ── Fuso orario redazionale ──────────────────────────────────
-
-    /**
-     * published_at (memorizzato in UTC) convertito nel fuso orario della
-     * redazione, per la visualizzazione in badge/banner/form.
-     */
     public function publishedAtForEditors(): ?Carbon
     {
         return $this->published_at?->clone()->timezone(self::EDITORIAL_TIMEZONE);
     }
 
-    /**
-     * Converte una coppia data/ora inserita dalla redazione (Europe/Rome,
-     * ora locale con eventuale ora legale) nell'istante UTC da salvare in
-     * published_at. Unico punto del codice che esegue questa conversione.
-     */
     public static function scheduledAtFromEditorialInput(string $date, string $time): Carbon
     {
         return Carbon::createFromFormat('Y-m-d H:i', "{$date} {$time}", self::EDITORIAL_TIMEZONE)->utc();
     }
-
-    // ── Accessor ──────────────────────────────────────────────
 
     public function getReadTimeAttribute(): string
     {
         return $this->read_minutes.' min di lettura';
     }
 
-    /**
-     * Minuti di lettura stimati dal corpo dell'articolo: conteggio token
-     * separati da spazi sul testo (tag HTML rimossi, entità come &nbsp;
-     * decodificate) diviso 200 parole/minuto — velocità di lettura media
-     * convenzionale per un lettore adulto in italiano — con arrotondamento
-     * all'intero più vicino e minimo di 1 minuto. Non usa str_word_count():
-     * tratta l'apostrofo tipografico (') diversamente da quello dritto (')
-     * e conta le entità HTML non decodificate (es. &nbsp;) come parole,
-     * producendo risultati incoerenti con un semplice split sugli spazi —
-     * che è anche l'unica tokenizzazione replicabile in modo affidabile
-     * lato client per l'anteprima (partials/article-read-minutes-script).
-     * Unico punto del codice che esegue questo calcolo: Admin\ArticleController
-     * e Redazione\ArticleController lo richiamano entrambi invece di
-     * duplicare la formula (in precedenza usavano due formule diverse e non
-     * documentate, con risultati incoerenti tra le due aree).
-     */
     public static function calculateReadMinutes(?string $body): int
     {
         $text = html_entity_decode(strip_tags((string) $body), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -394,8 +272,6 @@ class Article extends Model
         return max(1, (int) round($wordCount / 200));
     }
 
-    // ── Mutator ───────────────────────────────────────────────
-
     public function setTitleAttribute(string $value): void
     {
         $this->attributes['title'] = $value;
@@ -404,23 +280,6 @@ class Article extends Model
         }
     }
 
-    // ── Metodi ────────────────────────────────────────────────
-
-    /**
-     * S6 FASE 4 — slug derivato con GARANZIA di unicità: Str::slug($title)
-     * da solo (usato prima da Admin\ArticleController::store() e
-     * duplicate(), quest'ultimo con un suffisso time() a granularità di
-     * 1 secondo) non garantiva nulla — due articoli con lo stesso titolo,
-     * o un doppio invio dello stesso form, collidevano sulla colonna UNIQUE
-     * articles.slug con una QueryException non gestita (500 grezzo, non un
-     * errore leggibile). Qui: prova lo slug "pulito", poi -2/-3/... finché
-     * non trova un valore libero. Questo loop da solo NON è sufficiente
-     * sotto vera concorrenza (finestra tra il SELECT e l'INSERT) — vedi
-     * anche il catch-and-retry attorno alla persistenza effettiva nei
-     * chiamanti, che resta l'unica vera garanzia contro la race, con questo
-     * metodo come percorso comune per il caso normale (nessuna collisione)
-     * e per il retry dopo un urto reale.
-     */
     public static function uniqueSlug(string $title, ?int $excludeId = null): string
     {
         $base = Str::slug($title);
@@ -447,11 +306,6 @@ class Article extends Model
 
     public function related(int $limit = 3)
     {
-        // Nessun ->with('author'): l'unico consumer di questo metodo
-        // (ArticleController::show() -> resources/views/articles/partials/
-        // related-articles.blade.php) mostra solo title/excerpt/cover_image/
-        // slug, mai l'autore — l'eager load era una query sprecata a ogni
-        // caricamento di pagina articolo con almeno un correlato.
         return static::published()
             ->byCategory($this->category)
             ->where('id', '!=', $this->id)
@@ -459,26 +313,10 @@ class Article extends Model
             ->get();
     }
 
-    /**
-     * Combinazioni valide per il meta tag robots (nessun campo composto: il
-     * valore memorizzato è già nel formato pronto per l'attributo content).
-     * Condiviso dalle FormRequest Admin e Redazione per evitare di
-     * duplicare l'elenco in due punti diversi.
-     *
-     * @return array<int, string>
-     */
     public static function robotsOptions(): array
     {
         return ['index,follow', 'noindex,follow', 'index,nofollow', 'noindex,nofollow'];
     }
-
-    // ── SEO / Meta ────────────────────────────────────────────
-    //
-    // Ogni metodo restituisce il valore da usare in pagina, applicando la
-    // catena di fallback quando il campo editoriale è vuoto. I campi grezzi
-    // (es. $article->seo_title) restano quelli salvati sul record — anche se
-    // vuoti — cosi il form di modifica può continuare a mostrare il valore
-    // realmente memorizzato senza il fallback già applicato.
 
     public function metaTitle(): string
     {
@@ -520,20 +358,9 @@ class Article extends Model
         return filled($this->og_description) ? $this->og_description : $this->metaDescription();
     }
 
-    public function metaOgImage(): string
+    public function metaOgImage(): ?string
     {
-        if (filled($this->og_image)) {
-            return asset('assets/img/'.$this->og_image);
-        }
-
-        if (filled($this->cover_image)) {
-            return asset('assets/img/'.$this->cover_image);
-        }
-
-        // Fallback raster globale (config('laboratorio.default_share_image')),
-        // mai hero-placeholder.svg: Facebook/Twitter/LinkedIn non renderizzano
-        // in modo affidabile un SVG come immagine di condivisione.
-        return asset(config('laboratorio.default_share_image'));
+        return filled($this->og_image) ? $this->og_image : $this->cover_image;
     }
 
     public function metaTwitterTitle(): string
@@ -546,16 +373,8 @@ class Article extends Model
         return filled($this->twitter_description) ? $this->twitter_description : $this->metaDescription();
     }
 
-    public function metaTwitterImage(): string
+    public function metaTwitterImage(): ?string
     {
-        if (filled($this->twitter_image)) {
-            return asset('assets/img/'.$this->twitter_image);
-        }
-
-        if (filled($this->cover_image)) {
-            return asset('assets/img/'.$this->cover_image);
-        }
-
-        return asset(config('laboratorio.default_share_image'));
+        return filled($this->twitter_image) ? $this->twitter_image : $this->metaOgImage();
     }
 }
