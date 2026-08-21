@@ -19,7 +19,12 @@
   $categories = $categoryOptions ?? config('laboratorio.categories');
   $categoryRecords = $categoryRecords ?? collect();
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
-  $categoryHighlights = collect($byCategory)->map(fn($arts) => $arts->first())->filter();
+  // La sezione "Esplora le categorie" rappresenta le categorie attive,
+  // anche quando non hanno ancora articoli pubblicati. In questo modo una
+  // nuova categoria configurata in admin compare subito nel carosello.
+  $categoryHighlights = collect($categories)
+      ->map(fn($label, $slug) => (object) ['category' => $slug])
+      ->values();
 
   $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
 
