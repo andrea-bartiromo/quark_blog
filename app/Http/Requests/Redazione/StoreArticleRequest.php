@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Redazione;
 
 use App\Models\Article;
+use App\Models\Category;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,7 +23,14 @@ class StoreArticleRequest extends FormRequest
             'title' => 'required|max:200',
             'excerpt' => 'nullable|max:300',
             'body' => 'required',
-            'category' => 'required|in:'.implode(',', array_keys(config('laboratorio.categories'))),
+            // Validato contro le categorie DB realmente attive (stessa fonte
+            // di Admin\StoreArticleRequest via Category::options()), non più
+            // contro lo snapshot statico di config('laboratorio.categories'):
+            // quest'ultimo era rimasto disallineato dalla Libreria categorie
+            // reale (es. non conteneva "fisica" nonostante fosse già una
+            // categoria editoriale primaria), bloccando in modo permanente
+            // qualunque autore Redazione dal pubblicare in quella categoria.
+            'category' => ['required', Rule::in(array_keys(Category::options()))],
             'cover_image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
             'cover_image' => 'nullable|max:255',
             'cover_alt' => 'nullable|string|max:255',
