@@ -1,5 +1,8 @@
 {{-- Cookie banner GDPR — Kairus --}}
 <div id="cookie-bar"
+     role="region"
+     aria-label="Preferenze cookie"
+     aria-live="polite"
      style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
             background:#111827;color:rgba(255,255,255,.85);padding:1rem 1.5rem;
             box-shadow:0 -4px 24px rgba(0,0,0,.2);">

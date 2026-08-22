@@ -53,6 +53,24 @@ class FrontendQualityPhase1Test extends TestCase
         $response->assertSee('window.kairusOpenNewsletterPopup = openPopup;', false);
     }
 
+    public function test_cookie_bar_is_an_announced_live_region(): void
+    {
+        // FASE 10 audit: il banner appare in modo asincrono (setTimeout,
+        // vedi components/cookie-bar.blade.php) senza alcuna regione
+        // aria-live — uno screen reader non veniva mai avvisato della sua
+        // comparsa (WCAG 4.1.3 Status Messages). Non e' un dialog modale
+        // (nessun focus trap: l'utente puo' continuare a leggere la
+        // pagina), quindi role="region" + aria-live="polite" e' corretto,
+        // non role="alertdialog".
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('id="cookie-bar"', false);
+        $response->assertSee('role="region"', false);
+        $response->assertSee('aria-live="polite"', false);
+        $response->assertSee('aria-label="Preferenze cookie"', false);
+    }
+
     public function test_ticker_keeps_one_accessible_sequence_and_marks_loop_copy_decorative(): void
     {
         $author = $this->author();
