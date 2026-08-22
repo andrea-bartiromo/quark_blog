@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Privacy Policy — Kairus')
 @section('description', 'Informativa sulla privacy di Kairus. Come raccogliamo e utilizziamo i tuoi dati.')
+@section('canonical', route('privacy'))
 
 @section('content')
 <div class="public-page public-page--legal">
