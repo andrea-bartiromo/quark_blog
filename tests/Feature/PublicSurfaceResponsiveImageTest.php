@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Article;
 use App\Models\User;
+use App\Services\ImageService;
 use App\Services\ResponsiveImageVariantService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\Concerns\InteractsWithTestImages;
 use Tests\Concerns\UsesIsolatedPublicPath;
 use Tests\TestCase;
@@ -183,6 +185,25 @@ class PublicSurfaceResponsiveImageTest extends TestCase
         $response->assertSee('aria-hidden="false"', false);
     }
 
+    // Review chatgpt-codex-connector su PR #247: l'avatar e' visibile above
+    // the fold in cima a /autore/{user} — il raw <img> preesistente non
+    // aveva alcun attributo "loading" (quindi eager per default del
+    // browser); il componente invece imposta "lazy" per default, quindi il
+    // chiamante deve passare esplicitamente loading="eager" per non
+    // ritardarne il caricamento.
+    public function test_autore_avatar_is_loaded_eagerly_not_lazily(): void
+    {
+        $author = $this->author();
+        $author->update(['photo' => 'author-avatar.jpg']);
+
+        $response = $this->get(route('autore', $author));
+
+        $response->assertOk();
+        $response->assertDontSee('loading="lazy"', false);
+        $response->assertSee('loading="eager"', false);
+        $response->assertSee('alt="'.$author->name.'"', false);
+    }
+
     public function test_autore_avatar_falls_back_gracefully_when_photo_file_is_missing_on_disk(): void
     {
         // Il record ha un valore in "photo" ma il file non esiste sul
@@ -239,5 +260,51 @@ class PublicSurfaceResponsiveImageTest extends TestCase
             .asset('assets/img/articles/covers/autore-cover.jpg').' 1600w"', false);
         $response->assertSee('sizes="180px"', false);
         $response->assertSee('alt="Articolo di autore con copertina"', false);
+    }
+
+    // ---- Upload profilo: le foto autore devono generare varianti ----
+    //
+    // Review chatgpt-codex-connector su PR #247: la conversione della vista
+    // autore a <x-responsive-image> serve a nulla se il percorso di upload
+    // non genera mai le varianti che il componente prova a servire — prima
+    // di questo fix ne' Admin\ProfileController::updatePhoto() ne'
+    // Redazione\ProfileController::updatePhoto() chiamavano
+    // ResponsiveImageVariantService::generateForUpload(), a differenza
+    // dell'upload copertina articolo/categoria che lo fa gia'.
+
+    public function test_admin_profile_photo_upload_generates_responsive_variants(): void
+    {
+        config(['media.responsive_widths' => [480, 960]]);
+        $editor = User::factory()->create(['role' => 'editor']);
+        $image = UploadedFile::fake()->image('foto-profilo.jpg', 2000, 2000);
+
+        $this->actingAs($editor)
+            ->post(route('admin.profile.photo'), ['photo' => $image])
+            ->assertSessionHasNoErrors();
+
+        $editor->refresh();
+        $this->assertNotNull($editor->photo);
+        $this->assertFileExists(public_path('assets/img/'.$editor->photo));
+
+        $variantPath = app(ImageService::class)->responsiveVariantPath($editor->photo, 480);
+        $this->assertFileExists(public_path('assets/img/'.$variantPath));
+    }
+
+    public function test_redazione_profile_photo_upload_generates_responsive_variants(): void
+    {
+        config(['media.responsive_widths' => [480, 960]]);
+        $author = User::factory()->create(['role' => 'author']);
+        $image = UploadedFile::fake()->image('foto-profilo.jpg', 2000, 2000);
+
+        $this->actingAs($author)
+            ->post(route('redazione.profile.photo'), ['photo' => $image])
+            ->assertSessionHasNoErrors();
+
+        $author->refresh();
+        $this->assertNotNull($author->photo);
+        $this->assertFileExists(public_path('assets/img/'.$author->photo));
+
+        $variantPath = app(ImageService::class)->responsiveVariantPath($author->photo, 480);
+        $this->assertFileExists(public_path('assets/img/'.$variantPath));
     }
 }

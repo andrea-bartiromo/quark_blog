@@ -7,6 +7,7 @@ use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
+use App\Services\ResponsiveImageVariantService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -17,7 +18,8 @@ class ProfileController extends Controller
         private readonly ImageService $imageService,
         private readonly MediaService $mediaService,
         private readonly PublicMediaSyncService $publicMediaSync,
-        private readonly MediaRetirementService $mediaRetirement
+        private readonly MediaRetirementService $mediaRetirement,
+        private readonly ResponsiveImageVariantService $responsiveImageVariants
     ) {}
 
     public function edit()
@@ -125,6 +127,16 @@ class ProfileController extends Controller
 
             return back()->withErrors(['photo' => 'Impossibile pubblicare la nuova foto. Riprova o contatta l\'assistenza.']);
         }
+
+        /*
+         * FASE 5 (missione S2 responsive images): accessoria e best-effort,
+         * stesso punto di aggancio gia' usato da Admin\ArticleController e
+         * Admin\CategoryController — senza questa chiamata la foto profilo
+         * resterebbe per sempre priva di varianti (srcset), anche dopo la
+         * conversione della vista autore a <x-responsive-image> (PR #247,
+         * review chatgpt-codex-connector).
+         */
+        $this->responsiveImageVariants->generateForUpload($fullPath, $diskName);
 
         $this->mediaService->register(
             $request->user(),

@@ -37,6 +37,7 @@
               disk-name="{{ $author->photo }}"
               alt="{{ $author->name }}"
               sizes="(max-width: 980px) 104px, 118px"
+              loading="eager"
           />
         @else
           <span>{{ mb_substr($author->name, 0, 1) }}</span>
