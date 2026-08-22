@@ -23,6 +23,7 @@
   </style>
 </head>
 <body class="admin-body">
+<a href="#redazione-main-content" class="skip-link">Vai al contenuto principale</a>
 <div class="admin-layout">
 
   <aside class="admin-sidebar">
@@ -99,7 +100,7 @@
     </div>
   </aside>
 
-  <main class="admin-main">
+  <main class="admin-main" id="redazione-main-content" tabindex="-1">
     @if(session('success'))
     <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
                 padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:#065f46;">

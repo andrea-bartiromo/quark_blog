@@ -70,6 +70,27 @@
   --shadow-hover:   var(--shadow-lg);
 }
 
+/* Skip link: nascosto finché non riceve il focus da tastiera — stesso
+   pattern gia' in uso in layouts/admin.blade.php/admin.css, qui per il
+   layout pubblico (layouts/app.blade.php), che non caricava admin.css. */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  transform: translateY(-100%);
+  background: var(--primary);
+  color: #ffffff;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 /* ── Reset ───────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

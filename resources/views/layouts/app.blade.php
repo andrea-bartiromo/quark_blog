@@ -7,12 +7,14 @@
 
 <body>
 
+<a href="#main-content" class="skip-link">Vai al contenuto principale</a>
+
 @include('components.header')
 @include('components.ticker')
 @include('components.category-bar')
 @include('components.newsletter-alert')
 
-<main>
+<main id="main-content" tabindex="-1">
   @yield('content')
 </main>
 
