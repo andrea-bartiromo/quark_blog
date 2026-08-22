@@ -85,11 +85,17 @@ class HttpsCanonicalizationTest extends TestCase
         );
     }
 
-    // 2bis. Gap trovato in revisione finale pre-merge: le 4 pagine
-    // statiche indicizzabili elencate in SeoController::staticSitemapPages()
+    // 2bis. Gap trovato in revisione finale pre-merge: le pagine statiche
+    // indicizzabili elencate in SeoController::staticSitemapPages()
     // (la-redazione, chi-siamo, pubblicita, contatti) non impostavano mai
-    // 'canonical' — stessa causa esatta del bug originale sulla homepage,
-    // solo non segnalata da Search Console perché non ancora ricrawlate.
+    // 'canonical' — stessa causa esatta del bug originale sulla homepage.
+    //
+    // privacy/termini/rettifiche non compaiono in staticSitemapPages() (non
+    // prioritarie per il crawling via sitemap, come tipico per pagine
+    // legali/istituzionali) ma restano comunque pubbliche e indicizzabili
+    // direttamente: Search Console le segnala come duplicate (versioni http
+    // vs https) perché, senza 'canonical', head.blade.php non emette né
+    // <link rel="canonical"> né il valore coerente per og:url.
     public function test_static_indexable_pages_have_an_absolute_https_canonical(): void
     {
         $pages = [
@@ -97,6 +103,9 @@ class HttpsCanonicalizationTest extends TestCase
             'https://kairus.it/chi-siamo',
             'https://kairus.it/pubblicita',
             'https://kairus.it/contatti',
+            'https://kairus.it/privacy',
+            'https://kairus.it/termini',
+            'https://kairus.it/rettifiche',
         ];
 
         foreach ($pages as $url) {
@@ -104,6 +113,7 @@ class HttpsCanonicalizationTest extends TestCase
 
             $response->assertOk();
             $response->assertSee('<link rel="canonical" href="'.$url.'">', false);
+            $response->assertSee('<meta property="og:url" content="'.$url.'">', false);
         }
     }
 

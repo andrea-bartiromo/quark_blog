@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Rettifiche — Kairus')
 @section('description', 'La politica di rettifica di Kairus. Come correggere gli errori in modo trasparente.')
+@section('canonical', route('rettifiche'))
 
 @section('content')
 <div class="public-page public-page--corrections">

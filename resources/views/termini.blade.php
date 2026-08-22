@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Termini d\'uso — Kairus')
 @section('description', 'Termini e condizioni d\'uso del sito Kairus.')
+@section('canonical', route('termini'))
 
 @section('content')
 <div class="public-page public-page--legal">
