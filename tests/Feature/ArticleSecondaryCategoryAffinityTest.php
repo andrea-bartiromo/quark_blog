@@ -14,14 +14,21 @@ class ArticleSecondaryCategoryAffinityTest extends TestCase
 {
     use RefreshDatabase;
 
+    // La migrazione delle categorie ne seed gia' alcune di default (dallo
+    // stesso config('laboratorio.categories') usato come fallback altrove):
+    // usa updateOrCreate cosi' i test possono regolarne lo stato senza
+    // collidere con lo slug unique gia' popolato da RefreshDatabase (stessa
+    // convenzione di HomeCategoriesTest::category()).
     private function category(string $name, string $slug): Category
     {
-        return Category::create([
-            'name' => $name,
-            'slug' => $slug,
-            'is_active' => true,
-            'sort_order' => 0,
-        ]);
+        return Category::updateOrCreate(
+            ['slug' => $slug],
+            [
+                'name' => $name,
+                'is_active' => true,
+                'sort_order' => 0,
+            ]
+        );
     }
 
     private function article(User $author, string $title, string $category): Article
