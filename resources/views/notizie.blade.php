@@ -60,9 +60,12 @@
           @foreach($articles as $article)
           <a href="{{ route('articolo', $article->slug) }}" class="public-card">
             <div class="public-card__media">
-              <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}"
-                   alt="{{ $article->title }}" loading="lazy" decoding="async"
-                   onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
+              <x-responsive-image
+                  disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
+                  alt="{{ $article->title }}"
+                  sizes="(max-width: 900px) 100vw, 290px"
+                  onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+              />
               <span class="public-card__badge">
                 {{ $categoryOptions[$article->category] ?? $article->category }}
               </span>

@@ -33,7 +33,11 @@
     <section class="author-premium-hero">
       <div class="author-premium-hero__avatar" aria-hidden="{{ $author->photo ? 'false' : 'true' }}">
         @if($author->photo)
-          <img src="{{ asset('assets/img/'.$author->photo) }}" alt="{{ $author->name }}">
+          <x-responsive-image
+              disk-name="{{ $author->photo }}"
+              alt="{{ $author->name }}"
+              sizes="(max-width: 980px) 104px, 118px"
+          />
         @else
           <span>{{ mb_substr($author->name, 0, 1) }}</span>
         @endif
@@ -91,7 +95,12 @@
           @forelse($articles as $article)
             <a href="{{ route('articolo', $article->slug) }}" class="public-result-card">
               <figure class="public-result-card__media">
-                <img src="{{ asset('assets/img/'.($article->cover_image ?? 'placeholder-1.svg')) }}" alt="{{ $article->title }}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{{ asset('assets/img/placeholder-1.svg') }}';">
+                <x-responsive-image
+                    disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
+                    alt="{{ $article->title }}"
+                    sizes="180px"
+                    onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+                />
               </figure>
 
               <div class="public-result-card__body">
