@@ -128,6 +128,25 @@ for (const [viewportName, viewport] of Object.entries(viewports)) {
             expect(await hasHorizontalOverflow(page)).toBe(false);
         });
 
+        // S2-C (missione notturna): l'hero /percorsi/{slug} e' ora un
+        // <x-responsive-image> assolutamente posizionato (stessa grammatica
+        // di articles/partials/hero.blade.php), non piu' un CSS
+        // background-image — quindi e' il primo elemento tra le
+        // fixtureImages() della pagina (stessa convenzione del test
+        // "article hero" qui sopra), non piu' il solo step cover.
+        test('percorso hero is not lazy and carries fetchpriority=high (LCP candidate)', async ({ page }) => {
+            await page.goto(routes.percorso, { waitUntil: 'networkidle' });
+
+            const images = await fixtureImages(page);
+            expect(images.length).toBeGreaterThan(0);
+
+            const hero = images[0];
+
+            expect(hero.hasSrcset).toBe(true);
+            expect(hero.loading).toBe('eager');
+            expect(hero.fetchPriority).toBe('high');
+        });
+
         test('no image on any surface causes a horizontal scrollbar', async ({ page }) => {
             test.slow();
 
@@ -144,6 +163,22 @@ test.describe('responsive images: layout stability (CLS-relevant attributes)', (
 
     test('article hero image declares width/height so the browser can reserve space before load', async ({ page }) => {
         await page.goto(routes.article, { waitUntil: 'domcontentloaded' });
+
+        const dims = await page.evaluate(() => {
+            const img = Array.from(document.querySelectorAll('img')).find((i) =>
+                i.src.includes('fixture-photo-responsive-fixture')
+            );
+
+            return img ? { width: img.getAttribute('width'), height: img.getAttribute('height') } : null;
+        });
+
+        expect(dims).not.toBeNull();
+        expect(Number(dims.width)).toBeGreaterThan(0);
+        expect(Number(dims.height)).toBeGreaterThan(0);
+    });
+
+    test('percorso hero image declares width/height so the browser can reserve space before load', async ({ page }) => {
+        await page.goto(routes.percorso, { waitUntil: 'domcontentloaded' });
 
         const dims = await page.evaluate(() => {
             const img = Array.from(document.querySelectorAll('img')).find((i) =>
