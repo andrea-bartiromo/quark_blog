@@ -82,7 +82,7 @@
         </div>
 
         <div class="public-card-grid">
-          @foreach($articles as $article)
+          @forelse($articles as $article)
           <a href="{{ route('articolo', $article->slug) }}" class="public-card">
 
             <div class="public-card__media">
@@ -113,7 +113,17 @@
             </div>
 
           </a>
-          @endforeach
+          @empty
+          {{-- Nessuna categoria hardcoded qui: la stessa vista serve ogni
+               slug, quindi il messaggio resta generico e onesto (nessun
+               contenuto "in arrivo" inventato) per qualunque categoria con
+               zero articoli pubblicati — non solo Fisica appena creata. --}}
+          <div class="public-empty-state">
+            <span>🔬</span>
+            <h3>Nessun articolo pubblicato ancora</h3>
+            <p>Kairus sta preparando i primi contenuti per {{ $categoryLabel }}. Torna presto per scoprirli.</p>
+          </div>
+          @endforelse
         </div>
 
         @if($articles->hasPages())
