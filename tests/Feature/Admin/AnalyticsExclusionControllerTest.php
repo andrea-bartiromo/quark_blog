@@ -197,6 +197,17 @@ class AnalyticsExclusionControllerTest extends TestCase
 
     public function test_excluding_then_reactivating_round_trips_back_to_active_on_the_profile_page(): void
     {
+        // Il cookie recuperato da $excludeResponse e' gia' il valore
+        // cifrato che EncryptCookies scrive sulla risposta (esattamente
+        // cio' che un browser reale riceverebbe e poi rimanderebbe
+        // invariato). withCookie() del test client cifra SEMPRE il
+        // valore che riceve, presumendo sia testo in chiaro: passargli un
+        // valore gia' cifrato produrrebbe una doppia cifratura che il
+        // middleware reale decifra una sola volta, facendo arrivare alla
+        // view un valore ancora cifrato (mai possibile con un browser
+        // vero, che non ri-cifra mai cio' che ha ricevuto in Set-Cookie).
+        // withUnencryptedCookie() e' la scelta corretta qui: invia il
+        // valore cosi' com'e', replicando fedelmente un browser reale.
         config(['app.env' => 'production', 'analytics.enabled' => null]);
 
         $editor = $this->editor();
@@ -206,19 +217,46 @@ class AnalyticsExclusionControllerTest extends TestCase
             ->first(fn ($c) => $c->getName() === AnalyticsExclusionService::COOKIE_NAME);
 
         $afterExclude = $this->actingAs($editor)
-            ->withCookie(AnalyticsExclusionService::COOKIE_NAME, $cookie->getValue())
+            ->withUnencryptedCookie(AnalyticsExclusionService::COOKIE_NAME, $cookie->getValue())
             ->get(route('admin.profile'));
         $afterExclude->assertSee('ESCLUSO', false);
 
         $reactivateResponse = $this->actingAs($editor)
-            ->withCookie(AnalyticsExclusionService::COOKIE_NAME, $cookie->getValue())
+            ->withUnencryptedCookie(AnalyticsExclusionService::COOKIE_NAME, $cookie->getValue())
             ->post(route('admin.analytics.reactivate'));
         $reactivateCookie = collect($reactivateResponse->headers->getCookies())
             ->first(fn ($c) => $c->getName() === AnalyticsExclusionService::COOKIE_NAME);
 
         $this->assertLessThan(time(), $reactivateCookie->getExpiresTime());
 
+        // withUnencryptedCookie() sopra non e' un'aggiunta "una tantum":
+        // resta nello stato del client di test e verrebbe rimandata anche
+        // su questa richiesta successiva, cosa che un browser reale non
+        // farebbe mai con un cookie il cui Set-Cookie e' gia' scaduto
+        // (getExpiresTime() nel passato, appena verificato sopra).
+        unset($this->unencryptedCookies[AnalyticsExclusionService::COOKIE_NAME]);
+
         $afterReactivate = $this->actingAs($editor)->get(route('admin.profile'));
         $afterReactivate->assertSee('ATTIVO', false);
+    }
+
+    public function test_profile_page_survives_a_cookie_that_cannot_be_decrypted(): void
+    {
+        // Copre uno scenario reale che il test sopra non testava: un
+        // cookie che EncryptCookies non riesce a decifrare (es. rimasto
+        // da prima di una rotazione di APP_KEY, o manomesso lato
+        // client). Illuminate\Cookie\Middleware\EncryptCookies::decrypt()
+        // intercetta la DecryptException e imposta il cookie a null per
+        // quella richiesta — non deve mai arrivare come stringa grezza a
+        // Carbon::parse() nella view.
+        config(['app.env' => 'production', 'analytics.enabled' => null]);
+
+        $response = $this->actingAs($this->editor())
+            ->withUnencryptedCookie(AnalyticsExclusionService::COOKIE_NAME, 'not-valid-ciphertext-at-all')
+            ->get(route('admin.profile'));
+
+        $response->assertOk();
+        $response->assertSee('ATTIVO', false);
+        $response->assertDontSee('ESCLUSO', false);
     }
 }
