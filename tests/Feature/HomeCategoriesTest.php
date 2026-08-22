@@ -83,8 +83,11 @@ class HomeCategoriesTest extends TestCase
         $this->assertStringContainsString('Spazio', $grid);
     }
 
-    // 2. Categoria senza articoli: non compare (la tile richiede un articolo da rappresentarla)
-    public function test_category_without_any_published_article_does_not_appear(): void
+    // 2. PR #237 ("fix: show active categories without articles on home"):
+    // le categorie attive compaiono nel carosello anche senza articoli
+    // pubblicati, cosi' una categoria appena creata in admin e' visibile
+    // subito invece di restare invisibile finche' non riceve un articolo.
+    public function test_active_category_without_any_published_article_still_appears(): void
     {
         $this->category('ambiente', ['name' => 'Ambiente']);
 
@@ -92,11 +95,16 @@ class HomeCategoriesTest extends TestCase
         $response->assertOk();
 
         $grid = $this->categoryGridHtml($response->getContent());
-        $this->assertStringNotContainsString(route('categoria', 'ambiente'), $grid);
+        $this->assertStringContainsString(route('categoria', 'ambiente'), $grid);
+        $this->assertStringContainsString('Ambiente', $grid);
     }
 
-    // 3. Articoli in bozza esclusi
-    public function test_draft_articles_do_not_make_a_category_appear(): void
+    // 3. Stessa logica del punto 2: da PR #237 la tile non e' costruita a
+    // partire da un articolo (vedi home.blade.php: $categoryHighlights e'
+    // ora derivato da $categoryOptions, non da $byCategory), quindi lo stato
+    // dell'unico articolo della categoria — qui una bozza — non ne decide
+    // piu' la presenza.
+    public function test_a_category_whose_only_article_is_a_draft_still_appears(): void
     {
         $this->category('salute', ['name' => 'Salute']);
         $this->article('salute', ['status' => 'draft', 'published_at' => null]);
@@ -105,11 +113,11 @@ class HomeCategoriesTest extends TestCase
         $response->assertOk();
 
         $grid = $this->categoryGridHtml($response->getContent());
-        $this->assertStringNotContainsString(route('categoria', 'salute'), $grid);
+        $this->assertStringContainsString(route('categoria', 'salute'), $grid);
     }
 
-    // 4. Articoli programmati (published_at futuro) esclusi
-    public function test_scheduled_future_articles_do_not_make_a_category_appear(): void
+    // 4. Stessa logica del punto 3, per un articolo programmato nel futuro.
+    public function test_a_category_whose_only_article_is_scheduled_still_appears(): void
     {
         $this->category('energia', ['name' => 'Energia']);
         $this->article('energia', ['published_at' => now()->addDays(3)]);
@@ -118,7 +126,24 @@ class HomeCategoriesTest extends TestCase
         $response->assertOk();
 
         $grid = $this->categoryGridHtml($response->getContent());
-        $this->assertStringNotContainsString(route('categoria', 'energia'), $grid);
+        $this->assertStringContainsString(route('categoria', 'energia'), $grid);
+    }
+
+    // La sola condizione che ancora esclude una categoria dal carosello e'
+    // is_active=false (Category::options() applica lo scope active()): a
+    // differenza dell'assenza di articoli pubblicati, questo confine non e'
+    // cambiato dalla PR #237. Verificato qui con un articolo pubblicato
+    // presente, cosi' l'assenza e' attribuibile solo a is_active=false.
+    public function test_inactive_category_does_not_appear(): void
+    {
+        $this->category('salute', ['name' => 'Salute', 'is_active' => false]);
+        $this->article('salute');
+
+        $response = $this->get(route('home'));
+        $response->assertOk();
+
+        $grid = $this->categoryGridHtml($response->getContent());
+        $this->assertStringNotContainsString(route('categoria', 'salute'), $grid);
     }
 
     // Regressione: una categoria il cui unico articolo e quello in evidenza

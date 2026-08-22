@@ -13,7 +13,11 @@ class HomeCategoryCarouselTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_categories_without_published_articles_are_not_rendered(): void
+    // PR #237 ("fix: show active categories without articles on home"): il
+    // carosello elenca ora tutte le categorie attive indipendentemente da
+    // articoli pubblicati, quindi una categoria con solo una bozza compare
+    // comunque.
+    public function test_categories_without_published_articles_still_appear(): void
     {
         $user = User::factory()->create();
         $category = $this->createCategory('solo-bozze', 1);
@@ -22,8 +26,8 @@ class HomeCategoryCarouselTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertDontSee('Solo Bozze')
-            ->assertDontSee(route('categoria', $category->slug), false);
+            ->assertSee('Solo Bozze')
+            ->assertSee(route('categoria', $category->slug), false);
     }
 
     #[DataProvider('categoryCounts')]
@@ -38,15 +42,18 @@ class HomeCategoryCarouselTest extends TestCase
             $labels[] = $category->name;
         }
 
+        // Nessun articolo pubblicato per questa categoria: da PR #237 compare
+        // comunque nel carosello, in coda per sort_order — verificato insieme
+        // alle altre nel loop sotto, non piu' escluso.
         $draftOnly = $this->createCategory('categoria-senza-pubblicati', $count + 1);
         $this->createArticle($user, $draftOnly, 'draft');
 
         $response = $this->get('/')->assertOk();
 
         $response->assertSeeInOrder($labels);
-        $response->assertDontSee($draftOnly->name);
+        $response->assertSee($draftOnly->name);
 
-        foreach (Category::ordered()->where('slug', '!=', $draftOnly->slug)->get() as $category) {
+        foreach (Category::ordered()->get() as $category) {
             $response->assertSee(route('categoria', $category->slug), false);
         }
     }

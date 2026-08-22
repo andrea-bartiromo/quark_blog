@@ -17,14 +17,21 @@ class ArticleSecondaryCategoriesTest extends TestCase
         return User::factory()->create(['role' => 'editor']);
     }
 
+    // La migrazione delle categorie ne seed gia' alcune di default (dallo
+    // stesso config('laboratorio.categories') usato come fallback altrove):
+    // usa updateOrCreate cosi' i test possono regolarne lo stato senza
+    // collidere con lo slug unique gia' popolato da RefreshDatabase (stessa
+    // convenzione di HomeCategoriesTest::category()).
     private function category(string $name, string $slug, bool $active = true): Category
     {
-        return Category::create([
-            'name' => $name,
-            'slug' => $slug,
-            'is_active' => $active,
-            'sort_order' => 0,
-        ]);
+        return Category::updateOrCreate(
+            ['slug' => $slug],
+            [
+                'name' => $name,
+                'is_active' => $active,
+                'sort_order' => 0,
+            ]
+        );
     }
 
     private function formData(array $overrides = []): array
