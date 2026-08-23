@@ -122,6 +122,15 @@ class ContentCluster extends Model
         return $this->publish_at === null || ! $this->publish_at->isFuture();
     }
 
+    /**
+     * Stessa convenzione di Article::publishedAtForEditors(): la redazione
+     * ragiona sempre in Europe/Rome, mai sull'istante UTC grezzo.
+     */
+    public function publishAtForEditors(): ?Carbon
+    {
+        return $this->publish_at?->clone()->timezone('Europe/Rome');
+    }
+
     public function scopeInactive(Builder $query): Builder
     {
         return $query->where('is_active', false);

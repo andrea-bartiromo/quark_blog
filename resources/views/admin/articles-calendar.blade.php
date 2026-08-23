@@ -88,31 +88,41 @@
   @endif
 </form>
 
-<p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;">
-  In questo periodo: <strong>{{ $counts['published'] }}</strong> {{ $counts['published'] === 1 ? 'pubblicato' : 'pubblicati' }},
+<p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:.35rem;">
+  Articoli in questo periodo: <strong>{{ $counts['published'] }}</strong> {{ $counts['published'] === 1 ? 'pubblicato' : 'pubblicati' }},
   <strong>{{ $counts['scheduled'] }}</strong> {{ $counts['scheduled'] === 1 ? 'programmato' : 'programmati' }}.
+  @if($counts['percorsiPublic'] > 0 || $counts['percorsiScheduled'] > 0)
+    Percorsi: <strong>{{ $counts['percorsiPublic'] }}</strong> {{ $counts['percorsiPublic'] === 1 ? 'pubblicato' : 'pubblicati' }},
+    <strong>{{ $counts['percorsiScheduled'] }}</strong> {{ $counts['percorsiScheduled'] === 1 ? 'programmato' : 'programmati' }}.
+  @endif
 </p>
+@if($counts['percorsiScheduled'] > 0)
+  <p style="color:var(--admin-muted);font-size:.8rem;margin-bottom:1rem;">
+    🧭 = Percorso. La programmazione dei Percorsi non è ancora applicata alla pagina pubblica del sito (resta visibile subito se attivo): qui serve solo per pianificazione editoriale interna.
+  </p>
+@endif
 
 @php
   $statusIcon = fn (string $status) => $status === \App\Models\Article::STATUS_SCHEDULED ? '🕓' : '✅';
+  $percorsoIcon = fn (string $calendarStatus) => $calendarStatus === 'scheduled' ? '🕓🧭' : '✅🧭';
 @endphp
 
 @if($viewMode === 'list' || $viewMode === 'next4')
 
-  @php $visibleDays = $days->filter(fn ($day) => $day['articles']->isNotEmpty()); @endphp
+  @php $visibleDays = $days->filter(fn ($day) => $day['articles']->isNotEmpty() || $day['percorsi']->isNotEmpty()); @endphp
 
   @if($visibleDays->isEmpty())
     <div class="articles-empty-state">
       <p class="articles-empty-state__icon" aria-hidden="true">🗓️</p>
       @if($status !== null || $category !== null || $authorId !== null)
-        <p>Nessun articolo trovato per questi filtri in questo periodo.</p>
+        <p>Nessun articolo o Percorso trovato per questi filtri in questo periodo.</p>
         <p class="articles-empty-state__hint">
           <a href="{{ route('admin.articles.calendar', ['vista' => $viewMode, 'data' => $anchor->format('Y-m-d')]) }}">Azzera i filtri</a> per vedere tutto il periodo.
         </p>
       @elseif($viewMode === 'next4')
-        <p>Nessun articolo pubblicato o programmato nelle prossime 4 settimane.</p>
+        <p>Nessun articolo o Percorso pubblicato o programmato nelle prossime 4 settimane.</p>
       @else
-        <p>Nessun articolo pubblicato o programmato in questo mese.</p>
+        <p>Nessun articolo o Percorso pubblicato o programmato in questo mese.</p>
       @endif
     </div>
   @else
@@ -132,6 +142,13 @@
                 <span class="calendar-list__author">{{ $article->author->name ?? '—' }}</span>
               </li>
             @endforeach
+            @foreach($day['percorsi'] as $percorso)
+              <li class="calendar-list__item">
+                <span class="calendar-list__time">{{ $percorso->publishAtForEditors()->format('H:i') }}</span>
+                <span class="status">{{ $percorsoIcon($percorso->calendarStatus) }} {{ $percorso->calendarStatus === 'scheduled' ? 'Percorso programmato' : 'Percorso pubblicato' }}</span>
+                <a href="{{ route('admin.content-clusters.edit', $percorso) }}" class="calendar-list__title">{{ $percorso->name }}</a>
+              </li>
+            @endforeach
           </ul>
         </section>
       @endforeach
@@ -147,8 +164,8 @@
           {{ ucfirst($day['date']->translatedFormat('l j')) }}
           @if($day['isToday'])<span class="badge badge--filter">Oggi</span>@endif
         </div>
-        @if($day['articles']->isEmpty())
-          <p class="calendar-week__empty">Nessun articolo.</p>
+        @if($day['articles']->isEmpty() && $day['percorsi']->isEmpty())
+          <p class="calendar-week__empty">Nessun articolo o Percorso.</p>
         @else
           <ul class="calendar-week__items">
             @foreach($day['articles'] as $article)
@@ -156,6 +173,13 @@
                 <span class="calendar-list__time">{{ $article->publishedAtForEditors()->format('H:i') }}</span>
                 <span class="status status--{{ $article->status }}">{{ $statusIcon($article->status) }}</span>
                 <a href="{{ route('admin.articles.edit', $article) }}">{{ $article->title }}</a>
+              </li>
+            @endforeach
+            @foreach($day['percorsi'] as $percorso)
+              <li>
+                <span class="calendar-list__time">{{ $percorso->publishAtForEditors()->format('H:i') }}</span>
+                <span class="status">{{ $percorsoIcon($percorso->calendarStatus) }}</span>
+                <a href="{{ route('admin.content-clusters.edit', $percorso) }}">{{ $percorso->name }}</a>
               </li>
             @endforeach
           </ul>
@@ -170,6 +194,12 @@
     $weeks = $days->chunk(7);
     $weekdayLabels = collect($days)->take(7)->map(fn ($day) => ucfirst($day['date']->translatedFormat('D')));
     $maxChipsPerDay = 3;
+  @endphp
+
+  @php
+    $dayEntries = fn (array $day) => $day['articles']
+      ->map(fn ($article) => ['kind' => 'article', 'item' => $article])
+      ->concat($day['percorsi']->map(fn ($percorso) => ['kind' => 'percorso', 'item' => $percorso]));
   @endphp
 
   <table class="calendar-month" aria-label="Calendario del mese">
@@ -187,22 +217,35 @@
           @foreach($week as $day)
             <td class="calendar-month__cell @unless($day['inFocusedMonth']) is-outside @endunless @if($day['isToday']) is-today @endif">
               <div class="calendar-month__date">{{ $day['date']->day }}</div>
-              @if($day['articles']->isNotEmpty())
+              @php $entries = $dayEntries($day); @endphp
+              @if($entries->isNotEmpty())
                 <ul class="calendar-month__chips">
-                  @foreach($day['articles']->take($maxChipsPerDay) as $article)
-                    <li>
-                      <a href="{{ route('admin.articles.edit', $article) }}"
-                         class="calendar-month__chip calendar-month__chip--{{ $article->status }}"
-                         title="{{ $article->publishedAtForEditors()->format('H:i') }} — {{ $article->title }}">
-                        {{ $statusIcon($article->status) }} {{ Str::limit($article->title, 28) }}
-                      </a>
-                    </li>
+                  @foreach($entries->take($maxChipsPerDay) as $entry)
+                    @if($entry['kind'] === 'article')
+                      @php $article = $entry['item']; @endphp
+                      <li>
+                        <a href="{{ route('admin.articles.edit', $article) }}"
+                           class="calendar-month__chip calendar-month__chip--{{ $article->status }}"
+                           title="{{ $article->publishedAtForEditors()->format('H:i') }} — {{ $article->title }}">
+                          {{ $statusIcon($article->status) }} {{ Str::limit($article->title, 28) }}
+                        </a>
+                      </li>
+                    @else
+                      @php $percorso = $entry['item']; @endphp
+                      <li>
+                        <a href="{{ route('admin.content-clusters.edit', $percorso) }}"
+                           class="calendar-month__chip"
+                           title="{{ $percorso->publishAtForEditors()->format('H:i') }} — {{ $percorso->name }}">
+                          {{ $percorsoIcon($percorso->calendarStatus) }} {{ Str::limit($percorso->name, 24) }}
+                        </a>
+                      </li>
+                    @endif
                   @endforeach
                 </ul>
-                @if($day['articles']->count() > $maxChipsPerDay)
+                @if($entries->count() > $maxChipsPerDay)
                   <a class="calendar-month__more"
                      href="{{ route('admin.articles.calendar', ['vista' => 'list', 'data' => $day['date']->format('Y-m-d')]) }}">
-                    +{{ $day['articles']->count() - $maxChipsPerDay }} altri
+                    +{{ $entries->count() - $maxChipsPerDay }} altri
                   </a>
                 @endif
               @endif

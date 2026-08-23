@@ -103,6 +103,18 @@
     <div class="form-group"><label class="form-label" for="sort_order">Ordine percorso</label><input id="sort_order" class="form-input" type="number" min="0" name="sort_order" value="{{ old('sort_order', $cluster?->sort_order ?? 0) }}"></div>
     <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
     <div class="form-group">
+      <label class="form-label" for="publish_at">Pubblicazione programmata (opzionale)</label>
+      <input id="publish_at" class="form-input" type="datetime-local" name="publish_at"
+             value="{{ old('publish_at', $cluster?->publish_at ? $cluster->publish_at->clone()->timezone('Europe/Rome')->format('Y-m-d\TH:i') : '') }}">
+      <small style="color:#6b7280;">
+        Vuoto = comportamento legacy (pubblico subito se "Percorso attivo" è spuntato). Se impostata nel futuro, il Percorso è considerato "programmato" e non ancora pubblico secondo <code>ContentCluster::isPubliclyVisible()</code> — orario in fuso Europe/Rome.
+        <strong>Attenzione:</strong> in questa fase la pagina pubblica del Percorso e la sitemap non applicano ancora questa regola (restano legate solo a "Percorso attivo"): questo campo serve oggi solo per pianificazione editoriale interna e per il Calendario articoli, non nasconde ancora il Percorso dal sito pubblico.
+      </small>
+      @if($cluster)
+        <p style="margin-top:.35rem;font-size:.85rem;color:#6b7280;">Stato secondo la policy (non ancora applicato pubblicamente): <strong>{{ $cluster->isPubliclyVisible() ? 'visibile' : 'non visibile' }}</strong>.</p>
+      @endif
+    </div>
+    <div class="form-group">
       <label class="form-label" for="lifecycle_status">Stato del Percorso</label>
       <select id="lifecycle_status" class="form-input" name="lifecycle_status">
         <option value="updating" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'updating' ? 'selected' : '' }}>In aggiornamento</option>

@@ -8,6 +8,7 @@ use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -184,6 +185,7 @@ class ContentClusterController extends Controller
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],
             'is_active' => ['nullable', 'boolean'],
+            'publish_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
             'lifecycle_status' => ['nullable', Rule::in([ContentCluster::LIFECYCLE_UPDATING, ContentCluster::LIFECYCLE_COMPLETE])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'takeaways' => ['nullable', 'array', 'max:4'],
@@ -195,6 +197,13 @@ class ContentClusterController extends Controller
             'curator_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        // Input inserito dall'admin in Europe/Rome (stessa convenzione del
+        // form articolo, Article::scheduledAtFromEditorialInput()) — la
+        // conversione a UTC per la persistenza avviene poi nel mutator
+        // ContentCluster::setPublishAtAttribute().
+        $data['publish_at'] = empty($data['publish_at'] ?? null)
+            ? null
+            : Carbon::createFromFormat('Y-m-d\TH:i', $data['publish_at'], 'Europe/Rome');
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         $data['takeaways'] = $this->normalizeEditorialList($data['takeaways'] ?? []);
         $data['guiding_questions'] = $this->normalizeEditorialList($data['guiding_questions'] ?? []);

@@ -18,6 +18,7 @@ use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
@@ -222,6 +223,12 @@ class ArticleController extends Controller
      * sposterebbe di un giorno gli articoli pubblicati vicino alla
      * mezzanotte italiana rispetto a quello che la redazione vede scritto
      * sul form.
+     *
+     * Dalla PR #320 include anche i Percorsi con una pubblicazione
+     * programmata (ContentCluster::publish_at) — stessa pagina, non un
+     * secondo calendario, per non introdurre una seconda source of truth.
+     * Vedi il form admin.content-clusters.form per l'avviso esplicito che
+     * questa programmazione non è ancora applicata alla pagina pubblica.
      */
     public function calendar(Request $request)
     {
@@ -284,6 +291,33 @@ class ArticleController extends Controller
 
         $byDay = $articles->groupBy(fn (Article $article) => $article->publishedAtForEditors()->format('Y-m-d'));
 
+        // Batch 05 Mission 08: Percorsi con una data di pubblicazione
+        // programmata (docs/PERCORSI_SCHEDULING_V1_SPEC.md, PR #320) entrano
+        // nello stesso calendario invece di uno strumento di pianificazione
+        // separato — "categoria"/"autore" non hanno un analogo su
+        // ContentCluster e quindi non li filtrano; "stato" sì (pubblicato ↔
+        // programmato), riusando la stessa policy di isPubliclyVisible() già
+        // definita sul modello, mai riderivata qui. Un Percorso non attivo,
+        // o attivo senza data (comportamento legacy immediato), non ha un
+        // istante preciso da collocare sul calendario e viene escluso, come
+        // gli articoli in bozza/revisione oggi.
+        $percorsi = ContentCluster::query()
+            ->where('is_active', true)
+            ->whereNotNull('publish_at')
+            ->whereBetween('publish_at', [$rangeStart->clone()->utc(), $rangeEnd->clone()->utc()])
+            ->orderBy('publish_at')
+            ->get()
+            ->map(function (ContentCluster $cluster) {
+                $cluster->setAttribute('calendarStatus', $cluster->isPubliclyVisible() ? 'public' : 'scheduled');
+
+                return $cluster;
+            })
+            ->when($status !== null, fn ($collection) => $collection->filter(
+                fn (ContentCluster $cluster) => $cluster->calendarStatus === ($status === Article::STATUS_PUBLISHED ? 'public' : 'scheduled')
+            ));
+
+        $percorsiByDay = $percorsi->groupBy(fn (ContentCluster $cluster) => $cluster->publishAtForEditors()->format('Y-m-d'));
+
         $todayKey = $today->format('Y-m-d');
         $days = collect();
         $cursor = $rangeStart->clone();
@@ -295,6 +329,7 @@ class ArticleController extends Controller
                 'inFocusedMonth' => $cursor->month === $anchor->month && $cursor->year === $anchor->year,
                 'isToday' => $key === $todayKey,
                 'articles' => $byDay->get($key, collect()),
+                'percorsi' => $percorsiByDay->get($key, collect()),
             ]);
             $cursor->addDay();
         }
@@ -310,6 +345,8 @@ class ArticleController extends Controller
         $counts = [
             'published' => $articles->where('status', Article::STATUS_PUBLISHED)->count(),
             'scheduled' => $articles->where('status', Article::STATUS_SCHEDULED)->count(),
+            'percorsiPublic' => $percorsi->where('calendarStatus', 'public')->count(),
+            'percorsiScheduled' => $percorsi->where('calendarStatus', 'scheduled')->count(),
         ];
 
         return view('admin.articles-calendar', [

@@ -189,7 +189,7 @@ class ArticleCalendarV2Test extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.articles.calendar', ['vista' => 'next4']));
 
         $response->assertOk();
-        $response->assertSee('Nessun articolo pubblicato o programmato nelle prossime 4 settimane.');
+        $response->assertSee('Nessun articolo o Percorso pubblicato o programmato nelle prossime 4 settimane.');
     }
 
     // ── Nessuna leak / regressione ────────────────────────────────────
