@@ -100,7 +100,17 @@ class TrovaEntitySearchService
     }
 
     /**
-     * @param list<string> $tokens
+     * ANY_TOKEN è deliberatamente "OR tra i token": basta UN token
+     * condiviso, non tutti. È lo stesso criterio di inclusione già in
+     * produzione in ArticleSearchService::applyTextSearch() (le clausole
+     * SQL per-token sono unite con OR, non AND) — un lettore che digita un
+     * solo termine significativo si aspetta comunque un risultato, non zero
+     * righe. `SearchTokenizer::tokenize()` già scarta stopword italiane e
+     * token sotto i 2 caratteri prima che arrivino qui, quindi ANY_TOKEN
+     * non può scattare su un articolo/preposizione tronca — solo su un
+     * termine genuinamente significativo condiviso da entrambi i lati.
+     *
+     * @param  list<string>  $tokens
      * @return array<string, mixed>|null
      */
     private function result(

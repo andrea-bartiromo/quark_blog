@@ -31,13 +31,75 @@ class TrovaEntitySearchServiceTest extends TestCase
 
     public function test_published_secondary_category_membership_also_makes_category_eligible(): void
     {
-        $primary = Category::create(['name' => 'Primary Test', 'slug' => 'primary-test']);
+        // $primary deliberatamente senza "Test" nel nome: ogni altra fixture
+        // in questo file lo usa come suffisso di isolamento, ma qui
+        // $primary è solo il "foil" che NON deve comparire nei risultati —
+        // condividerebbe altrimenti il token "test" con la query
+        // "Secondaria Pubblica Test" e farebbe scattare legittimamente
+        // ANY_TOKEN (stessa semantica "OR tra token" già usata da
+        // ArticleSearchService — vedi il docblock di
+        // TrovaEntitySearchService::result()), producendo un falso
+        // positivo del test, non del servizio.
+        $primary = Category::create(['name' => 'Categoria Non Cercata', 'slug' => 'categoria-non-cercata']);
         $secondary = Category::create(['name' => 'Secondaria Pubblica Test', 'slug' => 'secondaria-pubblica-test']);
         $article = $this->article('secondary-membership-test', $primary->slug, Article::STATUS_PUBLISHED);
         $article->secondaryCategories()->attach($secondary->id);
 
         $results = app(TrovaEntitySearchService::class)->search('Secondaria Pubblica Test');
         $this->assertSame([$secondary->id], $results['categories']->pluck('id')->all());
+    }
+
+    /**
+     * ANY_TOKEN è deliberatamente "OR tra i token", identico al criterio di
+     * inclusione già usato da ArticleSearchService::applyTextSearch() (le
+     * clausole per-token sono unite con OR, non AND) — un match debole su un
+     * solo token comune non è un difetto di TROVA, è lo stesso contratto di
+     * ricerca già in produzione per gli articoli. Regression esplicita
+     * perché un lettore reale può digitare un solo termine e aspettarsi
+     * comunque un risultato.
+     */
+    public function test_any_token_match_is_intentional_and_mirrors_article_search_semantics(): void
+    {
+        Category::create(['name' => 'Fisica Quantistica', 'slug' => 'fisica-quantistica', 'description' => 'Meccanica quantistica']);
+        $this->article('quantistica-article', 'fisica-quantistica', Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('quantistica nonexistentword');
+
+        $this->assertSame('ANY_TOKEN', $results['categories']->first()['match_class']);
+    }
+
+    /**
+     * Una query composta solo da stopword/token troppo corti non deve mai
+     * degenerare in una scansione indiscriminata del catalogo — stesso
+     * principio già documentato su SearchTokenizer::tokenize() e applicato
+     * da ArticleSearchService: nessun token utilizzabile, zero risultati.
+     */
+    public function test_a_query_with_no_usable_tokens_returns_no_results(): void
+    {
+        Category::create(['name' => 'Una Categoria Qualsiasi', 'slug' => 'una-categoria-qualsiasi']);
+        $this->article('una-categoria-article', 'una-categoria-qualsiasi', Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('di per con su');
+
+        $this->assertTrue($results['categories']->isEmpty());
+        $this->assertTrue($results['percorsi']->isEmpty());
+    }
+
+    /**
+     * L'accento non deve impedire il match: la normalizzazione ASCII-fold
+     * di TrovaEntitySearchService::normalize() (Str::ascii()) deve
+     * applicarsi in modo identico a testo memorizzato e query digitata.
+     */
+    public function test_accented_query_matches_unaccented_stored_text_and_vice_versa(): void
+    {
+        Category::create(['name' => 'Società e Ambiente', 'slug' => 'societa-e-ambiente']);
+        $this->article('societa-article', 'societa-e-ambiente', Article::STATUS_PUBLISHED);
+
+        $accentedQuery = app(TrovaEntitySearchService::class)->search('società');
+        $unaccentedQuery = app(TrovaEntitySearchService::class)->search('societa');
+
+        $this->assertSame(1, $accentedQuery['categories']->count());
+        $this->assertSame(1, $unaccentedQuery['categories']->count());
     }
 
     public function test_percorso_requires_a_non_empty_continuous_public_prefix(): void
