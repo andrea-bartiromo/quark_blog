@@ -101,6 +101,34 @@ class ArticleRevisionControllerTest extends TestCase
         $this->assertSame('Bozza esistente', $article->refresh()->title);
     }
 
+    public function test_collaborator_cannot_restore_a_revision_with_an_editor_only_status(): void
+    {
+        $author = $this->author();
+        $article = $this->article($author, ['title' => 'Titolo attuale']);
+
+        foreach ([Article::STATUS_PUBLISHED, Article::STATUS_SCHEDULED] as $status) {
+            $revision = ArticleRevision::create([
+                'article_id' => $article->id,
+                'user_id' => $author->id,
+                'title' => 'Titolo privilegiato '.$status,
+                'excerpt' => $article->excerpt,
+                'body' => $article->body,
+                'category' => $article->category,
+                'status' => $status,
+                'published_at' => now()->addDay(),
+                'created_at' => now(),
+            ]);
+
+            $response = $this->actingAs($author)->post(
+                route('redazione.articles.revisions.restore', [$article, $revision])
+            );
+
+            $response->assertRedirect(route('redazione.articles.edit', $article));
+            $this->assertSame('Titolo attuale', $article->refresh()->title);
+            $this->assertSame(Article::STATUS_DRAFT, $article->status);
+        }
+    }
+
     public function test_the_show_view_hides_the_restore_button_for_a_published_article(): void
     {
         $author = $this->author();
@@ -112,6 +140,30 @@ class ArticleRevisionControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($author)->get(route('redazione.articles.revisions.show', [$article, $revision]));
+
+        $response->assertOk();
+        $response->assertDontSee('Ripristina questa versione');
+    }
+
+    public function test_the_show_view_hides_the_restore_button_for_an_editor_only_revision_status(): void
+    {
+        $author = $this->author();
+        $article = $this->article($author);
+        $revision = ArticleRevision::create([
+            'article_id' => $article->id,
+            'user_id' => $author->id,
+            'title' => 'Versione pubblicata',
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($author)->get(
+            route('redazione.articles.revisions.show', [$article, $revision])
+        );
 
         $response->assertOk();
         $response->assertDontSee('Ripristina questa versione');
