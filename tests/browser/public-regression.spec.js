@@ -53,9 +53,37 @@ function installBrowserGuards(page) {
 
     page.on('pageerror', error => severeConsole.push(`pageerror: ${error.message}`));
     page.on('console', message => {
-        if (message.type() === 'error') {
-            severeConsole.push(`console.error: ${message.text()}`);
+        if (message.type() !== 'error') {
+            return;
         }
+
+        // Stesso criterio "solo prima parte" gia' applicato sopra a
+        // requestfailed/response: un browser reale che non riesce a
+        // caricare una risorsa di terze parti (font, script analytics,
+        // ecc.) logga un console.error nativo del browser attribuito
+        // all'URL di QUELLA risorsa, non al documento della pagina —
+        // Playwright espone questa origine reale in message.location().url.
+        // Un errore genuino dell'applicazione non ha mai un location.url
+        // di terze parti: o e' vuoto (chiamata da codice iniettato/eval)
+        // o punta alla pagina/allo script di primo livello stesso. Non e'
+        // un allowlist di domini: e' lo stesso confine "primo livello vs
+        // terze parti" gia' in uso per gli altri due guard, applicato qui
+        // per coerenza.
+        const locationUrl = message.location()?.url;
+        if (locationUrl) {
+            try {
+                const origin = new URL(locationUrl).hostname;
+                if (origin !== '127.0.0.1' && origin !== 'localhost') {
+                    return;
+                }
+            } catch {
+                // location.url non e' un URL assoluto valido: non e' il
+                // caso delle risorse di terze parti osservate, quindi si
+                // tratta il messaggio come primo livello per prudenza.
+            }
+        }
+
+        severeConsole.push(`console.error: ${message.text()}`);
     });
 
     return {
