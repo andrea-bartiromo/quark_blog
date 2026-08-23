@@ -39,7 +39,11 @@ class TrovaEntitySearchService
     private function searchCategories(string $query, array $tokens): Collection
     {
         return Category::query()
-            ->whereHas('articles', fn ($articles) => $articles->published())
+            ->where(function ($categories) {
+                $categories
+                    ->whereHas('articles', fn ($articles) => $articles->published())
+                    ->orWhereHas('secondaryArticles', fn ($articles) => $articles->published());
+            })
             ->get(['id', 'name', 'slug', 'description'])
             ->map(fn (Category $category) => $this->result(
                 type: 'category',
