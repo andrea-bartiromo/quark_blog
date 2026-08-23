@@ -110,9 +110,9 @@ class ContentGraphService
     }
 
     /**
-     * Safest reusable boundary for a future public question consumer:
-     * concept active + question approved + a target article that is actually
-     * public according to the existing Article::published() scope.
+     * Reusable public boundary for future question consumers:
+     * concept active + question approved + non-empty answer summary + a target
+     * article that is actually public according to Article::published().
      */
     public function answerableQuestionsForConcept(Concept $concept): Collection
     {
@@ -130,6 +130,8 @@ class ContentGraphService
             ->with('targetArticle')
             ->where('concept_id', $concept->getKey())
             ->whereNotNull('target_article_id')
+            ->whereNotNull('answer_summary')
+            ->whereRaw("TRIM(answer_summary) <> ''")
             ->whereHas('targetArticle', fn ($query) => $query->published())
             ->orderBy('sort_order')
             ->orderBy('id')
