@@ -52,7 +52,7 @@
         <a href="{{ route('articolo', $art->slug) }}" class="premium-most-read__item">
           <span class="premium-most-read__rank">{{ str_pad($i + 1, 2, '0', STR_PAD_LEFT) }}</span>
           <span class="premium-most-read__content">
-            <span class="badge badge--{{ $art->category }}">{{ $categoryOptions[$art->category] ?? $art->category }}</span>
+            <span class="badge badge--{{ $art->category }}">{{ $categoryLabelOptions[$art->category] ?? $art->category }}</span>
             <strong>{{ Str::limit($art->title, 68) }}</strong>
             <small>{{ $art->read_minutes }} min di lettura</small>
           </span>
