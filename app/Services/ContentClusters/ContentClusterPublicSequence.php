@@ -47,7 +47,7 @@ class ContentClusterPublicSequence
      * Article::published(). It applies the exact same stop-at-first-gap rule
      * without issuing one query per Percorso.
      *
-     * @param Collection<int, int|string> $publishedArticleIds
+     * @param  Collection<int, int|string>  $publishedArticleIds
      * @return array{
      *     articles: Collection<int, Article>,
      *     has_hidden_remainder: bool
@@ -69,8 +69,8 @@ class ContentClusterPublicSequence
     }
 
     /**
-     * @param Collection<int, Article> $ordered
-     * @param Collection<int, int|string> $publishedArticleIds
+     * @param  Collection<int, Article>  $ordered
+     * @param  Collection<int, int|string>  $publishedArticleIds
      * @return array{articles:Collection<int,Article>,has_hidden_remainder:bool}
      */
     private function fromOrdered(Collection $ordered, Collection $publishedArticleIds): array

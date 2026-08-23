@@ -174,11 +174,22 @@ class ContentClusterPublicTest extends TestCase
             ->assertSee('ItemList')
             ->assertSee('BreadcrumbList')
             ->assertSee('Primo articolo')
-            ->assertSee('In arrivo')
-            ->assertDontSee('Secondo articolo oltre gap')
-            ->assertDontSee('Articolo programmato segreto')
-            ->assertDontSee('Bozza segreta')
-            ->assertDontSee('Il punto di partenza');
+            ->assertSee('In arrivo');
+
+        // Scoped al <main> della pagina, non all'intera risposta: "Secondo
+        // articolo oltre gap" e' un Article::published() reale e compare
+        // legittimamente nel ticker sitewide "Ultimi articoli"
+        // (layouts/app.blade.php, incluso PRIMA di <main>) indipendentemente
+        // dal gap di QUESTO Percorso — un assertDontSee() sull'intera pagina
+        // fallirebbe per quel motivo, non per una vera fuga dalla sequenza.
+        preg_match('/<main id="main-content".*?<\/main>/s', $response->getContent(), $matches);
+        $this->assertNotEmpty($matches[0] ?? null);
+        $main = $matches[0];
+
+        $this->assertStringNotContainsString('Secondo articolo oltre gap', $main);
+        $this->assertStringNotContainsString('Articolo programmato segreto', $main);
+        $this->assertStringNotContainsString('Bozza segreta', $main);
+        $this->assertStringNotContainsString('Il punto di partenza', $main);
     }
 
     public function test_unknown_and_inactive_clusters_return_404_without_metadata_leakage(): void
