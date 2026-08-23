@@ -125,6 +125,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Articoli
     Route::get('/articoli', [AdminArticleController::class, 'index'])->name('articles');
+    Route::get('/articoli/calendario', [AdminArticleController::class, 'calendar'])->name('articles.calendar');
     Route::get('/articoli/nuovo', [AdminArticleController::class, 'create'])->name('articles.create');
     Route::post('/articoli', [AdminArticleController::class, 'store'])->name('articles.store');
     Route::get('/articoli/bozza-rapida', [AdminArticleController::class, 'quickDraft'])->name('articles.quick-draft');
