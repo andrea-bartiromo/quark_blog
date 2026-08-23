@@ -12,8 +12,8 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
-            $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true)->index();
+            $table->text('short_definition')->nullable();
+            $table->string('status', 24)->default('draft')->index();
             $table->timestamps();
         });
 
@@ -43,12 +43,14 @@ return new class extends Migration
             $table->id();
             $table->foreignId('concept_id')->constrained()->cascadeOnDelete();
             $table->text('question');
+            $table->string('slug')->unique();
             $table->text('answer_summary')->nullable();
+            $table->foreignId('target_article_id')->nullable()->constrained('articles')->nullOnDelete();
             $table->unsignedInteger('sort_order')->default(0);
-            $table->boolean('is_active')->default(true);
+            $table->string('status', 24)->default('draft');
             $table->timestamps();
 
-            $table->index(['concept_id', 'is_active', 'sort_order'], 'concept_questions_order_idx');
+            $table->index(['concept_id', 'status', 'sort_order'], 'concept_questions_order_idx');
         });
     }
 
