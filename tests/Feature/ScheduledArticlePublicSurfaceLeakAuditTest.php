@@ -120,4 +120,22 @@ class ScheduledArticlePublicSurfaceLeakAuditTest extends TestCase
         $response->assertSee('Fisica quantistica pubblica');
         $response->assertDontSee('Fisica quantistica programmata');
     }
+
+    /**
+     * Article Calendar V2: la superficie "structured data" esplicitamente
+     * richiesta dalla missione. La pagina di un articolo programmato è già
+     * provata non raggiungibile (ScheduledArticleVisibilityTest), quindi
+     * il suo JSON-LD NewsArticle non può renderizzare — questo test lo
+     * verifica direttamente invece di dedurlo, per chiudere anche questa
+     * superficie in modo esplicito, non solo per inferenza.
+     */
+    public function test_scheduled_article_never_exposes_newsarticle_structured_data(): void
+    {
+        $scheduled = $this->article('Struttura dati programmata', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $response = $this->get(route('articolo', $scheduled->slug));
+
+        $response->assertDontSee('"@type":"NewsArticle"', false);
+        $response->assertDontSee('Struttura dati programmata');
+    }
 }

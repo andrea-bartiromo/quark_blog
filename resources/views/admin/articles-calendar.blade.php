@@ -16,21 +16,33 @@
   <a href="{{ route('admin.articles') }}" class="btn btn--secondary">☰ Vista elenco filtrabile</a>
 </div>
 
+@php
+  $filterParams = array_filter([
+    'stato' => $status,
+    'categoria' => $category,
+    'autore' => $authorId,
+  ], fn ($value) => $value !== null);
+@endphp
+
 <nav class="calendar-toolbar" aria-label="Navigazione calendario">
   <div class="calendar-toolbar__views" role="group" aria-label="Modalità di visualizzazione">
-    @foreach(['month' => 'Mese', 'week' => 'Settimana', 'list' => 'Elenco'] as $mode => $label)
-      <a href="{{ route('admin.articles.calendar', ['vista' => $mode, 'data' => $anchor->format('Y-m-d')]) }}"
+    @foreach(['month' => 'Mese', 'week' => 'Settimana', 'list' => 'Elenco', 'next4' => 'Prossime 4 settimane'] as $mode => $label)
+      <a href="{{ route('admin.articles.calendar', ['vista' => $mode, 'data' => $anchor->format('Y-m-d'), ...$filterParams]) }}"
          class="calendar-toolbar__view-btn @if($viewMode === $mode) is-active @endif"
          @if($viewMode === $mode) aria-current="page" @endif>{{ $label }}</a>
     @endforeach
   </div>
 
   <div class="calendar-toolbar__nav">
-    <a href="{{ $prevUrl }}" class="btn btn--secondary" aria-label="Periodo precedente">‹ Precedente</a>
-    <a href="{{ $todayUrl }}" class="btn btn--secondary">Oggi</a>
-    <a href="{{ $nextUrl }}" class="btn btn--secondary" aria-label="Periodo successivo">Successivo ›</a>
+    @unless($viewMode === 'next4')
+      <a href="{{ $prevUrl }}" class="btn btn--secondary" aria-label="Periodo precedente">‹ Precedente</a>
+      <a href="{{ $todayUrl }}" class="btn btn--secondary">Oggi</a>
+      <a href="{{ $nextUrl }}" class="btn btn--secondary" aria-label="Periodo successivo">Successivo ›</a>
+    @endunless
     <strong class="calendar-toolbar__label">
-      @if($viewMode === 'week')
+      @if($viewMode === 'next4')
+        {{ $rangeStart->translatedFormat('d M') }} – {{ $rangeEnd->translatedFormat('d M Y') }}
+      @elseif($viewMode === 'week')
         {{ $rangeStart->translatedFormat('d M') }} – {{ $rangeEnd->translatedFormat('d M Y') }}
       @else
         {{ ucfirst($anchor->translatedFormat('F Y')) }}
@@ -39,18 +51,69 @@
   </div>
 </nav>
 
+<form method="GET" action="{{ route('admin.articles.calendar') }}" class="articles-toolbar" style="margin:1rem 0;">
+  <input type="hidden" name="vista" value="{{ $viewMode }}">
+  <input type="hidden" name="data" value="{{ $anchor->format('Y-m-d') }}">
+  <div class="articles-toolbar__field">
+    <label class="form-label" for="stato">Stato</label>
+    <select id="stato" name="stato" class="form-select" onchange="this.form.submit()">
+      <option value="">Pubblicati e programmati</option>
+      @foreach($statusOptions as $value => $label)
+        @if(in_array($value, [\App\Models\Article::STATUS_PUBLISHED, \App\Models\Article::STATUS_SCHEDULED], true))
+          <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
+        @endif
+      @endforeach
+    </select>
+  </div>
+  <div class="articles-toolbar__field">
+    <label class="form-label" for="categoria">Categoria</label>
+    <select id="categoria" name="categoria" class="form-select" onchange="this.form.submit()">
+      <option value="">Tutte le categorie</option>
+      @foreach($categoryOptions as $slug => $label)
+        <option value="{{ $slug }}" @selected($category === $slug)>{{ $label }}</option>
+      @endforeach
+    </select>
+  </div>
+  <div class="articles-toolbar__field">
+    <label class="form-label" for="autore">Autore</label>
+    <select id="autore" name="autore" class="form-select" onchange="this.form.submit()">
+      <option value="">Tutti gli autori</option>
+      @foreach($authorOptions as $id => $name)
+        <option value="{{ $id }}" @selected($authorId === $id)>{{ $name }}</option>
+      @endforeach
+    </select>
+  </div>
+  @if($status !== null || $category !== null || $authorId !== null)
+    <a href="{{ route('admin.articles.calendar', ['vista' => $viewMode, 'data' => $anchor->format('Y-m-d')]) }}" class="btn btn--secondary">Azzera filtri</a>
+  @endif
+</form>
+
+<p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;">
+  In questo periodo: <strong>{{ $counts['published'] }}</strong> {{ $counts['published'] === 1 ? 'pubblicato' : 'pubblicati' }},
+  <strong>{{ $counts['scheduled'] }}</strong> {{ $counts['scheduled'] === 1 ? 'programmato' : 'programmati' }}.
+</p>
+
 @php
   $statusIcon = fn (string $status) => $status === \App\Models\Article::STATUS_SCHEDULED ? '🕓' : '✅';
 @endphp
 
-@if($viewMode === 'list')
+@if($viewMode === 'list' || $viewMode === 'next4')
 
   @php $visibleDays = $days->filter(fn ($day) => $day['articles']->isNotEmpty()); @endphp
 
   @if($visibleDays->isEmpty())
     <div class="articles-empty-state">
       <p class="articles-empty-state__icon" aria-hidden="true">🗓️</p>
-      <p>Nessun articolo pubblicato o programmato in questo mese.</p>
+      @if($status !== null || $category !== null || $authorId !== null)
+        <p>Nessun articolo trovato per questi filtri in questo periodo.</p>
+        <p class="articles-empty-state__hint">
+          <a href="{{ route('admin.articles.calendar', ['vista' => $viewMode, 'data' => $anchor->format('Y-m-d')]) }}">Azzera i filtri</a> per vedere tutto il periodo.
+        </p>
+      @elseif($viewMode === 'next4')
+        <p>Nessun articolo pubblicato o programmato nelle prossime 4 settimane.</p>
+      @else
+        <p>Nessun articolo pubblicato o programmato in questo mese.</p>
+      @endif
     </div>
   @else
     <div class="calendar-list">
