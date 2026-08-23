@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ImportSearchConsoleCsvRequest;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchOpportunityStatus;
 use App\Services\SearchConsole\SearchConsoleCsvImporter;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
+use App\Services\SearchConsole\SearchOpportunityStatusService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,7 @@ class SearchOpportunityController extends Controller
 {
     public function __construct(
         private readonly SearchOpportunityScoringService $scoring,
+        private readonly SearchOpportunityStatusService $statuses,
     ) {}
 
     public function index(Request $request): View
@@ -36,6 +39,8 @@ class SearchOpportunityController extends Controller
                 'opportunities' => collect(),
                 'typeOptions' => $typeOptions,
                 'selectedType' => $type,
+                'statusOptions' => SearchOpportunityStatus::statusOptions(),
+                'opportunityStatuses' => [],
             ]);
         }
 
@@ -59,7 +64,21 @@ class SearchOpportunityController extends Controller
             'opportunities' => $opportunities,
             'typeOptions' => $typeOptions,
             'selectedType' => $type,
+            'statusOptions' => SearchOpportunityStatus::statusOptions(),
+            'opportunityStatuses' => $this->statuses->statusesFor($opportunities),
         ]);
+    }
+
+    public function updateStatus(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'opportunity_key' => ['required', 'string', 'max:600'],
+            'status' => ['required', 'string', 'in:'.implode(',', array_keys(SearchOpportunityStatus::statusOptions()))],
+        ]);
+
+        $this->statuses->setStatus($validated['opportunity_key'], $validated['status'], $request->user());
+
+        return back()->with('status', 'Stato aggiornato.');
     }
 
     public function importForm(): View

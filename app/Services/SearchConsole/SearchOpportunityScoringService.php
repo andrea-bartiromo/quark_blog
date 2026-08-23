@@ -135,6 +135,7 @@ class SearchOpportunityScoringService
                 $expectedCtr * 100,
                 max(0, $missedClicks)
             ),
+            pageUrl: $row->page_url,
         );
     }
 
@@ -159,6 +160,7 @@ class SearchOpportunityScoringService
                 $row->position,
                 max(0, $missedClicks)
             ),
+            pageUrl: $row->page_url,
         );
     }
 
@@ -184,6 +186,7 @@ class SearchOpportunityScoringService
                 $row->position,
                 $row->impressions
             ),
+            pageUrl: $row->page_url,
         );
     }
 
