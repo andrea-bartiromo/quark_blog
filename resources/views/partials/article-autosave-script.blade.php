@@ -137,10 +137,6 @@
 
   function isEmptyDraft(data) {
     return Object.keys(data).every(function (key) {
-      if (key === 'coverImageFileSelectedName') {
-        return true;
-      }
-
       const value = data[key];
 
       if (Array.isArray(value)) {
@@ -159,10 +155,6 @@
     const keys = new Set(Object.keys(a).concat(Object.keys(b)));
 
     for (const key of keys) {
-      if (key === 'coverImageFileSelectedName') {
-        continue;
-      }
-
       const va = a[key];
       const vb = b[key];
 
@@ -459,6 +451,23 @@
   // listener già necessario per isSubmitting sopra: nessuna richiesta
   // AJAX, il submit nativo procede regolarmente.
   form.addEventListener('submit', function () {
+    // Safety net: un submit può avvenire durante la finestra di debounce.
+    // Prima di sopprimere beforeunload, sincronizza TinyMCE nel textarea e
+    // scrive immediatamente la bozza più recente. Se il POST finisce in 419
+    // o in un errore di rete, gli ultimi caratteri restano recuperabili.
+    if (typeof window.tinymce !== 'undefined' && window.tinymce.get('body')) {
+      window.tinymce.get('body').save();
+    }
+
+    if (debounceTimer) {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    if (hasUnflushedChanges) {
+      writeDraft();
+    }
+
     isSubmitting = true;
 
     const submitButton = form.querySelector('button[type="submit"]');
