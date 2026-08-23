@@ -7,6 +7,8 @@
   <a href="{{ route('admin.articles.create') }}" class="btn btn--primary">+ Nuovo articolo</a>
     <a href="{{ route('admin.articles.quick-draft') }}"
        class="btn btn--secondary" style="font-size:.78rem;">⚡ Bozza rapida</a>
+    <a href="{{ route('admin.articles.calendar') }}"
+       class="btn btn--secondary" style="font-size:.78rem;">📅 Calendario</a>
 </div>
 
 <form method="GET" action="{{ route('admin.articles') }}" class="articles-toolbar" role="search" aria-label="Ricerca e filtri negli articoli">
