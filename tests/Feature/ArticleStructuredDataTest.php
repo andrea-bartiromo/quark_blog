@@ -141,8 +141,50 @@ class ArticleStructuredDataTest extends TestCase
 
         $this->assertSame('ImageObject', $node['image']['@type']);
         $this->assertSame(asset('assets/img/copertina-reale.jpg'), $node['image']['url']);
+    }
+
+    /**
+     * 'copertina-reale.jpg' sopra non esiste davvero sotto public/assets/img
+     * (nessun file creato dal test) — width/height restano assenti perché
+     * getimagesize() non ha nulla da leggere, non perché la feature sia
+     * disattivata. Vedi test_image_includes_real_width_and_height_when_...
+     * per il caso in cui il file esiste davvero.
+     */
+    public function test_image_omits_width_and_height_when_the_cover_file_does_not_exist_on_disk(): void
+    {
+        $article = $this->publishedArticle(['cover_image' => 'copertina-inesistente-'.uniqid().'.jpg']);
+
+        $node = $this->newsArticleNodeFor($article);
+
         $this->assertArrayNotHasKey('width', $node['image']);
         $this->assertArrayNotHasKey('height', $node['image']);
+    }
+
+    /**
+     * Larghezza/altezza dichiarate in ImageObject devono essere quelle
+     * REALI del file su disco (getimagesize(), stesso pattern già in uso
+     * altrove per immagini locali — vedi ResponsiveImageVariantService),
+     * mai un valore inventato: qui si crea un file immagine vero con
+     * dimensioni note e si verifica che coincidano esattamente.
+     */
+    public function test_image_includes_real_width_and_height_when_the_cover_file_exists_locally(): void
+    {
+        $filename = 'test-cover-'.uniqid().'.jpg';
+        $path = public_path('assets/img/'.$filename);
+        $image = imagecreatetruecolor(640, 360);
+        imagejpeg($image, $path, 90);
+        imagedestroy($image);
+
+        try {
+            $article = $this->publishedArticle(['cover_image' => $filename]);
+
+            $node = $this->newsArticleNodeFor($article);
+
+            $this->assertSame(640, $node['image']['width']);
+            $this->assertSame(360, $node['image']['height']);
+        } finally {
+            @unlink($path);
+        }
     }
 
     public function test_image_falls_back_to_the_global_raster_default_and_never_to_the_svg_placeholder(): void
@@ -154,6 +196,22 @@ class ArticleStructuredDataTest extends TestCase
         $this->assertSame(asset(config('laboratorio.default_share_image')), $node['image']['url']);
         $this->assertStringEndsNotWith('.svg', $node['image']['url']);
         $this->assertStringEndsNotWith('hero-placeholder.svg', $node['image']['url']);
+    }
+
+    /**
+     * config('laboratorio.default_share_image') e' un file reale gia'
+     * presente in public/ (lo stesso usato per il logo Organization, che
+     * la suite gia' verifica essere 512x512 altrove in questo file) — il
+     * fallback deve quindi dichiarare dimensioni reali, non un'assunzione.
+     */
+    public function test_fallback_share_image_includes_its_real_known_dimensions(): void
+    {
+        $article = $this->publishedArticle(['cover_image' => null]);
+
+        $node = $this->newsArticleNodeFor($article);
+
+        $this->assertSame(512, $node['image']['width']);
+        $this->assertSame(512, $node['image']['height']);
     }
 
     public function test_author_is_a_minimal_person_without_image_or_sameas(): void
