@@ -187,7 +187,7 @@ class ArticleRevisionServiceTest extends TestCase
         $revision = ArticleRevision::create([
             'article_id' => $article->id, 'user_id' => null,
             'title' => $article->title, 'excerpt' => $article->excerpt, 'body' => $article->body,
-            'category' => $article->category, 'status' => 'draft', 'created_at' => now(),
+            'category' => $article->category, 'status' => 'draft', 'published_at' => now()->subDay(), 'created_at' => now(),
         ]);
 
         app(ArticleRevisionService::class)->restore($article, $revision, null);
@@ -195,6 +195,55 @@ class ArticleRevisionServiceTest extends TestCase
         $article->refresh();
         $this->assertSame('draft', $article->status);
         $this->assertNull($article->published_at);
+    }
+
+    public function test_restore_of_scheduled_revision_restores_its_original_publication_time(): void
+    {
+        $article = $this->article(['status' => Article::STATUS_DRAFT]);
+        $scheduledAt = now()->addDays(4)->startOfMinute();
+        $revision = ArticleRevision::create([
+            'article_id' => $article->id,
+            'user_id' => null,
+            'title' => $article->title,
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => $scheduledAt,
+            'created_at' => now(),
+        ]);
+
+        app(ArticleRevisionService::class)->restore($article, $revision, null);
+
+        $article->refresh();
+        $this->assertSame(Article::STATUS_SCHEDULED, $article->status);
+        $this->assertNotNull($article->published_at);
+        $this->assertSame($scheduledAt->format('Y-m-d H:i:s'), $article->published_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_restore_recomputes_read_minutes_from_the_historical_body(): void
+    {
+        $article = $this->article([
+            'body' => '<p>breve</p>',
+            'read_minutes' => 1,
+        ]);
+        $longBody = '<p>'.implode(' ', array_fill(0, 620, 'parola')).'</p>';
+        $revision = ArticleRevision::create([
+            'article_id' => $article->id,
+            'user_id' => null,
+            'title' => $article->title,
+            'excerpt' => $article->excerpt,
+            'body' => $longBody,
+            'category' => $article->category,
+            'status' => Article::STATUS_DRAFT,
+            'created_at' => now(),
+        ]);
+
+        app(ArticleRevisionService::class)->restore($article, $revision, null);
+
+        $article->refresh();
+        $this->assertSame(Article::calculateReadMinutes($longBody), $article->read_minutes);
+        $this->assertGreaterThan(1, $article->read_minutes);
     }
 
     public function test_deleting_an_article_cascades_to_its_revisions(): void
