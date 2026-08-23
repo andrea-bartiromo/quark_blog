@@ -629,6 +629,11 @@ body.admin-body textarea {
   line-height: 1.4;
 }
 
+/* Discover Readiness — esito controllo (PASS/WARNING/ERROR, mai un punteggio) */
+.status--pass { background: #d1fae5; color: #065f46; }
+.status--warning { background: #fef3c7; color: #92400e; }
+.status--error { background: #fee2e2; color: #991b1b; }
+
 /* Area Progettazione — badge stato documento */
 .status--doc-draft { background: #f3f4f6; color: #6b7280; }
 .status--doc-approved { background: #d1fae5; color: #065f46; }

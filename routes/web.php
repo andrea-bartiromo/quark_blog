@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
 use App\Http\Controllers\Admin\Communication\CommunicationSenderProfileController;
 use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DiscoverReadinessController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -137,6 +138,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::delete('/articoli/{article}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
     Route::patch('/articoli/{article}/verifica', [AdminArticleController::class, 'updateVerification'])->name('articles.verify');
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+    Route::get('/articoli/{article}/discover', [DiscoverReadinessController::class, 'show'])->name('articles.discover');
 
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
