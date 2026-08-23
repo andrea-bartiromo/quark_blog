@@ -40,13 +40,19 @@ class ContentClusterLifecycleTest extends TestCase
             'is_active' => true,
             'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING,
         ]);
+        // Lo scheduled va DOPO le due tappe pubblicate, non intercalato: dal
+        // contratto continuous-published-prefix (ContentClusterPublicSequence
+        // — STOP al primo membro non pubblico, mai riprendere dopo un gap),
+        // uno scheduled prima di `last` lo escluderebbe dalla sequenza
+        // pubblica invece di renderlo "l'ultima tappa disponibile" come
+        // questo test intende verificare.
         $first = $this->publishedArticle('Prima tappa');
         $last = $this->publishedArticle('Ultima tappa disponibile');
         $scheduled = $this->scheduledArticle('Tappa futura');
         $cluster->articles()->attach([
             $first->id => ['position' => 10],
-            $scheduled->id => ['position' => 20],
-            $last->id => ['position' => 30],
+            $last->id => ['position' => 20],
+            $scheduled->id => ['position' => 30],
         ]);
 
         $detailResponse = $this->get(route('percorsi.show', $cluster->slug));
