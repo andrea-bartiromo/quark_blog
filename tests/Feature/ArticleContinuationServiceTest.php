@@ -265,6 +265,32 @@ class ArticleContinuationServiceTest extends TestCase
         $this->assertLessThanOrEqual(3, $queryCount);
     }
 
+    public function test_passing_a_real_null_navigation_never_triggers_a_second_lookup(): void
+    {
+        // Regressione trovata cablando il servizio in
+        // ArticleController::show(): un articolo senza Percorso attivo fa
+        // sì che ArticlePathNavigation::forArticle() restituisca
+        // legittimamente null. Se il parametro $pathNavigation usasse un
+        // default `= null` indistinguibile da "non passato", quel null
+        // esplicito veniva scambiato per "non passato" e la stessa query
+        // di ArticlePathNavigation veniva rieseguita una seconda volta ad
+        // ogni caricamento di pagina articolo.
+        $current = $this->article('Corrente', 'fisica')->fresh();
+        $this->article('Candidato', 'fisica');
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $result = $this->service()->forArticle($current, null);
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertNotNull($result);
+        // Nessuna query di ArticlePathNavigation qui: solo il fallback di
+        // categoria (1 query). Prima del fix il conteggio era 2 (la
+        // stessa query di ArticlePathNavigation rieseguita inutilmente).
+        $this->assertSame(1, $queryCount);
+    }
+
     private function service(): ArticleContinuationService
     {
         return app(ArticleContinuationService::class);

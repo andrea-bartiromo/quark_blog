@@ -34,14 +34,31 @@ class ArticleContinuationService
     ) {}
 
     /**
-     * @param  array{cluster:ContentCluster,current_index:int,total:int,previous:?Article,next:?Article,path_url:string}|null  $pathNavigation
-     *                                                                                                                                          Passa il risultato già calcolato da ArticlePathNavigation::forArticle()
-     *                                                                                                                                          quando il chiamante lo possiede già (es. ArticleController::show()), per
-     *                                                                                                                                          evitare di ripetere la stessa query. Se omesso, viene calcolato qui.
+     * Sentinella per il parametro $pathNavigation: distingue "il chiamante
+     * non ha passato nulla, calcolalo qui" da "il chiamante ha passato
+     * esplicitamente null", perché null è anche il valore legittimo di
+     * ArticlePathNavigation::forArticle() quando l'articolo non appartiene
+     * a nessun Percorso attivo — un default `= null` sul parametro
+     * renderebbe questi due casi indistinguibili, facendo ricalcolare (ed
+     * eseguire una seconda volta) la stessa query ogni volta che la
+     * risposta corretta era già "nessun Percorso" (bug trovato proprio
+     * cablando questo servizio in ArticleController::show(): la query di
+     * ArticlePathNavigation compariva due volte identica nel query log).
      */
-    public function forArticle(Article $article, ?array $pathNavigation = null): ?Article
+    private const NOT_PROVIDED = '__not_provided__';
+
+    /**
+     * @param  array{cluster:ContentCluster,current_index:int,total:int,previous:?Article,next:?Article,path_url:string}|null|string  $pathNavigation
+     *                                                                                                                                                 Passa il risultato già calcolato da ArticlePathNavigation::forArticle()
+     *                                                                                                                                                 (anche se null) quando il chiamante lo possiede già (es.
+     *                                                                                                                                                 ArticleController::show()), per evitare di ripetere la stessa query.
+     *                                                                                                                                                 Se omesso, viene calcolato qui.
+     */
+    public function forArticle(Article $article, $pathNavigation = self::NOT_PROVIDED): ?Article
     {
-        $navigation = $pathNavigation ?? $this->pathNavigation->forArticle($article);
+        $navigation = $pathNavigation === self::NOT_PROVIDED
+            ? $this->pathNavigation->forArticle($article)
+            : $pathNavigation;
 
         if ($navigation && $navigation['next'] instanceof Article) {
             return $navigation['next'];

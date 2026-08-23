@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
+use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
@@ -84,6 +85,8 @@ class ArticleController extends Controller
             session()->put($sessionKey, true);
         }
 
+        $pathNavigation = app(ArticlePathNavigation::class)->forArticle($article);
+
         return view('articolo', [
             'article' => $article,
 
@@ -99,7 +102,17 @@ class ArticleController extends Controller
             // proprio, 4 query identiche per singola pagina articolo.
             'categoryOptions' => Category::options(false),
 
-            'pathNavigation' => app(ArticlePathNavigation::class)->forArticle($article),
+            'pathNavigation' => $pathNavigation,
+
+            // "Continua da qui": passa $pathNavigation già calcolato sopra
+            // per evitare che il servizio lo ricalcoli (stessa query
+            // ripetuta due volte). Quando pathNavigation ha già un "next",
+            // ArticleContinuationService restituisce esattamente quello —
+            // vedi articles/partials/continue-reading.blade.php per la
+            // scelta di non renderizzare un modulo separato in quel caso,
+            // per non duplicare il blocco "Successivo" già mostrato da
+            // path-continuation.
+            'continuation' => app(ArticleContinuationService::class)->forArticle($article, $pathNavigation),
         ]);
     }
 }
