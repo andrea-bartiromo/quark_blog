@@ -48,10 +48,21 @@ class ArticleRevisionController extends Controller
         $this->assertOwnedByCurrentUser($article);
         $this->assertBelongsToArticle($article, $revision);
 
-        if ($article->status === 'published') {
+        if ($article->status === Article::STATUS_PUBLISHED) {
             return redirect()
                 ->route('redazione.articles')
                 ->with('error', 'Gli articoli pubblicati non possono essere modificati. Contatta l\'editor.');
+        }
+
+        // Un collaboratore non può normalmente pubblicare o programmare
+        // un articolo: ArticleController::update() rimanda sempre il suo
+        // salvataggio nello stato review. Consentire il restore diretto di
+        // una vecchia revisione published/scheduled aggirerebbe quel gate
+        // editoriale anche se l'articolo corrente è tornato draft/review.
+        if (in_array($revision->status, [Article::STATUS_PUBLISHED, Article::STATUS_SCHEDULED], true)) {
+            return redirect()
+                ->route('redazione.articles.edit', $article)
+                ->with('error', 'Questa versione aveva uno stato riservato all\'editor e non può essere ripristinata dalla Redazione.');
         }
 
         $this->revisionService->restore($article, $revision, $request->user());
