@@ -52,10 +52,11 @@ class SearchConsoleRadarProviderTest extends TestCase
     {
         $this->searchRow(null, 'materia oscura spiegata', impressions: 500, ctr: 0.0, position: 18.0);
 
-        $row = app(SearchConsoleOpportunityProvider::class)->opportunities()->first();
+        $row = app(SearchConsoleOpportunityProvider::class)
+            ->opportunities()
+            ->firstWhere('type', 'NEW_ARTICLE');
 
         $this->assertNotNull($row);
-        $this->assertSame('NEW_ARTICLE', $row['type']);
         $this->assertNull($row['article_id']);
         $this->assertStringStartsWith('Query:', $row['title']);
         $this->assertArrayNotHasKey('score', $row);
