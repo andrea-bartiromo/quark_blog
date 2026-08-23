@@ -4,15 +4,25 @@ Documento di sola analisi/design. Nessuna migrazione, nessuna scrittura su
 `content_clusters`/`articles`, nessun deploy. Non introduce codice — vedi
 "Prossimi passi" per cosa cambierebbe se e quando esisterà contenuto reale.
 
+> **Aggiornamento (rebase pre-merge):** la PR #253, mergiata dopo la stesura
+> originale di questo audit, ha aggiunto `fisica` a
+> `config('laboratorio.categories')` — quindi `fisica` è ora una categoria
+> editoriale reale e selezionabile in Redazione. Questo **non** cambia il
+> verdetto: la categoria esiste, ma non esiste ancora nessun articolo di
+> fisica pubblicato realmente (solo fixture sintetiche di test locali). Le
+> sezioni sotto sono state corrette di conseguenza; il resto dell'audit
+> resta valido così com'era.
+
 ## Verdetto
 
 **NEEDS CONTENT.**
 
-Non esiste, in questo repository, né una categoria `fisica` reale né un
-Percorso di fisica, né articoli di fisica pubblicati al di fuori di dati di
-test sintetici creati durante lo sviluppo (vedi sotto). Costruire un
-Percorso "Fisica Fondamentale" oggi richiederebbe inventare articoli — cosa
-esplicitamente esclusa da questa missione.
+La categoria `fisica` esiste ormai nella tassonomia (vedi aggiornamento
+sopra), ma non esiste, in questo repository, né un Percorso di fisica né
+articoli di fisica pubblicati al di fuori di dati di test sintetici creati
+durante lo sviluppo (vedi sotto). Costruire un Percorso "Fisica
+Fondamentale" oggi richiederebbe inventare articoli — cosa esplicitamente
+esclusa da questa missione.
 
 ## Inventario contenuti reali (evidenza, non ipotesi)
 
@@ -31,7 +41,9 @@ Fonti realmente presenti nel repository, verificate leggendo il codice:
   `energia`, `salute`, `spazio`, `societa`. Nessuno di fisica.
 - **`config/laboratorio.php`** — tassonomia canonica delle categorie:
   `intelligenza-artificiale`, `energia`, `salute`, `societa`, `spazio`,
-  `ambiente`. **`fisica` non è una categoria reale del sito.**
+  `fisica`, `ambiente`. **`fisica` è una categoria editoriale reale** da
+  PR #253 (mergiata dopo la stesura originale di questa sezione) — ma
+  nessun articolo reale è stato ancora pubblicato in questa categoria.
 - **Verifica diretta con il tooling esistente**: `php artisan
   content-clusters:backfill-initial` (dry-run, nessuna scrittura) eseguito
   contro un database locale fresco e seedato con `DatabaseSeeder` riporta
@@ -66,10 +78,10 @@ piano di pubblicazione: la redazione decide quali articoli scrivere.
 ## Classificazione dei gap
 
 - **ESSENTIAL** (blocca qualunque Percorso): un pillar article di fisica
-  pubblicato che introduca il tema in modo autonomo — oggi non esiste.
-  Nessuna categoria `fisica` nella tassonomia — servirebbe prima una
-  decisione editoriale su categoria dedicata vs. sotto-tema di categorie
-  esistenti (es. `spazio`).
+  pubblicato che introduca il tema in modo autonomo — oggi non esiste. La
+  categoria `fisica` esiste già nella tassonomia (PR #253), quindi la
+  decisione redazionale "categoria dedicata vs. sotto-tema di `spazio`" è
+  di fatto già presa: resta solo da scrivere e pubblicare il contenuto.
 - **USEFUL** (rafforzerebbe il Percorso ma non lo blocca): 2-3 articoli di
   supporto sullo stesso tema. Lo slug `relativita-speciale` già presente
   nel catalogo di produzione (mappa versionata) è un candidato — ma
@@ -119,8 +131,9 @@ conferma → `--apply` in locale/test → PR separata. Nessuna di queste azioni
 
 ## Prossimi passi (editoriali, non tecnici)
 
-1. Decisione redazionale: la fisica è una categoria a sé o resta distribuita
-   (es. dentro `spazio`)?
+1. ~~Decisione redazionale: la fisica è una categoria a sé o resta
+   distribuita (es. dentro `spazio`)?~~ Già decisa: `fisica` è categoria a
+   sé da PR #253.
 2. Un pillar article pubblicato prima di qualunque lavoro tecnico sul
    Percorso.
 3. Solo a quel punto: nuova voce in `content-clusters-initial.php` e
