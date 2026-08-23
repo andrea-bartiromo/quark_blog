@@ -201,7 +201,7 @@ class ContentGraphFoundationTest extends TestCase
         $this->assertCount(0, $service->discoverableConceptsForArticle($scheduled));
     }
 
-    public function test_answerable_questions_require_active_concept_approved_question_and_published_target(): void
+    public function test_answerable_questions_require_active_concept_approved_question_summary_and_published_target(): void
     {
         $service = $this->service();
         $active = Concept::create(['name' => 'Elettromagnetismo', 'status' => Concept::STATUS_ACTIVE]);
@@ -213,29 +213,41 @@ class ContentGraphFoundationTest extends TestCase
 
         $answerable = $active->questions()->create([
             'question' => 'Che cosa trasporta la luce?',
+            'answer_summary' => 'La luce trasporta energia e quantità di moto tramite i fotoni.',
             'status' => ConceptQuestion::STATUS_APPROVED,
             'target_article_id' => $published->id,
             'sort_order' => 1,
         ]);
         $active->questions()->create([
-            'question' => 'Domanda ancora draft',
+            'question' => 'Domanda approvata ma senza sommario',
+            'answer_summary' => '   ',
+            'status' => ConceptQuestion::STATUS_APPROVED,
             'target_article_id' => $published->id,
             'sort_order' => 2,
         ]);
         $active->questions()->create([
-            'question' => 'Domanda con risposta draft',
-            'status' => ConceptQuestion::STATUS_APPROVED,
-            'target_article_id' => $draft->id,
+            'question' => 'Domanda ancora draft',
+            'answer_summary' => 'Sommario presente.',
+            'target_article_id' => $published->id,
             'sort_order' => 3,
         ]);
         $active->questions()->create([
+            'question' => 'Domanda con risposta draft',
+            'answer_summary' => 'Sommario presente.',
+            'status' => ConceptQuestion::STATUS_APPROVED,
+            'target_article_id' => $draft->id,
+            'sort_order' => 4,
+        ]);
+        $active->questions()->create([
             'question' => 'Domanda con risposta programmata',
+            'answer_summary' => 'Sommario presente.',
             'status' => ConceptQuestion::STATUS_APPROVED,
             'target_article_id' => $scheduled->id,
-            'sort_order' => 4,
+            'sort_order' => 5,
         ]);
         $inactive->questions()->create([
             'question' => 'Domanda su concetto inattivo',
+            'answer_summary' => 'Sommario presente.',
             'status' => ConceptQuestion::STATUS_APPROVED,
             'target_article_id' => $published->id,
         ]);
