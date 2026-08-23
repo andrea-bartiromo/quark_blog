@@ -62,10 +62,12 @@
             <th scope="col">CTR</th>
             <th scope="col">Posizione</th>
             <th scope="col">Spiegazione</th>
+            <th scope="col">Stato</th>
           </tr>
         </thead>
         <tbody>
           @foreach($opportunities as $opportunity)
+            @php $currentStatus = $opportunityStatuses[$opportunity->key] ?? \App\Models\SearchOpportunityStatus::STATUS_NEW; @endphp
             <tr>
               <td><span class="badge badge--filter">{{ $typeOptions[$opportunity->type] ?? $opportunity->type }}</span></td>
               <td>{{ $opportunity->query }}</td>
@@ -80,6 +82,18 @@
               <td>{{ $opportunity->ctr !== null ? number_format($opportunity->ctr * 100, 1).'%' : '—' }}</td>
               <td>{{ $opportunity->position !== null ? number_format($opportunity->position, 1) : '—' }}</td>
               <td style="max-width:360px;font-size:.8rem;color:var(--admin-ink-soft);">{{ $opportunity->explanation }}</td>
+              <td>
+                <form method="POST" action="{{ route('admin.search-opportunities.update-status') }}">
+                  @csrf
+                  <input type="hidden" name="opportunity_key" value="{{ $opportunity->key }}">
+                  <label class="sr-only" for="status-{{ $loop->index }}">Stato per «{{ $opportunity->query }}»</label>
+                  <select id="status-{{ $loop->index }}" name="status" class="form-select" onchange="this.form.submit()">
+                    @foreach($statusOptions as $value => $label)
+                      <option value="{{ $value }}" @selected($currentStatus === $value)>{{ $label }}</option>
+                    @endforeach
+                  </select>
+                </form>
+              </td>
             </tr>
           @endforeach
         </tbody>
