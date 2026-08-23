@@ -52,8 +52,39 @@
       <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Disiscrizione pubblica</dt>
       <dd style="margin:.2rem 0 0;font-weight:600;">{{ $report->unsubscribeRouteAvailable ? 'Disponibile' : 'Non disponibile' }}</dd>
     </div>
+    <div>
+      <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Template</dt>
+      <dd style="margin:.2rem 0 0;font-weight:600;">{{ $campaign->template->name ?? '— contenuto scritto a mano' }}</dd>
+    </div>
   </dl>
   <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary" style="margin-top:1rem;">👁️ Apri anteprima reale</a>
+</div>
+
+<div class="admin-card" style="max-width:720px;margin-bottom:1.25rem;">
+  <h3 style="margin-top:0;font-size:.95rem;">Stato invio</h3>
+  <p style="color:#9ca3af;font-size:.78rem;margin-top:-.5rem;">
+    Nessun invio massivo reale esiste ancora in questo prodotto: "Prepara destinatari" e il dry-run qui sopra restano le uniche azioni disponibili su questa pagina, indipendentemente da questo stato. Il flag sotto governa solo l'azione separata "Invio di test" (un solo destinatario esplicito, mai la lista completa).
+  </p>
+  <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:0;">
+    <div>
+      <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Invio di test reale</dt>
+      <dd style="margin:.2rem 0 0;font-weight:600;">
+        @if($realSendEnabled)
+          <span class="status" style="background:#fef3c7;color:#92400e;">Abilitato</span>
+        @else
+          <span class="status" style="background:#f3f4f6;color:#6b7280;">Disabilitato (default)</span>
+        @endif
+      </dd>
+    </div>
+    <div>
+      <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Provider invio di test</dt>
+      <dd style="margin:.2rem 0 0;font-weight:600;">MailerEmailProvider (mailer configurato in .env)</dd>
+    </div>
+    <div>
+      <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Provider dry-run</dt>
+      <dd style="margin:.2rem 0 0;font-weight:600;">RecordingEmailProvider (fake in memoria, nessuna rete)</dd>
+    </div>
+  </dl>
 </div>
 
 <div class="admin-card" style="max-width:720px;margin-bottom:1.25rem;">
