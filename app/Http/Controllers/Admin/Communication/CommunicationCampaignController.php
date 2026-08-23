@@ -12,6 +12,7 @@ use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
 use App\Services\Communication\CampaignDryRunService;
+use App\Services\Communication\CampaignFreezeService;
 use App\Services\Communication\CampaignPreflightService;
 use App\Services\Communication\CampaignRenderer;
 use App\Services\Communication\RecipientSnapshotService;
@@ -35,6 +36,7 @@ class CommunicationCampaignController extends Controller
         private readonly CampaignRenderer $campaignRenderer,
         private readonly CampaignPreflightService $campaignPreflight,
         private readonly CampaignDryRunService $campaignDryRun,
+        private readonly CampaignFreezeService $campaignFreeze,
     ) {}
 
     /**
@@ -130,11 +132,22 @@ class CommunicationCampaignController extends Controller
             'activityLog' => $activityLog,
             'recipientCounts' => $recipientCounts,
             'canPrepareRecipients' => $this->recipientSnapshot->canPrepare($campaign),
+            'canFreeze' => $this->campaignFreeze->canFreeze($campaign),
         ]);
     }
 
     public function edit(Request $request, CommunicationCampaign $campaign)
     {
+        // Una campagna congelata non ha più un form di modifica da
+        // mostrare: contenuto/template/mittente sono bloccati, ripresentare
+        // un form editabile che poi update() rifiuterebbe comunque
+        // sarebbe fuorviante. Reindirizza dove l'admin può vedere perché.
+        if ($campaign->isFrozen()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.show', $campaign)
+                ->with('success', 'Questa campagna è congelata: contenuto e template non sono più modificabili.');
+        }
+
         [$selectedTemplateId, $selectedTemplateVersionId, $prefill] = $this->resolveTemplateSelection($request, $campaign);
 
         return view('admin.communication.campaigns.form', [
@@ -150,6 +163,16 @@ class CommunicationCampaignController extends Controller
 
     public function update(UpdateCommunicationCampaignRequest $request, CommunicationCampaign $campaign)
     {
+        // Guardia server-side, unica autorità: una campagna congelata è
+        // immutabile indipendentemente da cosa il form mostrava quando è
+        // stato aperto (es. due tab admin aperte, una delle quali ha
+        // congelato la campagna nel frattempo).
+        if ($campaign->isFrozen()) {
+            return back()->withErrors([
+                'freeze' => 'Questa campagna è congelata: contenuto e template non possono più essere modificati.',
+            ]);
+        }
+
         $before = $campaign->only(['title', 'type', 'project_id']);
 
         $data = $request->validated();
@@ -290,6 +313,12 @@ class CommunicationCampaignController extends Controller
      */
     public function prepareRecipients(CommunicationCampaign $campaign)
     {
+        if ($campaign->isFrozen()) {
+            return back()->withErrors([
+                'recipients' => 'Impossibile modificare i destinatari di una campagna congelata: l\'elenco è stato bloccato al momento del congelamento.',
+            ]);
+        }
+
         if (! $this->recipientSnapshot->canPrepare($campaign)) {
             return back()->withErrors([
                 'recipients' => 'Impossibile preparare i destinatari per una campagna con stato "'.
@@ -326,6 +355,36 @@ class CommunicationCampaignController extends Controller
             'report' => $this->campaignPreflight->assess($campaign),
             'statusOptions' => CommunicationCampaign::statusOptions(),
         ]);
+    }
+
+    /**
+     * Recipient Snapshot + Campaign Freeze — congela la campagna: da qui
+     * in poi contenuto/template/mittente e l'elenco destinatari non
+     * possono più cambiare (vedi CampaignFreezeService). Richiede la
+     * stessa readiness già usata da preflight/dry-run — congelare una
+     * campagna senza mittente/oggetto/contenuto/destinatari non avrebbe
+     * senso operativo. Idempotente: richiamarla su una campagna già
+     * congelata è un no-op sicuro, mai un errore per l'admin.
+     */
+    public function freeze(CommunicationCampaign $campaign)
+    {
+        if ($campaign->isFrozen()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.show', $campaign)
+                ->with('success', 'Questa campagna è già congelata.');
+        }
+
+        if (! $this->campaignFreeze->canFreeze($campaign)) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.preflight', $campaign)
+                ->withErrors(['freeze' => 'Risolvi i blocchi della verifica pre-invio prima di congelare la campagna.']);
+        }
+
+        $this->campaignFreeze->freeze($campaign, auth()->id());
+
+        return redirect()
+            ->route('admin.comunicazione.campaigns.show', $campaign)
+            ->with('success', 'Campagna congelata: contenuto e destinatari sono ora bloccati.');
     }
 
     /**
