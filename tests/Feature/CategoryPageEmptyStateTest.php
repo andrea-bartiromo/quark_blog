@@ -25,12 +25,13 @@ class CategoryPageEmptyStateTest extends TestCase
 
     public function test_a_category_with_no_published_articles_shows_an_honest_empty_state(): void
     {
-        Category::create([
-            'name' => 'Fisica',
-            'slug' => 'fisica',
-            'is_active' => true,
-            'sort_order' => 0,
-        ]);
+        // 'fisica' è già seminata dalla migration da config('laboratorio.categories')
+        // (PR #253): firstOrCreate evita una collisione sul suo slug univoco senza
+        // dipendere dal fatto che sia o meno già presente in un dato momento.
+        Category::firstOrCreate(
+            ['slug' => 'fisica'],
+            ['name' => 'Fisica', 'is_active' => true, 'sort_order' => 0]
+        );
 
         $response = $this->get(route('categoria', 'fisica'));
 
@@ -45,12 +46,11 @@ class CategoryPageEmptyStateTest extends TestCase
 
     public function test_a_category_with_published_articles_does_not_show_the_empty_state(): void
     {
-        Category::create([
-            'name' => 'Fisica',
-            'slug' => 'fisica',
-            'is_active' => true,
-            'sort_order' => 0,
-        ]);
+        // Stessa nota di sopra: 'fisica' è già seminata dalla migration.
+        Category::firstOrCreate(
+            ['slug' => 'fisica'],
+            ['name' => 'Fisica', 'is_active' => true, 'sort_order' => 0]
+        );
 
         $author = User::factory()->create(['role' => 'author']);
         Article::create([
@@ -89,5 +89,28 @@ class CategoryPageEmptyStateTest extends TestCase
         $response->assertOk();
         $response->assertSee('Nessun articolo pubblicato ancora');
         $response->assertSee('Nuova Sezione');
+    }
+
+    /**
+     * Regressione per la causa alla radice di questo file di test: la
+     * migration `create_categories_table` semina ogni categoria elencata in
+     * config('laboratorio.categories') (incluso 'fisica' da PR #253). Un
+     * test che ricrea con Category::create() uno slug già seminato collide
+     * sull'unique index — il bug non era nel prodotto, ma nell'assunzione
+     * del test. Questa asserzione blocca la stessa classe di bug per
+     * qualunque categoria futura aggiunta al catalogo canonico.
+     */
+    public function test_every_canonical_category_from_config_is_seeded_by_migration(): void
+    {
+        $slugs = array_keys(config('laboratorio.categories', []));
+
+        $this->assertNotEmpty($slugs);
+
+        foreach ($slugs as $slug) {
+            $this->assertDatabaseHas('categories', [
+                'slug' => $slug,
+                'is_active' => true,
+            ]);
+        }
     }
 }
