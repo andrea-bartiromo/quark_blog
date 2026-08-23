@@ -30,6 +30,18 @@ class TrovaEntitySearchServiceTest extends TestCase
         $this->assertSame('EXACT', $results['categories']->first()['match_class']);
     }
 
+    public function test_published_secondary_category_membership_also_makes_category_eligible(): void
+    {
+        $primary = Category::create(['name' => 'Primary Test', 'slug' => 'primary-test']);
+        $secondary = Category::create(['name' => 'Secondaria Pubblica Test', 'slug' => 'secondaria-pubblica-test']);
+        $article = $this->article('secondary-membership-test', $primary->slug, Article::STATUS_PUBLISHED);
+        $article->secondaryCategories()->attach($secondary->id);
+
+        $results = app(TrovaEntitySearchService::class)->search('Secondaria Pubblica Test');
+
+        $this->assertSame([$secondary->id], $results['categories']->pluck('id')->all());
+    }
+
     public function test_it_returns_only_active_percorsi_with_published_members(): void
     {
         $published = $this->article('relativita-test', 'fisica-test', Article::STATUS_PUBLISHED);
