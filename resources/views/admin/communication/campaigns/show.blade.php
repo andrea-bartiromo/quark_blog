@@ -24,7 +24,16 @@
   <div style="display:flex;gap:.5rem;">
     <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary">👁️ Anteprima</a>
     <a href="{{ route('admin.comunicazione.campaigns.preflight', $campaign) }}" class="btn btn--secondary">✅ Verifica pre-invio</a>
-    <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
+    @unless($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
+      @if($canFreeze)
+        <form method="POST" action="{{ route('admin.comunicazione.campaigns.freeze', $campaign) }}"
+              onsubmit="return confirm('Congelare «{{ $campaign->title }}»? Contenuto, template, mittente e destinatari non saranno più modificabili.')">
+          @csrf
+          <button type="submit" class="btn btn--secondary">🧊 Congela campagna</button>
+        </form>
+      @endif
+    @endunless
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
       @csrf @method('DELETE')
@@ -36,6 +45,11 @@
 <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem;">
   <span class="status status--campaign-{{ $campaign->status }}">{{ $statusOptions[$campaign->status] ?? $campaign->status }}</span>
   <span class="status" style="background:#f3f4f6;color:#4b5563;">{{ $typeOptions[$campaign->type] ?? $campaign->type }}</span>
+  @if($campaign->isFrozen())
+    <span class="status" style="background:#e0f2fe;color:#075985;" title="Congelata il {{ $campaign->frozen_at->format('d/m/Y H:i') }} da {{ $campaign->frozenBy?->name ?? 'utente eliminato' }}">
+      🧊 Congelata
+    </span>
+  @endif
 
   <form method="POST" action="{{ route('admin.comunicazione.campaigns.duplicate', $campaign) }}" style="margin-left:auto;">
     @csrf
@@ -181,7 +195,11 @@
       </div>
     </dl>
 
-    @if($canPrepareRecipients)
+    @if($campaign->isFrozen())
+      <p style="color:#075985;font-size:.85rem;">
+        🧊 Elenco destinatari congelato il {{ $campaign->frozen_at->format('d/m/Y H:i') }}: non può più essere aggiornato, anche se nuovi iscritti si confermano da adesso in poi.
+      </p>
+    @elseif($canPrepareRecipients)
       <form method="POST" action="{{ route('admin.comunicazione.campaigns.recipients.prepare', $campaign) }}">
         @csrf
         <button type="submit" class="btn btn--primary">

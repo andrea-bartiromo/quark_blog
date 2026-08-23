@@ -6,6 +6,8 @@
 
 The legacy `NewsletterController` / `newsletter_subscribers` flow (single-topic newsletter, real `Mail::send`) is untouched and out of scope here. Newsletter 2.0 is a separate, parallel subsystem (`comm_*` tables, `Communication*` models/controllers/services) built to reach **READY FOR PROVIDER INTEGRATION** without ever connecting one.
 
+**Recipient Snapshot + Campaign Freeze** (Mission 8): the recipient snapshot (`RecipientSnapshotService`, step 1 below) already existed. What this increment adds is `CampaignFreezeService` — an explicit, idempotent "congela campagna" action that locks a ready campaign's content/template/mittente and its `comm_sends` recipient list against further changes. See "Congelamento (Campaign Freeze)" below for exactly what it guarantees and — just as important — what it deliberately does not.
+
 ## Architecture
 
 ```
@@ -53,10 +55,22 @@ Both are explicit transition tables (`CampaignStateMachine`, `SendStateMachine`)
 1. **Prepara destinatari** (`RecipientSnapshotService`) — creates one `queued` row per currently-confirmed subscriber not yet snapshotted for this campaign. Additive, idempotent, safe to re-run at any time before send; never removes or re-validates existing rows (that happens at claim time instead).
 2. **Anteprima** (preview) — real rendering for a real confirmed subscriber, selectable via a paginated, escaped-LIKE search (`?q=`). Read-only; opening it any number of times never mutates anything.
 3. **Verifica pre-invio** (preflight) — `CampaignPreflightService::assess()`. Read-only. Reports blocking errors (no sender / archived sender / no subject / no content / zero prepared recipients / campaign not preparable / unsubscribe route missing) and non-blocking warnings (prepared recipients no longer confirmed; confirmed subscribers not yet snapshotted; no preheader). Verdict is `not_ready` or `ready_for_test_send` — never a send trigger.
-4. **Dry-run** (`CampaignDryRunService`) — runs the *entire* real delivery pipeline (`CampaignDeliveryOrchestrator::runCampaign()`) against a `RecordingEmailProvider`, inside a DB transaction that is **always** rolled back, success or exception. Reports the six canonical counters: `eligible`, `skipped`, `rendered`, `accepted`, `transient_failed`, `permanent_failed`. Zero persistent mutation, rerunnable at will. Only reachable from the preflight page once preflight itself is blocker-free.
-5. **Disiscrizione** (unsubscribe) — public, token-based, GET (confirmation page, zero side effects) / POST (idempotent single conditional `UPDATE`) split. Row is never deleted (status flips to `unsubscribed`); GDPR erasure is a separate, more deliberate action never implicit in a click.
+4. **Congela campagna** (`CampaignFreezeService`) — optional, requires the same readiness as preflight/dry-run (`CampaignPreflightService::assess()->isReady()`). Locks content/template/mittente and the `comm_sends` recipient list. Idempotent: freezing an already-frozen campaign is a safe no-op. See "Congelamento (Campaign Freeze)" below.
+5. **Dry-run** (`CampaignDryRunService`) — runs the *entire* real delivery pipeline (`CampaignDeliveryOrchestrator::runCampaign()`) against a `RecordingEmailProvider`, inside a DB transaction that is **always** rolled back, success or exception. Reports the six canonical counters: `eligible`, `skipped`, `rendered`, `accepted`, `transient_failed`, `permanent_failed`. Zero persistent mutation, rerunnable at will. Only reachable from the preflight page once preflight itself is blocker-free. Independent of freeze — reachable whether or not the campaign is frozen.
+6. **Disiscrizione** (unsubscribe) — public, token-based, GET (confirmation page, zero side effects) / POST (idempotent single conditional `UPDATE`) split. Row is never deleted (status flips to `unsubscribed`); GDPR erasure is a separate, more deliberate action never implicit in a click.
 
-No step past #4 exists. The pipeline is deliberately capped at **PREPARA → ANTEPRIMA → VERIFICA PRE-INVIO → DRY-RUN → READY FOR PROVIDER INTEGRATION**.
+No step past #5 exists. The pipeline is deliberately capped at **PREPARA → ANTEPRIMA → VERIFICA PRE-INVIO → (CONGELA) → DRY-RUN → READY FOR PROVIDER INTEGRATION**.
+
+## Congelamento (Campaign Freeze)
+
+`CampaignFreezeService::freeze()` sets `comm_campaigns.frozen_at`/`frozen_by`. Two existing guardrails then key off `CommunicationCampaign::isFrozen()`:
+
+- `CommunicationCampaignController::update()` rejects any edit (title/subject/preheader/body/template/sender/project) to a frozen campaign, server-side — the only mutation path, so this is a single, unbypassable choke point.
+- `RecipientSnapshotService::canPrepare()` returns `false` once frozen: re-running "Prepara destinatari" adds no rows, even for subscribers who confirm *after* the freeze.
+
+**What freezing does NOT do**: it never touches `comm_campaigns.status` (orthogonal to `CampaignStateMachine`), and it never weakens `CampaignDeliveryOrchestrator::revalidate()` — that method is unmodified by this increment and still re-reads subscriber/campaign/sender state fresh from the DB at claim time, never trusting a frozen `comm_sends` row. Concretely: a subscriber who unsubscribes *after* freeze still has their `queued` row resolve to `failed` (`subscriber_not_eligible`) the moment a real send is attempted, exactly as before freeze existed — proven by `tests/Feature/Communication/CampaignFreezeZeroSendRegressionTest.php`, which drives the real orchestrator (not a reimplementation) through this exact scenario with `Mail::fake()`/`Notification::fake()` asserting nothing is ever sent.
+
+Audit trail: each freeze writes one `comm_campaign_activity_logs` row (`subject_type='freeze'`) with the acting user id, timestamp, campaign id, recipient count (`new_value`), and a content-version identifier (`reason`: `template_version:{id}` or `contenuto_manuale`) — never the content itself, never an email address, never a credential.
 
 ## Provider abstraction
 
