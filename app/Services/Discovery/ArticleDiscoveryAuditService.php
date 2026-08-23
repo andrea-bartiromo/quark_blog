@@ -3,6 +3,7 @@
 namespace App\Services\Discovery;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Services\InternalLinking\InternalLinkAuditService;
 use Illuminate\Support\Collection;
 
@@ -28,6 +29,15 @@ class ArticleDiscoveryAuditService
             ->orderByDesc('id')
             ->get();
 
+        // ArticleController::category() only exposes a slug when it is backed by
+        // a Category row or by the legacy canonical config. A raw article.category
+        // value outside both sources is not a demonstrable discovery path.
+        $navigableCategorySlugs = Category::query()->pluck('slug')
+            ->merge(array_keys(config('laboratorio.categories', [])))
+            ->filter()
+            ->unique()
+            ->flip();
+
         $archivePosition = $articles->values()->mapWithKeys(fn (Article $article, int $index) => [$article->id => $index]);
         $publishedIdBySlug = $articles->pluck('id', 'slug');
         $incomingByArticleId = array_fill_keys($articles->pluck('id')->all(), 0);
@@ -51,10 +61,10 @@ class ArticleDiscoveryAuditService
             }
         }
 
-        return $articles->map(function (Article $article) use ($archivePosition, $incomingByArticleId, $articles): array {
+        return $articles->map(function (Article $article) use ($archivePosition, $incomingByArticleId, $articles, $navigableCategorySlugs): array {
             $categorySlugs = collect([$article->category])
                 ->merge($article->secondaryCategories->pluck('slug'))
-                ->filter()
+                ->filter(fn ($slug) => filled($slug) && $navigableCategorySlugs->has($slug))
                 ->unique()
                 ->values();
 
@@ -84,6 +94,7 @@ class ArticleDiscoveryAuditService
                 + $categoryPages->count()
                 + ($activePaths > 0 ? 1 : 0)
                 + ($incoming > 0 ? 1 : 0);
+            $weakDiscovery = $categoryPages->isEmpty() && $activePaths === 0 && $incoming === 0;
 
             return [
                 'article_id' => $article->id,
@@ -104,6 +115,8 @@ class ArticleDiscoveryAuditService
                 'risks' => collect([
                     $incoming === 0 ? 'NO_BODY_INCOMING_LINKS' : null,
                     $activePaths === 0 ? 'NO_ACTIVE_PATH' : null,
+                    $categoryPages->isEmpty() ? 'NO_CATEGORY_PATH' : null,
+                    $weakDiscovery ? 'WEAK_DISCOVERY' : null,
                 ])->filter()->values()->all(),
                 'not_measured' => ['homepage_modules', 'recommendations', 'trova_queries'],
             ];
