@@ -20,7 +20,7 @@ class TrovaEntitySearchService
      */
     public function search(string $query): array
     {
-        $tokens = $this->tokenizer->tokens($query);
+        $tokens = array_map($this->normalize(...), $this->tokenizer->tokenize($query));
 
         if ($tokens === []) {
             return [
