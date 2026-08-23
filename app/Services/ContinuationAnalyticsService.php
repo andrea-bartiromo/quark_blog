@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\ArticleContinuationEvent;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -90,18 +91,20 @@ class ContinuationAnalyticsService
     /**
      * @return array{impressions:int,second_reads:int,second_read_rate:float}
      */
-    public function statsFor(Article $source, ?\DateTimeInterface $since = null): array
+    public function statsFor(Article $source, ?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null): array
     {
         $impressions = ArticleContinuationEvent::query()
             ->where('source_article_id', $source->id)
             ->where('event_type', ArticleContinuationEvent::EVENT_IMPRESSION)
             ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
             ->count();
 
         $secondReads = ArticleContinuationEvent::query()
             ->where('source_article_id', $source->id)
             ->where('event_type', ArticleContinuationEvent::EVENT_SECOND_READ_START)
             ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
             ->count();
 
         return [
@@ -109,5 +112,60 @@ class ContinuationAnalyticsService
             'second_reads' => $secondReads,
             'second_read_rate' => $impressions > 0 ? round($secondReads / $impressions, 4) : 0.0,
         ];
+    }
+
+    /**
+     * Riepilogo per articolo sorgente nel periodo indicato, ordinato per
+     * second read decrescenti — il segnale editoriale che questa missione
+     * chiede di rendere visibile (quali articoli avviano davvero una
+     * seconda lettura, non solo quanti eventi grezzi esistono).
+     *
+     * Bounded by design: una query di aggregazione (GROUP BY) più una
+     * query whereIn per i titoli — mai una query per articolo, quindi
+     * nessun N+1 indipendentemente da quanti articoli sorgente esistano.
+     *
+     * @return Collection<int, array{source_article_id:int,title:?string,slug:?string,impressions:int,second_reads:int,second_read_rate:float}>
+     */
+    public function articleBreakdown(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null, int $limit = 50): Collection
+    {
+        $counts = ArticleContinuationEvent::query()
+            ->selectRaw('source_article_id, event_type, COUNT(*) as total')
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->groupBy('source_article_id', 'event_type')
+            ->get();
+
+        if ($counts->isEmpty()) {
+            return collect();
+        }
+
+        $rows = $counts->groupBy('source_article_id')
+            ->map(function ($eventRows, $sourceId) {
+                $impressions = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_IMPRESSION)->total ?? 0);
+                $secondReads = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_SECOND_READ_START)->total ?? 0);
+
+                return [
+                    'source_article_id' => (int) $sourceId,
+                    'impressions' => $impressions,
+                    'second_reads' => $secondReads,
+                    'second_read_rate' => $impressions > 0 ? round($secondReads / $impressions, 4) : 0.0,
+                ];
+            })
+            ->sortByDesc('second_reads')
+            ->take($limit)
+            ->values();
+
+        $articles = Article::query()
+            ->whereIn('id', $rows->pluck('source_article_id'))
+            ->get(['id', 'title', 'slug'])
+            ->keyBy('id');
+
+        return $rows->map(function (array $row) use ($articles) {
+            $article = $articles->get($row['source_article_id']);
+            $row['title'] = $article?->title;
+            $row['slug'] = $article?->slug;
+
+            return $row;
+        });
     }
 }
