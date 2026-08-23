@@ -78,6 +78,15 @@ class CommunicationCampaign extends Model
     }
 
     /**
+     * Traccia separata degli invii di test (Provider Abstraction + Safe
+     * Test Send) — mai comm_sends, vedi CampaignTestSendService.
+     */
+    public function testSends(): HasMany
+    {
+        return $this->hasMany(CommunicationTestSend::class, 'campaign_id');
+    }
+
+    /**
      * Iscritti raggiunti da questa campagna, attraverso i record di invio
      * (comm_sends) — utile per liste/riepiloghi senza dover passare
      * esplicitamente da sends() in ogni punto che ne ha bisogno.

@@ -2,11 +2,13 @@
 
 ## Status
 
-**No real email is ever sent by this subsystem.** Every delivery path in this codebase terminates in an in-memory fake provider (`NullEmailProvider` or `RecordingEmailProvider`). No SMTP/API credentials, no real transport, no scheduler, no automatic recovery exists anywhere in this subsystem. This document describes what is built and how to operate it manually in this state — it does not enable production sending.
+**No bulk email is ever sent by this subsystem, and no email of any kind is sent unless a human deliberately enables it.** Every BULK delivery path (`CampaignDeliveryOrchestrator`/`CampaignDryRunService`) terminates in an in-memory fake provider (`NullEmailProvider` or `RecordingEmailProvider`) — this is unconditional, not configurable. The one exception is the single-recipient "Invio di test" action (Mission 9, see below), which can reach a real transport, but only when `communication.real_send_enabled` is explicitly set to `true` — `false` by default — and even then only for one explicitly-chosen recipient, never the campaign's recipient list. This document describes what is built and how to operate it manually in this state — it does not enable production bulk sending.
 
-The legacy `NewsletterController` / `newsletter_subscribers` flow (single-topic newsletter, real `Mail::send`) is untouched and out of scope here. Newsletter 2.0 is a separate, parallel subsystem (`comm_*` tables, `Communication*` models/controllers/services) built to reach **READY FOR PROVIDER INTEGRATION** without ever connecting one.
+The legacy `NewsletterController` / `newsletter_subscribers` flow (single-topic newsletter, real `Mail::send`) is untouched and out of scope here. Newsletter 2.0 is a separate, parallel subsystem (`comm_*` tables, `Communication*` models/controllers/services) built to reach **READY FOR PROVIDER INTEGRATION** without ever connecting one automatically.
 
 **Recipient Snapshot + Campaign Freeze** (Mission 8): the recipient snapshot (`RecipientSnapshotService`, step 1 below) already existed. What this increment adds is `CampaignFreezeService` — an explicit, idempotent "congela campagna" action that locks a ready campaign's content/template/mittente and its `comm_sends` recipient list against further changes. See "Congelamento (Campaign Freeze)" below for exactly what it guarantees and — just as important — what it deliberately does not.
+
+**Provider Abstraction + Safe Test Send** (Mission 9): adds `MailerEmailProvider` — the first and only REAL `EmailDeliveryProvider` implementation in this repository — and `CampaignTestSendService`, which uses it to send exactly one real email to one explicitly-chosen confirmed subscriber. Requires a frozen campaign and the `communication.real_send_enabled` config flag. Never touches `comm_sends`, never marks a campaign "sent", never usable for the recipient list. See "Invio di test (Safe Test Send)" below.
 
 ## Architecture
 
@@ -74,12 +76,27 @@ Audit trail: each freeze writes one `comm_campaign_activity_logs` row (`subject_
 
 ## Provider abstraction
 
-`App\Contracts\EmailDeliveryProvider` — one method, `deliver(RenderedCampaignMessage): DeliveryResult`. Exactly two implementations exist and are the only ones that may ever exist in this codebase's current state:
+`App\Contracts\EmailDeliveryProvider` — one method, `deliver(RenderedCampaignMessage): DeliveryResult`. Three implementations exist:
 
 - `NullEmailProvider` — always accepts, discards the message. Used where a delivery must happen but its content is irrelevant to the test.
 - `RecordingEmailProvider` — records every attempt in memory (never disk/DB/network), returns configurable outcomes (`willReturn()` FIFO queue or `resolveUsing()` closure) to simulate accepted / rejected / transient_failure / permanent_failure / a real thrown exception (timeout/crash simulation).
+- `MailerEmailProvider` (Mission 9) — the only REAL implementation. Wraps `Illuminate\Support\Facades\Mail` using the mailer already configured in `config/mail.php`/`.env` (the same transport the legacy Newsletter uses) — no new SDK, no credential stored anywhere in the database. Deliberately never bound as a container default and never used by `CampaignDeliveryOrchestrator`/`CampaignDryRunService`; the only caller is `CampaignTestSendService`, and only when `communication.real_send_enabled` is `true`.
 
-A dedicated regression test statically scans both provider source files for `Mail::`, `Http::`, `curl_`, socket primitives, etc., and fails if any appear — the guarantee is enforced by a test, not just a convention.
+A dedicated regression test statically scans the two FAKE provider source files for `Mail::`, `Http::`, `curl_`, socket primitives, etc., and fails if any appear — the guarantee is enforced by a test, not just a convention. `MailerEmailProvider` is intentionally exempt (it exists to reach `Mail::`) — its own tests instead prove `Mail::fake()` intercepts it before any real transport is reached.
+
+## Invio di test (Safe Test Send)
+
+`CampaignTestSendService::send(campaign, subscriber, provider, actorId)` — sends exactly ONE message to ONE explicitly-selected confirmed subscriber (chosen via the same paginated confirmed-subscriber search used by preview, never a free-text email field). Contract:
+
+- **Requires a frozen campaign** (`CampaignFreezeService`) — the content being test-sent is the content that stays locked, not one that could still change.
+- **Requires `communication.real_send_enabled=true`** (`.env`: `COMMUNICATION_REAL_SEND_ENABLED`, default `false`) — a deliberate, reviewed decision, never the default.
+- **Never touches `comm_sends`, `CampaignStateMachine`, or `SendStateMachine`** — structurally impossible for a test send to mark a campaign "sent": the service never references `comm_campaigns.status`.
+- **Separate audit trail**: every attempt is recorded in `comm_test_sends` (own table — `CommunicationTestSend`, campaign/subscriber/sender/status/provider_message_id/failure_reason/triggered_by), never mixed into `comm_sends`. A summary line is also written to the existing `comm_campaign_activity_logs` (visible on the Cronologia tab) — neither ever contains the recipient's email address.
+- **Unambiguous UI**: the admin action is labeled "🧪 Invio di test" throughout (button, page title, confirmation dialog); the string "Invia campagna" does not exist anywhere in this codebase.
+- **Reuses `CampaignRenderer`** — the identical rendering used by preview/dry-run/bulk send, never a second implementation.
+- An unexpected exception from the provider (not a `DeliveryResult`, a genuine crash) is still caught and recorded as `CommunicationTestSend::STATUS_EXCEPTION` — the admin always sees an outcome in the Cronologia, never a raw 500.
+
+`TestSendNeverAffectsBulkSendRegressionTest` is the mandatory regression proof: it sends multiple test emails — including to a subscriber who is also in the campaign's prepared bulk list — and asserts the bulk `comm_sends` row and `comm_campaigns.status` are byte-for-byte unchanged afterward.
 
 ## Idempotency
 
@@ -111,7 +128,7 @@ Retry policy: transient failures retry up to `CampaignDeliveryOrchestrator::DEFA
 
 Audited in this phase (N2.11):
 
-- **CRLF/header injection**: `subject`, `preheader` (campaign) and `from_name` (sender profile) will become real email headers once a provider is connected. Both the input `FormRequest`s (regex rejecting `\r`/`\n`) and `CampaignRenderer` itself (defense in depth, so any pre-existing/imported/direct-write data can never propagate a newline) now strip/reject them.
+- **CRLF/header injection**: `subject`, `preheader` (campaign) and `from_name` (sender profile) will become real email headers once a provider is connected. Both the input `FormRequest`s (regex rejecting `\r`/`\n`) and `CampaignRenderer` itself (defense in depth, so any pre-existing/imported/direct-write data can never propagate a newline) now strip/reject them — `MailerEmailProvider` (Mission 9) is the first provider to actually turn these into real Symfony `Email` headers and inherits this protection unchanged, since it never re-derives subject/from/reply-to from anything other than the already-validated `RenderedCampaignMessage`.
 - **XSS**: no `{!! !!}` raw Blade output anywhere in the Communication views. Campaign body is rendered as escaped plain text (`white-space:pre-line`), never interpreted as HTML. The preview page's live-HTML iframe uses `sandbox=""` (no scripts, no same-origin, no top navigation) as defense in depth even though the content is already escaped upstream.
 - **CSRF**: every mutating form carries `@csrf`.
 - **Authorization**: every admin route (prepare/preview/preflight/dry-run) requires the `editor` role via the existing `auth`+`editor` middleware group; verified per-endpoint.
@@ -135,10 +152,11 @@ Measured (N2.12) at 1,000 and 10,000 confirmed subscribers, on both SQLite and M
 
 ## What's missing for production
 
-This subsystem is **not** production-ready and is not intended to become so without deliberate, separate decisions:
+This subsystem is **not** production-ready for BULK sending and is not intended to become so without deliberate, separate decisions:
 
-- No real `EmailDeliveryProvider` implementation exists or should be added casually — connecting one is an explicit, reviewed decision (ESP selection, credentials, deliverability/reputation setup), not a code change alone.
-- No scheduler/queue worker drives delivery automatically — `runCampaign()`/`processQueue()` must be invoked manually (Artisan command, tinker, or a future explicit trigger) even once a real provider exists.
+- `MailerEmailProvider` (Mission 9) only reuses the SMTP transport already configured for the legacy Newsletter — no ESP selection, no dedicated sending domain/reputation setup, no deliverability tuning has been done. It is safe for a single ad-hoc test send, not for volume.
+- `CampaignDeliveryOrchestrator`/`CampaignDryRunService` still only ever construct `NullEmailProvider`/`RecordingEmailProvider` — wiring `MailerEmailProvider` (or a future ESP-specific provider) into the BULK path is an explicit, separate, reviewed decision, not a natural extension of Mission 9.
+- No scheduler/queue worker drives delivery automatically — `runCampaign()`/`processQueue()` must be invoked manually (Artisan command, tinker, or a future explicit trigger) even once a real bulk provider exists.
 - No webhook/bounce/complaint ingestion exists — `comm_sends.status` values like `delivered`/`bounced` are defined but never populated automatically in this codebase.
 - No rate limiting/warm-up strategy for a real send volume has been designed.
 - Stale-sending recovery remains manual-only by design; whether that should ever change is an operator/product decision, not a default this subsystem should silently adopt.

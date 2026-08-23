@@ -34,6 +34,9 @@
         </form>
       @endif
     @endunless
+    @if($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.test-send.form', $campaign) }}" class="btn btn--secondary">🧪 Invio di test</a>
+    @endif
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
       @csrf @method('DELETE')
@@ -216,9 +219,49 @@
     @endif
 
     <p style="color:#9ca3af;font-size:.8rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
-      Invio reale, code e statistiche di consegna arrivano in un blocco successivo del Sistema Comunicazione.
+      Invio bulk reale, code e statistiche di consegna arrivano in un blocco successivo del Sistema Comunicazione.
       <span class="status" style="background:#f3f4f6;color:#9ca3af;">In arrivo</span>
     </p>
+  </div>
+
+  <div class="admin-card">
+    <h3 style="margin-top:0;">🧪 Invii di test</h3>
+    <p style="color:#9ca3af;font-size:.85rem;">
+      Traccia separata da quella dei destinatari sopra: un invio di test non è mai una riga della coda bulk e non conta come "campagna inviata". Richiede una campagna congelata — vedi il pulsante in alto.
+    </p>
+
+    @if($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.test-send.form', $campaign) }}" class="btn btn--secondary">🧪 Nuovo invio di test</a>
+    @endif
+
+    @if($recentTestSends->isEmpty())
+      <p style="color:#9ca3af;font-size:.85rem;margin-top:1rem;">Nessun invio di test ancora eseguito per questa campagna.</p>
+    @else
+      <table style="width:100%;margin-top:1rem;font-size:.85rem;border-collapse:collapse;">
+        <thead>
+          <tr style="text-align:left;color:#9ca3af;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;">
+            <th style="padding:.4rem 0;">Quando</th>
+            <th style="padding:.4rem 0;">Iscritto</th>
+            <th style="padding:.4rem 0;">Esito</th>
+            <th style="padding:.4rem 0;">Da</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($recentTestSends as $testSend)
+            <tr style="border-top:1px solid #f1f5f9;">
+              <td style="padding:.5rem 0;">{{ $testSend->created_at?->format('d/m/Y H:i') }}</td>
+              <td style="padding:.5rem 0;">{{ $testSend->subscriber?->email ?? '—' }}</td>
+              <td style="padding:.5rem 0;">
+                <span class="status" style="background:{{ $testSend->isAccepted() ? '#dcfce7' : '#fef2f2' }};color:{{ $testSend->isAccepted() ? '#166534' : '#991b1b' }};">
+                  {{ \App\Models\CommunicationTestSend::statusOptions()[$testSend->status] ?? $testSend->status }}
+                </span>
+              </td>
+              <td style="padding:.5rem 0;">{{ $testSend->triggeredBy?->name ?? '—' }}</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    @endif
   </div>
 @elseif(in_array($activeTab, $placeholderTabs, true))
   <div class="admin-card project-empty-state">
