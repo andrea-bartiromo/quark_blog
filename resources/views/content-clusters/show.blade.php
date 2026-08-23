@@ -44,7 +44,7 @@
   // omogeneo (il caso comune) sarebbe una ripetizione senza informazione.
   $pathCategories = $articles->pluck('category')->filter()->unique();
   $isMultiCategoryPath = $pathCategories->count() > 1;
-  $categoryLabels = config('laboratorio.categories', []);
+  $categoryLabels = $categoryOptions;
 
   // Kairus Visual Language — due asset SEMANTICI, non un conteggio
   // derivato dal numero di articoli (vedi App\Support\PathVisualLibrary):
