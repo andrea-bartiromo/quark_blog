@@ -126,9 +126,9 @@ test.describe('editor autosave e recovery', () => {
 
     // Regressione P2: se il submit avviene prima della scadenza del debounce,
     // gli ultimi caratteri (compreso TinyMCE) devono essere scritti subito in
-    // localStorage prima che beforeunload venga soppresso. Il preventDefault
-    // simula un POST che non lascia la pagina (es. errore di rete/419) e ci
-    // permette di ispezionare esattamente il payload salvato dal submit.
+    // localStorage prima che beforeunload venga soppresso. Dispatchiamo il
+    // submit event senza navigazione per ispezionare esattamente il payload
+    // che sarebbe disponibile dopo un 419 o un errore di rete.
     test('il submit forza il flush della bozza ancora nel debounce', async ({ page }) => {
         await loginAsEditor(page);
         await page.goto(createPath);
@@ -141,8 +141,7 @@ test.describe('editor autosave e recovery', () => {
 
         await page.evaluate(() => {
             const form = document.querySelector('[data-editor-autosave-form]');
-            form.addEventListener('submit', (event) => event.preventDefault(), { capture: true, once: true });
-            form.requestSubmit();
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         });
 
         const saved = await page.evaluate(() => {
