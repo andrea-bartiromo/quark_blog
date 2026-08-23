@@ -4,8 +4,6 @@
     ->orderByDesc('views')
     ->limit(5)
     ->get(['title','slug','category','read_minutes']);
-
-  $categories = config('laboratorio.categories');
 @endphp
 
 <div class="premium-sidebar">
@@ -54,7 +52,7 @@
         <a href="{{ route('articolo', $art->slug) }}" class="premium-most-read__item">
           <span class="premium-most-read__rank">{{ str_pad($i + 1, 2, '0', STR_PAD_LEFT) }}</span>
           <span class="premium-most-read__content">
-            <span class="badge badge--{{ $art->category }}">{{ $categories[$art->category] ?? $art->category }}</span>
+            <span class="badge badge--{{ $art->category }}">{{ $categoryOptions[$art->category] ?? $art->category }}</span>
             <strong>{{ Str::limit($art->title, 68) }}</strong>
             <small>{{ $art->read_minutes }} min di lettura</small>
           </span>
@@ -71,7 +69,7 @@
     </div>
 
     <nav class="premium-topic-cloud" aria-label="Argomenti">
-      @foreach($categories as $slug => $label)
+      @foreach($categoryOptions as $slug => $label)
         <a href="{{ route('categoria', $slug) }}">{{ $label }}</a>
       @endforeach
     </nav>

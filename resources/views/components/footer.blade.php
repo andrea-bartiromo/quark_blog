@@ -24,7 +24,7 @@
       <div>
         <div class="footer-col-title">Esplora</div>
         <nav class="footer-links" aria-label="Sezioni">
-          @foreach(config('laboratorio.categories') as $slug => $label)
+          @foreach($categoryOptions as $slug => $label)
             <a href="{{ url('/categoria/' . $slug) }}">{{ $label }}</a>
           @endforeach
         </nav>

@@ -13,6 +13,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\User;
 
 class AuthorController extends Controller
@@ -26,6 +27,12 @@ class AuthorController extends Controller
         return view('autore', [
             'author' => $user,
             'articles' => $articles,
+
+            // DB-first (stessa fonte di Category::options() usata
+            // altrove): il badge categoria sotto ogni articolo deve
+            // riconoscere anche una categoria creata dall'admin dopo il
+            // deploy, non solo lo snapshot statico di config().
+            'categoryOptions' => Category::options(false),
         ]);
     }
 }

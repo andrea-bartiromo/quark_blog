@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -73,5 +74,52 @@ class AppServiceProvider extends ServiceProvider
         // cambiare dopo il boot, e comunque irrilevante fuori da una
         // richiesta HTTP reale (l'unico contesto in cui vengono generati
         // canonical/sitemap/feed).
+
+        // header/category-bar/sidebar/footer sono inclusi da ogni pagina
+        // pubblica tramite layouts/app.blade.php, senza un controller
+        // dedicato che possa passare le categorie come fa già
+        // HomeController per la home o ArticleController per la pagina
+        // articolo — per questi 4 partial, il composer è la fonte unica.
+        // Prima leggevano tutti config('laboratorio.categories') (lo
+        // snapshot statico congelato al deploy): una categoria creata
+        // dall'admin dopo il deploy non compariva in nessuno dei quattro,
+        // nonostante fosse già selezionabile per la pubblicazione — la
+        // stessa classe di bug già corretta lato Redazione in #253, qui
+        // sulla navigazione pubblica.
+        //
+        // Memoizzato sull'istanza Request corrente (non su una variabile
+        // catturata per riferimento in questa chiusura): le 4 view
+        // condividono lo stesso layout e vengono renderizzate nella stessa
+        // richiesta HTTP, quindi senza memoizzazione la stessa query
+        // "select slug, name from categories" girerebbe fino a 4 volte
+        // identica sulla stessa pagina. Una variabile catturata qui in
+        // boot() sembrerebbe corretta (boot() gira una volta per processo,
+        // e in produzione — nessun Octane in questo progetto, vedi
+        // composer.json — ogni richiesta HTTP reale è un processo PHP-FPM
+        // a sé) ma non lo è nei test: TestCase::get() dispatcha più
+        // richieste simulate sulla STESSA istanza applicativa già
+        // bootstrappata, quindi boot() gira una sola volta per metodo di
+        // test mentre le singole asserzioni si aspettano un conteggio
+        // query indipendente per ogni chiamata — da qui l'uso esplicito di
+        // Request::attributes, che invece è garantito nuovo per ogni
+        // Request (reale o simulata in test).
+        View::composer(
+            [
+                'components.header',
+                'components.category-bar',
+                'components.sidebar',
+                'components.footer',
+            ],
+            function ($view) {
+                $request = request();
+                $cacheKey = 'kairus.category_options';
+
+                if (! $request->attributes->has($cacheKey)) {
+                    $request->attributes->set($cacheKey, Category::options());
+                }
+
+                $view->with('categoryOptions', $request->attributes->get($cacheKey));
+            }
+        );
     }
 }

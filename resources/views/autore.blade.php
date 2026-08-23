@@ -106,7 +106,7 @@
 
               <div class="public-result-card__body">
                 <div class="public-result-card__meta">
-                  <span class="badge badge--{{ $article->category }}">{{ config('laboratorio.categories.'.$article->category) }}</span>
+                  <span class="badge badge--{{ $article->category }}">{{ $categoryOptions[$article->category] ?? $article->category }}</span>
                   <time datetime="{{ $article->published_at->toDateString() }}">{{ $article->published_at->locale('it')->isoFormat('D MMM YYYY') }}</time>
                   <span class="dot">·</span>
                   <span>{{ $article->read_minutes }} min</span>

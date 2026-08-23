@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\User;
 use App\Services\Search\ArticleSearchService;
 use Illuminate\Http\Request;
@@ -32,7 +33,12 @@ class SearchController extends Controller
         }
 
         $authors = User::has('articles')->orderBy('name')->get(['id', 'name']);
-        $categories = config('laboratorio.categories');
+
+        // DB-first (stessa fonte di Category::options() usata altrove):
+        // una categoria creata dall'admin dopo il deploy deve comparire
+        // subito nel filtro di ricerca, non solo dopo un redeploy che
+        // aggiorni config('laboratorio.categories').
+        $categories = Category::options(false);
 
         return view('ricerca', compact('query', 'results', 'category', 'authorId', 'from', 'to', 'authors', 'categories'));
     }

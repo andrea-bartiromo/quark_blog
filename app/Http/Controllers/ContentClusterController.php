@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\ContentCluster;
 use Illuminate\Contracts\View\View;
 
@@ -68,6 +69,12 @@ class ContentClusterController extends Controller
             ],
         ];
 
+        // DB-first (stessa fonte di Category::options() usata altrove):
+        // le etichette di categoria per-tappa devono riconoscere anche una
+        // categoria creata dall'admin dopo il deploy — vedi
+        // $categoryLabels in content-clusters/show.blade.php.
+        $categoryOptions = Category::options(false);
+
         return view('content-clusters.show', compact(
             'cluster',
             'articles',
@@ -75,6 +82,7 @@ class ContentClusterController extends Controller
             'canonical',
             'description',
             'structuredData',
+            'categoryOptions',
         ));
     }
 }

@@ -96,7 +96,7 @@
 
                 <div class="public-result-card__body">
                   <div class="public-result-card__meta">
-                    <span class="badge badge--{{ $article->category }}">{{ config('laboratorio.categories.'.$article->category) }}</span>
+                    <span class="badge badge--{{ $article->category }}">{{ $categories[$article->category] ?? $article->category }}</span>
                     <span>{{ $article->author->name }}</span>
                   </div>
 

@@ -59,6 +59,11 @@ class PublicPageQueryBudgetTest extends TestCase
      * con gli articoli mostrati. Dopo la correzione (hoisted fuori dal
      * loop in notizie.blade.php) il conteggio resta identico da 3 a 15
      * articoli pubblicati (oltre la pagina da 12).
+     *
+     * Budget +1 rispetto al precedente 7: il View::composer DB-first per
+     * header/category-bar/sidebar/footer esegue una sola Category::options()
+     * per richiesta, memoizzata negli attributi della Request. Il costo è
+     * costante e non cresce con il numero di articoli o di partial.
      */
     public function test_notizie_query_count_does_not_grow_with_article_count_on_page(): void
     {
@@ -77,7 +82,7 @@ class PublicPageQueryBudgetTest extends TestCase
             $countAt15,
             'Il conteggio query di /notizie cresce con il numero di articoli: possibile N+1 reintrodotto (es. Category::options() dentro il loop delle card).'
         );
-        $this->assertLessThanOrEqual(7, $countAt15);
+        $this->assertLessThanOrEqual(8, $countAt15);
     }
 
     /**
@@ -93,15 +98,13 @@ class PublicPageQueryBudgetTest extends TestCase
 
         $count = $this->queryCountFor(route('articolo', $article->slug));
 
-        // Budget +1 rispetto agli 11 storici: ArticleContinuationService
-        // ("Continua da qui", Growth S2) riusa il pathNavigation già
-        // caricato dal controller (nessuna query duplicata — vedi
-        // ArticleContinuationServiceTest::
-        // test_passing_a_real_null_navigation_never_triggers_a_second_lookup)
-        // e aggiunge esattamente 1 query bounded per il fallback di
-        // categoria quando non esiste un Percorso attivo. Non un N+1: il
-        // costo resta costante indipendentemente dal numero di articoli.
-        $this->assertLessThanOrEqual(12, $count);
+        // Il main corrente è già a 12 per Growth S2: la continuation usa
+        // il pathNavigation già caricato e aggiunge una sola query bounded
+        // nel fallback categoria. Il composer DB-first di #258 aggiunge
+        // un'ulteriore singola query per richiesta, quindi il budget
+        // composto corretto è 13 (non il vecchio 12 della PR arretrata).
+        // Entrambi i costi restano costanti: nessun N+1 viene assorbito.
+        $this->assertLessThanOrEqual(13, $count);
     }
 
     /**
@@ -109,6 +112,11 @@ class PublicPageQueryBudgetTest extends TestCase
      * variabile 'mostRead' mai referenziata da categoria.blade.php (il
      * widget "più letti" realmente mostrato vive in components/sidebar.
      * blade.php e fa la propria query indipendente).
+     *
+     * Budget +1 rispetto al precedente 7: il composer usa
+     * Category::options() con activeOnly=true per la navigazione, distinto
+     * dal Category::options(false) del controller categoria. Le semantiche
+     * sono diverse e il costo aggiuntivo resta una sola query per pagina.
      */
     public function test_category_page_query_count_is_within_the_post_fix_budget(): void
     {
@@ -116,7 +124,7 @@ class PublicPageQueryBudgetTest extends TestCase
 
         $count = $this->queryCountFor(route('categoria', 'energia'));
 
-        $this->assertLessThanOrEqual(7, $count);
+        $this->assertLessThanOrEqual(8, $count);
     }
 
     public function test_notizie_page_still_shows_the_correct_category_label_per_article(): void
