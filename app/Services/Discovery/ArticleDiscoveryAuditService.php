@@ -96,8 +96,7 @@ class ArticleDiscoveryAuditService
                 ->values();
 
             $categoryPages = $categorySlugs->mapWithKeys(function (string $slug) use ($article, $articles): array {
-                $matching = $articles->filter(fn (Article $candidate) =>
-                    $candidate->category === $slug || $candidate->secondaryCategories->contains('slug', $slug)
+                $matching = $articles->filter(fn (Article $candidate) => $candidate->category === $slug || $candidate->secondaryCategories->contains('slug', $slug)
                 )->values();
                 $index = $matching->search(fn (Article $candidate) => $candidate->id === $article->id);
 
