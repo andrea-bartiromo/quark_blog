@@ -11,6 +11,8 @@ La foundation contiene quattro entita:
 - `ArticleConcept`: relazione esplicita articolo-concetto, con `relation_type` (`primary` o `supporting`) e peso editoriale;
 - `ConceptQuestion`: domande editoriali strutturate associate a un concetto.
 
+A queste si aggiunge `ContentGraphService`, entry point applicativo che permette di usare il grafo senza modificare il model `Article` mentre quell'area e coinvolta in lavoro parallelo.
+
 ## Separazione dai sistemi esistenti
 
 Il Content Graph non duplica:
@@ -57,6 +59,27 @@ Il grafo aggiunge una relazione semantica esplicita e interrogabile che potra es
 - indice `(concept_id, is_active, sort_order)`
 
 Tutte le relazioni figlie usano cascade delete sul concetto. La cancellazione di un concetto non cancella mai l'articolo collegato.
+
+## Contratto del servizio
+
+`App\Services\ContentGraph\ContentGraphService` centralizza le operazioni V1 che devono rispettare invarianti di dominio.
+
+### linkArticle
+
+`linkArticle(Article, Concept, relationType, weight)`:
+
+- accetta soltanto `primary` o `supporting`;
+- accetta peso compreso fra 0 e 255;
+- e idempotente sulla coppia `(article_id, concept_id)`;
+- se la relazione esiste gia, aggiorna tipo/peso invece di creare un duplicato.
+
+### Letture
+
+- `conceptsForArticle()` restituisce i link ordinati per peso decrescente e precarica concetto + alias;
+- `articlesForConcept()` restituisce gli articoli collegati ordinati per peso decrescente;
+- `questionsForConcept()` restituisce soltanto domande attive, ordinate per `sort_order` e poi `id`.
+
+Il servizio non introduce side effect editoriali automatici: nessun matching, nessun AI scoring e nessuna pubblicazione deriva dalla semplice presenza del grafo.
 
 ## Scope intenzionalmente limitato
 
