@@ -29,6 +29,12 @@ return new class extends Migration
             $table->longText('body');
             $table->string('category');
             $table->string('status');
+            // Fa parte dello stato editoriale quando status=scheduled e
+            // resta utile anche per ricostruire fedelmente una versione
+            // pubblicata. Senza questo valore, ripristinare uno scheduled
+            // potrebbe produrre status=scheduled con published_at NULL o
+            // con una data appartenente alla versione corrente.
+            $table->timestamp('published_at')->nullable();
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['article_id', 'created_at']);
