@@ -124,6 +124,59 @@ test.describe('editor autosave e recovery', () => {
         expect(dialogAppeared).toBe(false);
     });
 
+    // Regressione P2: se il submit avviene prima della scadenza del debounce,
+    // gli ultimi caratteri (compreso TinyMCE) devono essere scritti subito in
+    // localStorage prima che beforeunload venga soppresso. Il preventDefault
+    // simula un POST che non lascia la pagina (es. errore di rete/419) e ci
+    // permette di ispezionare esattamente il payload salvato dal submit.
+    test('il submit forza il flush della bozza ancora nel debounce', async ({ page }) => {
+        await loginAsEditor(page);
+        await page.goto(createPath);
+
+        const title = 'Ultimissima modifica prima del submit';
+        const body = 'Corpo digitato immediatamente prima del salvataggio manuale.';
+
+        await page.getByLabel('Titolo *').fill(title);
+        await page.frameLocator('iframe[id$="_ifr"]').locator('body').fill(body);
+
+        await page.evaluate(() => {
+            const form = document.querySelector('[data-editor-autosave-form]');
+            form.addEventListener('submit', (event) => event.preventDefault(), { capture: true, once: true });
+            form.requestSubmit();
+        });
+
+        const saved = await page.evaluate(() => {
+            const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('kairus:editor:v1:admin:new:'));
+            return key ? JSON.parse(window.localStorage.getItem(key)) : null;
+        });
+
+        expect(saved).not.toBeNull();
+        expect(saved.fields.title).toBe(title);
+        expect(saved.fields.body).toContain(body);
+    });
+
+    // Regressione P2: il file non può essere ripristinato dal browser, ma il
+    // suo nome è un metadato di recovery. Se è l'unica differenza rispetto al
+    // form server-rendered, deve comunque comparire il banner e, al restore,
+    // il promemoria di riselezionare il file.
+    test('la sola selezione di una cover viene riconosciuta come bozza recuperabile', async ({ page }) => {
+        await loginAsEditor(page);
+        await page.goto(createPath);
+
+        await page.locator('input[name="cover_image_upload"]').setInputFiles({
+            name: 'cover-da-riselezionare.jpg',
+            mimeType: 'image/jpeg',
+            buffer: Buffer.from('fake-jpeg-for-autosave-metadata'),
+        });
+
+        await page.waitForTimeout(2000);
+        await page.reload();
+
+        await expect(page.locator('[data-editor-autosave-banner]')).toBeVisible();
+        await page.locator('[data-editor-autosave-restore]').click();
+        await expect(page.locator('[data-editor-autosave-file-hint]')).toContainText('cover-da-riselezionare.jpg');
+    });
+
     // TEST 11 (parziale): Unicode/HTML long body roundtrip attraverso il recupero locale.
     test('testo con caratteri italiani e apostrofi tipografici sopravvive al recupero', async ({ page }) => {
         await loginAsEditor(page);
