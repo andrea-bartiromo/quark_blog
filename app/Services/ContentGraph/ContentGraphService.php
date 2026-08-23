@@ -40,6 +40,11 @@ class ContentGraphService
         );
     }
 
+    /**
+     * Internal editorial read: includes every linked concept regardless of
+     * publication state. Public/discovery consumers must use
+     * discoverableConceptsForArticle() instead.
+     */
     public function conceptsForArticle(Article $article): Collection
     {
         return ArticleConcept::query()
@@ -50,6 +55,36 @@ class ContentGraphService
             ->get();
     }
 
+    /**
+     * Discovery-safe read: reuses Article::published() and only returns
+     * active concepts. This prevents draft/review/scheduled articles or
+     * non-active concepts from leaking through a future public consumer.
+     */
+    public function discoverableConceptsForArticle(Article $article): Collection
+    {
+        $articleIsPublic = Article::query()
+            ->published()
+            ->whereKey($article->getKey())
+            ->exists();
+
+        if (! $articleIsPublic) {
+            return collect();
+        }
+
+        return ArticleConcept::query()
+            ->with(['concept.aliases'])
+            ->where('article_id', $article->getKey())
+            ->whereHas('concept', fn ($query) => $query->active())
+            ->orderByDesc('weight')
+            ->orderBy('concept_id')
+            ->get();
+    }
+
+    /**
+     * Internal editorial read. It intentionally includes links to articles
+     * in every state because the admin/Radar layer needs to inspect gaps and
+     * work in progress. Public consumers must apply publication rules.
+     */
     public function articlesForConcept(Concept $concept): Collection
     {
         return ArticleConcept::query()
@@ -60,11 +95,42 @@ class ContentGraphService
             ->get();
     }
 
+    /**
+     * Internal editorial read: drafts and inactive questions are visible to
+     * future admin tooling, but nothing here publishes them.
+     */
     public function questionsForConcept(Concept $concept): Collection
     {
         return ConceptQuestion::query()
+            ->with('targetArticle')
             ->where('concept_id', $concept->getKey())
-            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Safest reusable boundary for a future public question consumer:
+     * concept active + question approved + a target article that is actually
+     * public according to the existing Article::published() scope.
+     */
+    public function answerableQuestionsForConcept(Concept $concept): Collection
+    {
+        $conceptIsActive = Concept::query()
+            ->active()
+            ->whereKey($concept->getKey())
+            ->exists();
+
+        if (! $conceptIsActive) {
+            return collect();
+        }
+
+        return ConceptQuestion::query()
+            ->approved()
+            ->with('targetArticle')
+            ->where('concept_id', $concept->getKey())
+            ->whereNotNull('target_article_id')
+            ->whereHas('targetArticle', fn ($query) => $query->published())
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
