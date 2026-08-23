@@ -60,13 +60,24 @@
 
     // Cover reale se presente; altrimenti il fallback raster globale (Fase
     // 1), mai hero-placeholder.svg — Google non accetta SVG come immagine
-    // per NewsArticle. Solo 'url': nessuna larghezza/altezza dichiarata,
-    // perché non sono garantite per ogni upload futuro (nessun vincolo nel
-    // modello) — dichiararle sarebbe un'assunzione, non un dato verificato
-    // per questo specifico record.
-    $articleStructuredDataImageUrl = filled($article->cover_image)
+    // per NewsArticle.
+    $articleStructuredDataImageIsCover = filled($article->cover_image);
+    $articleStructuredDataImageUrl = $articleStructuredDataImageIsCover
         ? asset('assets/img/'.$article->cover_image)
         : asset(config('laboratorio.default_share_image'));
+
+    // Larghezza/altezza reali, non assunte: stesso pattern già in uso altrove
+    // per immagini locali (es. ResponsiveImageVariantService::resolveForMarkup(),
+    // components/media/image-viewer.blade.php) — getimagesize() su file
+    // locale sotto public/, guardia is_file() prima, mai una richiesta di
+    // rete. Se il file non esiste o non è leggibile come immagine, i campi
+    // restano assenti invece di dichiarare un valore inventato.
+    $articleStructuredDataImagePath = $articleStructuredDataImageIsCover
+        ? public_path('assets/img/'.$article->cover_image)
+        : public_path(config('laboratorio.default_share_image'));
+    $articleStructuredDataImageSize = is_file($articleStructuredDataImagePath)
+        ? @getimagesize($articleStructuredDataImagePath)
+        : false;
 
     // Stessa fonte già usata per articleSection: opzioni categoria DB-first
     // con fallback a config('laboratorio.categories'), risolta una sola
@@ -116,10 +127,12 @@
                 // differire per un SEO title dedicato) e senza troncamento.
                 'headline' => $article->title,
                 'description' => $article->metaDescription(),
-                'image' => [
+                'image' => array_filter([
                     '@type' => 'ImageObject',
                     'url' => $articleStructuredDataImageUrl,
-                ],
+                    'width' => $articleStructuredDataImageSize ? $articleStructuredDataImageSize[0] : null,
+                    'height' => $articleStructuredDataImageSize ? $articleStructuredDataImageSize[1] : null,
+                ]),
                 'datePublished' => $article->published_at->toIso8601String(),
                 'articleSection' => $articleCategoryOptions[$article->category] ?? $article->category,
                 'author' => [
