@@ -134,7 +134,15 @@ class ContentClusterContinuousPublishedPrefixTest extends TestCase
             ->assertDontSee('Verso la tappa segreta');
 
         $html = $response->getContent();
-        $this->assertSame(3, substr_count($html, '"@type":"ListItem","position":'));
+        preg_match('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $matches);
+        $this->assertNotEmpty($matches[1] ?? null);
+        $schema = json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(3, $schema['mainEntity']['numberOfItems']);
+        $this->assertSame(
+            array_column(array_slice($articles, 0, 3), 'title'),
+            array_column($schema['mainEntity']['itemListElement'], 'name'),
+        );
     }
 
     public function test_pillar_beyond_gap_is_not_rendered_or_linked(): void
