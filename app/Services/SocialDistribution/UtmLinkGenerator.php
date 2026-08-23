@@ -16,9 +16,14 @@ use InvalidArgumentException;
  * attribuirebbe erroneamente in analytics una condivisione spontanea a una
  * campagna ufficiale mai esistita.
  *
- * v1 = un solo canale (Facebook), architettura pensata per aggiungerne
- * altri senza riscrivere il contratto: ogni canale è solo una entry nella
- * mappa readonly CHANNELS.
+ * v2 (Mission 8): tre canali social nominati (Facebook, X, LinkedIn) più
+ * un canale "altro" per una distribuzione ufficiale non legata a una
+ * piattaforma social specifica (es. un partner, una newsletter di terzi,
+ * un QR code su materiale stampato) — mai per l'auto-pubblicazione: questo
+ * servizio genera solo URL, non chiama alcuna API social, non richiede né
+ * memorizza token/OAuth di alcuna piattaforma. L'architettura v1 era già
+ * pensata per questa estensione: ogni canale resta solo una entry nella
+ * mappa readonly CHANNELS, nessun contratto riscritto.
  *
  * Nessuna persistenza: stateless per design, coerente con "utility
  * opzionale" del brief — non introduce un nuovo concetto di "campagna"
@@ -29,11 +34,34 @@ class UtmLinkGenerator
 {
     public const CHANNEL_FACEBOOK = 'facebook';
 
+    public const CHANNEL_X = 'x';
+
+    public const CHANNEL_LINKEDIN = 'linkedin';
+
+    public const CHANNEL_OTHER = 'other';
+
     /**
      * @var array<string, string> canale => utm_source
      */
     private const CHANNELS = [
         self::CHANNEL_FACEBOOK => 'facebook',
+        self::CHANNEL_X => 'x',
+        self::CHANNEL_LINKEDIN => 'linkedin',
+        self::CHANNEL_OTHER => 'altro',
+    ];
+
+    /**
+     * Prefisso del nome campagna auto-generato quando il redattore non ne
+     * specifica uno — un valore per canale così il default resta
+     * decifrabile in un report analytics (vedi normalizeCampaign()).
+     *
+     * @var array<string, string> canale => prefisso
+     */
+    private const CAMPAIGN_PREFIXES = [
+        self::CHANNEL_FACEBOOK => 'fb',
+        self::CHANNEL_X => 'x',
+        self::CHANNEL_LINKEDIN => 'li',
+        self::CHANNEL_OTHER => 'altro',
     ];
 
     private const UTM_MEDIUM = 'social';
@@ -56,7 +84,7 @@ class UtmLinkGenerator
             throw new InvalidArgumentException("Canale social non supportato: {$channel}.");
         }
 
-        $campaignSlug = $this->normalizeCampaign($campaign, $article);
+        $campaignSlug = $this->normalizeCampaign($campaign, $article, $channel);
 
         // route() con l'array dei parametri query: Laravel li aggiunge alla
         // querystring, mai al path — l'URL canonico dell'articolo
@@ -75,19 +103,19 @@ class UtmLinkGenerator
     }
 
     /**
-     * Convenzione di naming: fb-{slug articolo}-{YYYYMMDD} se il redattore
-     * non specifica nulla — sempre univoca per articolo+giorno, mai vuota,
-     * decifrabile in un report analytics senza dover consultare altrove
-     * "a cosa si riferiva questa campagna". Un'etichetta esplicita ha
-     * comunque priorità quando fornita (es. per raggruppare più articoli
-     * sotto un'unica spinta editoriale), purché rispetti lo stesso
-     * alfabeto slug.
+     * Convenzione di naming: {prefisso canale}-{slug articolo}-{YYYYMMDD}
+     * se il redattore non specifica nulla — sempre univoca per
+     * articolo+giorno+canale, mai vuota, decifrabile in un report
+     * analytics senza dover consultare altrove "a cosa si riferiva questa
+     * campagna". Un'etichetta esplicita ha comunque priorità quando
+     * fornita (es. per raggruppare più articoli sotto un'unica spinta
+     * editoriale), purché rispetti lo stesso alfabeto slug.
      */
-    private function normalizeCampaign(?string $campaign, Article $article): string
+    private function normalizeCampaign(?string $campaign, Article $article, string $channel): string
     {
         $value = $campaign !== null && trim($campaign) !== ''
             ? trim($campaign)
-            : 'fb-'.$article->slug.'-'.now()->format('Ymd');
+            : self::CAMPAIGN_PREFIXES[$channel].'-'.$article->slug.'-'.now()->format('Ymd');
 
         if (mb_strlen($value) > self::MAX_CAMPAIGN_LENGTH) {
             throw new InvalidArgumentException('Nome campagna troppo lungo (max '.self::MAX_CAMPAIGN_LENGTH.' caratteri).');
@@ -107,6 +135,9 @@ class UtmLinkGenerator
     {
         return [
             self::CHANNEL_FACEBOOK => 'Facebook',
+            self::CHANNEL_X => 'X (Twitter)',
+            self::CHANNEL_LINKEDIN => 'LinkedIn',
+            self::CHANNEL_OTHER => 'Altro (specificare nel nome campagna)',
         ];
     }
 }

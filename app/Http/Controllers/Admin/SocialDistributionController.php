@@ -22,16 +22,21 @@ class SocialDistributionController extends Controller
      */
     public function index(Request $request): View
     {
-        $slug = $request->input('slug');
+        $slug = is_string($request->input('slug')) ? trim($request->input('slug')) : $request->input('slug');
         $campaignInput = $request->input('campaign');
-        $channel = UtmLinkGenerator::CHANNEL_FACEBOOK;
+        $channelInput = $request->input('channel');
+        $channel = is_string($channelInput) && array_key_exists($channelInput, UtmLinkGenerator::channelOptions())
+            ? $channelInput
+            : UtmLinkGenerator::CHANNEL_FACEBOOK;
 
         $article = null;
         $link = null;
         $error = null;
 
         if (filled($slug)) {
-            $article = Article::published()->where('slug', $slug)->first();
+            $article = mb_strlen($slug) <= 255
+                ? Article::published()->where('slug', $slug)->first()
+                : null;
 
             if (! $article) {
                 $error = 'Nessun articolo pubblicato con questo slug.';
@@ -47,6 +52,7 @@ class SocialDistributionController extends Controller
         return view('admin.social-distribution.index', [
             'slug' => $slug,
             'campaignInput' => $campaignInput,
+            'channel' => $channel,
             'channelOptions' => UtmLinkGenerator::channelOptions(),
             'article' => $article,
             'link' => $link,
