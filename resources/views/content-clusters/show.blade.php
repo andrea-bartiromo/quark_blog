@@ -29,7 +29,7 @@
   $pathCoverViewerId = 'path-cover-viewer-'.$cluster->id;
   $takeaways = collect($cluster->takeaways ?? [])->filter()->values();
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
-  $showContinuation = $cluster->isUpdating() && $articles->isNotEmpty();
+  $showContinuation = $hasHiddenRemainder || ($cluster->isUpdating() && $articles->isNotEmpty());
   $publishedStepCount = $articles->count();
 
   // Tempo di lettura dell'intero percorso: somma automatica dei
@@ -201,7 +201,7 @@
               <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
               @if($article->excerpt)<p>{{ $article->excerpt }}</p>@endif
               <a class="path-step__cta" href="{{ route('articolo', $article->slug) }}">Leggi l'articolo <span aria-hidden="true">→</span></a>
-              @if($article->pivot?->transition_text)
+              @if($article->pivot?->transition_text && ! $loop->last)
                 <p class="path-step__transition"><span aria-hidden="true">↳</span> {{ $article->pivot->transition_text }}</p>
               @endif
             </div>

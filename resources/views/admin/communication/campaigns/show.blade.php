@@ -24,7 +24,19 @@
   <div style="display:flex;gap:.5rem;">
     <a href="{{ route('admin.comunicazione.campaigns.preview', $campaign) }}" class="btn btn--secondary">👁️ Anteprima</a>
     <a href="{{ route('admin.comunicazione.campaigns.preflight', $campaign) }}" class="btn btn--secondary">✅ Verifica pre-invio</a>
-    <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
+    @unless($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.edit', $campaign) }}" class="btn btn--secondary">✏️ Modifica campagna</a>
+      @if($canFreeze)
+        <form method="POST" action="{{ route('admin.comunicazione.campaigns.freeze', $campaign) }}"
+              onsubmit="return confirm('Congelare «{{ $campaign->title }}»? Contenuto, template, mittente e destinatari non saranno più modificabili.')">
+          @csrf
+          <button type="submit" class="btn btn--secondary">🧊 Congela campagna</button>
+        </form>
+      @endif
+    @endunless
+    @if($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.test-send.form', $campaign) }}" class="btn btn--secondary">🧪 Invio di test</a>
+    @endif
     <form id="delete-campaign-form" method="POST" action="{{ route('admin.comunicazione.campaigns.destroy', $campaign) }}"
           onsubmit="return confirm('Eliminare definitivamente la campagna «{{ $campaign->title }}»? L\'azione non è reversibile.')">
       @csrf @method('DELETE')
@@ -36,6 +48,11 @@
 <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem;">
   <span class="status status--campaign-{{ $campaign->status }}">{{ $statusOptions[$campaign->status] ?? $campaign->status }}</span>
   <span class="status" style="background:#f3f4f6;color:#4b5563;">{{ $typeOptions[$campaign->type] ?? $campaign->type }}</span>
+  @if($campaign->isFrozen())
+    <span class="status" style="background:#e0f2fe;color:#075985;" title="Congelata il {{ $campaign->frozen_at->format('d/m/Y H:i') }} da {{ $campaign->frozenBy?->name ?? 'utente eliminato' }}">
+      🧊 Congelata
+    </span>
+  @endif
 
   <form method="POST" action="{{ route('admin.comunicazione.campaigns.duplicate', $campaign) }}" style="margin-left:auto;">
     @csrf
@@ -181,7 +198,11 @@
       </div>
     </dl>
 
-    @if($canPrepareRecipients)
+    @if($campaign->isFrozen())
+      <p style="color:#075985;font-size:.85rem;">
+        🧊 Elenco destinatari congelato il {{ $campaign->frozen_at->format('d/m/Y H:i') }}: non può più essere aggiornato, anche se nuovi iscritti si confermano da adesso in poi.
+      </p>
+    @elseif($canPrepareRecipients)
       <form method="POST" action="{{ route('admin.comunicazione.campaigns.recipients.prepare', $campaign) }}">
         @csrf
         <button type="submit" class="btn btn--primary">
@@ -198,9 +219,49 @@
     @endif
 
     <p style="color:#9ca3af;font-size:.8rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
-      Invio reale, code e statistiche di consegna arrivano in un blocco successivo del Sistema Comunicazione.
+      Invio bulk reale, code e statistiche di consegna arrivano in un blocco successivo del Sistema Comunicazione.
       <span class="status" style="background:#f3f4f6;color:#9ca3af;">In arrivo</span>
     </p>
+  </div>
+
+  <div class="admin-card">
+    <h3 style="margin-top:0;">🧪 Invii di test</h3>
+    <p style="color:#9ca3af;font-size:.85rem;">
+      Traccia separata da quella dei destinatari sopra: un invio di test non è mai una riga della coda bulk e non conta come "campagna inviata". Richiede una campagna congelata — vedi il pulsante in alto.
+    </p>
+
+    @if($campaign->isFrozen())
+      <a href="{{ route('admin.comunicazione.campaigns.test-send.form', $campaign) }}" class="btn btn--secondary">🧪 Nuovo invio di test</a>
+    @endif
+
+    @if($recentTestSends->isEmpty())
+      <p style="color:#9ca3af;font-size:.85rem;margin-top:1rem;">Nessun invio di test ancora eseguito per questa campagna.</p>
+    @else
+      <table style="width:100%;margin-top:1rem;font-size:.85rem;border-collapse:collapse;">
+        <thead>
+          <tr style="text-align:left;color:#9ca3af;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;">
+            <th style="padding:.4rem 0;">Quando</th>
+            <th style="padding:.4rem 0;">Iscritto</th>
+            <th style="padding:.4rem 0;">Esito</th>
+            <th style="padding:.4rem 0;">Da</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($recentTestSends as $testSend)
+            <tr style="border-top:1px solid #f1f5f9;">
+              <td style="padding:.5rem 0;">{{ $testSend->created_at?->format('d/m/Y H:i') }}</td>
+              <td style="padding:.5rem 0;">{{ $testSend->subscriber?->email ?? '—' }}</td>
+              <td style="padding:.5rem 0;">
+                <span class="status" style="background:{{ $testSend->isAccepted() ? '#dcfce7' : '#fef2f2' }};color:{{ $testSend->isAccepted() ? '#166534' : '#991b1b' }};">
+                  {{ \App\Models\CommunicationTestSend::statusOptions()[$testSend->status] ?? $testSend->status }}
+                </span>
+              </td>
+              <td style="padding:.5rem 0;">{{ $testSend->triggeredBy?->name ?? '—' }}</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    @endif
   </div>
 @elseif(in_array($activeTab, $placeholderTabs, true))
   <div class="admin-card project-empty-state">
