@@ -142,6 +142,7 @@
         <td>
           <div class="actions">
             <a href="{{ route('admin.articles.edit', $article) }}" class="action-btn">Modifica</a>
+            <a href="{{ route('admin.articles.discover', $article) }}" class="action-btn">Discover</a>
             <a href="{{ route('articolo', $article->slug) }}" target="_blank" class="action-btn">Vedi</a>
             <form method="POST" action="{{ route('admin.articles.destroy', $article) }}"
                   onsubmit="return confirm('Eliminare questo articolo?')" style="display:inline;">

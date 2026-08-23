@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
 use App\Http\Controllers\Admin\Communication\CommunicationSenderProfileController;
 use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DiscoverReadinessController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -137,6 +138,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::delete('/articoli/{article}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
     Route::patch('/articoli/{article}/verifica', [AdminArticleController::class, 'updateVerification'])->name('articles.verify');
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+    Route::get('/articoli/{article}/discover', [DiscoverReadinessController::class, 'show'])->name('articles.discover');
 
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
@@ -224,6 +226,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/search-opportunities', [SearchOpportunityController::class, 'index'])->name('search-opportunities');
     Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
     Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
+    Route::post('/search-opportunities/stato', [SearchOpportunityController::class, 'updateStatus'])->name('search-opportunities.update-status');
 
     // Second read (Growth S2 — "Continua da qui")
     Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');

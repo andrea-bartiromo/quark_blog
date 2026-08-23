@@ -119,6 +119,60 @@ class CampaignPreflightTest extends TestCase
         $response->assertSee('non è/sono più un iscritto confermato', false);
     }
 
+    /**
+     * Batch 04B Mission 9: scenario "zero-eligible" isolato da ogni altro
+     * blocco — mittente/oggetto/contenuto validi, ma zero iscritti
+     * confermati esistono nel sistema. Deve bloccare con lo stesso
+     * messaggio di "nessun destinatario preparato", mai un errore o un
+     * conteggio negativo/indefinito.
+     */
+    public function test_zero_confirmed_subscribers_in_the_whole_system_blocks_with_a_clear_reason(): void
+    {
+        $sender = CommunicationSenderProfile::factory()->create();
+        $campaign = CommunicationCampaign::factory()->draft()->create([
+            'sender_profile_id' => $sender->id,
+            'subject' => 'Oggetto reale',
+            'content' => ['body' => 'Corpo reale.'],
+        ]);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.comunicazione.campaigns.preflight', $campaign));
+
+        $response->assertOk();
+        $response->assertSee('Non pronta');
+        $response->assertSee('Nessun destinatario preparato');
+    }
+
+    /**
+     * Batch 04B Mission 9: il flag communication.real_send_enabled e il
+     * provider usato da un eventuale invio di test devono essere visibili
+     * su questa pagina — mai solo dedotti implicitamente altrove.
+     */
+    public function test_the_real_send_disabled_default_state_and_providers_are_surfaced(): void
+    {
+        $campaign = $this->readyCampaign();
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.comunicazione.campaigns.preflight', $campaign));
+
+        $response->assertOk();
+        $response->assertSee('Disabilitato (default)');
+        $response->assertSee('MailerEmailProvider', false);
+        $response->assertSee('RecordingEmailProvider', false);
+    }
+
+    public function test_real_send_enabled_true_is_surfaced_when_configured(): void
+    {
+        config(['communication.real_send_enabled' => true]);
+        $campaign = $this->readyCampaign();
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.comunicazione.campaigns.preflight', $campaign));
+
+        $response->assertOk();
+        $response->assertSee('>Abilitato<', false);
+    }
+
     public function test_confirmed_subscribers_never_snapshotted_yet_are_flagged_as_a_warning(): void
     {
         $campaign = $this->readyCampaign();

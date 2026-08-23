@@ -43,6 +43,15 @@ class SearchConsoleCsvImporter
                 return new SearchConsoleImportResult(0, 0, 0, ['File vuoto.'], '');
             }
 
+            // Google Search Console (e molti editor/fogli di calcolo)
+            // esportano CSV UTF-8 con BOM: senza rimuoverlo qui, il primo
+            // header ("query") arriverebbe come "\xEF\xBB\xBFquery" e
+            // fallirebbe silenziosamente il riconoscimento colonne — non un
+            // caso raro da ignorare, è il default di molti export reali.
+            if (isset($header[0])) {
+                $header[0] = $this->stripBom((string) $header[0]);
+            }
+
             $columnIndex = $this->resolveColumnIndex($header);
 
             if ($columnIndex === null) {
@@ -119,6 +128,11 @@ class SearchConsoleCsvImporter
         }
     }
 
+    private function stripBom(string $value): string
+    {
+        return str_starts_with($value, "\xEF\xBB\xBF") ? substr($value, 3) : $value;
+    }
+
     /**
      * @return array<string,int>|null
      */
@@ -155,7 +169,7 @@ class SearchConsoleCsvImporter
         $clicks = filter_var($record[$columnIndex['clicks']] ?? null, FILTER_VALIDATE_INT);
         $impressions = filter_var($record[$columnIndex['impressions']] ?? null, FILTER_VALIDATE_INT);
         $ctr = $this->parseCtr($record[$columnIndex['ctr']] ?? null);
-        $position = filter_var($record[$columnIndex['position']] ?? null, FILTER_VALIDATE_FLOAT);
+        $position = filter_var($this->normalizeLocaleDecimal($record[$columnIndex['position']] ?? null), FILTER_VALIDATE_FLOAT);
 
         if ($clicks === false || $impressions === false || $ctr === null || $position === false) {
             return null;
@@ -186,7 +200,7 @@ class SearchConsoleCsvImporter
             return null;
         }
 
-        $value = trim((string) $raw);
+        $value = $this->normalizeLocaleDecimal(trim((string) $raw));
 
         if (str_ends_with($value, '%')) {
             $number = filter_var(rtrim($value, '%'), FILTER_VALIDATE_FLOAT);
@@ -197,5 +211,30 @@ class SearchConsoleCsvImporter
         $number = filter_var($value, FILTER_VALIDATE_FLOAT);
 
         return $number === false ? null : $number;
+    }
+
+    /**
+     * Un export di Search Console in una locale italiana/europea (Fogli
+     * Google esportato con impostazioni locali, o un file corretto a mano
+     * in Excel) può usare la virgola come separatore decimale ("4,52%"
+     * invece di "4.52%") — senza normalizzare qui, FILTER_VALIDATE_FLOAT
+     * scarterebbe silenziosamente ogni riga con quel formato, non solo
+     * quelle davvero malformate. Si applica solo quando il valore contiene
+     * ESATTAMENTE una virgola e nessun punto: un numero con entrambi
+     * (es. "1.234,56" o "1,234.56") resta ambiguo e viene lasciato
+     * invariato — la riga verrà scartata da FILTER_VALIDATE_FLOAT come
+     * qualunque altro valore non valido, mai interpretato a caso.
+     */
+    private function normalizeLocaleDecimal(mixed $raw): mixed
+    {
+        if (! is_string($raw)) {
+            return $raw;
+        }
+
+        if (substr_count($raw, ',') === 1 && ! str_contains($raw, '.')) {
+            return str_replace(',', '.', $raw);
+        }
+
+        return $raw;
     }
 }

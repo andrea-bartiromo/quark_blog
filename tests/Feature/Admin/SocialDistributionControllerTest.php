@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\User;
+use App\Services\SocialDistribution\UtmLinkGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -99,5 +100,74 @@ class SocialDistributionControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('utm_campaign=lancio-fisica-2026', false);
+    }
+
+    public function test_defaults_to_the_facebook_channel_when_none_is_selected(): void
+    {
+        $article = $this->publishedArticle();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', ['slug' => $article->slug]));
+
+        $response->assertOk();
+        $response->assertSee('utm_source=facebook', false);
+    }
+
+    public function test_a_selected_linkedin_channel_is_reflected_in_the_generated_link(): void
+    {
+        $article = $this->publishedArticle();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', [
+            'slug' => $article->slug,
+            'channel' => UtmLinkGenerator::CHANNEL_LINKEDIN,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('utm_source=linkedin', false);
+    }
+
+    public function test_an_unrecognized_channel_value_falls_back_to_facebook_instead_of_erroring(): void
+    {
+        $article = $this->publishedArticle();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', [
+            'slug' => $article->slug,
+            'channel' => 'not-a-real-channel',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('utm_source=facebook', false);
+    }
+
+    public function test_an_overly_long_slug_is_treated_as_not_found_without_querying_the_database_for_it(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', [
+            'slug' => str_repeat('a', 300),
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Nessun articolo pubblicato con questo slug.');
+    }
+
+    public function test_a_slug_with_surrounding_whitespace_is_trimmed_before_lookup(): void
+    {
+        $article = $this->publishedArticle();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', [
+            'slug' => '  '.$article->slug.'  ',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('utm_source=facebook', false);
+    }
+
+    public function test_the_copy_button_is_present_but_hidden_for_progressive_enhancement(): void
+    {
+        $article = $this->publishedArticle();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.social-distribution', ['slug' => $article->slug]));
+
+        $response->assertOk();
+        $response->assertSee('js-copy-link', false);
+        $response->assertSee('hidden', false);
     }
 }

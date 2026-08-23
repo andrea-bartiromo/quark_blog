@@ -361,10 +361,13 @@ class CommunicationCampaignController extends Controller
      */
     public function preflight(CommunicationCampaign $campaign)
     {
+        $campaign->loadMissing('template');
+
         return view('admin.communication.campaigns.preflight', [
             'campaign' => $campaign,
             'report' => $this->campaignPreflight->assess($campaign),
             'statusOptions' => CommunicationCampaign::statusOptions(),
+            'realSendEnabled' => (bool) config('communication.real_send_enabled', false),
         ]);
     }
 
