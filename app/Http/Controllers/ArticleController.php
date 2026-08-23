@@ -86,13 +86,19 @@ class ArticleController extends Controller
         }
 
         $pathNavigation = app(ArticlePathNavigation::class)->forArticle($article);
+        $excludeFromRelated = collect([
+            $pathNavigation['previous'] ?? null,
+            $pathNavigation['next'] ?? null,
+        ])->filter()->pluck('id')->all();
 
         return view('articolo', [
             'article' => $article,
 
             // Correlati multi-categoria: condivide almeno una categoria
-            // principale o secondaria con l'articolo corrente.
-            'related' => app(ArticleRelatedService::class)->forArticle($article),
+            // principale o secondaria con l'articolo corrente. Le tappe
+            // precedente/successiva del Percorso sono già mostrate nel
+            // blocco dedicato e vengono escluse per evitare duplicazioni.
+            'related' => app(ArticleRelatedService::class)->forArticle($article, excludeIds: $excludeFromRelated),
 
             // Calcolato una sola volta qui e riusato da articolo.blade.php,
             // articles/partials/structured-data.blade.php e
