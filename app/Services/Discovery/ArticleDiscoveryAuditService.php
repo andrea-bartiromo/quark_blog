@@ -29,8 +29,27 @@ class ArticleDiscoveryAuditService
             ->get();
 
         $archivePosition = $articles->values()->mapWithKeys(fn (Article $article, int $index) => [$article->id => $index]);
-        $incomingByArticleId = collect($this->internalLinks->audit(status: Article::STATUS_PUBLISHED)->rows)
-            ->mapWithKeys(fn ($row) => [$row->articleId => $row->incomingLinksCount]);
+        $publishedIdBySlug = $articles->pluck('id', 'slug');
+        $incomingByArticleId = array_fill_keys($articles->pluck('id')->all(), 0);
+
+        // InternalLinkAuditService correctly classifies/normalizes links, but its
+        // corpus-level incoming count also observes non-public source bodies.
+        // Discovery is stricter: a reader can only follow an incoming link whose
+        // source itself is public now, so derive that count from published rows.
+        foreach ($this->internalLinks->audit(status: Article::STATUS_PUBLISHED)->rows as $row) {
+            $resolvedTargets = collect($row->outgoingLinks)
+                ->filter(fn (array $link) => in_array($link['classification'], ['valid', 'redirected'], true))
+                ->pluck('resolvedSlug')
+                ->filter()
+                ->unique();
+
+            foreach ($resolvedTargets as $resolvedSlug) {
+                $targetId = $publishedIdBySlug->get($resolvedSlug);
+                if ($targetId !== null && (int) $targetId !== $row->articleId) {
+                    $incomingByArticleId[(int) $targetId]++;
+                }
+            }
+        }
 
         return $articles->map(function (Article $article) use ($archivePosition, $incomingByArticleId, $articles): array {
             $categorySlugs = collect([$article->category])
@@ -49,7 +68,7 @@ class ArticleDiscoveryAuditService
             })->filter(fn ($page) => $page !== null);
 
             $archivePage = intdiv((int) $archivePosition[$article->id], self::PER_PAGE) + 1;
-            $incoming = (int) $incomingByArticleId->get($article->id, 0);
+            $incoming = (int) ($incomingByArticleId[$article->id] ?? 0);
             $activePaths = $article->contentClusters->count();
 
             $entryPoints = collect([
@@ -60,7 +79,7 @@ class ArticleDiscoveryAuditService
                 'body_incoming' => ['type' => 'EDITORIAL_BODY_LINK', 'count' => $incoming],
             ]);
 
-            $pathCount = 1 // /notizie is a deterministic paginated archive for every published article
+            $pathCount = 1
                 + ($article->author !== null ? 1 : 0)
                 + $categoryPages->count()
                 + ($activePaths > 0 ? 1 : 0)
