@@ -7,6 +7,7 @@ use App\Models\CommunicationSend;
 use App\Models\CommunicationSenderProfile;
 use App\Models\CommunicationSubscriber;
 use App\Services\Communication\CampaignDryRunService;
+use App\Services\Communication\CampaignFreezeService;
 use App\Services\Communication\DeliveryResult;
 use App\Services\Communication\RecordingEmailProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -132,6 +133,82 @@ class CampaignDryRunTest extends TestCase
         $this->assertSame(3, $report->permanentFailed);
         $this->assertSame(CommunicationSend::STATUS_QUEUED, $revalidationFailure->fresh()->status);
         $this->assertSame(CommunicationSend::STATUS_QUEUED, $transient->fresh()->status);
+    }
+
+    /**
+     * Batch 04B Mission 9 — "zero-eligible": nessuna riga comm_sends
+     * preparata per questa campagna. Il dry-run deve restare sicuro e
+     * riportare zero ovunque, non fallire né inventare un conteggio.
+     */
+    public function test_dry_run_on_a_campaign_with_zero_prepared_recipients_reports_all_zeros(): void
+    {
+        $campaign = $this->draftCampaignWithQueuedRecipients(0);
+
+        $report = $this->dryRunService()->run($campaign, new RecordingEmailProvider);
+
+        $this->assertSame([
+            'eligible' => 0,
+            'skipped' => 0,
+            'rendered' => 0,
+            'accepted' => 0,
+            'transient_failed' => 0,
+            'permanent_failed' => 0,
+        ], $report->toArray());
+    }
+
+    /**
+     * Batch 04B Mission 9 — "frozen-snapshot-still-live-validated": il
+     * dry-run è la simulazione dell'intera pipeline reale (stesso
+     * CampaignDeliveryOrchestrator), quindi deve dimostrare la stessa
+     * garanzia già provata a livello di orchestratore puro da
+     * CampaignFreezeZeroSendRegressionTest — congelare una campagna non
+     * indebolisce la rivalutazione live: un iscritto che si disiscrive
+     * DOPO il congelamento continua a risultare correttamente escluso
+     * anche quando lo si osserva attraverso lo schermo di dry-run, non
+     * solo attraverso l'orchestratore chiamato direttamente.
+     */
+    public function test_dry_run_on_a_frozen_campaign_still_excludes_a_subscriber_who_unsubscribed_after_freeze(): void
+    {
+        $campaign = CommunicationCampaign::factory()->scheduled()->create([
+            'sender_profile_id' => CommunicationSenderProfile::factory()->create()->id,
+            'subject' => 'Aggiornamento congelato',
+            'content' => ['body' => 'Contenuto bloccato al congelamento.'],
+        ]);
+
+        $staysConfirmed = CommunicationSubscriber::factory()->confirmed()->create();
+        $unsubscribesAfterFreeze = CommunicationSubscriber::factory()->confirmed()->create();
+
+        foreach ([$staysConfirmed, $unsubscribesAfterFreeze] as $subscriber) {
+            CommunicationSend::create([
+                'campaign_id' => $campaign->id,
+                'subscriber_id' => $subscriber->id,
+                'status' => CommunicationSend::STATUS_QUEUED,
+            ]);
+        }
+
+        app(CampaignFreezeService::class)->freeze($campaign, null);
+        $this->assertTrue($campaign->fresh()->isFrozen());
+
+        $unsubscribesAfterFreeze->update([
+            'status' => CommunicationSubscriber::STATUS_UNSUBSCRIBED,
+            'unsubscribed_at' => now(),
+        ]);
+
+        $report = $this->dryRunService()->run($campaign, new RecordingEmailProvider);
+
+        $this->assertSame(2, $report->eligible);
+        $this->assertSame(1, $report->accepted);
+        $this->assertSame(1, $report->permanentFailed);
+
+        // Il congelamento resta intatto e nessuna riga comm_sends è stata
+        // realmente modificata dal dry-run (rollback garantito da
+        // CampaignDryRunService), a differenza del test equivalente che
+        // esercita l'orchestratore reale.
+        $this->assertTrue($campaign->fresh()->isFrozen());
+        $this->assertSame(
+            CommunicationSend::STATUS_QUEUED,
+            CommunicationSend::where('campaign_id', $campaign->id)->where('subscriber_id', $unsubscribesAfterFreeze->id)->firstOrFail()->status
+        );
     }
 
     public function test_dry_run_never_persists_any_mutation_to_campaign_or_sends(): void
