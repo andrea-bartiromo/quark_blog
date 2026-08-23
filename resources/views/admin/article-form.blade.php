@@ -4,6 +4,9 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">{{ $article ? 'Modifica articolo' : 'Nuovo articolo' }}</h1>
+  @if($article)
+    <a href="{{ route('admin.articles.revisions.index', $article) }}" class="btn btn--outline">🕘 Versioni salvate</a>
+  @endif
   <a href="{{ route('admin.articles') }}" class="btn btn--outline">← Torna alla lista</a>
 </div>
 

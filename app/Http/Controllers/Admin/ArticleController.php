@@ -21,6 +21,7 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\ArticleRevisionService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
@@ -54,6 +55,7 @@ class ArticleController extends Controller
         private readonly EditorialQualityChecker $qualityChecker,
         private readonly MediaRetirementService $mediaRetirementService,
         private readonly ResponsiveImageVariantService $responsiveImageVariants,
+        private readonly ArticleRevisionService $revisionService,
     ) {}
 
     public function index(Request $request)
@@ -380,6 +382,12 @@ class ArticleController extends Controller
             // sicuro ancora nel testo, o un suggerimento già marcato
             // superato senza che il body sia stato ripulito.
             DB::transaction(function () use ($article, $data, $request) {
+                // EDITORIAL SAFETY: snapshot dello stato ATTUALE prima di
+                // applicare $data — vedi ArticleRevisionService per la
+                // policy pre-change e il perché è distinta dall'autosave
+                // locale.
+                $this->revisionService->recordIfChanged($article, $data, $request->user());
+
                 $article->update($data);
 
                 $this->linkSuggestionService->markAccepted(

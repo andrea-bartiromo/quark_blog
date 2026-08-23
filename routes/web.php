@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\AdController;
 use App\Http\Controllers\Admin\AnalyticsExclusionController;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
+use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\NewsletterTrackingController;
+use App\Http\Controllers\Redazione\ArticleRevisionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\TuringPageController;
@@ -133,6 +135,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::delete('/articoli/{article}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
     Route::patch('/articoli/{article}/verifica', [AdminArticleController::class, 'updateVerification'])->name('articles.verify');
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+
+    // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
+    Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');
+    Route::get('/articoli/{article}/versioni/{revision}', [AdminArticleRevisionController::class, 'show'])->name('articles.revisions.show');
+    Route::post('/articoli/{article}/versioni/{revision}/ripristina', [AdminArticleRevisionController::class, 'restore'])->name('articles.revisions.restore');
 
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
@@ -354,6 +361,11 @@ Route::middleware(['auth', 'redazione'])->prefix('redazione')->name('redazione.'
     Route::get('/articoli/{article}/modifica', [App\Http\Controllers\Redazione\ArticleController::class, 'edit'])->name('articles.edit');
     Route::put('/articoli/{article}', [App\Http\Controllers\Redazione\ArticleController::class, 'update'])->name('articles.update');
     Route::delete('/articoli/{article}', [App\Http\Controllers\Redazione\ArticleController::class, 'destroy'])->name('articles.destroy');
+
+    // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
+    Route::get('/articoli/{article}/versioni', [ArticleRevisionController::class, 'index'])->name('articles.revisions.index');
+    Route::get('/articoli/{article}/versioni/{revision}', [ArticleRevisionController::class, 'show'])->name('articles.revisions.show');
+    Route::post('/articoli/{article}/versioni/{revision}/ripristina', [ArticleRevisionController::class, 'restore'])->name('articles.revisions.restore');
 
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
