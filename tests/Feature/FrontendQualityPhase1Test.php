@@ -146,4 +146,32 @@ class FrontendQualityPhase1Test extends TestCase
         $response->assertSee('<link rel="canonical" href="'.$url.'">', false);
         $response->assertSee('<meta property="og:url" content="'.$url.'">', false);
     }
+
+    // WCAG quick win (missione notturna): il layout pubblico non aveva
+    // alcun modo per un utente da tastiera/screen reader di saltare
+    // header/ticker/category-bar e arrivare dritto al contenuto (2.4.1
+    // Bypass Blocks). Il link deve puntare a un elemento realmente
+    // presente e focus-target (tabindex="-1", altrimenti il salto
+    // sposta lo scroll ma mai il focus).
+    public function test_public_pages_have_a_working_skip_to_content_link(): void
+    {
+        foreach ([route('home'), route('notizie')] as $url) {
+            $response = $this->get($url);
+
+            $response->assertOk();
+            $response->assertSee('<a href="#main-content" class="skip-link">', false);
+            $response->assertSee('<main id="main-content" tabindex="-1">', false);
+        }
+    }
+
+    public function test_redazione_pages_have_a_working_skip_to_content_link(): void
+    {
+        $author = $this->author();
+
+        $response = $this->actingAs($author)->get(route('redazione.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('<a href="#redazione-main-content" class="skip-link">', false);
+        $response->assertSee('id="redazione-main-content" tabindex="-1"', false);
+    }
 }
