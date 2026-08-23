@@ -178,7 +178,7 @@ class PercorsoPublicationReadinessService
      * at a future editorial date a scheduled Article is eligible only when its
      * own published_at has arrived. Draft/review are never eligible.
      *
-     * @param Collection<int, Article> $ordered
+     * @param  Collection<int, Article>  $ordered
      * @return Collection<int, Article>
      */
     private function publicPrefixAt(Collection $ordered, Carbon $at): Collection

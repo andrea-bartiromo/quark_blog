@@ -20,7 +20,13 @@ class PercorsoPublicationReadinessServiceTest extends TestCase
             'slug' => 'readiness-test',
             'is_active' => false,
         ]);
-        $before = $cluster->getAttributes();
+        // Confronto riga-persistita-contro-riga-persistita: getAttributes()
+        // su un modello appena creato riflette solo le chiavi assegnate
+        // esplicitamente (mai i default di colonna non toccati), quindi non
+        // è un "prima" affidabile per un confronto "sola lettura" — un
+        // confronto contro il fresh() successivo fallirebbe per colonne mai
+        // scritte dal servizio, non per una mutazione reale.
+        $before = $cluster->fresh()->getAttributes();
 
         $report = app(PercorsoPublicationReadinessService::class)->evaluate($cluster);
 
