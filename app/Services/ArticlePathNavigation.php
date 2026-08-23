@@ -4,9 +4,14 @@ namespace App\Services;
 
 use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Services\ContentClusters\ContentClusterPublicSequence;
 
 class ArticlePathNavigation
 {
+    public function __construct(
+        private readonly ContentClusterPublicSequence $publicSequence,
+    ) {}
+
     /**
      * @return array{cluster:ContentCluster,current_index:int,total:int,previous:?Article,next:?Article,path_url:string}|null
      */
@@ -27,10 +32,7 @@ class ArticlePathNavigation
             return null;
         }
 
-        $articles = $cluster->articles()
-            ->published()
-            ->get(['articles.id', 'articles.title', 'articles.slug', 'articles.published_at']);
-
+        $articles = $this->publicSequence->resolve($cluster)['articles'];
         $currentIndex = $articles->search(fn (Article $candidate) => $candidate->id === $article->id);
 
         if ($currentIndex === false) {

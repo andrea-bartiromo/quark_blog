@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentCluster;
+use App\Services\ContentClusters\ContentClusterPublicSequence;
 use Illuminate\Contracts\View\View;
 
 class ContentClusterController extends Controller
@@ -23,19 +24,17 @@ class ContentClusterController extends Controller
         return view('content-clusters.index', compact('clusters'));
     }
 
-    public function show(string $slug): View
+    public function show(string $slug, ContentClusterPublicSequence $publicSequence): View
     {
         $cluster = ContentCluster::query()
             ->active()
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $articles = $cluster->articles()
-            ->published()
-            ->get();
-        $pillar = $cluster->pillarArticle()
-            ->published()
-            ->first();
+        $sequence = $publicSequence->resolve($cluster);
+        $articles = $sequence['articles'];
+        $hasHiddenRemainder = $sequence['has_hidden_remainder'];
+        $pillar = $articles->first(fn ($article) => $article->id === $cluster->pillar_article_id);
 
         $canonical = route('percorsi.show', $cluster->slug);
         $description = $cluster->seo_description
@@ -72,6 +71,7 @@ class ContentClusterController extends Controller
             'cluster',
             'articles',
             'pillar',
+            'hasHiddenRemainder',
             'canonical',
             'description',
             'structuredData',
