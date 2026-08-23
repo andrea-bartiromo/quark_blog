@@ -1,0 +1,92 @@
+@extends('layouts.admin')
+@section('title','Opportunità di ricerca')
+@section('content')
+
+<div class="admin-topbar">
+  <h1 class="admin-page-title">Opportunità di ricerca</h1>
+  <a href="{{ route('admin.search-opportunities.import-form') }}" class="btn btn--primary">+ Importa dati Search Console</a>
+</div>
+
+@if(session('status'))
+<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;
+            padding:.85rem 1.1rem;margin-bottom:1.25rem;font-size:.82rem;color:#0f766e;">
+  {{ session('status') }}
+</div>
+@endif
+
+@if(is_null($selectedPeriod))
+
+  <div class="articles-empty-state">
+    <p class="articles-empty-state__icon" aria-hidden="true">🔎</p>
+    <p>Nessun dato Search Console importato finora.</p>
+    <p class="articles-empty-state__hint">
+      <a href="{{ route('admin.search-opportunities.import-form') }}">Importa un export CSV</a> per iniziare a vedere opportunità.
+    </p>
+  </div>
+
+@else
+
+  <p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;">
+    Periodo: <strong>{{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_start'])->format('d/m/Y') }}
+    – {{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_end'])->format('d/m/Y') }}</strong>
+    (import più recente tra {{ $periods->count() }} disponibili).
+    Soglia minima di evidenza: {{ \App\Services\SearchConsole\SearchOpportunityScoringService::MIN_IMPRESSIONS }} impression nel periodo.
+  </p>
+
+  <form method="GET" action="{{ route('admin.search-opportunities') }}" class="articles-toolbar" style="margin-bottom:1.25rem;">
+    <div class="articles-toolbar__field">
+      <label class="form-label" for="tipo">Tipo di opportunità</label>
+      <select id="tipo" name="tipo" class="form-select" onchange="this.form.submit()">
+        <option value="">Tutti i tipi</option>
+        @foreach($typeOptions as $value => $label)
+          <option value="{{ $value }}" @selected($selectedType === $value)>{{ $label }}</option>
+        @endforeach
+      </select>
+    </div>
+  </form>
+
+  @if($opportunities->isEmpty())
+    <div class="articles-empty-state">
+      <p class="articles-empty-state__icon" aria-hidden="true">✅</p>
+      <p>Nessuna opportunità trovata{{ $selectedType ? ' per questo tipo' : '' }} in questo periodo.</p>
+    </div>
+  @else
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th scope="col">Tipo</th>
+            <th scope="col">Query</th>
+            <th scope="col">Articolo</th>
+            <th scope="col">Impression</th>
+            <th scope="col">CTR</th>
+            <th scope="col">Posizione</th>
+            <th scope="col">Spiegazione</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($opportunities as $opportunity)
+            <tr>
+              <td><span class="badge badge--filter">{{ $typeOptions[$opportunity->type] ?? $opportunity->type }}</span></td>
+              <td>{{ $opportunity->query }}</td>
+              <td>
+                @if($opportunity->article)
+                  <a href="{{ route('admin.articles.edit', $opportunity->article) }}">{{ Str::limit($opportunity->article->title, 40) }}</a>
+                @else
+                  <span style="color:var(--admin-faint);">—</span>
+                @endif
+              </td>
+              <td>{{ $opportunity->impressions }}</td>
+              <td>{{ $opportunity->ctr !== null ? number_format($opportunity->ctr * 100, 1).'%' : '—' }}</td>
+              <td>{{ $opportunity->position !== null ? number_format($opportunity->position, 1) : '—' }}</td>
+              <td style="max-width:360px;font-size:.8rem;color:var(--admin-ink-soft);">{{ $opportunity->explanation }}</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+  @endif
+
+@endif
+
+@endsection

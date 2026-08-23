@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\ProjectDocumentController;
 use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TuringController;
@@ -211,6 +212,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/stats', [StatsController::class, 'index'])->name('stats');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity');
     Route::get('/stats/charts', [StatsController::class, 'charts'])->name('stats.charts');
+
+    // Opportunità di ricerca (Search Console, import CSV manuale)
+    Route::get('/search-opportunities', [SearchOpportunityController::class, 'index'])->name('search-opportunities');
+    Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
+    Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
