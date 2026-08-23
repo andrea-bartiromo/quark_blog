@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
+use App\Http\Controllers\Admin\SecondReadAnalyticsController;
 use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
@@ -223,6 +224,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/search-opportunities', [SearchOpportunityController::class, 'index'])->name('search-opportunities');
     Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
     Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
+
+    // Second read (Growth S2 — "Continua da qui")
+    Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
