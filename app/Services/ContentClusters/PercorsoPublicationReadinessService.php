@@ -5,6 +5,7 @@ namespace App\Services\ContentClusters;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Services\ContentClusterHealth;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class PercorsoPublicationReadinessService
@@ -50,7 +51,18 @@ class PercorsoPublicationReadinessService
         }
 
         foreach ($health['findings'] as $code) {
-            $severity = in_array($code, ['EMPTY', 'PILLAR_NOT_PUBLIC', 'NO_PUBLIC_ARTICLES', 'ORDERING_ISSUE'], true) ? 'ERROR' : 'WARNING';
+            // PILLAR_NOT_PUBLIC and NO_PUBLIC_ARTICLES are facts about "now".
+            // When a future publication instant is explicitly supplied they are
+            // replaced by the temporal checks below, otherwise a valid scheduled
+            // pillar/member would be incorrectly rejected merely for not being
+            // public yet.
+            if ($publicationAt !== null && in_array($code, ['PILLAR_NOT_PUBLIC', 'NO_PUBLIC_ARTICLES'], true)) {
+                continue;
+            }
+
+            $severity = in_array($code, ['EMPTY', 'NO_PILLAR', 'PILLAR_NOT_PUBLIC', 'NO_PUBLIC_ARTICLES', 'ORDERING_ISSUE'], true)
+                ? 'ERROR'
+                : 'WARNING';
             $findings->push($this->finding('HEALTH_'.$code, $severity, 'ContentClusterHealth segnala: '.$code.'.'));
         }
 
@@ -65,21 +77,18 @@ class PercorsoPublicationReadinessService
         }
 
         if ($publicationAt !== null) {
-            $at = \Illuminate\Support\Carbon::instance(\DateTime::createFromInterface($publicationAt));
-            $unavailable = $cluster->articles->filter(function (Article $article) use ($at): bool {
-                if ($article->status === Article::STATUS_PUBLISHED) {
-                    return $article->published_at === null || $article->published_at->gt($at);
-                }
+            $at = Carbon::instance(\DateTime::createFromInterface($publicationAt));
+            $available = $cluster->articles->filter(fn (Article $article) => $this->articleAvailableAt($article, $at));
+            $unavailable = $cluster->articles->reject(fn (Article $article) => $this->articleAvailableAt($article, $at));
 
-                return $article->status !== Article::STATUS_SCHEDULED || $article->published_at === null || $article->published_at->gt($at);
-            });
-
-            if ($unavailable->isNotEmpty()) {
-                $findings->push($this->finding('MEMBERS_UNAVAILABLE_AT_PUBLICATION', 'WARNING', $unavailable->count().' membro/i non risulterebbero disponibili alla data prevista del Percorso.'));
+            if ($available->isEmpty()) {
+                $findings->push($this->finding('NO_MEMBERS_AVAILABLE_AT_PUBLICATION', 'ERROR', 'Nessun membro risulterebbe pubblico alla data prevista del Percorso.'));
+            } elseif ($unavailable->isNotEmpty()) {
+                $findings->push($this->finding('MEMBERS_UNAVAILABLE_AT_PUBLICATION', 'WARNING', $unavailable->count().' membro/i diventerebbero disponibili solo dopo la data prevista del Percorso o non sono programmati per la pubblicazione.'));
             }
 
-            if ($cluster->pillarArticle !== null && ($cluster->pillarArticle->published_at === null || $cluster->pillarArticle->published_at->gt($at))) {
-                $findings->push($this->finding('PILLAR_UNAVAILABLE_AT_PUBLICATION', 'ERROR', 'Il pillar non sarebbe disponibile alla data prevista del Percorso.'));
+            if ($cluster->pillarArticle !== null && ! $this->articleAvailableAt($cluster->pillarArticle, $at)) {
+                $findings->push($this->finding('PILLAR_UNAVAILABLE_AT_PUBLICATION', 'ERROR', 'Il pillar non sarebbe pubblico alla data prevista del Percorso.'));
             }
         } else {
             $findings->push($this->finding('SCHEDULING_NOT_AVAILABLE', 'INFO', 'Percorsi Scheduling non è ancora su main: la readiness temporale è calcolabile solo se viene fornita esplicitamente una data prevista.'));
@@ -87,12 +96,21 @@ class PercorsoPublicationReadinessService
 
         return [
             'status' => match (true) {
-                $findings->contains('severity', 'ERROR') => 'ERROR',
-                $findings->contains('severity', 'WARNING') => 'WARNING',
+                $findings->contains('severity', 'ERROR') => 'NOT READY',
+                $findings->contains('severity', 'WARNING') => 'READY WITH WARNINGS',
                 default => 'READY',
             },
             'findings' => $findings->values(),
         ];
+    }
+
+    private function articleAvailableAt(Article $article, Carbon $at): bool
+    {
+        if (! in_array($article->status, [Article::STATUS_PUBLISHED, Article::STATUS_SCHEDULED], true)) {
+            return false;
+        }
+
+        return $article->published_at !== null && $article->published_at->lte($at);
     }
 
     /** @return array{code:string,severity:string,message:string} */
