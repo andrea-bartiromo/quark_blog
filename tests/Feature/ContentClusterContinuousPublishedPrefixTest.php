@@ -117,21 +117,30 @@ class ContentClusterContinuousPublishedPrefixTest extends TestCase
         $response = $this->get(route('percorsi.show', $cluster->slug));
         $response->assertOk();
 
+        // Scoped alla sezione <section class="path-steps"> (la sequenza del
+        // Percorso), non all'intera pagina: un articolo "oltre il gap" resta
+        // un Article::published() a tutti gli effetti e compare
+        // legittimamente altrove sulla pagina (es. il ticker sitewide
+        // "Ultimi articoli" in layouts/app.blade.php, che elenca i più
+        // recenti pubblicati del sito indipendentemente dal Percorso) — un
+        // assertDontSee() sull'intera pagina fallirebbe per quel motivo,
+        // non per una vera fuga di dati dalla sequenza.
+        $sequence = $this->pathSequenceHtml($response->getContent());
+
         foreach (array_slice($articles, 0, 3) as $article) {
-            $response->assertSee($article['title']);
-            $response->assertSee(route('articolo', $article['slug']), false);
+            $this->assertStringContainsString($article['title'], $sequence);
+            $this->assertStringContainsString(route('articolo', $article['slug']), $sequence);
         }
 
         foreach (array_slice($articles, 3) as $article) {
-            $response->assertDontSee($article['title']);
-            $response->assertDontSee($article['slug']);
+            $this->assertStringNotContainsString($article['title'], $sequence);
+            $this->assertStringNotContainsString($article['slug'], $sequence);
         }
 
-        $response
-            ->assertSee('In arrivo')
-            ->assertSee('Verso due')
-            ->assertSee('Verso tre')
-            ->assertDontSee('Verso la tappa segreta');
+        $this->assertStringContainsString('In arrivo', $sequence);
+        $this->assertStringContainsString('Verso due', $sequence);
+        $this->assertStringContainsString('Verso tre', $sequence);
+        $this->assertStringNotContainsString('Verso la tappa segreta', $sequence);
 
         $html = $response->getContent();
         preg_match('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $matches);
@@ -155,12 +164,15 @@ class ContentClusterContinuousPublishedPrefixTest extends TestCase
         $cluster->update(['pillar_article_id' => $articles[2]['id']]);
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
+        $response->assertOk();
 
-        $response
-            ->assertOk()
-            ->assertDontSee('Il punto di partenza')
-            ->assertDontSee($articles[2]['title'])
-            ->assertDontSee($articles[2]['slug']);
+        // Scoped alla sequenza — vedi il commento nel test JSON-LD sopra sul
+        // perché un assertDontSee() sull'intera pagina non è affidabile qui.
+        $sequence = $this->pathSequenceHtml($response->getContent());
+
+        $this->assertStringNotContainsString('Il punto di partenza', $sequence);
+        $this->assertStringNotContainsString($articles[2]['title'], $sequence);
+        $this->assertStringNotContainsString($articles[2]['slug'], $sequence);
     }
 
     public function test_navigation_never_jumps_over_a_gap_to_a_later_published_member(): void
@@ -193,15 +205,17 @@ class ContentClusterContinuousPublishedPrefixTest extends TestCase
         ]);
 
         $response = $this->get(route('percorsi.show', $cluster->slug));
+        $response->assertOk();
 
-        $response
-            ->assertOk()
-            ->assertSee('In arrivo')
-            ->assertDontSee($articles[1]['title'])
-            ->assertDontSee($articles[1]['slug'])
-            ->assertDontSee($articles[1]['published_at'])
-            ->assertDontSee($articles[2]['title'])
-            ->assertDontSee($articles[3]['title']);
+        // Scoped alla sequenza — vedi pathSequenceHtml() per il perché.
+        $sequence = $this->pathSequenceHtml($response->getContent());
+
+        $this->assertStringContainsString('In arrivo', $sequence);
+        $this->assertStringNotContainsString($articles[1]['title'], $sequence);
+        $this->assertStringNotContainsString($articles[1]['slug'], $sequence);
+        $this->assertStringNotContainsString($articles[1]['published_at'], $sequence);
+        $this->assertStringNotContainsString($articles[2]['title'], $sequence);
+        $this->assertStringNotContainsString($articles[3]['title'], $sequence);
     }
 
     public function test_prefix_extends_automatically_when_the_blocking_step_becomes_published(): void
@@ -228,8 +242,26 @@ class ContentClusterContinuousPublishedPrefixTest extends TestCase
     }
 
     /**
-     * @param list<string> $statuses
-     * @param array<int, string> $transitions keyed by position
+     * Scopa l'HTML al solo `<main>` della pagina, escludendo l'header/ticker
+     * sitewide ("Ultimi articoli" in layouts/app.blade.php, incluso PRIMA di
+     * `<main>`) e sidebar/footer. Un articolo "oltre il gap" di QUESTO
+     * Percorso resta comunque un Article::published() genuino altrove nel
+     * sito: il ticker lo elenca legittimamente tra gli ultimi pubblicati.
+     * Un assertDontSee() sull'intera pagina fallirebbe per quel motivo — non
+     * per una vera fuga dalla sequenza — quindi le assertion su "questo
+     * articolo non deve comparire nel Percorso" vanno scoped qui.
+     */
+    private function pathSequenceHtml(string $html): string
+    {
+        $this->assertMatchesRegularExpression('/<main id="main-content".*?<\/main>/s', $html);
+        preg_match('/<main id="main-content".*?<\/main>/s', $html, $matches);
+
+        return $matches[0];
+    }
+
+    /**
+     * @param  list<string>  $statuses
+     * @param  array<int, string>  $transitions  keyed by position
      * @return array{0: ContentCluster, 1: list<array{id:int,title:string,slug:string,published_at:string}>}
      */
     private function path(array $statuses, array $transitions = []): array

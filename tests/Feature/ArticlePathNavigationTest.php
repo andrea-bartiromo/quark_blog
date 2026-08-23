@@ -73,21 +73,31 @@ class ArticlePathNavigationTest extends TestCase
 
     public function test_progress_and_previous_next_use_only_published_members_in_manual_order(): void
     {
+        // I membri non pubblicati vanno DOPO il prefisso pubblico contiguo,
+        // non interspersi prima di `current`: dal contratto continuous-
+        // published-prefix (ContentClusterPublicSequence — STOP al primo
+        // membro non pubblico, mai riprendere dopo un gap), un gap PRIMA di
+        // `current` lo renderebbe esso stesso irraggiungibile (navigazione
+        // null), un caso diverso e già coperto altrove
+        // (ContentClusterContinuousPublishedPrefixTest::
+        // test_navigation_never_jumps_over_a_gap_to_a_later_published_member).
+        // Qui l'obiettivo resta dimostrare che i membri non pubblicati sono
+        // esclusi dal conteggio/progress, non la semantica del gap.
         $cluster = ContentCluster::factory()->create(['name' => 'IA spiegata', 'slug' => 'ia-spiegata', 'is_active' => true]);
         $first = $this->article('Primo pubblico');
+        $current = $this->article('Secondo pubblico');
+        $last = $this->article('Terzo pubblico');
         $scheduled = $this->article('Scheduled segreto', Article::STATUS_SCHEDULED, now()->addDay());
         $draft = $this->article('Draft segreto', Article::STATUS_DRAFT, null);
         $review = $this->article('Review segreto', Article::STATUS_REVIEW, null);
-        $current = $this->article('Secondo pubblico');
-        $last = $this->article('Terzo pubblico');
 
         $cluster->articles()->attach([
             $first->id => ['position' => 10, 'is_primary' => false],
-            $scheduled->id => ['position' => 20, 'is_primary' => false],
-            $draft->id => ['position' => 30, 'is_primary' => false],
-            $current->id => ['position' => 40, 'is_primary' => true],
-            $review->id => ['position' => 50, 'is_primary' => false],
-            $last->id => ['position' => 60, 'is_primary' => false],
+            $current->id => ['position' => 20, 'is_primary' => true],
+            $last->id => ['position' => 30, 'is_primary' => false],
+            $scheduled->id => ['position' => 40, 'is_primary' => false],
+            $draft->id => ['position' => 50, 'is_primary' => false],
+            $review->id => ['position' => 60, 'is_primary' => false],
         ]);
 
         $response = $this->get(route('articolo', $current->slug));
@@ -168,8 +178,15 @@ class ArticlePathNavigationTest extends TestCase
         $queryCount = count(DB::getQueryLog());
         DB::disableQueryLog();
 
+        // Budget +1 rispetto al precedente 2: ContentClusterPublicSequence
+        // (continuous-published-prefix) verifica esplicitamente
+        // Article::published() con una query bounded dedicata invece di
+        // ricostruire l'eligibilità dallo stato già caricato — costo
+        // costante (1 query indipendentemente dal numero di membri), non un
+        // N+1: cluster lookup (1) + members ordinati (1) + published check
+        // bounded (1) = 3, invariato al crescere del corpus.
         $this->assertNotNull($navigation);
-        $this->assertLessThanOrEqual(2, $queryCount);
+        $this->assertLessThanOrEqual(3, $queryCount);
     }
 
     private function article(string $title, string $status = Article::STATUS_PUBLISHED, $publishedAt = null): Article

@@ -29,7 +29,13 @@
   $pathCoverViewerId = 'path-cover-viewer-'.$cluster->id;
   $takeaways = collect($cluster->takeaways ?? [])->filter()->values();
   $guidingQuestions = collect($cluster->guiding_questions ?? [])->filter()->values();
-  $showContinuation = $hasHiddenRemainder || ($cluster->isUpdating() && $articles->isNotEmpty());
+  // $hasHiddenRemainder e' vero anche quando il Percorso non ha ANCORA
+  // nessuna tappa pubblica (il primo membro e' scheduled/draft): senza il
+  // check $articles->isNotEmpty() qui, un Percorso del tutto vuoto
+  // mostrerebbe comunque il banner "il percorso continua" sopra un elenco
+  // vuoto invece del semplice stato "Nessun articolo pubblicato" gia'
+  // gestito da @empty piu' sotto.
+  $showContinuation = $articles->isNotEmpty() && ($hasHiddenRemainder || $cluster->isUpdating());
   $publishedStepCount = $articles->count();
 
   // Tempo di lettura dell'intero percorso: somma automatica dei
