@@ -17,6 +17,9 @@ use Illuminate\Support\Collection;
 class ContentClusterPublicSequence
 {
     /**
+     * Resolve one Percorso from the database. Public eligibility is delegated
+     * to Article::published(), never reconstructed from status strings here.
+     *
      * @return array{
      *     articles: Collection<int, Article>,
      *     has_hidden_remainder: bool
@@ -27,16 +30,52 @@ class ContentClusterPublicSequence
         $ordered = $cluster->articles()->get();
 
         if ($ordered->isEmpty()) {
-            return [
-                'articles' => collect(),
-                'has_hidden_remainder' => false,
-            ];
+            return $this->emptyResult();
         }
 
         $publishedIds = Article::query()
             ->published()
             ->whereIn('id', $ordered->pluck('id'))
-            ->pluck('id')
+            ->pluck('id');
+
+        return $this->fromOrdered($ordered, $publishedIds);
+    }
+
+    /**
+     * Bounded corpus variant for audit/analytics consumers that already loaded
+     * all memberships and already own a published-id corpus produced by
+     * Article::published(). It applies the exact same stop-at-first-gap rule
+     * without issuing one query per Percorso.
+     *
+     * @param Collection<int, int|string> $publishedArticleIds
+     * @return array{
+     *     articles: Collection<int, Article>,
+     *     has_hidden_remainder: bool
+     * }
+     */
+    public function resolveLoaded(ContentCluster $cluster, Collection $publishedArticleIds): array
+    {
+        $ordered = $cluster->relationLoaded('articles')
+            ? $cluster->articles
+                ->sortBy(fn (Article $article) => [$article->pivot?->position ?? PHP_INT_MAX, $article->id])
+                ->values()
+            : $cluster->articles()->get();
+
+        if ($ordered->isEmpty()) {
+            return $this->emptyResult();
+        }
+
+        return $this->fromOrdered($ordered, $publishedArticleIds);
+    }
+
+    /**
+     * @param Collection<int, Article> $ordered
+     * @param Collection<int, int|string> $publishedArticleIds
+     * @return array{articles:Collection<int,Article>,has_hidden_remainder:bool}
+     */
+    private function fromOrdered(Collection $ordered, Collection $publishedArticleIds): array
+    {
+        $publishedIds = $publishedArticleIds
             ->mapWithKeys(fn ($id) => [(int) $id => true]);
 
         $public = collect();
@@ -54,6 +93,15 @@ class ContentClusterPublicSequence
         return [
             'articles' => $public->values(),
             'has_hidden_remainder' => $hasHiddenRemainder,
+        ];
+    }
+
+    /** @return array{articles:Collection<int,Article>,has_hidden_remainder:bool} */
+    private function emptyResult(): array
+    {
+        return [
+            'articles' => collect(),
+            'has_hidden_remainder' => false,
         ];
     }
 }
