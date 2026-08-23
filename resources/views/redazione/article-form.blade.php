@@ -22,11 +22,17 @@
 </div>
 @endif
 
+@include('partials.article-autosave-banner')
+
 <form method="POST"
       action="{{ isset($article) ? route('redazione.articles.update', $article) : route('redazione.articles.store') }}"
       enctype="multipart/form-data"
       class="article-form-grid"
-      style="display:grid;gap:1.5rem;align-items:start;">
+      style="display:grid;gap:1.5rem;align-items:start;"
+      data-editor-autosave-form
+      data-editor-surface="redazione"
+      data-editor-context="{{ $article->id ?? 'new' }}"
+      data-editor-server-updated-at="{{ (isset($article) ? $article : null)?->updated_at?->timestamp }}">
   @csrf
   @if(isset($article)) @method('PUT') @endif
 
@@ -331,6 +337,9 @@ tinymce.init({
       if (typeof window.kairusRefreshSeoFallbackPreview === 'function') {
         window.kairusRefreshSeoFallbackPreview();
       }
+      if (typeof window.kairusNotifyArticleFormChanged === 'function') {
+        window.kairusNotifyArticleFormChanged();
+      }
     });
   }
 });
@@ -338,4 +347,5 @@ tinymce.init({
 
 @include('partials.char-counter-script')
 @include('partials.article-seo-fallback-script')
+@include('partials.article-autosave-script')
 @endsection
