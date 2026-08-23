@@ -16,6 +16,14 @@ class NewsletterConversionInstrumentation
 
     public const PLACEMENTS = ['article_band', 'popup'];
 
+    public const ERROR_CLASSES = [
+        'validation',
+        'already_subscribed',
+        'network',
+        'server',
+        'unknown',
+    ];
+
     /**
      * Build the only analytics payload shape allowed for newsletter conversion V1.
      * The class deliberately has no persistence/provider dependency: wiring to a
@@ -37,8 +45,12 @@ class NewsletterConversionInstrumentation
             throw new InvalidArgumentException('This newsletter event requires an explicit placement.');
         }
 
-        if ($errorClass !== null && ! preg_match('/^[a-z0-9_]{1,40}$/', $errorClass)) {
-            throw new InvalidArgumentException('Newsletter error_class must be a closed, non-PII identifier.');
+        if ($event === 'newsletter_subscribe_error') {
+            if ($errorClass === null || ! in_array($errorClass, self::ERROR_CLASSES, true)) {
+                throw new InvalidArgumentException('Newsletter subscribe error requires an allowed non-PII error_class.');
+            }
+        } elseif ($errorClass !== null) {
+            throw new InvalidArgumentException('error_class is only valid for newsletter_subscribe_error.');
         }
 
         return [
