@@ -31,13 +31,33 @@ class NewsletterConversionInstrumentationTest extends TestCase
         $service->event('newsletter_email_captured', 'popup');
     }
 
-    public function test_error_class_accepts_only_closed_identifier_shape(): void
+    public function test_subscribe_error_accepts_only_the_explicit_non_pii_allowlist(): void
     {
         $service = new NewsletterConversionInstrumentation;
 
-        $this->assertSame('validation', $service->event('newsletter_subscribe_error', 'popup', 'validation')['error_class']);
+        foreach (NewsletterConversionInstrumentation::ERROR_CLASSES as $errorClass) {
+            $this->assertSame($errorClass, $service->event('newsletter_subscribe_error', 'popup', $errorClass)['error_class']);
+        }
 
         $this->expectException(InvalidArgumentException::class);
-        $service->event('newsletter_subscribe_error', 'popup', 'user@example.com');
+        $service->event('newsletter_subscribe_error', 'popup', 'database_timeout');
+    }
+
+    public function test_email_shaped_error_class_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new NewsletterConversionInstrumentation)->event('newsletter_subscribe_error', 'popup', 'user@example.com');
+    }
+
+    public function test_error_class_cannot_be_attached_to_non_error_events(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new NewsletterConversionInstrumentation)->event('newsletter_cta_view', 'popup', 'validation');
+    }
+
+    public function test_subscribe_error_requires_an_error_class(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new NewsletterConversionInstrumentation)->event('newsletter_subscribe_error', 'popup');
     }
 }
