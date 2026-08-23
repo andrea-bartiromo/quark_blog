@@ -136,7 +136,14 @@ class ContentClusterPublicTest extends TestCase
         $this->assertNotEmpty($dialogImage, 'L\'immagine del viewer condiviso non e\' stata trovata.');
         $this->assertSame($expected, $dialogImage[1]);
         $this->assertSame('path-cover-viewer-'.$cluster->id, $trigger[1]);
-        $this->assertStringContainsString('background-image: url(\''.$expected.'\')', $html);
+        // L'hero e' un <x-responsive-image> assolutamente posizionato
+        // (loading=eager, fetchpriority=high, come LCP candidate reale della
+        // pagina), non piu' un CSS background-image — vedi
+        // content-clusters-detail.css.
+        $this->assertMatchesRegularExpression(
+            '/<header class="path-hero">\s*<img\b[^>]*src="'.preg_quote($expected, '/').'"[^>]*loading="eager"[^>]*fetchpriority="high"/s',
+            $html
+        );
     }
 
     public function test_detail_filters_non_public_articles_preserves_manual_order_and_hides_non_public_pillar(): void

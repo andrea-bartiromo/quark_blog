@@ -69,7 +69,15 @@
       <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
     </nav>
 
-    <header class="path-hero" style="background-image: url('{{ $heroImageUrl }}')">
+    <header class="path-hero">
+      <x-responsive-image
+          :diskName="$cluster->cover_image ? ltrim($cluster->cover_image, '/') : null"
+          :src="$heroImageUrl"
+          :alt="$pathCoverAlt"
+          loading="eager"
+          fetchpriority="high"
+          sizes="(max-width: 900px) 100vw, 1200px"
+      />
       <div class="path-hero__scrim" aria-hidden="true"></div>
       <div class="path-hero__copy">
         <p class="eyebrow">Percorso Kairus</p>
