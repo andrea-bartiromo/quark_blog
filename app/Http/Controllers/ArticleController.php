@@ -9,6 +9,10 @@ use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
+use App\Services\ContinuationAnalyticsService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 class ArticleController extends Controller
 {
@@ -50,7 +54,7 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function show(string $slug)
+    public function show(Request $request, string $slug)
     {
         // Nessun eager load di 'comments': i commenti non vengono mai
         // renderizzati sulla pagina pubblica articolo (solo in moderazione
@@ -87,6 +91,55 @@ class ArticleController extends Controller
 
         $pathNavigation = app(ArticlePathNavigation::class)->forArticle($article);
 
+        // "Continua da qui": passa $pathNavigation già calcolato sopra per
+        // evitare che il servizio lo ricalcoli (stessa query ripetuta due
+        // volte). Quando pathNavigation ha già un "next", il servizio
+        // restituisce esattamente quello — in quel caso $showContinuation
+        // resta false: il modulo non deve duplicare il blocco "Successivo"
+        // già mostrato da path-continuation (vedi
+        // articles/partials/continue-reading.blade.php).
+        $continuation = app(ArticleContinuationService::class)->forArticle($article, $pathNavigation);
+        $showContinuation = $continuation && (! $pathNavigation || ! $pathNavigation['next']);
+
+        $continuationTargetUrl = null;
+
+        // Second Read Analytics (Growth S2): fail-open per design — un
+        // errore qui non deve mai impedire la lettura pubblica
+        // dell'articolo, quindi l'intero blocco è avvolto in try/catch
+        // anche se ContinuationAnalyticsService già intercetta i propri
+        // errori di scrittura internamente.
+        try {
+            if ($showContinuation) {
+                // URL firmato con scadenza: l'unico modo per B di sapere
+                // "sono stato raggiunto da Continua da qui su A" senza
+                // cookie/sessione cross-articolo, senza poter essere
+                // falsificato (firma HMAC + scadenza gestite da Laravel),
+                // e senza introdurre un open redirect — lo slug di
+                // destinazione è sempre quello della rotta corrente, mai
+                // un valore fornito dal client.
+                $continuationTargetUrl = URL::temporarySignedRoute(
+                    'articolo',
+                    now()->addMinutes(30),
+                    ['slug' => $continuation->slug, 'cd_src' => $article->id]
+                );
+
+                app(ContinuationAnalyticsService::class)->recordImpression($article, $continuation);
+            }
+
+            if ($request->hasValidSignature() && $request->filled('cd_src')) {
+                $source = Article::published()->find((int) $request->query('cd_src'));
+
+                if ($source && $source->id !== $article->id) {
+                    app(ContinuationAnalyticsService::class)->recordSecondReadStart($source, $article);
+                }
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Second Read Analytics: blocco fallito, la pagina articolo continua normalmente.', [
+                'article_id' => $article->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
+
         return view('articolo', [
             'article' => $article,
 
@@ -104,15 +157,8 @@ class ArticleController extends Controller
 
             'pathNavigation' => $pathNavigation,
 
-            // "Continua da qui": passa $pathNavigation già calcolato sopra
-            // per evitare che il servizio lo ricalcoli (stessa query
-            // ripetuta due volte). Quando pathNavigation ha già un "next",
-            // ArticleContinuationService restituisce esattamente quello —
-            // vedi articles/partials/continue-reading.blade.php per la
-            // scelta di non renderizzare un modulo separato in quel caso,
-            // per non duplicare il blocco "Successivo" già mostrato da
-            // path-continuation.
-            'continuation' => app(ArticleContinuationService::class)->forArticle($article, $pathNavigation),
+            'continuation' => $showContinuation ? $continuation : null,
+            'continuationTargetUrl' => $continuationTargetUrl,
         ]);
     }
 }

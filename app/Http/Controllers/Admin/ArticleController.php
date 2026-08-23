@@ -27,6 +27,7 @@ use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -201,6 +202,114 @@ class ArticleController extends Controller
             'hasActiveFilters' => $hasActiveFilters,
             'articlesExistAtAll' => $articlesExistAtAll,
         ]);
+    }
+
+    /**
+     * Calendario editoriale V1 (articoli pubblicati + programmati). Solo
+     * visualizzazione — nessun drag-and-drop, nessuna modifica di data da
+     * qui: si continua a modificare la data di pubblicazione dal form
+     * dell'articolo, l'unico punto che applica già le regole di validazione
+     * dello stato (vedi UpdateArticleRequest / applyBusinessRules()).
+     *
+     * Non 'Calendario editoriale' come nome per evitare l'omonimia con il
+     * concetto già esistente in App\Services\Editorial\* (il piano
+     * editoriale dell'Area Progettazione, un dominio completamente
+     * diverso) — qui e nelle viste si usa sempre "Calendario articoli".
+     *
+     * Date sempre confrontate/raggruppate in Europe/Rome
+     * (Article::EDITORIAL_TIMEZONE, stessa timezone già usata dal form di
+     * modifica): raggruppare per data usando l'istante UTC grezzo
+     * sposterebbe di un giorno gli articoli pubblicati vicino alla
+     * mezzanotte italiana rispetto a quello che la redazione vede scritto
+     * sul form.
+     */
+    public function calendar(Request $request)
+    {
+        $viewMode = $request->input('vista');
+        if (! in_array($viewMode, ['month', 'week', 'list'], true)) {
+            $viewMode = 'month';
+        }
+
+        $anchor = $this->calendarAnchorDate($request->input('data'));
+
+        if ($viewMode === 'week') {
+            $rangeStart = $anchor->clone()->startOfWeek(Carbon::MONDAY);
+            $rangeEnd = $anchor->clone()->endOfWeek(Carbon::SUNDAY);
+        } elseif ($viewMode === 'list') {
+            $rangeStart = $anchor->clone()->startOfMonth();
+            $rangeEnd = $anchor->clone()->endOfMonth();
+        } else {
+            $rangeStart = $anchor->clone()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+            $rangeEnd = $anchor->clone()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+        }
+
+        // I confronti Carbon sono su istanti assoluti: convertire in UTC qui
+        // non "sposta" le date, serve solo a passare a whereBetween() lo
+        // stesso istante che published_at (colonna UTC) confronterà.
+        $articles = Article::query()
+            ->whereIn('status', [Article::STATUS_PUBLISHED, Article::STATUS_SCHEDULED])
+            ->whereBetween('published_at', [$rangeStart->clone()->utc(), $rangeEnd->clone()->utc()])
+            ->with('author')
+            ->orderBy('published_at')
+            ->get();
+
+        $byDay = $articles->groupBy(fn (Article $article) => $article->publishedAtForEditors()->format('Y-m-d'));
+
+        $today = now()->timezone(Article::EDITORIAL_TIMEZONE)->format('Y-m-d');
+        $days = collect();
+        $cursor = $rangeStart->clone();
+
+        while ($cursor->lte($rangeEnd)) {
+            $key = $cursor->format('Y-m-d');
+            $days->push([
+                'date' => $cursor->clone(),
+                'inFocusedMonth' => $cursor->month === $anchor->month && $cursor->year === $anchor->year,
+                'isToday' => $key === $today,
+                'articles' => $byDay->get($key, collect()),
+            ]);
+            $cursor->addDay();
+        }
+
+        $monthAnchor = $anchor->clone()->startOfMonth();
+
+        return view('admin.articles-calendar', [
+            'viewMode' => $viewMode,
+            'anchor' => $anchor,
+            'days' => $days,
+            'rangeStart' => $rangeStart,
+            'rangeEnd' => $rangeEnd,
+            'prevUrl' => route('admin.articles.calendar', [
+                'vista' => $viewMode,
+                'data' => $viewMode === 'week' ? $anchor->clone()->subWeek()->format('Y-m-d') : $monthAnchor->clone()->subMonth()->format('Y-m-d'),
+            ]),
+            'nextUrl' => route('admin.articles.calendar', [
+                'vista' => $viewMode,
+                'data' => $viewMode === 'week' ? $anchor->clone()->addWeek()->format('Y-m-d') : $monthAnchor->clone()->addMonth()->format('Y-m-d'),
+            ]),
+            'todayUrl' => route('admin.articles.calendar', ['vista' => $viewMode]),
+            'statusOptions' => Article::statusOptions(),
+        ]);
+    }
+
+    /**
+     * Data di ancoraggio del calendario, in Europe/Rome. Un valore 'data'
+     * mancante o non in formato Y-m-d ricade silenziosamente su "oggi" —
+     * stesso principio già in uso in index() per i filtri (un input
+     * malformato viene ignorato, mai un 422/500).
+     */
+    private function calendarAnchorDate(mixed $input): Carbon
+    {
+        if (is_string($input) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $input) === 1) {
+            try {
+                return Carbon::createFromFormat('Y-m-d', $input, Article::EDITORIAL_TIMEZONE)->startOfDay();
+            } catch (\Throwable) {
+                // Formato sintatticamente valido ma data inesistente
+                // (es. 2026-02-30): ricade su "oggi" come qualunque altro
+                // input malformato.
+            }
+        }
+
+        return now()->timezone(Article::EDITORIAL_TIMEZONE)->startOfDay();
     }
 
     /**

@@ -12,8 +12,11 @@ use App\Models\CommunicationSubscriber;
 use App\Models\CommunicationTemplate;
 use App\Models\Project;
 use App\Services\Communication\CampaignDryRunService;
+use App\Services\Communication\CampaignFreezeService;
 use App\Services\Communication\CampaignPreflightService;
 use App\Services\Communication\CampaignRenderer;
+use App\Services\Communication\CampaignTestSendService;
+use App\Services\Communication\MailerEmailProvider;
 use App\Services\Communication\RecipientSnapshotService;
 use App\Services\Communication\RecordingEmailProvider;
 use Illuminate\Http\Request;
@@ -35,6 +38,8 @@ class CommunicationCampaignController extends Controller
         private readonly CampaignRenderer $campaignRenderer,
         private readonly CampaignPreflightService $campaignPreflight,
         private readonly CampaignDryRunService $campaignDryRun,
+        private readonly CampaignFreezeService $campaignFreeze,
+        private readonly CampaignTestSendService $campaignTestSend,
     ) {}
 
     /**
@@ -122,6 +127,10 @@ class CommunicationCampaignController extends Controller
             ]
             : null;
 
+        $recentTestSends = $activeTab === 'sends'
+            ? $campaign->testSends()->with(['subscriber', 'triggeredBy'])->orderByDesc('created_at')->limit(10)->get()
+            : null;
+
         return view('admin.communication.campaigns.show', [
             'campaign' => $campaign,
             'activeTab' => $activeTab,
@@ -129,12 +138,27 @@ class CommunicationCampaignController extends Controller
             'statusOptions' => CommunicationCampaign::statusOptions(),
             'activityLog' => $activityLog,
             'recipientCounts' => $recipientCounts,
+            'recentTestSends' => $recentTestSends,
             'canPrepareRecipients' => $this->recipientSnapshot->canPrepare($campaign),
+            'canFreeze' => $this->campaignFreeze->canFreeze($campaign),
+            'canTestSend' => $this->campaignTestSend->canTestSend($campaign),
+            'testSendEnabled' => $this->campaignTestSend->isEnabled(),
+            'testSendBlockingReasons' => $this->campaignTestSend->blockingReasons($campaign),
         ]);
     }
 
     public function edit(Request $request, CommunicationCampaign $campaign)
     {
+        // Una campagna congelata non ha più un form di modifica da
+        // mostrare: contenuto/template/mittente sono bloccati, ripresentare
+        // un form editabile che poi update() rifiuterebbe comunque
+        // sarebbe fuorviante. Reindirizza dove l'admin può vedere perché.
+        if ($campaign->isFrozen()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.show', $campaign)
+                ->with('success', 'Questa campagna è congelata: contenuto e template non sono più modificabili.');
+        }
+
         [$selectedTemplateId, $selectedTemplateVersionId, $prefill] = $this->resolveTemplateSelection($request, $campaign);
 
         return view('admin.communication.campaigns.form', [
@@ -150,6 +174,16 @@ class CommunicationCampaignController extends Controller
 
     public function update(UpdateCommunicationCampaignRequest $request, CommunicationCampaign $campaign)
     {
+        // Guardia server-side, unica autorità: una campagna congelata è
+        // immutabile indipendentemente da cosa il form mostrava quando è
+        // stato aperto (es. due tab admin aperte, una delle quali ha
+        // congelato la campagna nel frattempo).
+        if ($campaign->isFrozen()) {
+            return back()->withErrors([
+                'freeze' => 'Questa campagna è congelata: contenuto e template non possono più essere modificati.',
+            ]);
+        }
+
         $before = $campaign->only(['title', 'type', 'project_id']);
 
         $data = $request->validated();
@@ -290,6 +324,12 @@ class CommunicationCampaignController extends Controller
      */
     public function prepareRecipients(CommunicationCampaign $campaign)
     {
+        if ($campaign->isFrozen()) {
+            return back()->withErrors([
+                'recipients' => 'Impossibile modificare i destinatari di una campagna congelata: l\'elenco è stato bloccato al momento del congelamento.',
+            ]);
+        }
+
         if (! $this->recipientSnapshot->canPrepare($campaign)) {
             return back()->withErrors([
                 'recipients' => 'Impossibile preparare i destinatari per una campagna con stato "'.
@@ -326,6 +366,102 @@ class CommunicationCampaignController extends Controller
             'report' => $this->campaignPreflight->assess($campaign),
             'statusOptions' => CommunicationCampaign::statusOptions(),
         ]);
+    }
+
+    /**
+     * Recipient Snapshot + Campaign Freeze — congela la campagna: da qui
+     * in poi contenuto/template/mittente e l'elenco destinatari non
+     * possono più cambiare (vedi CampaignFreezeService). Richiede la
+     * stessa readiness già usata da preflight/dry-run — congelare una
+     * campagna senza mittente/oggetto/contenuto/destinatari non avrebbe
+     * senso operativo. Idempotente: richiamarla su una campagna già
+     * congelata è un no-op sicuro, mai un errore per l'admin.
+     */
+    public function freeze(CommunicationCampaign $campaign)
+    {
+        if ($campaign->isFrozen()) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.show', $campaign)
+                ->with('success', 'Questa campagna è già congelata.');
+        }
+
+        if (! $this->campaignFreeze->canFreeze($campaign)) {
+            return redirect()
+                ->route('admin.comunicazione.campaigns.preflight', $campaign)
+                ->withErrors(['freeze' => 'Risolvi i blocchi della verifica pre-invio prima di congelare la campagna.']);
+        }
+
+        $this->campaignFreeze->freeze($campaign, auth()->id());
+
+        return redirect()
+            ->route('admin.comunicazione.campaigns.show', $campaign)
+            ->with('success', 'Campagna congelata: contenuto e destinatari sono ora bloccati.');
+    }
+
+    /**
+     * Provider Abstraction + Safe Test Send — form. Riusa esattamente lo
+     * stesso selettore destinatario di preview() (ricerca server-side tra
+     * iscritti CONFERMATI, paginata) — mai un campo di testo libero per
+     * un indirizzo arbitrario: il destinatario di un invio di test resta
+     * sempre un iscritto reale con consenso reale, come ogni altro invio
+     * di questo sottosistema.
+     */
+    public function testSendForm(Request $request, CommunicationCampaign $campaign)
+    {
+        $query = trim((string) $request->string('q'));
+        $query = mb_substr($query, 0, 190);
+
+        $recipientOptions = CommunicationSubscriber::confirmed()
+            ->when($query !== '', fn ($q) => $q->whereRaw(
+                'email LIKE ? ESCAPE ?',
+                ['%'.addcslashes($query, '%_\\').'%', '\\']
+            ))
+            ->orderByDesc('confirmed_at')
+            ->orderByDesc('id')
+            ->paginate(self::PREVIEW_RECIPIENT_OPTIONS_LIMIT, ['id', 'email'])
+            ->withQueryString();
+
+        return view('admin.communication.campaigns.test-send', [
+            'campaign' => $campaign,
+            'recipientOptions' => $recipientOptions,
+            'recipientQuery' => $query,
+            'canTestSend' => $this->campaignTestSend->canTestSend($campaign),
+            'testSendEnabled' => $this->campaignTestSend->isEnabled(),
+            'testSendBlockingReasons' => $this->campaignTestSend->blockingReasons($campaign),
+        ]);
+    }
+
+    /**
+     * Esegue l'invio di test vero e proprio — UN messaggio, verso
+     * l'iscritto confermato esplicitamente scelto nel form sopra, mai
+     * verso comm_sends. Vedi CampaignTestSendService per il contratto
+     * completo (campagna congelata, flag di abilitazione, traccia
+     * separata). Il provider REALE (MailerEmailProvider) viene
+     * istanziato solo qui — mai legato di default nel container, mai
+     * usato da CampaignDeliveryOrchestrator/CampaignDryRunService.
+     */
+    public function testSend(Request $request, CommunicationCampaign $campaign)
+    {
+        if (! $this->campaignTestSend->canTestSend($campaign)) {
+            return back()->withErrors([
+                'test_send' => implode(' ', $this->campaignTestSend->blockingReasons($campaign)),
+            ]);
+        }
+
+        $subscriberId = $request->integer('subscriber_id');
+        $subscriber = $subscriberId ? CommunicationSubscriber::confirmed()->find($subscriberId) : null;
+
+        if (! $subscriber) {
+            return back()->withErrors([
+                'subscriber_id' => 'Seleziona un destinatario confermato valido.',
+            ]);
+        }
+
+        $testSend = $this->campaignTestSend->send($campaign, $subscriber, new MailerEmailProvider, auth()->id());
+
+        return redirect()
+            ->route('admin.comunicazione.campaigns.show', [$campaign, 'tab' => 'sends'])
+            ->with('success', "Invio di test eseguito — esito: \"{$testSend->status}\".");
     }
 
     /**

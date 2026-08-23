@@ -26,6 +26,8 @@ use App\Http\Controllers\Admin\ProjectDocumentController;
 use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\SearchOpportunityController;
+use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TuringController;
@@ -125,6 +127,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Articoli
     Route::get('/articoli', [AdminArticleController::class, 'index'])->name('articles');
+    Route::get('/articoli/calendario', [AdminArticleController::class, 'calendar'])->name('articles.calendar');
     Route::get('/articoli/nuovo', [AdminArticleController::class, 'create'])->name('articles.create');
     Route::post('/articoli', [AdminArticleController::class, 'store'])->name('articles.store');
     Route::get('/articoli/bozza-rapida', [AdminArticleController::class, 'quickDraft'])->name('articles.quick-draft');
@@ -166,6 +169,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // Speciali editoriali
     Route::get('/turing', [TuringController::class, 'edit'])->name('turing');
     Route::post('/turing', [TuringController::class, 'update'])->name('turing.update');
+
+    // Distribuzione social (generatore link UTM per campagne ufficiali,
+    // mai per la condivisione organica dei lettori — vedi
+    // App\Services\SocialDistribution\UtmLinkGenerator)
+    Route::get('/distribuzione-social', [SocialDistributionController::class, 'index'])->name('social-distribution');
 
     // Media
     Route::get('/media', [MediaController::class, 'index'])->name('media');
@@ -210,6 +218,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/stats', [StatsController::class, 'index'])->name('stats');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity');
     Route::get('/stats/charts', [StatsController::class, 'charts'])->name('stats.charts');
+
+    // Opportunità di ricerca (Search Console, import CSV manuale)
+    Route::get('/search-opportunities', [SearchOpportunityController::class, 'index'])->name('search-opportunities');
+    Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
+    Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
@@ -287,6 +300,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         Route::get('/campagne/{campaign}/anteprima', [CommunicationCampaignController::class, 'preview'])->name('campaigns.preview');
         Route::post('/campagne/{campaign}/destinatari/prepara', [CommunicationCampaignController::class, 'prepareRecipients'])->name('campaigns.recipients.prepare');
         Route::get('/campagne/{campaign}/verifica-pre-invio', [CommunicationCampaignController::class, 'preflight'])->name('campaigns.preflight');
+        Route::post('/campagne/{campaign}/congela', [CommunicationCampaignController::class, 'freeze'])->name('campaigns.freeze');
+        Route::get('/campagne/{campaign}/invio-di-test', [CommunicationCampaignController::class, 'testSendForm'])->name('campaigns.test-send.form');
+        Route::post('/campagne/{campaign}/invio-di-test', [CommunicationCampaignController::class, 'testSend'])->name('campaigns.test-send');
         Route::post('/campagne/{campaign}/dry-run', [CommunicationCampaignController::class, 'dryRun'])->name('campaigns.dry-run');
 
         // Template

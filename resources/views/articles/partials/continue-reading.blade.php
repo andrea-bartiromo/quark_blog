@@ -1,18 +1,24 @@
 {{--
     "Continua da qui": UNA sola prosecuzione editoriale, non un mini-grid di
-    esplorazione (quello è già related-articles.blade.php, sotto). Non
-    renderizza mai quando $continuation coincide con il "Successivo" già
-    mostrato da path-continuation.blade.php sopra — la duplicazione era
-    l'unico rischio concreto qui, dato che ArticleContinuationService dà
-    sempre priorità al Percorso quando esiste (vedi
-    app/Services/ArticleContinuationService.php).
+    esplorazione (quello è già related-articles.blade.php, sotto). Il
+    controller (ArticleController::show()) ha già deciso se mostrarla:
+    $continuation arriva null quando coinciderebbe con il "Successivo" già
+    mostrato da path-continuation.blade.php sopra, quindi qui basta
+    controllarne la presenza — nessuna logica di soppressione duplicata.
+
+    L'href usa $continuationTargetUrl (URL firmato con scadenza, generato
+    dal controller) invece di route('articolo', ...) diretto: è così che
+    la pagina di destinazione sa di essere stata raggiunta da QUESTA
+    continuation (Second Read Analytics) senza cookie cross-articolo e
+    senza poter essere falsificato — vedi
+    App\Services\ContinuationAnalyticsService.
 --}}
-@if($continuation && (! $pathNavigation || ! $pathNavigation['next']))
+@if($continuation)
 <section class="continue-reading" aria-labelledby="continue-reading-title">
     <h2 id="continue-reading-title" class="continue-reading__heading">Continua da qui</h2>
 
     <a class="continue-reading__card"
-       href="{{ route('articolo', $continuation->slug) }}"
+       href="{{ $continuationTargetUrl ?? route('articolo', $continuation->slug) }}"
        data-continuation-click
        data-source-article-id="{{ $article->id }}"
        data-target-article-id="{{ $continuation->id }}">

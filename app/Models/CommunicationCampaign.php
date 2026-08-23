@@ -45,6 +45,7 @@ class CommunicationCampaign extends Model
         'scheduled_at', 'sending_started_at', 'completed_at',
         'project_id', 'series_id', 'idempotency_key',
         'created_by', 'updated_by',
+        'frozen_at', 'frozen_by',
     ];
 
     protected $casts = [
@@ -52,6 +53,7 @@ class CommunicationCampaign extends Model
         'scheduled_at' => 'datetime',
         'sending_started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'frozen_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -73,6 +75,15 @@ class CommunicationCampaign extends Model
     public function activityLogs(): HasMany
     {
         return $this->hasMany(CommunicationCampaignActivityLog::class, 'campaign_id');
+    }
+
+    /**
+     * Traccia separata degli invii di test (Provider Abstraction + Safe
+     * Test Send) — mai comm_sends, vedi CampaignTestSendService.
+     */
+    public function testSends(): HasMany
+    {
+        return $this->hasMany(CommunicationTestSend::class, 'campaign_id');
     }
 
     /**
@@ -121,6 +132,24 @@ class CommunicationCampaign extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function frozenBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'frozen_by');
+    }
+
+    /**
+     * true quando contenuto, template/mittente e l'elenco destinatari
+     * (comm_sends) sono stati bloccati da CampaignFreezeService — vedi
+     * il suo docblock per cosa questo garantisce e cosa NON garantisce
+     * (la rivalutazione live dello stato iscritto/campagna/mittente al
+     * momento dell'invio resta comunque a carico di
+     * CampaignDeliveryOrchestrator::revalidate(), invariata).
+     */
+    public function isFrozen(): bool
+    {
+        return filled($this->frozen_at);
     }
 
     // ── Scope ─────────────────────────────────────────────────
