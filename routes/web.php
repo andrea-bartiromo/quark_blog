@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
+use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TuringController;
@@ -168,6 +169,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // Speciali editoriali
     Route::get('/turing', [TuringController::class, 'edit'])->name('turing');
     Route::post('/turing', [TuringController::class, 'update'])->name('turing.update');
+
+    // Distribuzione social (generatore link UTM per campagne ufficiali,
+    // mai per la condivisione organica dei lettori — vedi
+    // App\Services\SocialDistribution\UtmLinkGenerator)
+    Route::get('/distribuzione-social', [SocialDistributionController::class, 'index'])->name('social-distribution');
 
     // Media
     Route::get('/media', [MediaController::class, 'index'])->name('media');
