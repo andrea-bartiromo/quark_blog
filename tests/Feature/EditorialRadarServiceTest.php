@@ -12,32 +12,41 @@ class EditorialRadarServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_exposes_explainable_update_and_percorso_opportunities_for_published_articles(): void
+    public function test_it_exposes_explainable_multi_provider_opportunities_for_published_articles(): void
     {
         $article = Article::withoutEvents(fn () => Article::create([
             'user_id' => User::factory()->create()->id,
             'title' => 'Articolo Radar Test',
             'slug' => 'articolo-radar-test',
             'excerpt' => '',
-            'body' => '<p>Test body senza link interni.</p>',
+            'body' => '<p><a href="/articolo/target-mancante">Link rotto</a></p>',
             'category' => 'radar-test',
             'status' => Article::STATUS_PUBLISHED,
             'published_at' => now()->subMinute(),
             'read_minutes' => 1,
+            'canonical_url' => 'not-an-absolute-url',
+            'cover_image' => 'cover.jpg',
+            'cover_alt' => 'Cover test',
+            'cover_credit' => 'Autore',
+            'cover_source' => 'Fonte',
         ]));
 
         $rows = app(EditorialRadarService::class)->opportunities();
 
-        $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'UPDATE_CONTENT' && $row['article_id'] === $article->id));
+        $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'UPDATE_CONTENT' && $row['provider'] === 'content_health' && $row['article_id'] === $article->id));
+        $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'UPDATE_CONTENT' && $row['provider'] === 'attribution_health' && $row['article_id'] === $article->id));
         $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'PERCORSO_OPPORTUNITY' && $row['article_id'] === $article->id));
-        $this->assertTrue($rows->every(fn (array $row) => isset($row['detected'], $row['why'], $row['suggested_action'], $row['priority'])));
+        $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'SEO_OPPORTUNITY' && $row['provider'] === 'seo_metadata' && $row['article_id'] === $article->id));
+        $this->assertTrue($rows->contains(fn (array $row) => $row['type'] === 'INTERNAL_LINKING' && $row['provider'] === 'internal_link_audit' && $row['article_id'] === $article->id));
+        $this->assertTrue($rows->every(fn (array $row) => isset($row['detected'], $row['why'], $row['suggested_action'], $row['priority'], $row['provider'])));
         $this->assertTrue($rows->every(fn (array $row) => ! array_key_exists('score', $row)));
     }
 
-    public function test_draft_and_scheduled_articles_do_not_generate_article_health_opportunities(): void
+    public function test_draft_scheduled_and_future_published_articles_do_not_generate_article_opportunities(): void
     {
+        $hiddenIds = [];
         foreach ([Article::STATUS_DRAFT, Article::STATUS_SCHEDULED] as $index => $status) {
-            Article::withoutEvents(fn () => Article::create([
+            $hiddenIds[] = Article::withoutEvents(fn () => Article::create([
                 'user_id' => User::factory()->create()->id,
                 'title' => "Hidden Radar {$index}",
                 'slug' => "hidden-radar-{$index}",
@@ -47,12 +56,24 @@ class EditorialRadarServiceTest extends TestCase
                 'status' => $status,
                 'published_at' => $status === Article::STATUS_SCHEDULED ? now()->addDay() : null,
                 'read_minutes' => 1,
-            ]));
+            ]))->id;
         }
+
+        $hiddenIds[] = Article::withoutEvents(fn () => Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Future Published Flag',
+            'slug' => 'future-published-flag',
+            'excerpt' => '',
+            'body' => '<p>Hidden</p>',
+            'category' => 'radar-test',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->addDay(),
+            'read_minutes' => 1,
+        ]))->id;
 
         $rows = app(EditorialRadarService::class)->opportunities();
 
-        $this->assertFalse($rows->contains(fn (array $row) => $row['type'] === 'UPDATE_CONTENT'));
+        $this->assertFalse($rows->contains(fn (array $row) => in_array($row['article_id'], $hiddenIds, true)));
     }
 
     public function test_opportunity_keys_are_unique_and_ordering_is_deterministic(): void
