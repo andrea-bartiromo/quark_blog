@@ -10,18 +10,34 @@ use Illuminate\Support\Collection;
 
 class PercorsoPublicationReadinessService
 {
-    public function __construct(private readonly ContentClusterHealth $health) {}
+    public function __construct(
+        private readonly ContentClusterHealth $health,
+        private readonly ContentClusterPublicSequence $publicSequence,
+    ) {}
 
     /**
      * Warning-first, read-only readiness. It never changes or blocks a Percorso.
      *
-     * @return array{status:string,findings:Collection<int,array{code:string,severity:string,message:string}>}
+     * Scheduling runtime is not assumed: until publish_at exists on ContentCluster,
+     * publication_state deliberately exposes only the states the current domain can
+     * actually prove.
+     *
+     * @return array{
+     *     status:string,
+     *     publication_state:string,
+     *     lifecycle:string,
+     *     public_prefix_count:int,
+     *     findings:Collection<int,array{code:string,severity:string,message:string}>
+     * }
      */
     public function evaluate(ContentCluster $cluster, ?\DateTimeInterface $publicationAt = null): array
     {
         $cluster->loadMissing(['articles', 'pillarArticle']);
         $health = $this->health->evaluate($cluster);
         $findings = collect();
+        $ordered = $cluster->articles
+            ->sortBy(fn (Article $article) => [$article->pivot?->position ?? PHP_INT_MAX, $article->id])
+            ->values();
 
         $required = [
             'NAME_MISSING' => ['value' => $cluster->name, 'label' => 'Nome'],
@@ -51,11 +67,8 @@ class PercorsoPublicationReadinessService
         }
 
         foreach ($health['findings'] as $code) {
-            // PILLAR_NOT_PUBLIC and NO_PUBLIC_ARTICLES are facts about "now".
-            // When a future publication instant is explicitly supplied they are
-            // replaced by the temporal checks below, otherwise a valid scheduled
-            // pillar/member would be incorrectly rejected merely for not being
-            // public yet.
+            // These are now-time facts. A future readiness evaluation replaces
+            // them with the explicit publication-time prefix checks below.
             if ($publicationAt !== null && in_array($code, ['PILLAR_NOT_PUBLIC', 'NO_PUBLIC_ARTICLES'], true)) {
                 continue;
             }
@@ -66,32 +79,84 @@ class PercorsoPublicationReadinessService
             $findings->push($this->finding('HEALTH_'.$code, $severity, 'ContentClusterHealth segnala: '.$code.'.'));
         }
 
-        if ($cluster->articles->count() === 1) {
+        if ($ordered->count() === 1) {
             $findings->push($this->finding('SINGLE_MEMBER', 'WARNING', 'Il Percorso contiene un solo articolo: valuta se esiste una progressione editoriale sufficiente.'));
         }
 
-        $ordered = $cluster->articles->sortBy(fn (Article $article) => [$article->pivot?->position ?? PHP_INT_MAX, $article->id])->values();
-        $missingTransitions = $ordered->skip(1)->filter(fn (Article $article) => blank($article->pivot?->transition_text))->count();
+        // transition_text belongs to the CURRENT step and narrates the move to
+        // the immediately following step. Therefore every non-terminal member
+        // may need one, while a terminal NULL is explicitly valid.
+        $nonTerminal = $ordered->take(max(0, $ordered->count() - 1));
+        $missingTransitions = $nonTerminal
+            ->filter(fn (Article $article) => blank($article->pivot?->transition_text))
+            ->count();
         if ($missingTransitions > 0) {
-            $findings->push($this->finding('TRANSITION_TEXT_GAPS', 'WARNING', $missingTransitions.' tappa/e successive alla prima non hanno testo di raccordo.'));
+            $findings->push($this->finding(
+                'TRANSITION_TEXT_GAPS',
+                'WARNING',
+                $missingTransitions.' raccordo/i tra tappe non terminali non sono compilati.',
+            ));
         }
 
         if ($publicationAt !== null) {
             $at = Carbon::instance(\DateTime::createFromInterface($publicationAt));
-            $available = $cluster->articles->filter(fn (Article $article) => $this->articleAvailableAt($article, $at));
-            $unavailable = $cluster->articles->reject(fn (Article $article) => $this->articleAvailableAt($article, $at));
+            $prefix = $this->publicPrefixAt($ordered, $at);
 
-            if ($available->isEmpty()) {
-                $findings->push($this->finding('NO_MEMBERS_AVAILABLE_AT_PUBLICATION', 'ERROR', 'Nessun membro risulterebbe pubblico alla data prevista del Percorso.'));
-            } elseif ($unavailable->isNotEmpty()) {
-                $findings->push($this->finding('MEMBERS_UNAVAILABLE_AT_PUBLICATION', 'WARNING', $unavailable->count().' membro/i diventerebbero disponibili solo dopo la data prevista del Percorso o non sono programmati per la pubblicazione.'));
+            if ($ordered->isNotEmpty() && $prefix->isEmpty()) {
+                $findings->push($this->finding(
+                    'NO_MEMBERS_AVAILABLE_AT_PUBLICATION',
+                    'ERROR',
+                    'La prima tappa non risulterebbe pubblica alla data prevista: il Percorso non avrebbe alcun prefisso percorribile.',
+                ));
+            } elseif ($prefix->count() < $ordered->count()) {
+                $findings->push($this->finding(
+                    'PUBLIC_SEQUENCE_BLOCKED_AT_PUBLICATION',
+                    'WARNING',
+                    'Il prefisso pubblico si fermerebbe alla prima tappa non disponibile; le tappe successive resterebbero correttamente nascoste.',
+                ));
             }
 
-            if ($cluster->pillarArticle !== null && ! $this->articleAvailableAt($cluster->pillarArticle, $at)) {
-                $findings->push($this->finding('PILLAR_UNAVAILABLE_AT_PUBLICATION', 'ERROR', 'Il pillar non sarebbe pubblico alla data prevista del Percorso.'));
+            if ($cluster->pillarArticle !== null && ! $prefix->contains('id', $cluster->pillarArticle->id)) {
+                $findings->push($this->finding(
+                    'PILLAR_UNAVAILABLE_AT_PUBLICATION',
+                    'ERROR',
+                    'Il pillar non apparterrebbe al prefisso pubblicamente raggiungibile alla data prevista del Percorso.',
+                ));
             }
+
+            $publicPrefixCount = $prefix->count();
         } else {
-            $findings->push($this->finding('SCHEDULING_NOT_AVAILABLE', 'INFO', 'Percorsi Scheduling non è ancora su main: la readiness temporale è calcolabile solo se viene fornita esplicitamente una data prevista.'));
+            $current = $this->publicSequence->resolve($cluster);
+            $prefix = $current['articles'];
+
+            if ($ordered->isNotEmpty() && $prefix->isEmpty()) {
+                $findings->push($this->finding(
+                    'NO_PUBLIC_CONTIGUOUS_PREFIX',
+                    'ERROR',
+                    'La prima tappa non è pubblica: nessuna tappa del Percorso è pubblicamente percorribile.',
+                ));
+            } elseif ($current['has_hidden_remainder']) {
+                $findings->push($this->finding(
+                    'PUBLIC_SEQUENCE_BLOCKED',
+                    'WARNING',
+                    'La sequenza pubblica si ferma al primo gap; eventuali articoli pubblicati successivi restano correttamente non raggiungibili dal Percorso.',
+                ));
+            }
+
+            if ($cluster->pillarArticle !== null && ! $prefix->contains('id', $cluster->pillarArticle->id)) {
+                $findings->push($this->finding(
+                    'PILLAR_OUTSIDE_PUBLIC_PREFIX',
+                    'ERROR',
+                    'Il pillar non appartiene al prefisso pubblicamente raggiungibile del Percorso.',
+                ));
+            }
+
+            $findings->push($this->finding(
+                'SCHEDULING_NOT_AVAILABLE',
+                'INFO',
+                'Percorsi Scheduling runtime non è disponibile: non viene inventato uno stato scheduled del Percorso.',
+            ));
+            $publicPrefixCount = $prefix->count();
         }
 
         return [
@@ -100,8 +165,35 @@ class PercorsoPublicationReadinessService
                 $findings->contains('severity', 'WARNING') => 'READY WITH WARNINGS',
                 default => 'READY',
             },
+            'publication_state' => $cluster->is_active ? 'ACTIVE_IMMEDIATE_LEGACY' : 'INACTIVE',
+            'lifecycle' => $cluster->lifecycle_status,
+            'public_prefix_count' => $publicPrefixCount,
             'findings' => $findings->values(),
         ];
+    }
+
+    /**
+     * Prefix that would be traversable at a proposed publication instant.
+     * This intentionally supports both already-published and scheduled Articles:
+     * at a future editorial date a scheduled Article is eligible only when its
+     * own published_at has arrived. Draft/review are never eligible.
+     *
+     * @param Collection<int, Article> $ordered
+     * @return Collection<int, Article>
+     */
+    private function publicPrefixAt(Collection $ordered, Carbon $at): Collection
+    {
+        $prefix = collect();
+
+        foreach ($ordered as $article) {
+            if (! $this->articleAvailableAt($article, $at)) {
+                break;
+            }
+
+            $prefix->push($article);
+        }
+
+        return $prefix->values();
     }
 
     private function articleAvailableAt(Article $article, Carbon $at): bool
