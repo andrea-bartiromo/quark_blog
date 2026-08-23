@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\SocialDistribution\UtmLinkGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class UtmLinkGeneratorTest extends TestCase
@@ -40,6 +41,36 @@ class UtmLinkGeneratorTest extends TestCase
         $this->assertStringContainsString('utm_campaign=test-campagna', $link);
     }
 
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function channelUtmSourceProvider(): array
+    {
+        return [
+            'facebook' => [UtmLinkGenerator::CHANNEL_FACEBOOK, 'facebook', 'fb'],
+            'x' => [UtmLinkGenerator::CHANNEL_X, 'x', 'x'],
+            'linkedin' => [UtmLinkGenerator::CHANNEL_LINKEDIN, 'linkedin', 'li'],
+            'other' => [UtmLinkGenerator::CHANNEL_OTHER, 'altro', 'altro'],
+        ];
+    }
+
+    #[DataProvider('channelUtmSourceProvider')]
+    public function test_each_channel_produces_its_own_deterministic_utm_source_and_default_campaign_prefix(
+        string $channel,
+        string $expectedUtmSource,
+        string $expectedPrefix
+    ): void {
+        $article = $this->article();
+
+        $link = app(UtmLinkGenerator::class)->forArticle($article, $channel);
+
+        $this->assertStringContainsString('utm_source='.$expectedUtmSource, $link);
+        $this->assertStringContainsString(
+            'utm_campaign='.$expectedPrefix.'-'.$article->slug.'-'.now()->format('Ymd'),
+            $link
+        );
+    }
+
     public function test_default_campaign_name_is_derived_from_article_slug_and_todays_date_when_none_is_given(): void
     {
         $article = $this->article();
@@ -48,6 +79,29 @@ class UtmLinkGeneratorTest extends TestCase
 
         $expected = 'fb-'.$article->slug.'-'.now()->format('Ymd');
         $this->assertStringContainsString('utm_campaign='.$expected, $link);
+    }
+
+    public function test_generating_the_same_channel_and_campaign_twice_produces_identical_links(): void
+    {
+        $article = $this->article();
+
+        $first = app(UtmLinkGenerator::class)->forArticle($article, UtmLinkGenerator::CHANNEL_LINKEDIN, 'lancio-fisica-2026');
+        $second = app(UtmLinkGenerator::class)->forArticle($article, UtmLinkGenerator::CHANNEL_LINKEDIN, 'lancio-fisica-2026');
+
+        $this->assertSame($first, $second);
+    }
+
+    public function test_channel_options_expose_exactly_the_four_supported_channels(): void
+    {
+        $this->assertSame(
+            [
+                UtmLinkGenerator::CHANNEL_FACEBOOK,
+                UtmLinkGenerator::CHANNEL_X,
+                UtmLinkGenerator::CHANNEL_LINKEDIN,
+                UtmLinkGenerator::CHANNEL_OTHER,
+            ],
+            array_keys(UtmLinkGenerator::channelOptions())
+        );
     }
 
     public function test_an_unsupported_channel_is_rejected(): void
