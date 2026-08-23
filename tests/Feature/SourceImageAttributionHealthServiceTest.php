@@ -72,7 +72,14 @@ class SourceImageAttributionHealthServiceTest extends TestCase
     public function test_evaluation_is_read_only(): void
     {
         $article = $this->article(['cover_image' => 'cover.webp']);
-        $before = $article->getAttributes();
+        // Confronto riga-persistita-contro-riga-persistita: getAttributes()
+        // su un modello appena creato riflette solo le chiavi assegnate
+        // esplicitamente (mai i default di colonna non toccati, es.
+        // 'views', 'featured', i campi SEO), quindi non è un prima
+        // affidabile per un test "sola lettura" — un confronto contro il
+        // fresh() successivo fallirebbe per colonne mai scritte dal
+        // servizio, non per una mutazione reale.
+        $before = $article->fresh()->getAttributes();
 
         app(SourceImageAttributionHealthService::class)->evaluate($article);
 
