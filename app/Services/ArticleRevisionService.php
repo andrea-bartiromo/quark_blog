@@ -30,7 +30,7 @@ class ArticleRevisionService
      *               scope deliberatamente minima (vedi docs/article-revision-history.md
      *               per il perché SEO/copertina restano fuori da questa v1).
      */
-    private const SNAPSHOT_FIELDS = ['title', 'excerpt', 'body', 'category', 'status'];
+    private const SNAPSHOT_FIELDS = ['title', 'excerpt', 'body', 'category', 'status', 'published_at'];
 
     /**
      * Scrive una revisione con lo stato ATTUALE di $article, ma solo se
@@ -48,7 +48,15 @@ class ArticleRevisionService
                 continue;
             }
 
-            if ((string) $article->getAttribute($field) !== (string) $incoming[$field]) {
+            $current = $article->getAttribute($field);
+            $next = $incoming[$field];
+
+            if ($field === 'published_at') {
+                $current = $current?->format('Y-m-d H:i:s');
+                $next = $next instanceof \DateTimeInterface ? $next->format('Y-m-d H:i:s') : $next;
+            }
+
+            if ((string) $current !== (string) $next) {
                 $changed = true;
                 break;
             }
@@ -66,6 +74,7 @@ class ArticleRevisionService
             'body' => $article->body,
             'category' => $article->category,
             'status' => $article->status,
+            'published_at' => $article->published_at,
             'created_at' => now(),
         ]);
     }
@@ -88,6 +97,11 @@ class ArticleRevisionService
                 'body' => $revision->body,
                 'category' => $revision->category,
                 'status' => $revision->status,
+                'published_at' => $revision->published_at,
+                // read_minutes è derivato dal body, quindi non va versionato:
+                // va ricalcolato nello stesso momento in cui il body storico
+                // viene ripristinato, esattamente come nei normali salvataggi.
+                'read_minutes' => Article::calculateReadMinutes($revision->body),
             ];
 
             $this->recordIfChanged($article, $targetValues, $actor);
