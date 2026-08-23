@@ -17,10 +17,11 @@ class ArticleRevision extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'article_id', 'user_id', 'title', 'excerpt', 'body', 'category', 'status', 'created_at',
+        'article_id', 'user_id', 'title', 'excerpt', 'body', 'category', 'status', 'published_at', 'created_at',
     ];
 
     protected $casts = [
+        'published_at' => 'datetime',
         'created_at' => 'datetime',
     ];
 
