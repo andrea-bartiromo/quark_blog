@@ -102,6 +102,7 @@
       $isTuring        = request()->routeIs('admin.turing*');
       $isSuggestions   = request()->routeIs('admin.suggestions*');
       $isStats         = request()->routeIs('admin.stats*');
+      $isSearchOpportunities = request()->routeIs('admin.search-opportunities*');
       $isActivity      = request()->routeIs('admin.activity');
       $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
       $isProfile       = request()->routeIs('admin.profile*');
@@ -121,7 +122,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats;
+      $analisiOpen = $isStats || $isSearchOpportunities;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -173,6 +174,7 @@
 
       <x-admin.nav-group label="Analisi" :open="$analisiOpen">
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
       </x-admin.nav-group>
 
       <x-admin.nav-group label="Sistema" :open="$sistemaOpen">
