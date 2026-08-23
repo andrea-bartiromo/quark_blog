@@ -136,17 +136,13 @@ class ContentClusterPublicTest extends TestCase
         $this->assertNotEmpty($dialogImage, 'L\'immagine del viewer condiviso non e\' stata trovata.');
         $this->assertSame($expected, $dialogImage[1]);
         $this->assertSame('path-cover-viewer-'.$cluster->id, $trigger[1]);
-        // L'hero e' un <x-responsive-image> assolutamente posizionato
-        // (loading=eager, fetchpriority=high, come LCP candidate reale della
-        // pagina), non piu' un CSS background-image — vedi
-        // content-clusters-detail.css.
         $this->assertMatchesRegularExpression(
             '/<header class="path-hero">\s*<img\b[^>]*src="'.preg_quote($expected, '/').'"[^>]*loading="eager"[^>]*fetchpriority="high"/s',
             $html
         );
     }
 
-    public function test_detail_filters_non_public_articles_preserves_manual_order_and_hides_non_public_pillar(): void
+    public function test_detail_stops_at_first_non_public_member_and_hides_non_public_pillar(): void
     {
         $cluster = ContentCluster::factory()->create([
             'name' => 'IA spiegata',
@@ -156,7 +152,7 @@ class ContentClusterPublicTest extends TestCase
             'seo_description' => 'Descrizione SEO del percorso.',
             'is_active' => true,
         ]);
-        $second = $this->article('Secondo articolo', Article::STATUS_PUBLISHED, now()->subDay());
+        $second = $this->article('Secondo articolo oltre gap', Article::STATUS_PUBLISHED, now()->subDay());
         $first = $this->article('Primo articolo', Article::STATUS_PUBLISHED, now()->subDays(2));
         $scheduled = $this->article('Articolo programmato segreto', Article::STATUS_SCHEDULED, now()->addDay());
         $draft = $this->article('Bozza segreta', Article::STATUS_DRAFT);
@@ -177,12 +173,12 @@ class ContentClusterPublicTest extends TestCase
             ->assertSee('CollectionPage')
             ->assertSee('ItemList')
             ->assertSee('BreadcrumbList')
+            ->assertSee('Primo articolo')
+            ->assertSee('In arrivo')
+            ->assertDontSee('Secondo articolo oltre gap')
             ->assertDontSee('Articolo programmato segreto')
             ->assertDontSee('Bozza segreta')
-            ->assertDontSee('Da dove iniziare');
-
-        $html = $response->getContent();
-        $this->assertLessThan(strpos($html, 'Secondo articolo'), strpos($html, 'Primo articolo'));
+            ->assertDontSee('Il punto di partenza');
     }
 
     public function test_unknown_and_inactive_clusters_return_404_without_metadata_leakage(): void
