@@ -101,7 +101,9 @@
       $isAds           = request()->routeIs('admin.ads*');
       $isTuring        = request()->routeIs('admin.turing*');
       $isSuggestions   = request()->routeIs('admin.suggestions*');
+      $isSocialDistribution = request()->routeIs('admin.social-distribution*');
       $isStats         = request()->routeIs('admin.stats*');
+      $isSearchOpportunities = request()->routeIs('admin.search-opportunities*');
       $isActivity      = request()->routeIs('admin.activity');
       $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
       $isProfile       = request()->routeIs('admin.profile*');
@@ -119,9 +121,9 @@
       $comunicazioneOpen = $isComunicazioneDashboard || $isComunicazioneCampaigns
                           || $isComunicazioneTemplates || $isComunicazioneSenderProfiles
                           || $isNewsletter || $isNewsletterPrev;
-      $strumentiOpen = $isTuring || $isSuggestions;
+      $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats;
+      $analisiOpen = $isStats || $isSearchOpportunities;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -165,6 +167,7 @@
       <x-admin.nav-group label="Strumenti" :open="$strumentiOpen">
         <x-admin.nav-link :route="route('admin.turing')" :active="$isTuring" icon="🧠">Turing</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.suggestions')" :active="$isSuggestions" icon="🤖">Assistente AI</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.social-distribution')" :active="$isSocialDistribution" icon="📣">Distribuzione social</x-admin.nav-link>
       </x-admin.nav-group>
 
       <x-admin.nav-group label="Monetizzazione" :open="$monetizzazioneOpen">
@@ -173,6 +176,7 @@
 
       <x-admin.nav-group label="Analisi" :open="$analisiOpen">
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
       </x-admin.nav-group>
 
       <x-admin.nav-group label="Sistema" :open="$sistemaOpen">

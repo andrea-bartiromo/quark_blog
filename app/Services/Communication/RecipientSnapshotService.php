@@ -90,6 +90,17 @@ class RecipientSnapshotService
             return false;
         }
 
+        // Congelamento (CampaignFreezeService): una campagna congelata ha
+        // il suo elenco destinatari deliberatamente bloccato al momento
+        // del congelamento — rieseguire "Prepara destinatari" dopo non
+        // deve più aggiungere righe, indipendentemente da quanti nuovi
+        // iscritti si sono confermati nel frattempo. Stessa guardia
+        // messa qui (non solo nel controller admin) per restare valida
+        // per qualunque chiamante futuro, come trashed() sopra.
+        if ($campaign->isFrozen()) {
+            return false;
+        }
+
         return in_array($campaign->status, self::ELIGIBLE_CAMPAIGN_STATUSES, true);
     }
 
