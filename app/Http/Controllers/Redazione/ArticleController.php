@@ -7,6 +7,7 @@ use App\Http\Requests\Redazione\StoreArticleRequest;
 use App\Http\Requests\Redazione\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\User;
 use App\Services\ArticleBodySanitizer;
 use App\Services\ArticleLinkSuggestionService;
@@ -43,7 +44,11 @@ class ArticleController extends Controller
 
     public function create()
     {
-        $categories = config('laboratorio.categories');
+        // Stessa fonte di Admin\ArticleController (Category::options()):
+        // le categorie DB realmente attive, non lo snapshot statico di
+        // config('laboratorio.categories') — vedi StoreArticleRequest per
+        // il motivo del disallineamento che questo risolve.
+        $categories = Category::options();
 
         return view('redazione.article-form', compact('categories'));
     }
@@ -216,7 +221,7 @@ class ArticleController extends Controller
                 );
         }
 
-        $categories = config('laboratorio.categories');
+        $categories = Category::options();
 
         $linkSuggestions = $article->proposedLinkSuggestions();
 

@@ -18,6 +18,7 @@ return [
         'salute' => 'Salute & Biotech',
         'societa' => 'Tecnologia & Società',
         'spazio' => 'Spazio',
+        'fisica' => 'Fisica',
         'ambiente' => 'Ambiente',
     ],
 
