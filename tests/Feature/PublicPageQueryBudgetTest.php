@@ -93,7 +93,15 @@ class PublicPageQueryBudgetTest extends TestCase
 
         $count = $this->queryCountFor(route('articolo', $article->slug));
 
-        $this->assertLessThanOrEqual(11, $count);
+        // Budget +1 rispetto agli 11 storici: ArticleContinuationService
+        // ("Continua da qui", Growth S2) riusa il pathNavigation già
+        // caricato dal controller (nessuna query duplicata — vedi
+        // ArticleContinuationServiceTest::
+        // test_passing_a_real_null_navigation_never_triggers_a_second_lookup)
+        // e aggiunge esattamente 1 query bounded per il fallback di
+        // categoria quando non esiste un Percorso attivo. Non un N+1: il
+        // costo resta costante indipendentemente dal numero di articoli.
+        $this->assertLessThanOrEqual(12, $count);
     }
 
     /**
