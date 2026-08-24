@@ -277,12 +277,16 @@ class GrowthS2E2ECertificationTest extends TestCase
         // Baseline documentato: articolo senza Continua da qui ≤11
         // (PublicPageQueryBudgetTest storico); con motore+UI ≤12; con
         // l'INSERT di analytics quando il modulo mostra un candidato,
-        // ≤13 storico, ora ≤15 (+2 query bounded, Mission 24/25 — Content
+        // ≤13 storico, poi ≤15 (+2 query bounded, Mission 24/25 — Content
         // Graph Public Consumer, discoverableConceptsForArticle() per il
         // JSON-LD `about` — vedi SecondReadAnalyticsTest::
-        // test_impression_write_adds_exactly_one_bounded_query). Un solo
-        // numero qui, sull'integrazione reale dei tre componenti.
-        $this->assertLessThanOrEqual(15, $withAnalytics);
+        // test_impression_write_adds_exactly_one_bounded_query), ora ≤16
+        // (+1 ulteriore, Mission 43 — category source-debt #258: il
+        // composer DB-first in AppServiceProvider aggiunge una singola
+        // query bounded per-request per header/category-bar/sidebar/
+        // footer). Un solo numero qui, sull'integrazione reale dei
+        // componenti.
+        $this->assertLessThanOrEqual(16, $withAnalytics);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────
