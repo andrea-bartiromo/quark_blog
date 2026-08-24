@@ -110,4 +110,45 @@ class ScientificConceptMatcherTest extends TestCase
         $this->assertSame('orologio atomico', $found[0]->canonicalTerm);
         $this->assertSame('orologi atomici', $found[0]->matchedText);
     }
+
+    /**
+     * Mission 20 — Article Editor Concept Suggestions V1: conceptsPresentInTerms()
+     * è il gancio che permette al Content Graph di riusare l'identica
+     * pipeline di matching contro un registro di termini fornito dal
+     * chiamante invece del config statico. Qui verifichiamo solo che il
+     * gancio funzioni e propaghi il $source passato — non riverifichiamo
+     * l'algoritmo di matching stesso (già coperto sopra via conceptsPresentIn()).
+     */
+    public function test_concepts_present_in_terms_matches_against_a_caller_supplied_registry(): void
+    {
+        $terms = [
+            ['canonical' => 'Entropia', 'aliases' => ['Entropia', 'disordine termodinamico']],
+        ];
+
+        $found = $this->matcher->conceptsPresentInTerms(
+            'Il disordine termodinamico di un sistema isolato non diminuisce mai.',
+            $terms,
+            'content_graph',
+        );
+
+        $this->assertCount(1, $found);
+        $this->assertSame('Entropia', $found[0]->canonicalTerm);
+        $this->assertSame('disordine termodinamico', $found[0]->matchedText);
+        $this->assertSame('content_graph', $found[0]->source);
+    }
+
+    public function test_concepts_present_in_terms_never_reads_the_static_config(): void
+    {
+        // Un termine assente dal registro fornito ma presente nel config
+        // statico (scientific_concepts.php) non deve MAI essere trovato
+        // quando si passa un registro esplicito — altrimenti il gancio
+        // "content_graph" leggerebbe silenziosamente dal registro sbagliato.
+        $found = $this->matcher->conceptsPresentInTerms(
+            'Gli astronomi hanno osservato un buco nero al centro della galassia.',
+            [['canonical' => 'Entropia', 'aliases' => ['Entropia']]],
+            'content_graph',
+        );
+
+        $this->assertSame([], $found);
+    }
 }

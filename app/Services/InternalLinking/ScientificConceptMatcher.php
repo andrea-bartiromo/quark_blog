@@ -30,6 +30,23 @@ class ScientificConceptMatcher
      */
     public function conceptsPresentIn(string $plainText): array
     {
+        return $this->conceptsPresentInTerms($plainText, config('scientific_concepts.concepts', []), 'config');
+    }
+
+    /**
+     * Stessa identica pipeline di match (word-boundary, alias più lungo
+     * prima, niente sovrapposizioni) di conceptsPresentIn(), ma contro un
+     * registro di termini fornito dal chiamante invece del config statico
+     * — il gancio che ConceptCandidate::$source già anticipava per una
+     * futura origine 'content_graph' (vedi il suo docblock): stesso
+     * algoritmo testato, sorgente diversa, mai una seconda
+     * implementazione del matching.
+     *
+     * @param  iterable<array{canonical:string, aliases:list<string>}>  $terms
+     * @return array<int, ConceptCandidate> in ordine di posizione nel testo
+     */
+    public function conceptsPresentInTerms(string $plainText, iterable $terms, string $source): array
+    {
         if (trim($plainText) === '') {
             return [];
         }
@@ -37,7 +54,7 @@ class ScientificConceptMatcher
         $found = [];
         $claimedRanges = []; // array<int, array{0:int,1:int}> posizioni [start, end) già reclamate
 
-        foreach ($this->aliasesLongestFirst() as [$canonical, $alias, $wordCount]) {
+        foreach ($this->aliasesLongestFirst($terms) as [$canonical, $alias, $wordCount]) {
             $offset = 0;
 
             while (($occurrence = $this->findWordBoundaryPhrase($plainText, $alias, $offset)) !== null) {
@@ -56,6 +73,7 @@ class ScientificConceptMatcher
                     matchedText: $occurrence['text'],
                     position: $start,
                     wordCount: $wordCount,
+                    source: $source,
                 );
             }
         }
@@ -77,17 +95,19 @@ class ScientificConceptMatcher
     }
 
     /**
-     * Elenco (canonical, alias, wordCount) dal config, ordinato per numero
-     * di parole decrescente — garantisce che un alias più lungo/specifico
-     * venga cercato e reclamato prima di uno più corto (FASE 5).
+     * Elenco (canonical, alias, wordCount) dal registro fornito, ordinato
+     * per numero di parole decrescente — garantisce che un alias più
+     * lungo/specifico venga cercato e reclamato prima di uno più corto
+     * (FASE 5).
      *
+     * @param  iterable<array{canonical:string, aliases:list<string>}>  $terms
      * @return array<int, array{0:string,1:string,2:int}>
      */
-    private function aliasesLongestFirst(): array
+    private function aliasesLongestFirst(iterable $terms): array
     {
         $entries = [];
 
-        foreach (config('scientific_concepts.concepts', []) as $concept) {
+        foreach ($terms as $concept) {
             foreach ($concept['aliases'] as $alias) {
                 $entries[] = [$concept['canonical'], $alias, count(preg_split('/\s+/u', trim($alias)))];
             }

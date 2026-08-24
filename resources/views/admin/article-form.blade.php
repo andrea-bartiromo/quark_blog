@@ -130,6 +130,28 @@
       </ul>
       @endif
 
+      @if(! empty($conceptSuggestions))
+      <div style="margin-bottom:1rem;padding:.75rem;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e;margin-bottom:.5rem;">Concetti suggeriti</div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+          @foreach($conceptSuggestions as $suggestion)
+          <li style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+            <span style="font-size:.8rem;">
+              <strong>{{ $suggestion['concept']->name }}</strong>
+              <span style="color:#6b7280;">— trovato come "{{ $suggestion['matched_text'] }}"</span>
+            </span>
+            <form method="POST" action="{{ route('admin.articles.concepts.link', [$article, $suggestion['concept']]) }}">
+              @csrf
+              <input type="hidden" name="relation_type" value="supporting">
+              <input type="hidden" name="weight" value="50">
+              <button class="action-btn" type="submit">Collega</button>
+            </form>
+          </li>
+          @endforeach
+        </ul>
+      </div>
+      @endif
+
       <details style="margin-top:.5rem;">
         <summary style="cursor:pointer;font-size:.78rem;font-weight:600;color:#0d9488;">Collega un nuovo concetto…</summary>
 
