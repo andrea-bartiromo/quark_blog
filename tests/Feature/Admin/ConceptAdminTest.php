@@ -184,6 +184,34 @@ class ConceptAdminTest extends TestCase
         $response->assertSee('Possibili concetti duplicati (1)', false);
     }
 
+    public function test_edit_form_shows_itemized_reasons_for_an_approved_but_unreachable_question(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $concept->questions()->create([
+            'question' => 'Domanda incompleta',
+            'status' => 'approved',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $concept));
+
+        $response->assertOk();
+        $response->assertSee('Manca una risposta (sintesi).');
+        $response->assertSee('Manca un articolo target.');
+    }
+
+    public function test_edit_form_shows_no_itemized_reasons_for_a_draft_question(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $concept->questions()->create(['question' => 'Domanda bozza', 'status' => 'draft']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $concept));
+
+        $response->assertOk();
+        $response->assertDontSee('Manca una risposta (sintesi).');
+    }
+
     public function test_edit_form_shows_a_merge_offer_for_a_flagged_duplicate(): void
     {
         $editor = $this->editor();

@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ArticleConcept;
 use App\Models\Concept;
+use App\Models\ConceptQuestion;
 use App\Services\ContentGraph\ConceptAliasSyncService;
 use App\Services\ContentGraph\ConceptDuplicateAuditService;
 use App\Services\ContentGraph\ConceptMergeService;
+use App\Services\ContentGraph\ConceptQuestionReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
 use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Http\Request;
@@ -35,6 +37,7 @@ class ConceptController extends Controller
         private readonly ConceptDuplicateAuditService $duplicateAudit,
         private readonly ConceptMergeService $conceptMerge,
         private readonly ContentGraphCoverageService $coverage,
+        private readonly ConceptQuestionReadinessService $questionReadiness,
     ) {}
 
     public function index()
@@ -97,6 +100,16 @@ class ConceptController extends Controller
             ->answerableQuestionsForConcept($concept)
             ->pluck('id');
 
+        // Mission 21 — Question Status Workflow V2: per ogni domanda
+        // "Approvata" ma non raggiungibile, IL PERCHÉ — itemizzato dalle
+        // stesse condizioni di answerableQuestionsForConcept(), mai
+        // ricalcolate qui. Le domande già raggiungibili o non ancora
+        // "Approvata" non hanno bisogno di questa spiegazione (il badge
+        // binario esistente basta).
+        $questionFindings = $concept->questions
+            ->filter(fn ($question) => $question->status === ConceptQuestion::STATUS_APPROVED && ! $answerableQuestionIds->contains($question->id))
+            ->mapWithKeys(fn ($question) => [$question->id => $this->questionReadiness->evaluate($question)['findings']]);
+
         $catalog = Article::query()
             ->select(['id', 'title', 'status', 'published_at', 'category'])
             ->when($linkedIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedIds))
@@ -110,6 +123,7 @@ class ConceptController extends Controller
             'links' => $links,
             'catalog' => $catalog,
             'answerableQuestionIds' => $answerableQuestionIds,
+            'questionFindings' => $questionFindings,
             // Mission 18 — Merge Workflow Foundation: quali altri concetti
             // ConceptDuplicateAuditService (Mission 17) segnala come
             // possibile duplicato DI QUESTO, per offrire "Unisci qui"
