@@ -175,6 +175,13 @@
                   <span style="color:#166534;font-weight:600;">✓ Pubblica</span>
                 @else
                   <span style="color:#6b7280;">— Non pubblica</span>
+                  @if($questionFindings->has($question->id))
+                    <ul style="margin:.25rem 0 0;padding-left:1.1rem;font-size:.72rem;color:#b45309;">
+                      @foreach($questionFindings[$question->id] as $finding)
+                        <li>{{ $finding['message'] }}</li>
+                      @endforeach
+                    </ul>
+                  @endif
                 @endif
               </td>
               <td>{{ $question->sort_order }}</td>
