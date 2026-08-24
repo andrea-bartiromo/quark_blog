@@ -4,6 +4,7 @@ namespace App\Services\Search;
 
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Services\ContentClusters\ContentClusterPublicSequence;
 use Illuminate\Support\Collection;
@@ -42,6 +43,29 @@ use Illuminate\Support\Str;
  * di config) con almeno un articolo pubblicato — quindi non filtrare qui
  * su Category::active() converge con quel comportamento pubblico
  * esistente, non lo contraddice.
+ *
+ * Mission 30 — TROVA Content Graph Enrichment. Aggiunge un terzo gruppo,
+ * `concepts`, ora che il Content Graph (Missioni 16-25) è su `main` con un
+ * contratto di sicurezza pubblica già certificato
+ * (ContentGraphPublicSafetyContractTest): solo Concept::active() (mai
+ * draft/inactive, stesso confine già applicato da
+ * ContentGraphService::discoverableConceptsForArticle()), e solo concetti
+ * collegati ad almeno un articolo realmente pubblico
+ * (Article::published()) — stessa richiesta di "contenuto reale dietro il
+ * risultato" già applicata a Categorie (whereHas articoli pubblicati) e
+ * Percorsi (prefisso pubblico continuo non vuoto), non un criterio nuovo.
+ * Gli alias (ConceptAlias) partecipano sia al testo usato per
+ * ALL_TOKENS/ANY_TOKEN sia, se corrispondono esattamente alla query,
+ * alla classe EXACT — questo è il "miglioramento dell'interpretazione
+ * della query" richiesto dalla missione, senza introdurre una quarta
+ * classe di match (il set resta EXACT/ALL_TOKENS/ANY_TOKEN, invariato
+ * da Missione 28). Nessun campo del risultato espone `short_definition`,
+ * `status` o l'elenco degli articoli collegati: stesso contratto già
+ * applicato da result() per Categorie/Percorsi (solo type/id/label/slug/
+ * match_class/match_rank). Nessun consumer pubblico chiama ancora questo
+ * servizio (SearchController non lo referenzia) — l'estensione resta
+ * dietro il confine di servizio testato richiesto dalla missione, non
+ * un'esposizione pubblica.
  */
 class TrovaEntitySearchService
 {
@@ -55,19 +79,20 @@ class TrovaEntitySearchService
      * Article results remain owned by ArticleSearchService and are deliberately
      * not re-ranked here.
      *
-     * @return array{categories: Collection<int, array<string, mixed>>, percorsi: Collection<int, array<string, mixed>>}
+     * @return array{categories: Collection<int, array<string, mixed>>, percorsi: Collection<int, array<string, mixed>>, concepts: Collection<int, array<string, mixed>>}
      */
     public function search(string $query): array
     {
         $tokens = array_map($this->normalize(...), $this->tokenizer->tokenize($query));
 
         if ($tokens === []) {
-            return ['categories' => collect(), 'percorsi' => collect()];
+            return ['categories' => collect(), 'percorsi' => collect(), 'concepts' => collect()];
         }
 
         return [
             'categories' => $this->searchCategories($query, $tokens),
             'percorsi' => $this->searchPercorsi($query, $tokens),
+            'concepts' => $this->searchConcepts($query, $tokens),
         ];
     }
 
@@ -133,6 +158,33 @@ class TrovaEntitySearchService
             ->values();
     }
 
+    /** @param  list<string>  $tokens */
+    private function searchConcepts(string $query, array $tokens): Collection
+    {
+        return Concept::query()
+            ->active()
+            ->whereHas('articleLinks.article', fn ($articles) => $articles->published())
+            ->with('aliases')
+            ->get(['id', 'name', 'slug', 'short_definition'])
+            ->map(function (Concept $concept) use ($query, $tokens) {
+                $aliases = $concept->aliases->pluck('alias')->all();
+
+                return $this->result(
+                    type: 'concept',
+                    id: $concept->id,
+                    label: $concept->name,
+                    slug: $concept->slug,
+                    text: implode(' ', array_filter([$concept->name, $concept->short_definition, ...$aliases])),
+                    query: $query,
+                    tokens: $tokens,
+                    exactCandidates: [$concept->name, ...$aliases],
+                );
+            })
+            ->filter()
+            ->sortBy(fn (array $result) => [$result['match_rank'], Str::lower($result['label']), $result['id']])
+            ->values();
+    }
+
     /**
      * ANY_TOKEN è deliberatamente "OR tra i token": basta UN token
      * condiviso, non tutti. È lo stesso criterio di inclusione già in
@@ -144,7 +196,15 @@ class TrovaEntitySearchService
      * non può scattare su un articolo/preposizione tronca — solo su un
      * termine genuinamente significativo condiviso da entrambi i lati.
      *
+     * $exactCandidates elenca ogni stringa che, se identica alla query
+     * normalizzata, vale come EXACT — di default solo $label (Categorie,
+     * Percorsi), ma i Concetti (Missione 30) vi aggiungono i propri alias:
+     * un alias esatto deve valere quanto il nome esatto, non retrocedere ad
+     * ALL_TOKENS/ANY_TOKEN. Non introduce una quarta classe di match — il
+     * set resta EXACT/ALL_TOKENS/ANY_TOKEN.
+     *
      * @param  list<string>  $tokens
+     * @param  list<string>  $exactCandidates
      * @return array<string, mixed>|null
      */
     private function result(
@@ -155,13 +215,17 @@ class TrovaEntitySearchService
         string $text,
         string $query,
         array $tokens,
+        array $exactCandidates = [],
     ): ?array {
-        $normalizedLabel = $this->normalize($label);
         $normalizedQuery = $this->normalize($query);
         $normalizedText = $this->normalize($text);
+        $normalizedExactCandidates = array_map(
+            $this->normalize(...),
+            $exactCandidates === [] ? [$label] : $exactCandidates,
+        );
 
         $matchClass = match (true) {
-            $normalizedLabel === $normalizedQuery => 'EXACT',
+            in_array($normalizedQuery, $normalizedExactCandidates, true) => 'EXACT',
             collect($tokens)->every(fn (string $token) => str_contains($normalizedText, $token)) => 'ALL_TOKENS',
             collect($tokens)->contains(fn (string $token) => str_contains($normalizedText, $token)) => 'ANY_TOKEN',
             default => null,
