@@ -155,17 +155,34 @@ class EditorialOperationsDashboardService
     {
         $structuralErrorCount = collect($orderHealth['structural_error'])->sum(fn (array $rows) => count($rows));
         $publicationWarningCount = collect($orderHealth['publication_warning'])->sum(fn (array $rows) => count($rows));
+        $editorialAdvisoryCount = collect($orderHealth['editorial_advisory'])->sum(fn (array $rows) => count($rows));
+
+        $blockingIssue = fn (array $row) => $row['missing_position'] !== []
+            || $row['non_positive_position'] !== []
+            || $row['duplicate_position'] !== []
+            || $row['published_beyond_gap'] !== []
+            || $row['pillar_outside_reachable_prefix']
+            || $row['complete_with_hidden_remainder'];
+
+        $advisoryOnly = fn (array $row) => $row['chronological_inversions'] !== []
+            || $row['scheduled_out_of_order'] !== []
+            || $row['dangling_transition'] !== null;
 
         return [
             'structural_error_count' => $structuralErrorCount,
             'publication_warning_count' => $publicationWarningCount,
+            'editorial_advisory_count' => $editorialAdvisoryCount,
             'clusters_with_issues' => collect($orderHealth['clusters'])
-                ->filter(fn (array $row) => $row['missing_position'] !== []
-                    || $row['non_positive_position'] !== []
-                    || $row['duplicate_position'] !== []
-                    || $row['published_beyond_gap'] !== []
-                    || $row['pillar_outside_reachable_prefix']
-                    || $row['complete_with_hidden_remainder'])
+                ->filter($blockingIssue)
+                ->map(fn (array $row) => ['cluster_id' => $row['id'], 'name' => $row['name'], 'slug' => $row['slug']])
+                ->values()
+                ->all(),
+            // Percorsi la cui unica segnalazione è un editorial_advisory:
+            // mai bloccante per design (vedi editorialOrderHealth()), quindi
+            // elencati separatamente e mai fusi in clusters_with_issues —
+            // un editor non deve leggerli come "da correggere".
+            'clusters_with_advisories_only' => collect($orderHealth['clusters'])
+                ->filter(fn (array $row) => ! $blockingIssue($row) && $advisoryOnly($row))
                 ->map(fn (array $row) => ['cluster_id' => $row['id'], 'name' => $row['name'], 'slug' => $row['slug']])
                 ->values()
                 ->all(),
