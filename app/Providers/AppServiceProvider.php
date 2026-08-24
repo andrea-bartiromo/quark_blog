@@ -87,22 +87,13 @@ class AppServiceProvider extends ServiceProvider
         // stessa classe di bug già corretta lato Redazione in #253, qui
         // sulla navigazione pubblica.
         //
-        // Memoizzato sull'istanza Request corrente (non su una variabile
-        // catturata per riferimento in questa chiusura): le 4 view
-        // condividono lo stesso layout e vengono renderizzate nella stessa
-        // richiesta HTTP, quindi senza memoizzazione la stessa query
-        // "select slug, name from categories" girerebbe fino a 4 volte
-        // identica sulla stessa pagina. Una variabile catturata qui in
-        // boot() sembrerebbe corretta (boot() gira una volta per processo,
-        // e in produzione — nessun Octane in questo progetto, vedi
-        // composer.json — ogni richiesta HTTP reale è un processo PHP-FPM
-        // a sé) ma non lo è nei test: TestCase::get() dispatcha più
-        // richieste simulate sulla STESSA istanza applicativa già
-        // bootstrappata, quindi boot() gira una sola volta per metodo di
-        // test mentre le singole asserzioni si aspettano un conteggio
-        // query indipendente per ogni chiamata — da qui l'uso esplicito di
-        // Request::attributes, che invece è garantito nuovo per ogni
-        // Request (reale o simulata in test).
+        // Carichiamo una sola volta per Request anche lo stato `is_active`:
+        // la navigazione usa solo categorie attive, mentre i badge di
+        // articoli già pubblicati devono continuare a mostrare il nome
+        // umano anche se la categoria viene successivamente disattivata.
+        // Così manteniamo entrambe le semantiche senza aggiungere una
+        // seconda query. Il fallback a config resta identico a
+        // Category::options() quando la tabella non è ancora disponibile.
         View::composer(
             [
                 'components.header',
@@ -112,13 +103,36 @@ class AppServiceProvider extends ServiceProvider
             ],
             function ($view) {
                 $request = request();
-                $cacheKey = 'kairus.category_options';
+                $activeCacheKey = 'kairus.category_options';
+                $allCacheKey = 'kairus.category_label_options';
 
-                if (! $request->attributes->has($cacheKey)) {
-                    $request->attributes->set($cacheKey, Category::options());
+                if (! $request->attributes->has($activeCacheKey)) {
+                    try {
+                        $categories = Category::query()
+                            ->ordered()
+                            ->get(['name', 'slug', 'is_active']);
+
+                        if ($categories->isNotEmpty()) {
+                            $all = $categories->pluck('name', 'slug')->toArray();
+                            $active = $categories
+                                ->where('is_active', true)
+                                ->pluck('name', 'slug')
+                                ->toArray();
+                        } else {
+                            $all = config('laboratorio.categories', []);
+                            $active = $all;
+                        }
+                    } catch (\Throwable $e) {
+                        $all = config('laboratorio.categories', []);
+                        $active = $all;
+                    }
+
+                    $request->attributes->set($activeCacheKey, $active);
+                    $request->attributes->set($allCacheKey, $all);
                 }
 
-                $view->with('categoryOptions', $request->attributes->get($cacheKey));
+                $view->with('categoryOptions', $request->attributes->get($activeCacheKey));
+                $view->with('categoryLabelOptions', $request->attributes->get($allCacheKey));
             }
         );
     }
