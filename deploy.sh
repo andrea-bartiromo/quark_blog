@@ -31,8 +31,14 @@ php -r "exit(version_compare(PHP_VERSION,'8.3','>=') ? 0 : 1);" || fail "PHP 8.3
 ACTUAL_SHA="$(git rev-parse HEAD)"
 [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] || fail "Revision mismatch: expected $EXPECTED_SHA, found $ACTUAL_SHA."
 
-git diff --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
-git diff --cached --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
+# core.fileMode=false: only this script's own later `chmod -R 755 storage
+# bootstrap/cache` (below) would otherwise make a SECOND deploy.sh run
+# against the same checkout spuriously fail here — mode bits on tracked
+# files inside bootstrap/cache flip from the repo's 644 to 755, with zero
+# actual content change. This still fails closed on any real content
+# drift, which is the actual safety intent of this guard.
+git -c core.fileMode=false diff --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
+git -c core.fileMode=false diff --cached --quiet --ignore-submodules -- || fail "Tracked release files differ from the expected Git revision. Refusing a dirty release artifact."
 
 APP_ENV_VALUE="$(php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo config("app.env");')"
 [ "$APP_ENV_VALUE" = "production" ] || fail "APP_ENV must resolve to production; got '$APP_ENV_VALUE'."
