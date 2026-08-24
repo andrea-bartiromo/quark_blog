@@ -591,4 +591,45 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $this->assertLessThan(120, $queryCount, 'La dashboard con 6 Percorsi non deve superare un tetto ragionevole di query totali.');
     }
+
+    /**
+     * Mission 39 — Dashboard Query/Performance Audit. Profilato manualmente
+     * a 5/25/50 articoli (nessun Percorso): il conteggio query resta
+     * PIATTO in ogni caso — nessun N+1 legato agli Articoli esiste in
+     * questa dashboard, a differenza dei Percorsi (vedi il test sopra, che
+     * già documenta e accetta quella crescita lineare separatamente). Ogni
+     * chiamata per-articolo qui dentro (content health, attribuzione)
+     * opera su dati già in memoria — ArticleContentHealthService e
+     * SourceImageAttributionHealthService non emettono query proprie per
+     * articolo, solo letture di attributi già caricati dalla singola query
+     * Article::query() eseguita una volta in snapshot(). Questo test
+     * cristallizza quella prova: un numero di query identico a 5 e 50
+     * articoli, non solo "sotto un tetto" come per i Percorsi.
+     */
+    public function test_query_count_does_not_grow_with_article_count(): void
+    {
+        $countQueriesFor = function (int $n): int {
+            Article::query()->delete();
+            for ($i = 0; $i < $n; $i++) {
+                $this->article('query-scale-'.$i, Article::STATUS_PUBLISHED, now()->subDays($i + 1));
+            }
+
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->service()->snapshot();
+            $count = count(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            return $count;
+        };
+
+        $small = $countQueriesFor(5);
+        $large = $countQueriesFor(50);
+
+        $this->assertSame(
+            $small,
+            $large,
+            'Il conteggio query della dashboard non deve dipendere dal numero di articoli (nessun N+1).'
+        );
+    }
 }
