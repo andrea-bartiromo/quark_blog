@@ -186,6 +186,13 @@ class Article extends Model
             ->withTimestamps();
     }
 
+    /** Categorie secondarie: inverso di Category::secondaryArticles(). */
+    public function secondaryCategories()
+    {
+        return $this->belongsToMany(Category::class, 'article_category')
+            ->withTimestamps();
+    }
+
     /**
      * Mission 19 — Content Graph Coverage Metrics: lettura editoriale
      * grezza dei collegamenti Content Graph di questo articolo (ogni
