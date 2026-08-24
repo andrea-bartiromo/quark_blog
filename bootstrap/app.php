@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             require base_path('routes/content-clusters-admin.php');
             require base_path('routes/content-clusters-public.php');
+            require base_path('routes/content-graph-admin.php');
         },
     )
     ->withCommands([
