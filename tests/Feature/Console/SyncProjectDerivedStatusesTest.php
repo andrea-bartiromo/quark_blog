@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Models\Article;
 use App\Models\ProjectTask;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,7 +41,7 @@ class SyncProjectDerivedStatusesTest extends TestCase
 
     public function test_command_is_registered_on_the_schedule(): void
     {
-        $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
+        $schedule = app(Schedule::class);
         $commands = collect($schedule->events())->map(fn ($event) => $event->command ?? '');
 
         $this->assertTrue($commands->contains(fn ($command) => str_contains($command, 'projects:sync-derived-statuses')));

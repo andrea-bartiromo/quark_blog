@@ -5,7 +5,6 @@ namespace Tests\Feature\Admin;
 use App\Models\Article;
 use App\Models\ArticleDailyView;
 use App\Models\User;
-use App\Services\ArticleAnalyticsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;

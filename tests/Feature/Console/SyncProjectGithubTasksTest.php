@@ -3,6 +3,7 @@
 namespace Tests\Feature\Console;
 
 use App\Models\ProjectTask;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -60,7 +61,7 @@ class SyncProjectGithubTasksTest extends TestCase
 
     public function test_command_is_registered_on_the_schedule(): void
     {
-        $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
+        $schedule = app(Schedule::class);
         $commands = collect($schedule->events())->map(fn ($event) => $event->command ?? '');
 
         $this->assertTrue($commands->contains(fn ($command) => str_contains($command, 'projects:sync-github-tasks')));

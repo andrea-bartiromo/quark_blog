@@ -3,19 +3,19 @@
 namespace Tests\Feature\Admin\Projects;
 
 use App\Models\Article;
-use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
 use App\Services\ProjectTaskSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ProjectTaskSyncServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function article(string $status, ?\Illuminate\Support\Carbon $publishedAt = null): Article
+    private function article(string $status, ?Carbon $publishedAt = null): Article
     {
         return Article::create([
             'user_id' => User::factory()->create()->id,

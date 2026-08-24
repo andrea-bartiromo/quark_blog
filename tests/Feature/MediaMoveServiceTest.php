@@ -19,8 +19,8 @@ use Tests\TestCase;
 class MediaMoveServiceTest extends TestCase
 {
     use RefreshDatabase;
-    use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use UsesIsolatedPublicPath;
 
     private MediaMoveService $service;
 

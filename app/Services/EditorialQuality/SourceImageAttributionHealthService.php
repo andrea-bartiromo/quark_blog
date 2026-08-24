@@ -13,7 +13,9 @@ use DOMElement;
 class SourceImageAttributionHealthService
 {
     public const OK = 'OK';
+
     public const WARNING = 'WARNING';
+
     public const NOT_APPLICABLE = 'NOT_APPLICABLE';
 
     /**
