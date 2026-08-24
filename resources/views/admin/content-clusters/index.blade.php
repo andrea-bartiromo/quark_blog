@@ -43,7 +43,15 @@
         <tr>
           <td><strong>{{ $cluster->name }}</strong><br><code>{{ $cluster->slug }}</code></td>
           <td><span class="status {{ $health['status'] === 'HEALTHY' ? 'status--published' : 'status--draft' }}">{{ $health['status'] }}</span></td>
-          <td>{{ $cluster->publicVisibilityLabel() }}</td>
+          <td>
+            @php($visibilityLabel = $cluster->publicVisibilityLabel())
+            <span class="status {{ $visibilityLabel === 'Pubblico' ? 'status--published' : 'status--draft' }}">
+              {{ $visibilityLabel }}
+              @if($visibilityLabel === 'Programmato' && $cluster->publishAtForEditors())
+                — {{ $cluster->publishAtForEditors()->format('d/m/Y H:i') }}
+              @endif
+            </span>
+          </td>
           <td>{{ $health['article_count_published'] }} / {{ $health['article_count_total'] }}</td>
           <td>{{ $cluster->pillarArticle?->title ?? '—' }}{{ $health['pillar_present'] && ! $health['pillar_public'] ? ' (non pubblico)' : '' }}</td>
           <td>{{ $health['primary_coverage'] }}%</td>

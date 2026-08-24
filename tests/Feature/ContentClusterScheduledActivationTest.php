@@ -202,6 +202,30 @@ class ContentClusterScheduledActivationTest extends TestCase
             ->assertDontSee('Home Programmato');
     }
 
+    /**
+     * Mission 10 — Percorsi Scheduling Admin UX Polish. The admin index
+     * table only showed the bare "Programmato" word with no indication of
+     * WHEN — an editor scanning the list had to open each cluster's edit
+     * page to find its scheduled date/time. Mirrors the badge already
+     * built for the edit page (publicVisibilityLabel() +
+     * publishAtForEditors()).
+     */
+    public function test_admin_index_shows_the_scheduled_date_and_time_for_a_programmato_cluster(): void
+    {
+        ContentCluster::factory()->create([
+            'slug' => 'scenario-index-programmato',
+            'name' => 'Scenario Index Programmato',
+            'is_active' => true,
+            'publish_at' => Carbon::parse('2026-12-24 17:30:00', 'UTC'),
+        ]);
+
+        $this->actingAs($this->editor)
+            ->get(route('admin.content-clusters.index'))
+            ->assertOk()
+            ->assertSee('Programmato')
+            ->assertSee('24/12/2026 18:30');
+    }
+
     // ── Admin form: create/update with scheduling fields ─────────────
 
     public function test_admin_can_create_a_cluster_with_a_future_publish_date_and_time(): void
@@ -252,6 +276,45 @@ class ContentClusterScheduledActivationTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('publish_time');
+    }
+
+    /**
+     * Mission 10 — Percorsi Scheduling Admin UX Polish. The required_with
+     * failure must be visible inline next to the offending field on the
+     * re-rendered form, not only inside the generic top-of-page error list,
+     * so an editor doesn't have to guess which field a bare error string
+     * refers to.
+     */
+    public function test_publish_time_validation_error_is_rendered_inline_next_to_the_field(): void
+    {
+        $createUrl = route('admin.content-clusters.create');
+
+        $response = $this->followingRedirects()
+            ->actingAs($this->editor)
+            ->from($createUrl)
+            ->post(route('admin.content-clusters.store'), [
+                'name' => 'Percorso incompleto inline',
+                'slug' => '',
+                'is_active' => '1',
+                'publish_date' => '2026-12-24',
+                'publish_time' => '',
+                'lifecycle_status' => 'updating',
+            ]);
+
+        $response->assertOk();
+
+        // The publish_time field is redrawn with a red border AND a
+        // dedicated inline message right after it — not just a bare entry
+        // in the generic top-of-page error list.
+        $body = $response->getContent();
+        $publishTimeFieldPosition = strpos($body, 'id="publish_time"');
+        $this->assertNotFalse($publishTimeFieldPosition);
+
+        $inlineErrorMarkerPosition = strpos($body, '<small style="display:block;color:#b91c1c;', $publishTimeFieldPosition);
+        $this->assertNotFalse(
+            $inlineErrorMarkerPosition,
+            'The publish_time error must render inline right after the field, not only in the generic top-of-page list.'
+        );
     }
 
     public function test_admin_form_rejects_a_malformed_date(): void
