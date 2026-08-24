@@ -100,6 +100,16 @@ class EditorialOperationsDashboardService
             $isHigh = $healthWarnings->contains(fn (array $f) => in_array($f['id'], self::HIGH_PRIORITY_CONTENT_HEALTH_IDS, true))
                 || $attributionWarnings->contains(fn (array $f) => $f['id'] === self::HIGH_PRIORITY_ATTRIBUTION_ID);
 
+            // Mission 38 — Dashboard "Why?" Explanations: mai un badge
+            // HIGH/MEDIUM senza un motivo accanto — riusa le label/reason
+            // già scritte da ArticleContentHealthService e
+            // SourceImageAttributionHealthService, mai una nuova frase
+            // inventata qui.
+            $reasonSummary = $healthWarnings->pluck('label')
+                ->merge($attributionWarnings->pluck('reason'))
+                ->values()
+                ->all();
+
             return [
                 'article_id' => $article->id,
                 'title' => $article->title,
@@ -107,6 +117,7 @@ class EditorialOperationsDashboardService
                 'health_warnings' => $healthWarnings->all(),
                 'attribution_warnings' => $attributionWarnings->all(),
                 'priority' => $isHigh ? 'HIGH' : 'MEDIUM',
+                'reason_summary' => $reasonSummary,
             ];
         })->filter()->values()
             // Stable sort: HIGH prima di MEDIUM, a parità mantiene l'ordine
@@ -279,7 +290,12 @@ class EditorialOperationsDashboardService
             'editorial_advisory_count' => $editorialAdvisoryCount,
             'clusters_with_issues' => collect($orderHealth['clusters'])
                 ->filter($blockingIssue)
-                ->map(fn (array $row) => ['cluster_id' => $row['id'], 'name' => $row['name'], 'slug' => $row['slug']])
+                ->map(fn (array $row) => [
+                    'cluster_id' => $row['id'],
+                    'name' => $row['name'],
+                    'slug' => $row['slug'],
+                    'codes' => $this->orderHealthCodes($row),
+                ])
                 ->values()
                 ->all(),
             // Percorsi la cui unica segnalazione è un editorial_advisory:
@@ -288,10 +304,40 @@ class EditorialOperationsDashboardService
             // un editor non deve leggerli come "da correggere".
             'clusters_with_advisories_only' => collect($orderHealth['clusters'])
                 ->filter(fn (array $row) => ! $blockingIssue($row) && $advisoryOnly($row))
-                ->map(fn (array $row) => ['cluster_id' => $row['id'], 'name' => $row['name'], 'slug' => $row['slug']])
+                ->map(fn (array $row) => [
+                    'cluster_id' => $row['id'],
+                    'name' => $row['name'],
+                    'slug' => $row['slug'],
+                    'codes' => $this->orderHealthCodes($row),
+                ])
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * Mission 38 — Dashboard "Why?" Explanations. editorialOrderHealth()
+     * calcola già ciascun flag booleano/lista qui letto — questo metodo
+     * traduce SOLO quali sono veri in un elenco di codici leggibili, mai
+     * una nuova regola. Stesso pattern già usato da
+     * percorsiReadinessSummary() per il campo 'codes'.
+     *
+     * @param  array<string, mixed>  $row
+     * @return list<string>
+     */
+    private function orderHealthCodes(array $row): array
+    {
+        return array_values(array_filter([
+            $row['missing_position'] !== [] ? 'MISSING_POSITION' : null,
+            $row['non_positive_position'] !== [] ? 'NON_POSITIVE_POSITION' : null,
+            $row['duplicate_position'] !== [] ? 'DUPLICATE_POSITION' : null,
+            $row['published_beyond_gap'] !== [] ? 'PUBLISHED_BEYOND_GAP' : null,
+            $row['pillar_outside_reachable_prefix'] ? 'PILLAR_OUTSIDE_REACHABLE_PREFIX' : null,
+            $row['complete_with_hidden_remainder'] ? 'COMPLETE_WITH_HIDDEN_REMAINDER' : null,
+            $row['chronological_inversions'] !== [] ? 'CHRONOLOGICAL_INVERSIONS' : null,
+            $row['scheduled_out_of_order'] !== [] ? 'SCHEDULED_OUT_OF_ORDER' : null,
+            $row['dangling_transition'] !== null ? 'DANGLING_TRANSITION' : null,
+        ]));
     }
 
     /**

@@ -98,7 +98,7 @@
         <li style="font-size:.85rem;">
           <span style="font-weight:600;color:{{ $row['priority'] === 'HIGH' ? '#b91c1c' : '#92400e' }};">{{ $row['priority'] }}</span>
           <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
-          <span style="color:#6b7280;"> — {{ count($row['health_warnings']) }} contenuto, {{ count($row['attribution_warnings']) }} attribuzione</span>
+          <div style="font-size:.72rem;color:#9ca3af;margin-top:.1rem;">{{ implode(' · ', $row['reason_summary']) }}</div>
         </li>
       @endforeach
     </ul>
@@ -152,7 +152,12 @@
   @else
     <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
       @foreach($snapshot['percorsi_order_health']['clusters_with_issues'] as $row)
-        <li style="font-size:.85rem;"><a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a></li>
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+          @if(! empty($row['codes']))
+            <div style="font-size:.72rem;color:#9ca3af;margin-top:.15rem;">{{ implode(' · ', $row['codes']) }}</div>
+          @endif
+        </li>
       @endforeach
     </ul>
   @endif
@@ -164,7 +169,12 @@
       </div>
       <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
         @foreach($snapshot['percorsi_order_health']['clusters_with_advisories_only'] as $row)
-          <li style="font-size:.85rem;color:#92400e;"><a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a></li>
+          <li style="font-size:.85rem;color:#92400e;">
+            <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+            @if(! empty($row['codes']))
+              <div style="font-size:.72rem;margin-top:.15rem;">{{ implode(' · ', $row['codes']) }}</div>
+            @endif
+          </li>
         @endforeach
       </ul>
     </div>
