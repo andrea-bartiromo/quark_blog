@@ -21,7 +21,7 @@ class ArticlePathNavigation
             ->select('content_clusters.*')
             ->join('article_content_cluster as membership', 'membership.content_cluster_id', '=', 'content_clusters.id')
             ->where('membership.article_id', $article->id)
-            ->where('content_clusters.is_active', true)
+            ->publiclyVisible()
             ->orderByDesc('membership.is_primary')
             ->orderBy('content_clusters.sort_order')
             ->orderBy('content_clusters.name')

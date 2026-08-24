@@ -93,7 +93,7 @@ class HomeController extends Controller
         }
 
         $homePaths = ContentCluster::query()
-            ->active()
+            ->publiclyVisible()
             ->whereHas('articles', fn ($query) => $query->published())
             ->ordered()
             ->withCount(['articles as published_articles_count' => fn ($query) => $query->published()])

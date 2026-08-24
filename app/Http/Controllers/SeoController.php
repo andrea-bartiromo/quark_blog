@@ -25,7 +25,7 @@ class SeoController extends Controller
         $articles = Article::published()->get(['slug', 'category']);
         $categories = array_keys(Category::options());
         $contentClusters = ContentCluster::query()
-            ->active()
+            ->publiclyVisible()
             ->whereHas('articles', fn ($query) => $query->published())
             ->ordered()
             ->get(['slug']);

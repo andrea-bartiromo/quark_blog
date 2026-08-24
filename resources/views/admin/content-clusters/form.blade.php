@@ -101,7 +101,35 @@
     <div class="form-group"><label class="form-label" for="seo_title">SEO title</label><input id="seo_title" class="form-input" name="seo_title" maxlength="255" value="{{ old('seo_title', $cluster?->seo_title) }}"></div>
     <div class="form-group"><label class="form-label" for="seo_description">SEO description</label><textarea id="seo_description" class="form-textarea" name="seo_description" maxlength="320">{{ old('seo_description', $cluster?->seo_description) }}</textarea></div>
     <div class="form-group"><label class="form-label" for="sort_order">Ordine percorso</label><input id="sort_order" class="form-input" type="number" min="0" name="sort_order" value="{{ old('sort_order', $cluster?->sort_order ?? 0) }}"></div>
-    <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
+
+    <section class="form-group" aria-labelledby="cluster-publication-title" style="padding:1rem;border:1px solid #e5e7eb;border-radius:10px;display:grid;gap:.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div class="form-label" id="cluster-publication-title" style="margin:0;">Pubblicazione</div>
+        @if($cluster)
+          @php $visibilityLabel = $cluster->publicVisibilityLabel(); @endphp
+          <span class="status {{ $visibilityLabel === 'Pubblico' ? 'status--published' : 'status--draft' }}">
+            {{ $visibilityLabel }}
+            @if($visibilityLabel === 'Programmato' && $cluster->publishAtForEditors())
+              — {{ $cluster->publishAtForEditors()->format('d/m/Y H:i') }}
+            @endif
+          </span>
+        @endif
+      </div>
+
+      <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
+
+      <div>
+        <label class="form-label" for="publish_date">Data pubblicazione</label>
+        <input class="form-input" type="date" id="publish_date" name="publish_date"
+               value="{{ old('publish_date', optional($cluster?->publishAtForEditors())->format('Y-m-d')) }}">
+
+        <label class="form-label" for="publish_time" style="margin-top:.5rem;">Ora pubblicazione (Europe/Rome)</label>
+        <input class="form-input" type="time" id="publish_time" name="publish_time"
+               value="{{ old('publish_time', optional($cluster?->publishAtForEditors())->format('H:i')) }}">
+        <small style="color:#6b7280;">Lascia vuoto per pubblicare subito quando il Percorso è attivo. Una data/ora già passata rende il Percorso pubblico immediatamente (se attivo); una data/ora futura lo programma.</small>
+      </div>
+    </section>
+
     <div class="form-group">
       <label class="form-label" for="lifecycle_status">Stato del Percorso</label>
       <select id="lifecycle_status" class="form-input" name="lifecycle_status">

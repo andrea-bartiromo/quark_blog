@@ -8,6 +8,7 @@ use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -184,6 +185,8 @@ class ContentClusterController extends Controller
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:320'],
             'is_active' => ['nullable', 'boolean'],
+            'publish_date' => ['nullable', 'date_format:Y-m-d', 'required_with:publish_time'],
+            'publish_time' => ['nullable', 'date_format:H:i', 'required_with:publish_date'],
             'lifecycle_status' => ['nullable', Rule::in([ContentCluster::LIFECYCLE_UPDATING, ContentCluster::LIFECYCLE_COMPLETE])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'takeaways' => ['nullable', 'array', 'max:4'],
@@ -195,6 +198,10 @@ class ContentClusterController extends Controller
             'curator_note' => ['nullable', 'string', 'max:2000'],
         ]);
         $data['is_active'] = $request->boolean('is_active');
+        $data['publish_at'] = ($data['publish_date'] ?? null) && ($data['publish_time'] ?? null)
+            ? Carbon::createFromFormat('Y-m-d H:i', "{$data['publish_date']} {$data['publish_time']}", ContentCluster::EDITORIAL_TIMEZONE)->utc()
+            : null;
+        unset($data['publish_date'], $data['publish_time']);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         $data['takeaways'] = $this->normalizeEditorialList($data['takeaways'] ?? []);
         $data['guiding_questions'] = $this->normalizeEditorialList($data['guiding_questions'] ?? []);
