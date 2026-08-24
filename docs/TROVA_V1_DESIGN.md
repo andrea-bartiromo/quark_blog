@@ -2,7 +2,7 @@
 
 ## Stato
 
-**DESIGN COMPLETE — IMPLEMENTATION DEFERRED.**
+**DESIGN COMPLETE — IMPLEMENTATION ANCORA DEFERRED.** Vedi "Aggiornamento Missione 26" in fondo al documento per lo stato corrente dei quattro blocchi elencati sotto — due sono stati risolti da allora, uno resta bloccante.
 
 La dipendenza Content Graph (#279) non e su `main`. Questa branch non copia model, migration o service da quella PR e non costruisce una seconda infrastruttura semantica.
 
@@ -212,3 +212,66 @@ Obbligatori:
 2. #279 realmente su `main` per Concetti/Alias/Domande;
 3. decisione Missione 09 sulle superfici pubbliche Domande;
 4. fresh-state audit prima di scrivere runtime code.
+
+## Aggiornamento Missione 26 — TROVA Public Integration Design
+
+Fresh-state audit (dipendenza 4 sopra) eseguito su `main` corrente. Verdetto:
+**FOUNDATION_ONLY confermato** — non sufficientemente maturo per Missione 27
+(implementazione pubblica), per una sola ragione bloccante reale, non tre.
+
+### Le 4 dipendenze, ricontrollate
+
+1. **#258 — ANCORA BLOCCANTE.** La PR è tuttora aperta, non mergiata, e il suo
+   branch (`fix/category-source-debt-db-first`) è basato su un commit di
+   `main` di circa 95 merge fa. Tocca esattamente
+   `SearchController.php`/`ricerca.blade.php` (filtro/badge categoria) — la
+   stessa superficie su cui Missione 27 dovrebbe scrivere. Costruire ora
+   significherebbe basarsi su un file che #258 riscriverà, con conflitto
+   quasi certo. La sua triage esplicita è già assegnata alla Missione 43
+   ("Related Articles / Category Source-Debt Audit", Fase G) — questa
+   missione delega lì invece di improvvisare una risoluzione qui.
+2. **#279 (Content Graph) — RISOLTA.** Concetti/Alias/Domande sono ora su
+   `main` (Missioni 16-25 di questo stesso batch): `Concept`,
+   `ConceptAlias`, `ArticleConcept`, `ConceptQuestion`, con
+   `ContentGraphService::discoverableConceptsForArticle()`/
+   `answerableQuestionsForConcept()` come contratto di lettura pubblica già
+   certificato da `ContentGraphPublicSafetyContractTest`. La sezione
+   "Concetti / Alias (dopo #279)" sopra non è più ipotetica.
+3. **Missione 09 (policy Domande) — RISOLTA.** La Missione 21 di questo
+   batch ha chiuso esplicitamente il workflow di stato delle Domande
+   (`ConceptQuestionReadinessService`); il contratto "solo domande
+   approvate con risposta e target realmente pubblicato" è quello già
+   applicato da `answerableQuestionsForConcept()`.
+4. **Fresh-state audit — QUESTA missione.**
+
+### TrovaEntitySearchService — stato reale confermato
+
+`app/Services/Search/TrovaEntitySearchService.php` esiste già, è
+genuinamente testato (`tests/Feature/TrovaEntitySearchServiceTest.php`, 11
+test) ed è sicuro-per-costruzione per ciò che copre oggi: **Categorie**
+(via `whereHas` su articoli pubblicati) e **Percorsi** (via
+`ContentCluster::publiclyVisible()` + `ContentClusterPublicSequence`,
+prefisso continuo pubblico obbligatorio — Percorsi programmati/futuri e
+articoli oltre un gap sono già esclusi e testati). Non copre ancora
+Articoli (di proprietà di `ArticleSearchService`) né Concetti/Domande
+(dipendenza #279 appena risolta sopra, ma il servizio non è stato ancora
+esteso per consumarli — resta lavoro della Missione 30, "TROVA Content
+Graph Enrichment", deliberatamente non anticipato qui).
+
+Nessuna PR o branch ha mai tentato di collegare `TrovaEntitySearchService`
+a `SearchController`/`ricerca.blade.php` — verificato diffando tutti i
+branch `*trova*` esistenti contro `main` su quei due file: diff vuoto.
+
+### Cosa resta da fare prima che Missione 27 sia sicura
+
+- #258 triaged/risolta (Missione 43) — unico vero blocco residuo;
+- un builder di `url` per risultato non-Article (categorie/Percorsi hanno
+  già uno slug pubblico risolvibile, ma nessun codice lo costruisce oggi);
+- un limite per-gruppo scelto dopo aver misurato la cardinalità reale del
+  catalogo (mai fissato, per design esplicito in questo stesso documento);
+- il layout a sezioni accessibili descritto in "UX V1" sopra, non ancora
+  implementato in `ricerca.blade.php`.
+
+Nessuna riga di codice applicativo aggiunta da questa missione — solo
+questo aggiornamento del design doc, che è l'handoff preciso richiesto
+quando un'implementazione non è ancora sicura.
