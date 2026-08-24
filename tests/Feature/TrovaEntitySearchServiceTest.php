@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\User;
+use App\Services\ContentGraph\ContentGraphService;
 use App\Services\Search\TrovaEntitySearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -407,6 +409,147 @@ class TrovaEntitySearchServiceTest extends TestCase
         foreach ($results['categories'] as $result) {
             $this->assertContains($result['match_class'], ['EXACT', 'ALL_TOKENS', 'ANY_TOKEN']);
         }
+    }
+
+    // ── Mission 30 — TROVA Content Graph Enrichment ─────────────────────
+
+    /**
+     * Solo concetti active, e solo se collegati ad almeno un articolo
+     * realmente pubblico — stessa richiesta di "contenuto reale dietro il
+     * risultato" già applicata a Categorie/Percorsi, non un criterio nuovo.
+     * Copre in un solo test tutti i modi in cui un concetto NON deve
+     * comparire: draft, inactive, active-ma-solo-articolo-non-pubblico,
+     * active-senza-alcun-collegamento.
+     */
+    public function test_it_returns_only_active_concepts_linked_to_at_least_one_published_article(): void
+    {
+        $graph = app(ContentGraphService::class);
+        $published = $this->article('concetto-pubblico-test', 'fisica-test', Article::STATUS_PUBLISHED);
+        $draftArticle = $this->article('concetto-articolo-bozza-test', 'fisica-test', Article::STATUS_DRAFT, null);
+
+        $eligible = Concept::create(['name' => 'Entropia Test', 'status' => Concept::STATUS_ACTIVE]);
+        $graph->linkArticle($published, $eligible);
+
+        $draftConcept = Concept::create(['name' => 'Entropia Bozza Test', 'status' => Concept::STATUS_DRAFT]);
+        $graph->linkArticle($published, $draftConcept);
+
+        $inactiveConcept = Concept::create(['name' => 'Entropia Ritirata Test', 'status' => Concept::STATUS_INACTIVE]);
+        $graph->linkArticle($published, $inactiveConcept);
+
+        $onlyDraftArticle = Concept::create(['name' => 'Entropia Isolata Test', 'status' => Concept::STATUS_ACTIVE]);
+        $graph->linkArticle($draftArticle, $onlyDraftArticle);
+
+        $unlinked = Concept::create(['name' => 'Entropia Senza Legami Test', 'status' => Concept::STATUS_ACTIVE]);
+
+        $results = app(TrovaEntitySearchService::class)->search('Entropia Test');
+
+        $this->assertSame([$eligible->id], $results['concepts']->pluck('id')->all());
+        $this->assertFalse($results['concepts']->contains('id', $draftConcept->id));
+        $this->assertFalse($results['concepts']->contains('id', $inactiveConcept->id));
+        $this->assertFalse($results['concepts']->contains('id', $onlyDraftArticle->id));
+        $this->assertFalse($results['concepts']->contains('id', $unlinked->id));
+    }
+
+    /**
+     * Un alias esatto vale quanto il nome esatto — non un match più debole.
+     * Questo è il "miglioramento dell'interpretazione della query" chiesto
+     * dalla Missione 30: un lettore che digita la sigla ("MQ") invece del
+     * nome per esteso trova comunque il concetto, con la stessa fiducia
+     * (EXACT) di chi digita il nome completo.
+     */
+    public function test_an_exact_alias_match_ranks_as_exact_not_a_weaker_class(): void
+    {
+        $graph = app(ContentGraphService::class);
+        $article = $this->article('alias-esatto-test', 'fisica-test', Article::STATUS_PUBLISHED);
+
+        $concept = Concept::create(['name' => 'Meccanica Quantistica Test', 'status' => Concept::STATUS_ACTIVE]);
+        $concept->aliases()->create(['alias' => 'MQ']);
+        $graph->linkArticle($article, $concept);
+
+        $results = app(TrovaEntitySearchService::class)->search('MQ');
+
+        $this->assertSame([$concept->id], $results['concepts']->pluck('id')->all());
+        $this->assertSame('EXACT', $results['concepts']->first()['match_class']);
+    }
+
+    /**
+     * Un alias che condivide solo alcuni token con la query deve comunque
+     * contribuire al matching testuale (ALL_TOKENS/ANY_TOKEN), non solo al
+     * confronto esatto — l'alias fa parte del corpus testuale del concetto
+     * esattamente come short_definition per una Categoria/un Percorso.
+     */
+    public function test_alias_text_also_participates_in_all_tokens_and_any_token_matching(): void
+    {
+        $graph = app(ContentGraphService::class);
+        $article = $this->article('alias-token-test', 'fisica-test', Article::STATUS_PUBLISHED);
+
+        $concept = Concept::create(['name' => 'Concetto Generico Test', 'status' => Concept::STATUS_ACTIVE]);
+        $concept->aliases()->create(['alias' => 'Radiazione di Fondo Cosmico']);
+        $graph->linkArticle($article, $concept);
+
+        $allTokens = app(TrovaEntitySearchService::class)->search('Radiazione Fondo Cosmico');
+        $anyToken = app(TrovaEntitySearchService::class)->search('Cosmico Inesistente');
+
+        $this->assertSame('ALL_TOKENS', $allTokens['concepts']->first()['match_class']);
+        $this->assertSame('ANY_TOKEN', $anyToken['concepts']->first()['match_class']);
+    }
+
+    /**
+     * Contratto di sicurezza pubblica per l'item risultato concetto: mai
+     * short_definition, status, o l'elenco degli articoli collegati — solo
+     * le chiavi già documentate in result(), identiche a quelle di
+     * Categorie/Percorsi. Chiude esplicitamente "senza esporre dati
+     * editoriali privati" dalla formulazione della Missione 30.
+     */
+    public function test_concept_result_never_exposes_editorial_metadata_beyond_the_declared_contract(): void
+    {
+        $graph = app(ContentGraphService::class);
+        $article = $this->article('concetto-schema-test', 'fisica-test', Article::STATUS_PUBLISHED);
+
+        $concept = Concept::create([
+            'name' => 'Concetto Schema Test',
+            'status' => Concept::STATUS_ACTIVE,
+            'short_definition' => 'Definizione editoriale interna, mai da esporre qui.',
+        ]);
+        $graph->linkArticle($article, $concept);
+
+        $result = app(TrovaEntitySearchService::class)->search('Concetto Schema Test')['concepts']->first();
+
+        $this->assertNotNull($result);
+        $this->assertSame(
+            ['type', 'id', 'label', 'slug', 'match_class', 'match_rank'],
+            array_keys($result)
+        );
+    }
+
+    public function test_concepts_query_count_does_not_grow_linearly_with_number_of_concepts(): void
+    {
+        $graph = app(ContentGraphService::class);
+        $article = $this->article('concetto-query-count-test', 'fisica-test', Article::STATUS_PUBLISHED);
+
+        foreach (range(1, 8) as $i) {
+            $concept = Concept::create(['name' => "Concetto Query Count $i", 'status' => Concept::STATUS_ACTIVE]);
+            $concept->aliases()->create(['alias' => "alias-count-$i"]);
+            $graph->linkArticle($article, $concept);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        app(TrovaEntitySearchService::class)->search('Concetto Query Count');
+        $eight = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $concept = Concept::create(['name' => 'Concetto Query Count 9', 'status' => Concept::STATUS_ACTIVE]);
+        $concept->aliases()->create(['alias' => 'alias-count-9']);
+        $graph->linkArticle($article, $concept);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        app(TrovaEntitySearchService::class)->search('Concetto Query Count');
+        $nine = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame($eight, $nine);
     }
 
     public function test_query_count_does_not_grow_linearly_with_number_of_percorsi(): void
