@@ -147,6 +147,37 @@ class ConceptAdminTest extends TestCase
         ]);
     }
 
+    public function test_edit_form_links_a_linked_article_to_its_own_admin_edit_page(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $article = $this->article('Termodinamica base');
+        $concept->articleLinks()->create(['article_id' => $article->id, 'relation_type' => 'primary', 'weight' => 90]);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $concept));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.articles.edit', $article), false);
+    }
+
+    public function test_edit_form_links_a_questions_target_article_to_its_own_admin_edit_page(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $article = $this->article('Termodinamica base');
+        $concept->questions()->create([
+            'question' => 'Cosa misura l\'entropia?',
+            'answer_summary' => 'Il disordine di un sistema.',
+            'target_article_id' => $article->id,
+            'status' => 'approved',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $concept));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.articles.edit', $article), false);
+    }
+
     public function test_index_shows_coverage_metrics(): void
     {
         $editor = $this->editor();

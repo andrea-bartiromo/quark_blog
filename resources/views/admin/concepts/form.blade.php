@@ -106,7 +106,13 @@
           <tbody>
           @foreach($links as $link)
             <tr>
-              <td>{{ $link->article->title ?? '—' }}</td>
+              <td>
+                @if($link->article)
+                  <a href="{{ route('admin.articles.edit', $link->article_id) }}">{{ $link->article->title }}</a>
+                @else
+                  —
+                @endif
+              </td>
               <td>{{ $link->relation_type === 'primary' ? 'Primaria' : 'Di supporto' }}</td>
               <td>{{ $link->weight }}</td>
               <td>
@@ -169,7 +175,13 @@
             <tr>
               <td>{{ $question->question }}</td>
               <td>{{ ucfirst($question->status) }}</td>
-              <td>{{ $question->targetArticle?->title ?? '—' }}</td>
+              <td>
+                @if($question->targetArticle)
+                  <a href="{{ route('admin.articles.edit', $question->target_article_id) }}">{{ $question->targetArticle->title }}</a>
+                @else
+                  —
+                @endif
+              </td>
               <td>
                 @if($answerableQuestionIds->contains($question->id))
                   <span style="color:#166534;font-weight:600;">✓ Pubblica</span>
