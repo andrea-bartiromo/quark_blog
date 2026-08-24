@@ -186,6 +186,17 @@ class Article extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Mission 19 — Content Graph Coverage Metrics: lettura editoriale
+     * grezza dei collegamenti Content Graph di questo articolo (ogni
+     * stato/relation_type). Le regole di visibilità pubblica restano
+     * unicamente in ContentGraphService::discoverableConceptsForArticle().
+     */
+    public function contentConcepts()
+    {
+        return $this->hasMany(ArticleConcept::class);
+    }
+
     public function linkSuggestions()
     {
         return $this->hasMany(ArticleLinkSuggestion::class, 'source_article_id');

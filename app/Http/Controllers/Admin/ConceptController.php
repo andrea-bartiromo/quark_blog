@@ -9,6 +9,7 @@ use App\Models\Concept;
 use App\Services\ContentGraph\ConceptAliasSyncService;
 use App\Services\ContentGraph\ConceptDuplicateAuditService;
 use App\Services\ContentGraph\ConceptMergeService;
+use App\Services\ContentGraph\ContentGraphCoverageService;
 use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -33,6 +34,7 @@ class ConceptController extends Controller
         private readonly ConceptAliasSyncService $aliasSync,
         private readonly ConceptDuplicateAuditService $duplicateAudit,
         private readonly ConceptMergeService $conceptMerge,
+        private readonly ContentGraphCoverageService $coverage,
     ) {}
 
     public function index()
@@ -48,6 +50,9 @@ class ConceptController extends Controller
             // mai un merge/eliminazione automatico — solo un segnale per
             // l'editor (stesso contratto di PercorsoCoverageAuditService).
             'duplicates' => $this->duplicateAudit->audit(),
+            // Mission 19 — Coverage Metrics: solo numeri aggregati, nessun
+            // elenco di singoli orfani (diagnostica separata).
+            'coverage' => $this->coverage->summary(),
         ]);
     }
 

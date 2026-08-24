@@ -7,6 +7,24 @@
   <a class="btn btn--primary" href="{{ route('admin.concepts.create') }}">Nuovo concetto</a>
 </div>
 
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.25rem;">
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Copertura articoli</div>
+    <div style="font-size:1.7rem;font-weight:700;margin:.35rem 0;">{{ $coverage['articles']['coverage_percent'] }}%</div>
+    <span style="font-size:.78rem;color:#6b7280;">{{ $coverage['articles']['published_with_concept_link'] }} / {{ $coverage['articles']['published_total'] }} pubblicati con almeno un concetto</span>
+  </div>
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Concetti attivi</div>
+    <div style="font-size:1.7rem;font-weight:700;margin:.35rem 0;">{{ $coverage['concepts']['by_status']['active'] }}</div>
+    <span style="font-size:.78rem;color:#6b7280;">{{ $coverage['concepts']['active_without_article_link'] }} senza alcun articolo collegato</span>
+  </div>
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Domande pubbliche</div>
+    <div style="font-size:1.7rem;font-weight:700;margin:.35rem 0;">{{ $coverage['questions']['publicly_answerable_total'] }}</div>
+    <span style="font-size:.78rem;color:#6b7280;">su {{ $coverage['questions']['total'] }} totali ({{ $coverage['questions']['active_concepts_without_questions'] }} concetti attivi senza domande)</span>
+  </div>
+</div>
+
 @if(! empty($duplicates))
   <section style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;">
     <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.5rem;">
