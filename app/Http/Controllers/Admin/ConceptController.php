@@ -60,9 +60,27 @@ class ConceptController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $concept->load(['aliases', 'questions.targetArticle']);
+        // Mission 08 — Content Graph Questions V1 Editorial Workflow:
+        // ordinato per sort_order/id, la stessa chiave usata da
+        // ContentGraphService::questionsForConcept() — l'elenco admin non
+        // deve mostrare un ordine diverso (l'insertion order grezzo) da
+        // quello che l'ordinamento editoriale (sort_order) intende.
+        $concept->load([
+            'aliases',
+            'questions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id')->with('targetArticle'),
+        ]);
         $links = $this->contentGraph->articlesForConcept($concept);
         $linkedIds = $links->pluck('article_id');
+
+        // Mission 08: unico punto che l'editor ha per capire, SENZA
+        // ricalcolare la regola qui, se una domanda già salvata produce
+        // davvero un link pubblico raggiungibile — riusa
+        // ContentGraphService::answerableQuestionsForConcept() (lo stesso
+        // contratto che vincolerà un futuro consumer pubblico), mai una
+        // seconda implementazione della condizione nella vista.
+        $answerableQuestionIds = $this->contentGraph
+            ->answerableQuestionsForConcept($concept)
+            ->pluck('id');
 
         $catalog = Article::query()
             ->select(['id', 'title', 'status', 'published_at', 'category'])
@@ -76,6 +94,7 @@ class ConceptController extends Controller
             'concept' => $concept,
             'links' => $links,
             'catalog' => $catalog,
+            'answerableQuestionIds' => $answerableQuestionIds,
         ]);
     }
 

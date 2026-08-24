@@ -138,18 +138,25 @@
     @else
       <div style="overflow-x:auto;">
         <table class="admin-table">
-          <thead><tr><th>Domanda</th><th>Stato</th><th>Articolo target</th><th>Ordine</th><th>Azione</th></tr></thead>
+          <thead><tr><th>Domanda</th><th>Stato</th><th>Articolo target</th><th>Raggiungibilità pubblica</th><th>Ordine</th><th>Azione</th></tr></thead>
           <tbody>
           @foreach($concept->questions as $question)
             <tr>
               <td>{{ $question->question }}</td>
               <td>{{ ucfirst($question->status) }}</td>
               <td>{{ $question->targetArticle?->title ?? '—' }}</td>
+              <td>
+                @if($answerableQuestionIds->contains($question->id))
+                  <span style="color:#166534;font-weight:600;">✓ Pubblica</span>
+                @else
+                  <span style="color:#6b7280;">— Non pubblica</span>
+                @endif
+              </td>
               <td>{{ $question->sort_order }}</td>
               <td><button class="action-btn" type="button" data-question-edit-toggle="{{ $question->id }}">Modifica</button></td>
             </tr>
             <tr id="question-edit-{{ $question->id }}" style="display:none;">
-              <td colspan="5">
+              <td colspan="6">
                 <form method="POST" action="{{ route('admin.concepts.questions.update', [$concept, $question]) }}" style="display:grid;gap:.6rem;max-width:640px;">
                   @csrf @method('PUT')
                   <div class="form-group"><label class="form-label">Domanda</label><textarea class="form-textarea" name="question" required maxlength="500">{{ $question->question }}</textarea></div>
