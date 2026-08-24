@@ -58,4 +58,20 @@ Production Kairus has two physically separate public trees:
 
 **Fix shipped (`App\Support\VersionedAsset`):** when a `REVISION` file exists at the application root — written by `deploy.sh` only after a fully verified, successful deploy, containing the exact Git SHA of the release — that SHA is used as the cache-busting version instead of any file's `mtime`. A release SHA is identical no matter which tree reads it and changes on every single deploy, so a browser can never keep serving a previous release's cached asset after a new deploy, regardless of mtime skew between the two roots. Local development, tests, and CI are unaffected: without a `REVISION` file, behavior falls back unchanged to the original `filemtime(public_path(...))` logic.
 
-**What this fix does *not* solve:** it only guarantees the *browser* always re-requests assets on every new release. It does not guarantee `public_html` actually *has* the new file — that remains a content-synchronization gap between the two roots, requiring the drift-detection and release-gate work tracked separately (`scripts/selective-deploy-backup.sh` hardening, a diagnostic drift detector, and a pre-`artisan up` consistency check).
+**What this fix does *not* solve:** it only guarantees the *browser* always re-requests assets on every new release. It does not guarantee `public_html` actually *has* the new file — that content-synchronization gap is closed separately by the drift detector and deploy gate below.
+
+## Public asset drift detection and release gate
+
+`App\Services\Deploy\PublicAssetDriftDetector` compares the release-managed static files listed in `config('deploy.asset_drift_scan_paths')` (CSS, JS, `assets/icons`, and the top-level static files — deliberately *not* `assets/img`, which already has its own sync via `PublicMediaSyncService`, and *not* `images/`, a large hand-curated tree out of scope by default) between the application root (`public_path()`) and a configured served document root.
+
+It is **disabled by default**. Set `DEPLOY_SERVED_PUBLIC_ROOT` in the production `.env` to the real served webroot (e.g. `~/public_html`) to activate it — same opt-in pattern as `MEDIA_PUBLIC_ROOT` in `config/media.php`. It also self-disables when the two roots resolve, via `realpath()`, to the same physical directory. It never writes to either root; it only reads and reports.
+
+Run it directly at any time:
+
+```bash
+php artisan deploy:asset-drift
+```
+
+Exits `0` when disabled or clean, non-zero the moment any file differs, is missing on the served root, or is missing on the application root — with a table listing every problem path and its SHA-256 on each side.
+
+`deploy.sh` calls this command automatically, right after the cache-refresh step and **before** `REVISION`/`DEPLOY_INFO` are ever written — the same fail-closed placement as the pending-migrations check. When `DEPLOY_SERVED_PUBLIC_ROOT` is configured and a mismatch exists, the release stops there: no revision gets recorded for a release whose static assets never actually reached the served root. When unset, the check is a no-op and never blocks a deploy — matching every environment (local, CI, staging) that has not configured a second root.

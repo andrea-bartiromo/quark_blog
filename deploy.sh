@@ -75,6 +75,16 @@ chmod -R 755 storage bootstrap/cache
 
 php artisan about 2>&1 | grep -E "Name|Version|PHP|Database|Environment" || true
 
+# Public asset drift gate (Missions 03-05): when DEPLOY_SERVED_PUBLIC_ROOT is
+# configured, fail closed BEFORE recording success if release-managed static
+# assets (CSS/JS/icons — see config/deploy.php) differ between this
+# application root and the actually-served document root. When unset, the
+# command exits 0 without comparing anything: it never blocks an environment
+# that has not configured a separate served root. See docs/DEPLOYMENT.md for
+# the incident this closes.
+echo "Checking public asset consistency between the application root and the served document root (if configured)."
+php artisan deploy:asset-drift || fail "Public asset drift detected between the application root and the configured served document root (DEPLOY_SERVED_PUBLIC_ROOT). Synchronize the two document roots before proceeding — see docs/DEPLOYMENT.md."
+
 # Record the exact successful code revision only after all deploy checks and
 # cache operations complete. These files contain metadata only, never secrets.
 printf '%s\n' "$ACTUAL_SHA" > REVISION

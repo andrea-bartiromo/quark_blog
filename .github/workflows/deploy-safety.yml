@@ -109,10 +109,27 @@ jobs:
           test ! -f DEPLOY_INFO
           php artisan migrate:status --no-ansi | grep -Eq '[[:space:]]Pending[[:space:]]'
 
-      - name: TEST — valid state (correct SHA, no pending migrations) must succeed and record revision metadata
+      - name: TEST — configured but diverged served document root must fail closed without recording revision
         run: |
           set -eu
           php artisan migrate --force
+          REAL_SHA="$(git rev-parse HEAD)"
+          EMPTY_SERVED_ROOT="$(mktemp -d)"
+          # An empty served root makes every release-managed static asset
+          # (css/js/icons/etc, see config/deploy.php) "missing_on_webroot" —
+          # the same class of divergence as the real public-premium.css
+          # incident, deterministically reproduced here as a regression case.
+          if DEPLOY_SERVED_PUBLIC_ROOT="$EMPTY_SERVED_ROOT" bash deploy.sh "$REAL_SHA"; then
+            echo "deploy.sh unexpectedly succeeded with a diverged served document root" >&2
+            exit 1
+          fi
+          test ! -f REVISION
+          test ! -f DEPLOY_INFO
+          rm -rf "$EMPTY_SERVED_ROOT"
+
+      - name: TEST — valid state (correct SHA, no pending migrations, no configured served root) must succeed and record revision metadata
+        run: |
+          set -eu
           REAL_SHA="$(git rev-parse HEAD)"
           bash deploy.sh "$REAL_SHA"
           test -f REVISION
