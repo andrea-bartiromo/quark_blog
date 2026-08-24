@@ -115,6 +115,12 @@
         <li style="font-size:.85rem;">
           <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
           <span style="color:#6b7280;"> — {{ $row['status'] }} ({{ $row['error_count'] }} errori, {{ $row['warning_count'] }} warning)</span>
+          @if(! empty($row['codes']))
+            <div style="font-size:.72rem;color:#9ca3af;margin-top:.15rem;">{{ implode(' · ', $row['codes']) }}</div>
+          @endif
+          @if($row['also_in_order_health'])
+            <div style="font-size:.72rem;color:#b45309;margin-top:.15rem;">Segnalato anche in Sequenza Percorsi qui sotto — probabilmente la stessa causa.</div>
+          @endif
         </li>
       @endforeach
     </ul>

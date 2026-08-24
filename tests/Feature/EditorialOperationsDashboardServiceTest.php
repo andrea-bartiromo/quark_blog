@@ -144,6 +144,55 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $this->assertTrue(collect($snapshot['percorsi_readiness'])->pluck('cluster_id')->contains($cluster->id));
         $this->assertTrue(collect($snapshot['percorsi_order_health']['clusters_with_issues'])->pluck('cluster_id')->contains($cluster->id));
+
+        // Mission 15: the readiness row must also expose WHICH codes are
+        // driving it — never just an anonymous count — and INFO-only codes
+        // (SCHEDULING_NOT_AVAILABLE, always present since no publicationAt
+        // is ever passed here) must never appear in that visible list.
+        $readinessRow = collect($snapshot['percorsi_readiness'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotEmpty($readinessRow['codes']);
+        $this->assertNotContains('SCHEDULING_NOT_AVAILABLE', $readinessRow['codes']);
+    }
+
+    /**
+     * Mission 15 — Dashboard Integration. Mission 14 wired the SAME
+     * underlying signal (complete_with_hidden_remainder) into both
+     * readiness (ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER) and
+     * order-health (clusters_with_issues) — unlike the mixed-cause test
+     * above, this is genuinely one root cause appearing in two sections,
+     * and the dashboard must say so via also_in_order_health rather than
+     * presenting it as two disconnected problems.
+     */
+    public function test_shared_hidden_remainder_cause_is_flagged_as_also_in_order_health(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Concluso Con Resto Nascosto',
+            'slug' => 'percorso-concluso-resto-nascosto',
+            'is_active' => true,
+            'short_description' => 'Breve.',
+            'description' => 'Descrizione completa.',
+            'seo_title' => 'SEO title',
+            'seo_description' => 'SEO description.',
+            'cover_image' => 'cover.jpg',
+            'takeaways' => 'Takeaway.',
+            'guiding_questions' => 'Domanda?',
+            'closing_text' => 'Chiusura.',
+            'curator_note' => 'Nota.',
+            'lifecycle_status' => ContentCluster::LIFECYCLE_COMPLETE,
+        ]);
+        $first = $this->article('resto-nascosto-primo', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $gap = $this->article('resto-nascosto-gap', Article::STATUS_SCHEDULED, now()->addDays(3));
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Continua.']);
+        $cluster->articles()->attach($gap->id, ['position' => 20, 'is_primary' => true]);
+        $cluster->update(['pillar_article_id' => $first->id]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $readinessRow = collect($snapshot['percorsi_readiness'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($readinessRow);
+        $this->assertContains('ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER', $readinessRow['codes']);
+        $this->assertTrue($readinessRow['also_in_order_health']);
+        $this->assertTrue(collect($snapshot['percorsi_order_health']['clusters_with_issues'])->pluck('cluster_id')->contains($cluster->id));
     }
 
     public function test_a_fully_ready_percorso_with_no_order_issues_appears_in_neither_section(): void
