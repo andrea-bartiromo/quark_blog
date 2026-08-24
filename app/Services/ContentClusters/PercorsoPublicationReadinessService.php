@@ -87,15 +87,31 @@ class PercorsoPublicationReadinessService
         // the immediately following step. Therefore every non-terminal member
         // may need one, while a terminal NULL is explicitly valid.
         $nonTerminal = $ordered->take(max(0, $ordered->count() - 1));
-        $missingTransitions = $nonTerminal
+        $missingTransitionArticles = $nonTerminal
             ->filter(fn (Article $article) => blank($article->pivot?->transition_text))
-            ->count();
-        if ($missingTransitions > 0) {
-            $findings->push($this->finding(
-                'TRANSITION_TEXT_GAPS',
-                'WARNING',
-                $missingTransitions.' raccordo/i tra tappe non terminali non sono compilati.',
-            ));
+            ->values();
+        if ($missingTransitionArticles->isNotEmpty()) {
+            // Mission 12 — Transition Text Health: the message stays a
+            // generic count (same public-safety contract as every other
+            // finding — see test_no_finding_message_ever_names_a_hidden_member_article),
+            // but 'detail' carries which specific non-terminal members are
+            // missing a raccordo, mirroring the per-article shape
+            // PercorsoCoverageAuditService::editorialOrderHealth() already
+            // uses for dangling_transition (the opposite-end check). This
+            // service is admin/editorial-only, so surfacing member identity
+            // in structured data — never in the message string itself — is
+            // safe and is what lets the edit form flag the exact rows.
+            $findings->push([
+                'code' => 'TRANSITION_TEXT_GAPS',
+                'severity' => 'WARNING',
+                'message' => $missingTransitionArticles->count().' raccordo/i tra tappe non terminali non sono compilati.',
+                'detail' => $missingTransitionArticles->map(fn (Article $article) => [
+                    'id' => $article->id,
+                    'title' => $article->title,
+                    'slug' => $article->slug,
+                    'position' => $article->pivot?->position,
+                ])->values()->all(),
+            ]);
         }
 
         if ($publicationAt !== null) {

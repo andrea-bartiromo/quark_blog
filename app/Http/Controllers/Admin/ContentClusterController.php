@@ -9,6 +9,7 @@ use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
 use App\Services\ContentClusters\PercorsiAutomationObservability;
+use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class ContentClusterController extends Controller
         private readonly ContentClusterMembershipService $memberships,
         private readonly ContentClusterHealth $health,
         private readonly PercorsiAutomationObservability $automation,
+        private readonly PercorsoPublicationReadinessService $readiness,
     ) {}
 
     public function index()
@@ -128,11 +130,15 @@ class ContentClusterController extends Controller
             ->paginate(30)
             ->withQueryString();
 
+        $transitionTextGaps = collect($this->readiness->evaluate($contentCluster)['findings'])
+            ->firstWhere('code', 'TRANSITION_TEXT_GAPS');
+
         return view('admin.content-clusters.form', [
             'cluster' => $contentCluster,
             'catalog' => $catalog,
             'categories' => Article::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
             'health' => $this->health->evaluate($contentCluster),
+            'missingTransitionArticleIds' => collect($transitionTextGaps['detail'] ?? [])->pluck('id')->all(),
         ]);
     }
 

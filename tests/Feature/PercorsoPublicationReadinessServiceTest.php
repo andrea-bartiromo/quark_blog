@@ -102,6 +102,41 @@ class PercorsoPublicationReadinessServiceTest extends TestCase
         $this->assertFalse($complete['findings']->contains('code', 'TRANSITION_TEXT_GAPS'));
     }
 
+    /**
+     * Mission 12 — Transition Text Health. TRANSITION_TEXT_GAPS's message
+     * stays a generic count (public-safety contract, see
+     * test_no_finding_message_ever_names_a_hidden_member_article below),
+     * but the finding must also carry a 'detail' array identifying exactly
+     * which non-terminal member(s) are missing a raccordo — this is what
+     * lets the admin edit form flag the right rows instead of an editor
+     * having to guess from a bare count.
+     */
+    public function test_transition_text_gaps_finding_carries_per_member_detail(): void
+    {
+        $first = $this->article('detail-first', Article::STATUS_PUBLISHED, now()->subDays(3));
+        $second = $this->article('detail-second', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $terminal = $this->article('detail-terminal', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster = $this->cluster('Transition Detail', $first);
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => null]);
+        $cluster->articles()->attach($second->id, ['position' => 20, 'is_primary' => false, 'transition_text' => 'Verso la terza tappa.']);
+        $cluster->articles()->attach($terminal->id, ['position' => 30, 'is_primary' => false, 'transition_text' => null]);
+
+        $report = app(PercorsoPublicationReadinessService::class)->evaluate($cluster->fresh());
+        $finding = $report['findings']->firstWhere('code', 'TRANSITION_TEXT_GAPS');
+
+        $this->assertNotNull($finding);
+        $this->assertSame('1 raccordo/i tra tappe non terminali non sono compilati.', $finding['message']);
+        $this->assertCount(1, $finding['detail']);
+        $this->assertSame($first->id, $finding['detail'][0]['id']);
+        $this->assertSame($first->title, $finding['detail'][0]['title']);
+        $this->assertSame($first->slug, $finding['detail'][0]['slug']);
+        $this->assertSame(10, $finding['detail'][0]['position']);
+        // The terminal member (position 30) is never flagged even though
+        // its own transition_text is also null — a terminal raccordo has
+        // nothing left to introduce.
+        $this->assertNotContains($terminal->id, collect($finding['detail'])->pluck('id')->all());
+    }
+
     public function test_published_pillar_beyond_current_gap_is_not_readiness_safe(): void
     {
         $first = $this->article('prefix-first', Article::STATUS_PUBLISHED, now()->subDays(2));
