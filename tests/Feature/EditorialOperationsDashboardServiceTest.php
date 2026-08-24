@@ -62,7 +62,9 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
         $this->assertSame([], $snapshot['percorsi_order_health']['clusters_with_advisories_only']);
-        $this->assertFalse($snapshot['opportunita']['available']);
+        $this->assertTrue($snapshot['opportunita']['available']);
+        $this->assertSame(0, $snapshot['opportunita']['total']);
+        $this->assertSame([], $snapshot['opportunita']['items']);
         $this->assertFalse($snapshot['distribuzione']['available']);
     }
 
@@ -74,8 +76,52 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $this->assertCount(1, $snapshot['da_pubblicare']);
         $this->assertArrayHasKey('summary', $snapshot['seo']);
-        $this->assertFalse($snapshot['opportunita']['available']);
+        // Mission 35: Radar is real on main. A merely-scheduled article (not
+        // yet published) must never surface as an opportunity — Radar only
+        // evaluates Article::published(), same public-safety boundary as
+        // every other section here.
+        $this->assertTrue($snapshot['opportunita']['available']);
+        $this->assertSame(0, $snapshot['opportunita']['total']);
         $this->assertFalse($snapshot['distribuzione']['available']);
+    }
+
+    /**
+     * Mission 35 — Dashboard Radar Opportunities Integration. Recovers the
+     * tested-but-never-merged foundation from PR #292
+     * (EditorialRadarProviderGraphService) and wires it into the
+     * previously-stubbed 'opportunita' slot. Only the AGGREGATION is tested
+     * here — every domain rule (which findings become which opportunity
+     * type/priority) is already covered by EditorialRadarServiceTest and
+     * SearchConsoleRadarProviderTest.
+     */
+    public function test_a_published_article_content_health_warning_surfaces_as_an_opportunity(): void
+    {
+        $published = $this->article('opportunita-content-health-test', Article::STATUS_PUBLISHED, now()->subDay());
+        // No excerpt was set (see article() helper), which is exactly the
+        // 'summary' WARNING finding ArticleContentHealthService already
+        // covers — reused here, never reimplemented.
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertTrue($snapshot['opportunita']['available']);
+        $this->assertGreaterThan(0, $snapshot['opportunita']['total']);
+        $this->assertTrue(collect($snapshot['opportunita']['items'])->pluck('article_id')->contains($published->id));
+    }
+
+    /**
+     * Public-safety boundary: a scheduled (not-yet-public) article's content
+     * gaps must never leak into the Opportunità card, even though the same
+     * article already appears in da_pubblicare. EditorialRadarService only
+     * ever queries Article::published(), so this proves the dashboard
+     * inherits that boundary rather than accidentally widening it.
+     */
+    public function test_a_scheduled_articles_content_gaps_never_surface_as_an_opportunity(): void
+    {
+        $scheduled = $this->article('opportunita-scheduled-safety-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['opportunita']['items'])->pluck('article_id')->contains($scheduled->id));
     }
 
     public function test_draft_articles_are_not_exposed_in_operational_sections(): void
