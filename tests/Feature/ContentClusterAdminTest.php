@@ -239,6 +239,29 @@ class ContentClusterAdminTest extends TestCase
         $this->assertSame(1, ContentCluster::inactive()->count());
     }
 
+    /**
+     * Mission 12 — Transition Text Health. The edit form must flag exactly
+     * the non-terminal member missing a raccordo, not the terminal one
+     * (which legitimately has nothing left to introduce).
+     */
+    public function test_edit_page_flags_only_the_non_terminal_member_missing_a_transition(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $first = $this->article($editor, 'Prima tappa senza raccordo');
+        $last = $this->article($editor, 'Ultima tappa');
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => null]);
+        $cluster->articles()->attach($last->id, ['position' => 20, 'is_primary' => false, 'transition_text' => null]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()->assertSee('Manca il raccordo verso la tappa successiva.');
+
+        // Only one such warning: the terminal member is correctly excluded.
+        $occurrences = substr_count($response->getContent(), 'Manca il raccordo verso la tappa successiva.');
+        $this->assertSame(1, $occurrences);
+    }
+
     private function editor(): User
     {
         $user = User::factory()->create();

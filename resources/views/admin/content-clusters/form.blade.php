@@ -196,7 +196,12 @@
               <td>{{ $article->status }}</td>
               <td><input aria-label="Posizione {{ $article->title }}" class="form-input" style="min-width:90px;" type="number" min="0" name="memberships[{{ $article->id }}][position]" value="{{ $position }}"></td>
               <td><input aria-label="Primary {{ $article->title }}" type="checkbox" name="memberships[{{ $article->id }}][is_primary]" value="1" {{ $primary ? 'checked' : '' }}></td>
-              <td><textarea aria-label="Raccordo editoriale {{ $article->title }}" class="form-textarea" style="min-width:220px;min-height:70px;" maxlength="1000" name="memberships[{{ $article->id }}][transition_text]">{{ $transition }}</textarea></td>
+              <td>
+                <textarea aria-label="Raccordo editoriale {{ $article->title }}" class="form-textarea" style="min-width:220px;min-height:70px;{{ in_array($article->id, $missingTransitionArticleIds ?? []) ? 'border-color:#b45309;' : '' }}" maxlength="1000" name="memberships[{{ $article->id }}][transition_text]">{{ $transition }}</textarea>
+                @if(in_array($article->id, $missingTransitionArticleIds ?? []))
+                  <small style="display:block;color:#b45309;margin-top:.25rem;">Manca il raccordo verso la tappa successiva.</small>
+                @endif
+              </td>
               <td><button class="action-btn" type="submit" name="remove_article_id" value="{{ $article->id }}">Rimuovi</button></td>
             </tr>
           @empty
