@@ -356,6 +356,21 @@ class ContentClusterAutoLifecycleCompletionTest extends TestCase
         $this->assertTrue($commands->contains(fn ($command) => str_contains((string) $command, 'percorsi:reconcile-lifecycle')));
     }
 
+    /**
+     * The scheduled run must carry withoutOverlapping() so two runs firing
+     * close together (e.g. a slow prior run still finishing at the next
+     * five-minute tick) never reconcile the same cluster concurrently.
+     */
+    public function test_scheduled_run_has_overlap_protection_enabled(): void
+    {
+        $schedule = app(Schedule::class);
+        $event = collect($schedule->events())
+            ->first(fn ($event) => str_contains((string) ($event->command ?? ''), 'percorsi:reconcile-lifecycle'));
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->withoutOverlapping);
+    }
+
     public function test_activity_log_records_the_automatic_promotion(): void
     {
         $cluster = ContentCluster::factory()->create(['name' => 'Percorso da concludere', 'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
