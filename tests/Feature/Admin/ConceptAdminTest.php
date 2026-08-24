@@ -147,6 +147,20 @@ class ConceptAdminTest extends TestCase
         ]);
     }
 
+    public function test_index_shows_coverage_metrics(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article('Termodinamica base');
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $concept->articleLinks()->create(['article_id' => $article->id, 'relation_type' => 'primary', 'weight' => 90]);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.index'));
+
+        $response->assertOk();
+        $response->assertSee('Copertura articoli');
+        $response->assertSee('100%', false);
+    }
+
     public function test_index_shows_no_duplicate_panel_when_no_concepts_collide(): void
     {
         $editor = $this->editor();
