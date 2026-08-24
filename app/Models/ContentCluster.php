@@ -168,4 +168,36 @@ class ContentCluster extends Model
             ? null
             : $this->fromDateTime(Carbon::parse($value)->utc());
     }
+
+    // ── Fuso orario redazionale ──────────────────────────────────
+
+    public const EDITORIAL_TIMEZONE = 'Europe/Rome';
+
+    /**
+     * publish_at (memorizzato in UTC) convertito nel fuso orario della
+     * redazione, per la visualizzazione nel form admin — stesso pattern di
+     * Article::publishedAtForEditors().
+     */
+    public function publishAtForEditors(): ?Carbon
+    {
+        return $this->publish_at?->clone()->timezone(self::EDITORIAL_TIMEZONE);
+    }
+
+    /**
+     * Etichetta sintetica per il badge admin — riflette SOLO la policy di
+     * isPubliclyVisible()/scopePubliclyVisible(), mai lifecycle_status (che
+     * resta ortogonale, vedi il docblock di scopePubliclyVisible()).
+     */
+    public function publicVisibilityLabel(): string
+    {
+        if (! $this->is_active) {
+            return 'Inattivo';
+        }
+
+        if ($this->publish_at !== null && $this->publish_at->isFuture()) {
+            return 'Programmato';
+        }
+
+        return 'Pubblico';
+    }
 }

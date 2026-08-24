@@ -11,7 +11,7 @@ class ContentClusterController extends Controller
     public function index(): View
     {
         $clusters = ContentCluster::query()
-            ->active()
+            ->publiclyVisible()
             ->ordered()
             ->withCount([
                 'articles as published_articles_count' => fn ($query) => $query->published(),
@@ -27,7 +27,7 @@ class ContentClusterController extends Controller
     public function show(string $slug, ContentClusterPublicSequence $publicSequence): View
     {
         $cluster = ContentCluster::query()
-            ->active()
+            ->publiclyVisible()
             ->where('slug', $slug)
             ->firstOrFail();
 
