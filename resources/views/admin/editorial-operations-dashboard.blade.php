@@ -50,9 +50,15 @@
     <span style="font-size:.78rem;color:#6b7280;">Canonical non valido</span>
   </div>
 
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Opportunità</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ $snapshot['opportunita']['total'] }}</div>
+    <span style="font-size:.78rem;color:#6b7280;">Segnali Radar esplicabili</span>
+  </div>
+
 </div>
 
-@foreach(['opportunita' => 'Opportunità', 'distribuzione' => 'Distribuzione'] as $key => $label)
+@foreach(['distribuzione' => 'Distribuzione'] as $key => $label)
   @if(! $snapshot[$key]['available'])
   <div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:6px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.78rem;color:#6b7280;">
     <strong>{{ $label }}:</strong> non disponibile — {{ $snapshot[$key]['reason'] }}
@@ -165,6 +171,30 @@
       {{ $snapshot['seo']['summary']['duplicate_effective_descriptions'] }} con description effettiva duplicata.
       Dettaglio completo nella pagina di modifica di ciascun articolo.
     </p>
+  @endif
+</section>
+
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-top:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Opportunità</h2>
+  @if(empty($snapshot['opportunita']['items']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessuna opportunità editoriale rilevata al momento.</p>
+  @else
+    <p style="font-size:.78rem;color:#6b7280;margin:0 0 .6rem;">
+      {{ $snapshot['opportunita']['total'] }} opportunità rilevate — le prime {{ count($snapshot['opportunita']['items']) }} in ordine di priorità.
+    </p>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.55rem;">
+      @foreach($snapshot['opportunita']['items'] as $row)
+        <li style="font-size:.85rem;">
+          @if($row['article_id'])
+            <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
+          @else
+            <span>{{ $row['title'] }}</span>
+          @endif
+          <span style="color:#6b7280;"> — {{ $row['priority'] }} · {{ $row['detected'] }}</span>
+          <div style="font-size:.72rem;color:#9ca3af;margin-top:.1rem;">{{ $row['why'] }}</div>
+        </li>
+      @endforeach
+    </ul>
   @endif
 </section>
 

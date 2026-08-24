@@ -9,6 +9,7 @@ use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
 use App\Services\EditorialQuality\SourceImageAttributionHealthService;
+use App\Services\EditorialRadar\EditorialRadarProviderGraphService;
 
 /**
  * Editorial Operations Dashboard V1 — recuperato (Mission 09) dal foundation
@@ -29,7 +30,16 @@ class EditorialOperationsDashboardService
         private readonly PercorsoPublicationReadinessService $percorsoReadiness,
         private readonly SourceImageAttributionHealthService $attribution,
         private readonly SeoMetadataQualityAuditService $seo,
+        private readonly EditorialRadarProviderGraphService $radar,
     ) {}
+
+    /**
+     * Quante righe mostrare nella card Opportunità — un tetto editoriale,
+     * non un limite tecnico: il Radar può produrre più segnali di quanti
+     * un editor possa realisticamente lavorare in una sessione. Il conteggio
+     * totale resta comunque visibile accanto all'elenco troncato.
+     */
+    private const OPPORTUNITA_DISPLAY_LIMIT = 10;
 
     /** @return array<string, mixed> */
     public function snapshot(): array
@@ -89,6 +99,7 @@ class EditorialOperationsDashboardService
             ->pluck('cluster_id')
             ->all();
         $percorsiReadiness = $this->percorsiReadinessSummary($orderHealthFlaggedClusterIds);
+        $opportunities = $this->radar->opportunities();
 
         return [
             'da_pubblicare' => $toPublish,
@@ -101,8 +112,9 @@ class EditorialOperationsDashboardService
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,
             'opportunita' => [
-                'available' => false,
-                'reason' => 'Radar runtime non è ancora su main; nessun dato viene inventato.',
+                'available' => true,
+                'total' => $opportunities->count(),
+                'items' => $opportunities->take(self::OPPORTUNITA_DISPLAY_LIMIT)->values()->all(),
             ],
             'distribuzione' => [
                 'available' => false,
