@@ -62,6 +62,9 @@
   @if(! $snapshot[$key]['available'])
   <div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:6px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.78rem;color:#6b7280;">
     <strong>{{ $label }}:</strong> non disponibile — {{ $snapshot[$key]['reason'] }}
+    @if(! empty($snapshot[$key]['tool_url']))
+      <a href="{{ $snapshot[$key]['tool_url'] }}" style="color:#0d9488;">Apri lo strumento →</a>
+    @endif
   </div>
   @endif
 @endforeach
