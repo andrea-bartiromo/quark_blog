@@ -140,6 +140,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
     Route::get('/articoli/{article}/discover', [DiscoverReadinessController::class, 'show'])->name('articles.discover');
 
+    Route::post('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'linkConcept'])->name('articles.concepts.link');
+    Route::delete('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'unlinkConcept'])->name('articles.concepts.unlink');
+
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/ignora', [ArticleLinkSuggestionController::class, 'ignore'])->name('articles.link-suggestions.ignore');
