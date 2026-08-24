@@ -21,9 +21,30 @@ class DeploymentSafetyTest extends TestCase
     {
         $script = $this->deployScript();
 
-        $this->assertStringContainsString('git diff --quiet --ignore-submodules --', $script);
-        $this->assertStringContainsString('git diff --cached --quiet --ignore-submodules --', $script);
+        $this->assertStringContainsString('git -c core.fileMode=false diff --quiet --ignore-submodules --', $script);
+        $this->assertStringContainsString('git -c core.fileMode=false diff --cached --quiet --ignore-submodules --', $script);
         $this->assertStringContainsString('Tracked release files differ from the expected Git revision', $script);
+    }
+
+    /**
+     * A real bug, found only by actually running deploy.sh twice against
+     * the same checkout (see .github/workflows/deploy-safety.yml's own
+     * "second deploy.sh run" test): the script's own `chmod -R 755 storage
+     * bootstrap/cache` flips tracked files inside bootstrap/cache from the
+     * repo's 644 to 755 with zero content change, which then made a SECOND
+     * run's dirty-release-artifact check spuriously fail on mode bits
+     * alone. `core.fileMode=false` still fails closed on any real content
+     * drift — the actual safety intent — it only stops mode-only noise
+     * from the script's own prior side effect.
+     */
+    public function test_production_deploy_tracked_files_check_ignores_its_own_chmod_side_effect(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('chmod -R 755 storage bootstrap/cache', $script);
+
+        preg_match_all('/git -c core\.fileMode=false diff( --cached)? --quiet --ignore-submodules --/', $script, $matches);
+        $this->assertCount(2, $matches[0], 'Expected exactly the two tracked-files dirty checks to use core.fileMode=false.');
     }
 
     public function test_production_deploy_does_not_assume_sqlite_or_run_the_sqlite_only_backup_command(): void
