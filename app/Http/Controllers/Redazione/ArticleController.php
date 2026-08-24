@@ -202,10 +202,12 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('redazione.articles')
-            ->with(
-                'success',
-                'Articolo inviato in revisione. L\'editor ti contatterà presto.'
-            );
+            ->with([
+                'success' => 'Articolo inviato in revisione. L\'editor ti contatterà presto.',
+                // EDITORIAL RESILIENCE: marcatore dedicato — vedi il
+                // commento in Admin\ArticleController::store().
+                'kairus_draft_cleanup_context' => 'new',
+            ]);
     }
 
     public function edit(Article $article)
@@ -422,10 +424,12 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('redazione.articles')
-            ->with(
-                'success',
-                'Articolo aggiornato e rimandato in revisione.'
-            );
+            ->with([
+                'success' => 'Articolo aggiornato e rimandato in revisione.',
+                // EDITORIAL RESILIENCE: stesso motivo di
+                // Admin\ArticleController::update() — vedi il suo commento.
+                'kairus_draft_cleanup_context' => (string) $article->id,
+            ]);
     }
 
     public function destroy(Article $article)
