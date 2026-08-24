@@ -495,7 +495,17 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('admin.articles')
-            ->with('success', 'Articolo creato.');
+            ->with([
+                'success' => 'Articolo creato.',
+                // EDITORIAL RESILIENCE: marcatore dedicato, letto SOLO dallo
+                // script di pulizia della bozza locale — deve restare
+                // distinto dal flash 'success' generico (condiviso da ogni
+                // controller admin) per non svuotare la bozza "nuovo
+                // articolo" di questo utente quando un'azione qualunque non
+                // correlata (upload media, modifica categoria, ecc.) mostra
+                // il proprio messaggio di successo sulla stessa superficie.
+                'kairus_draft_cleanup_context' => 'new',
+            ]);
     }
 
     public function edit(Request $request, Article $article)
@@ -657,7 +667,18 @@ class ArticleController extends Controller
 
         return redirect()
             ->route('admin.articles')
-            ->with('success', 'Articolo aggiornato.');
+            ->with([
+                'success' => 'Articolo aggiornato.',
+                // EDITORIAL RESILIENCE: create/update reindirizzano entrambi
+                // qui (mai a una pagina che "conosce" ancora il form appena
+                // inviato), quindi la pulizia della bozza locale corrispon-
+                // dente avviene leggendo questo flash — vedi
+                // partials/article-autosave-script.blade.php e
+                // layouts/admin.blade.php. Marcatore dedicato (non il flash
+                // 'success' generico): un'azione admin non correlata non
+                // deve mai svuotare la bozza locale di questo articolo.
+                'kairus_draft_cleanup_context' => (string) $article->id,
+            ]);
     }
 
     public function destroy(Article $article)

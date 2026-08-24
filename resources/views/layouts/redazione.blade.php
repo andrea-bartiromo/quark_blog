@@ -13,6 +13,10 @@
        admin.css e' condiviso da entrambi i layout. --}}
   <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/admin.css') }}">
   <meta name="robots" content="noindex,nofollow">
+  {{-- Namespace delle bozze locali dell'editor articoli (autosave/
+       recovery) — mai dati sensibili, solo l'id numerico già visibile
+       altrove nell'interfaccia. Vedi docs/editor-autosave.md. --}}
+  <meta name="kairus-user-id" content="{{ auth()->id() }}">
   <style>
     .redazione-badge {
       display:inline-flex;align-items:center;gap:.3rem;
@@ -102,10 +106,25 @@
 
   <main class="admin-main" id="redazione-main-content" tabindex="-1">
     @if(session('success'))
-    <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
+    <div id="kairus-flash-success"
+         style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;
                 padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:#065f46;">
       ✅ {{ session('success') }}
     </div>
+    @endif
+    {{-- EDITORIAL RESILIENCE: la pulizia della bozza locale NON deve
+         dipendere dal flash 'success' generico (condiviso da ogni azione
+         di questa superficie, es. aggiornamento profilo) — solo da un
+         marcatore dedicato che ArticleController::store()/update() setta
+         esplicitamente. Altrimenti un'azione qualunque non correlata
+         all'editor articoli svuoterebbe comunque la bozza "nuovo
+         articolo" di questo utente. --}}
+    @if(session()->has('kairus_draft_cleanup_context'))
+    <div id="kairus-draft-cleanup-marker"
+         data-editor-surface="redazione"
+         data-draft-cleanup-context="{{ session('kairus_draft_cleanup_context') }}"
+         hidden></div>
+    @include('partials.kairus-draft-cleanup-script')
     @endif
 
     @if(session('error'))
