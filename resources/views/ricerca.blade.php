@@ -82,6 +82,7 @@
         </form>
 
         @if($results instanceof \Illuminate\Contracts\Pagination\Paginator && $results->count() > 0)
+          <h2 class="sr-only">Risultati di ricerca</h2>
           <div class="public-list-stack">
             @foreach($results as $article)
               <a href="{{ route('articolo', $article->slug) }}" class="public-result-card">
@@ -124,14 +125,14 @@
         @elseif(request()->hasAny(['q','categoria','autore','da','a']))
           <div class="public-empty-state">
             <span>🔍</span>
-            <h3>Nessun risultato trovato</h3>
+            <h2>Nessun risultato trovato</h2>
             <p>Prova a rimuovere qualche filtro o cerca una parola chiave più ampia.</p>
             <a href="{{ route('ricerca') }}">Rimuovi i filtri</a>
           </div>
         @else
           <div class="public-empty-state public-empty-state--soft">
             <span>⌕</span>
-            <h3>Inizia una ricerca</h3>
+            <h2>Inizia una ricerca</h2>
             <p>Usa la barra in alto per esplorare l’archivio Kairus.</p>
           </div>
         @endif
