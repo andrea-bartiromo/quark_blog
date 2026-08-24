@@ -17,7 +17,7 @@
         Turing
       </a>
 
-      @foreach(config('laboratorio.categories') as $slug => $label)
+      @foreach($categoryOptions as $slug => $label)
         @if($loop->index < 3)
         <a href="{{ route('categoria', $slug) }}"
            @class(['active' => request()->is("categoria/{$slug}")])>
