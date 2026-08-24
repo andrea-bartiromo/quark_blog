@@ -674,4 +674,64 @@ class SearchControllerTest extends TestCase
 
         $this->assertSame(0, SearchZeroResultQuery::count());
     }
+
+    // ── Mission 33 — Search Accessibility and Mobile UX ─────────────────
+
+    /**
+     * Browser-smoke ha trovato un salto di livello H1 -> H3 (nessun H2 nel
+     * flusso di contenuto principale): le card risultato usavano <h3>
+     * subito sotto l'<h1> di pagina. Un <h2 class="sr-only"> di sezione
+     * ("Risultati di ricerca") chiude il salto senza cambiare nulla di
+     * visibile — regressione esplicita sull'ordine dei livelli, non solo
+     * sulla presenza dei tag.
+     */
+    public function test_the_results_state_never_skips_a_heading_level(): void
+    {
+        $this->article(['title' => 'Il Test di Turing spiegato davvero']);
+
+        $response = $this->get(route('ricerca', ['q' => 'test']));
+
+        $response->assertOk();
+        preg_match_all('/<h([1-6])[\s>]/', $response->getContent(), $matches);
+        $levels = array_map('intval', $matches[1]);
+
+        $this->assertNotEmpty($levels);
+        for ($i = 1; $i < count($levels); $i++) {
+            $this->assertLessThanOrEqual(
+                $levels[$i - 1] + 1,
+                $levels[$i],
+                'Livelli heading trovati in ordine: '.implode(' -> ', $levels)
+            );
+        }
+    }
+
+    public function test_the_zero_results_state_never_skips_a_heading_level(): void
+    {
+        $this->article(['title' => 'Un articolo qualunque']);
+
+        $response = $this->get(route('ricerca', ['q' => 'inesistentezzz']));
+
+        $response->assertOk();
+        $response->assertSee('<h2>Nessun risultato trovato</h2>', false);
+        preg_match_all('/<h([1-6])[\s>]/', $response->getContent(), $matches);
+        $levels = array_map('intval', $matches[1]);
+
+        for ($i = 1; $i < count($levels); $i++) {
+            $this->assertLessThanOrEqual($levels[$i - 1] + 1, $levels[$i]);
+        }
+    }
+
+    public function test_the_start_state_never_skips_a_heading_level(): void
+    {
+        $response = $this->get(route('ricerca'));
+
+        $response->assertOk();
+        $response->assertSee('<h2>Inizia una ricerca</h2>', false);
+        preg_match_all('/<h([1-6])[\s>]/', $response->getContent(), $matches);
+        $levels = array_map('intval', $matches[1]);
+
+        for ($i = 1; $i < count($levels); $i++) {
+            $this->assertLessThanOrEqual($levels[$i - 1] + 1, $levels[$i]);
+        }
+    }
 }
