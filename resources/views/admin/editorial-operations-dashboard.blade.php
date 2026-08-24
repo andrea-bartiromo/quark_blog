@@ -132,6 +132,19 @@
       @endforeach
     </ul>
   @endif
+
+  @if(! empty($snapshot['percorsi_order_health']['clusters_with_advisories_only']))
+    <div style="margin-top:1rem;padding-top:.85rem;border-top:1px dashed #e5e7eb;">
+      <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#92400e;margin-bottom:.4rem;">
+        Segnali editoriali ({{ $snapshot['percorsi_order_health']['editorial_advisory_count'] }}) — informativi, non bloccanti
+      </div>
+      <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+        @foreach($snapshot['percorsi_order_health']['clusters_with_advisories_only'] as $row)
+          <li style="font-size:.85rem;color:#92400e;"><a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a></li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
 </section>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">

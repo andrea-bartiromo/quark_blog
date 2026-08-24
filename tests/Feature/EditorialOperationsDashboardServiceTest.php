@@ -60,6 +60,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
+        $this->assertSame(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
+        $this->assertSame([], $snapshot['percorsi_order_health']['clusters_with_advisories_only']);
         $this->assertFalse($snapshot['opportunita']['available']);
         $this->assertFalse($snapshot['distribuzione']['available']);
     }
@@ -175,6 +177,49 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $this->assertFalse(collect($snapshot['percorsi_readiness'])->pluck('cluster_id')->contains($cluster->id));
         $this->assertFalse(collect($snapshot['percorsi_order_health']['clusters_with_issues'])->pluck('cluster_id')->contains($cluster->id));
+    }
+
+    /**
+     * Mission 11 — Editorial Order Health V2. editorial_advisory findings
+     * (e.g. dangling_transition) are never blocking by design
+     * (PercorsoCoverageAuditService::editorialOrderHealth() docblock), so
+     * the dashboard must surface them separately from clusters_with_issues
+     * — never merged in, never silently dropped either (the gap this
+     * mission closes: Mission 09's orderHealthSummary() only ever summed
+     * structural_error/publication_warning, discarding editorial_advisory
+     * entirely).
+     */
+    public function test_a_percorso_with_only_an_editorial_advisory_is_listed_separately_from_blocking_issues(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Solo Advisory',
+            'slug' => 'percorso-solo-advisory',
+            'is_active' => true,
+            'short_description' => 'Breve.',
+            'description' => 'Descrizione completa.',
+            'seo_title' => 'SEO title',
+            'seo_description' => 'SEO description.',
+            'cover_image' => 'cover.jpg',
+            'takeaways' => 'Takeaway.',
+            'guiding_questions' => 'Domanda?',
+            'closing_text' => 'Chiusura.',
+            'curator_note' => 'Nota.',
+        ]);
+        $first = $this->article('percorso-advisory-primo', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $last = $this->article('percorso-advisory-ultimo', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Passo successivo.']);
+        // transition_text non nullo sull'ultima posizione: nessuna tappa
+        // successiva a cui introdurre, quindi dangling_transition
+        // (editorial_advisory, mai bloccante).
+        $cluster->articles()->attach($last->id, ['position' => 20, 'is_primary' => true, 'transition_text' => 'Testo rimasto appeso.']);
+        $cluster->update(['pillar_article_id' => $first->id]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['percorsi_readiness'])->pluck('cluster_id')->contains($cluster->id));
+        $this->assertFalse(collect($snapshot['percorsi_order_health']['clusters_with_issues'])->pluck('cluster_id')->contains($cluster->id));
+        $this->assertTrue(collect($snapshot['percorsi_order_health']['clusters_with_advisories_only'])->pluck('cluster_id')->contains($cluster->id));
+        $this->assertGreaterThan(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
     }
 
     /**
