@@ -116,9 +116,16 @@ class EditorialOperationsDashboardService
                 'total' => $opportunities->count(),
                 'items' => $opportunities->take(self::OPPORTUNITA_DISPLAY_LIMIT)->values()->all(),
             ],
+            // Mission 36: UtmLinkGenerator è già su main, ma è deliberatamente
+            // stateless (vedi docs/SOCIAL_DISTRIBUTION.md) — nessuna campagna
+            // o click viene mai persistito, quindi non esiste alcun dato
+            // aggregato reale da riassumere in una card. 'available' resta
+            // false per non inventare metriche, ma tool_url punta comunque
+            // allo strumento reale così l'editor non perde l'accesso.
             'distribuzione' => [
                 'available' => false,
-                'reason' => 'Social Attribution non è ancora su main; nessun dato viene inventato.',
+                'reason' => 'Il generatore di link UTM è già su main ma è deliberatamente stateless: nessuna campagna o click viene persistito, quindi non c’è alcun dato aggregato da mostrare qui.',
+                'tool_url' => route('admin.social-distribution'),
             ],
         ];
     }

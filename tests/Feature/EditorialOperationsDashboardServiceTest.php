@@ -68,6 +68,26 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertFalse($snapshot['distribuzione']['available']);
     }
 
+    /**
+     * Mission 36 — Dashboard Social Distribution Integration.
+     * UtmLinkGenerator (Growth S3) is already on main, but it is
+     * deliberately stateless (docs/SOCIAL_DISTRIBUTION.md): no campaign or
+     * click is ever persisted, so there is no real aggregate data to
+     * summarize. The correct outcome is to keep 'available' false rather
+     * than fabricate a metric — but the reason must describe the actual
+     * state (tool exists, stateless by design) rather than the stale
+     * "not yet on main" message, and a direct link to the real tool must
+     * still reach the editor.
+     */
+    public function test_distribuzione_stays_unavailable_but_links_to_the_real_stateless_tool(): void
+    {
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse($snapshot['distribuzione']['available']);
+        $this->assertStringNotContainsString('non è ancora su main', $snapshot['distribuzione']['reason']);
+        $this->assertSame(route('admin.social-distribution'), $snapshot['distribuzione']['tool_url']);
+    }
+
     public function test_snapshot_aggregates_real_sources_and_marks_unavailable_sections_explicitly(): void
     {
         $this->article('scheduled-operations-test', Article::STATUS_SCHEDULED, now()->addDay());
