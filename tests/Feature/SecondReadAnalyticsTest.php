@@ -288,9 +288,11 @@ class SecondReadAnalyticsTest extends TestCase
         DB::disableQueryLog();
 
         // Budget dell'articolo con "Continua da qui" già stabilito da
-        // PublicPageQueryBudgetTest (<=12); l'impression aggiunge
-        // esattamente 1 INSERT bounded, mai un N+1.
-        $this->assertLessThanOrEqual(13, $queryCount);
+        // PublicPageQueryBudgetTest (<=14, aggiornato dalla Mission 24/25
+        // — Content Graph Public Consumer, +2 query bounded per
+        // discoverableConceptsForArticle() nel JSON-LD `about`); l'impression
+        // aggiunge esattamente 1 INSERT bounded, mai un N+1.
+        $this->assertLessThanOrEqual(15, $queryCount);
     }
 
     public function test_second_read_rate_is_zero_with_no_impressions_rather_than_a_division_error(): void
