@@ -36,8 +36,8 @@ class SpecialHotspotDiagramTest extends TestCase
 
         [$width, $height] = getimagesize(public_path('images/turing/enigma/cutaway-enigma.png'));
 
-        $this->assertStringContainsString('width="' . $width . '"', $html);
-        $this->assertStringContainsString('height="' . $height . '"', $html);
+        $this->assertStringContainsString('width="'.$width.'"', $html);
+        $this->assertStringContainsString('height="'.$height.'"', $html);
     }
 
     // Un'immagine non risolvibile sul filesystem locale (URL realmente

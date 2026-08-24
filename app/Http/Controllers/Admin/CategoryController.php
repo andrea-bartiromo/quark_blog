@@ -45,6 +45,7 @@ class CategoryController extends Controller
             [$data, $imageToRetire] = $this->handleImageUpload($request, $data);
         } catch (RuntimeException $exception) {
             report($exception);
+
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
 
@@ -62,6 +63,7 @@ class CategoryController extends Controller
             [$data, $imageToRetire] = $this->handleImageUpload($request, $data, $category);
         } catch (RuntimeException $exception) {
             report($exception);
+
             return back()->withInput()->withErrors(['image_upload' => 'Impossibile pubblicare la nuova immagine. Riprova o contatta l\'assistenza.']);
         }
 

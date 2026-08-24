@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Article;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -187,7 +188,7 @@ class ArticleSchedulingTest extends TestCase
 
     public function test_invalid_status_is_rejected_by_the_database_enum(): void
     {
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         Article::create($this->baseAttributes($this->author(), ['status' => 'not-a-real-status']));
     }

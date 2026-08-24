@@ -7,6 +7,7 @@ use App\Models\ArticleDailyView;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -92,7 +93,7 @@ class ArticleDailyViewTest extends TestCase
 
         ArticleDailyView::create([
             'article_id' => $article->id,
-            'date' => \Illuminate\Support\Carbon::create(2026, 8, 19, 23, 45, 0),
+            'date' => Carbon::create(2026, 8, 19, 23, 45, 0),
             'views' => 1,
         ]);
 

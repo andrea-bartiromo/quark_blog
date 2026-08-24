@@ -22,8 +22,8 @@ use Tests\TestCase;
 class MediaPublicSyncTest extends TestCase
 {
     use RefreshDatabase;
-    use UsesIsolatedPublicPath;
     use UsesIsolatedMediaPublicRoot;
+    use UsesIsolatedPublicPath;
 
     protected function setUp(): void
     {

@@ -19,10 +19,8 @@ class CollaboratorController extends Controller
         $collaborators = User::where('role', 'author')
             ->withCount([
                 'articles',
-                'articles as published_count' => fn ($query) =>
-                    $query->where('status', 'published'),
-                'articles as review_count' => fn ($query) =>
-                    $query->where('status', 'review'),
+                'articles as published_count' => fn ($query) => $query->where('status', 'published'),
+                'articles as review_count' => fn ($query) => $query->where('status', 'review'),
             ])
             ->orderBy('name')
             ->get();
@@ -47,7 +45,7 @@ class CollaboratorController extends Controller
 
         $password = Str::random(12);
 
-        $user = new User();
+        $user = new User;
 
         $user->name = $data['name'];
         $user->email = $data['email'];

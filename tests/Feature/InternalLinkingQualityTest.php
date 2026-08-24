@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\User;
 use App\Services\ArticleLinkSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -47,7 +48,7 @@ class InternalLinkingQualityTest extends TestCase
             $this->corpus[$key] = Article::create([
                 'user_id' => $author->id,
                 'title' => $title,
-                'slug' => \Illuminate\Support\Str::slug($title).'-'.uniqid(),
+                'slug' => Str::slug($title).'-'.uniqid(),
                 'excerpt' => $excerpt,
                 'body' => $body,
                 'category' => $category,

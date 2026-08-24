@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
+use App\Services\ProjectEditorialLinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -136,7 +137,7 @@ class ProjectEditorialLinkServiceTest extends TestCase
 
         $article = $this->makeArticle();
 
-        app(\App\Services\ProjectEditorialLinkService::class)->linkToDefaultProject($article->fresh());
+        app(ProjectEditorialLinkService::class)->linkToDefaultProject($article->fresh());
 
         $this->assertSame(1, $project->articles()->where('articles.id', $article->id)->count());
     }

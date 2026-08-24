@@ -54,40 +54,40 @@ class SecurityHeaders
             "default-src 'self'",
 
             "script-src 'self' 'unsafe-inline' "
-                . "https://cdn.jsdelivr.net "
-                . "https://cdn.tiny.cloud "
-                . "https://www.googletagmanager.com",
+                .'https://cdn.jsdelivr.net '
+                .'https://cdn.tiny.cloud '
+                .'https://www.googletagmanager.com',
 
             "script-src-elem 'self' 'unsafe-inline' "
-                . "https://cdn.jsdelivr.net "
-                . "https://cdn.tiny.cloud "
-                . "https://www.googletagmanager.com",
+                .'https://cdn.jsdelivr.net '
+                .'https://cdn.tiny.cloud '
+                .'https://www.googletagmanager.com',
 
             "style-src 'self' 'unsafe-inline' "
-                . "https://fonts.googleapis.com "
-                . "https://cdn.jsdelivr.net "
-                . "https://cdn.tiny.cloud",
+                .'https://fonts.googleapis.com '
+                .'https://cdn.jsdelivr.net '
+                .'https://cdn.tiny.cloud',
 
             "font-src 'self' "
-                . "https://fonts.gstatic.com "
-                . "data:",
+                .'https://fonts.gstatic.com '
+                .'data:',
 
             "img-src 'self' data: blob: https: "
-                . "https://www.google-analytics.com "
-                . "https://region1.google-analytics.com",
+                .'https://www.google-analytics.com '
+                .'https://region1.google-analytics.com',
 
             "connect-src 'self' "
-                . "https://cdn.jsdelivr.net "
-                . "https://cdn.tiny.cloud "
-                . "https://www.googletagmanager.com "
-                . "https://www.google-analytics.com "
-                . "https://region1.google-analytics.com "
-                . "https://analytics.google.com",
+                .'https://cdn.jsdelivr.net '
+                .'https://cdn.tiny.cloud '
+                .'https://www.googletagmanager.com '
+                .'https://www.google-analytics.com '
+                .'https://region1.google-analytics.com '
+                .'https://analytics.google.com',
 
             "media-src 'self' blob: https:",
 
             "frame-src 'self' "
-                . "https://www.googletagmanager.com",
+                .'https://www.googletagmanager.com',
 
             "frame-ancestors 'self'",
             "base-uri 'self'",

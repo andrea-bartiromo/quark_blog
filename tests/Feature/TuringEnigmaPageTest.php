@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\SpecialPage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class TuringEnigmaPageTest extends TestCase
@@ -208,7 +209,7 @@ class TuringEnigmaPageTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('enigmaAssets')]
+    #[DataProvider('enigmaAssets')]
     public function test_enigma_image_asset_exists_on_disk(string $filename): void
     {
         $this->assertFileExists(public_path('images/turing/enigma/'.$filename));
@@ -609,7 +610,7 @@ class TuringEnigmaPageTest extends TestCase
         [$width, $height] = getimagesize(public_path('images/turing/enigma/cutaway-enigma.png'));
 
         $this->assertMatchesRegularExpression(
-            '/<img\b[^>]*class="sp-hotspot__image"[^>]*width="' . $width . '"[^>]*height="' . $height . '"/s',
+            '/<img\b[^>]*class="sp-hotspot__image"[^>]*width="'.$width.'"[^>]*height="'.$height.'"/s',
             $html
         );
     }

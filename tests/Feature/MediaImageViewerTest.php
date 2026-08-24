@@ -161,7 +161,7 @@ class MediaImageViewerTest extends TestCase
             ['source' => 'NASA', 'url' => 'https://nasa.gov']
         );
 
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         @$dom->loadHTML('<?xml encoding="utf-8" ?><body>'.$html.'</body>');
         $xpath = new \DOMXPath($dom);
 
