@@ -73,8 +73,22 @@ class EditorialOperationsDashboardService
 
         $coverage = $this->percorsoCoverage->audit();
         $seo = $this->seo->audit();
-        $percorsiReadiness = $this->percorsiReadinessSummary();
         $orderHealth = $this->percorsoCoverage->editorialOrderHealth();
+        $orderHealthSummary = $this->orderHealthSummary($orderHealth);
+        // Mission 15 — Dashboard Integration: the two summaries below cover
+        // genuinely different concerns and must keep listing genuinely
+        // different problems separately (see
+        // test_a_percorso_with_both_readiness_findings_and_order_health_issues_appears_in_both_sections).
+        // But Mission 14 wired one SHARED signal (complete_with_hidden_remainder)
+        // into both readiness and order-health, so the same Percorso can now
+        // legitimately appear in both sections for the identical root cause —
+        // this flag lets the view say so instead of presenting it as two
+        // unrelated problems.
+        $orderHealthFlaggedClusterIds = collect($orderHealthSummary['clusters_with_issues'])
+            ->merge($orderHealthSummary['clusters_with_advisories_only'])
+            ->pluck('cluster_id')
+            ->all();
+        $percorsiReadiness = $this->percorsiReadinessSummary($orderHealthFlaggedClusterIds);
 
         return [
             'da_pubblicare' => $toPublish,
@@ -85,7 +99,7 @@ class EditorialOperationsDashboardService
                 'articles' => $seo['articles'],
             ],
             'percorsi_readiness' => $percorsiReadiness,
-            'percorsi_order_health' => $this->orderHealthSummary($orderHealth),
+            'percorsi_order_health' => $orderHealthSummary,
             'opportunita' => [
                 'available' => false,
                 'reason' => 'Radar runtime non è ancora su main; nessun dato viene inventato.',
@@ -114,14 +128,15 @@ class EditorialOperationsDashboardService
      * migliaia, a differenza degli Articoli), quindi la crescita lineare
      * resta trascurabile in pratica — provato dal test di query budget.
      *
+     * @param  list<int>  $orderHealthFlaggedClusterIds
      * @return array<int, array<string, mixed>>
      */
-    private function percorsiReadinessSummary(): array
+    private function percorsiReadinessSummary(array $orderHealthFlaggedClusterIds): array
     {
         return ContentCluster::query()
             ->ordered()
             ->get()
-            ->map(function (ContentCluster $cluster) {
+            ->map(function (ContentCluster $cluster) use ($orderHealthFlaggedClusterIds) {
                 $result = $this->percorsoReadiness->evaluate($cluster);
 
                 if ($result['status'] === 'READY') {
@@ -136,6 +151,16 @@ class EditorialOperationsDashboardService
                     'finding_count' => $result['findings']->count(),
                     'error_count' => $result['findings']->where('severity', 'ERROR')->count(),
                     'warning_count' => $result['findings']->where('severity', 'WARNING')->count(),
+                    // Mission 15: which ERROR/WARNING codes are actually
+                    // driving this row — INFO codes (e.g. SCHEDULING_NOT_AVAILABLE)
+                    // stay out of the visible list, same as they already stay
+                    // out of error_count/warning_count above.
+                    'codes' => $result['findings']
+                        ->whereIn('severity', ['ERROR', 'WARNING'])
+                        ->pluck('code')
+                        ->values()
+                        ->all(),
+                    'also_in_order_health' => in_array($cluster->id, $orderHealthFlaggedClusterIds, true),
                 ];
             })
             ->filter()
