@@ -8,6 +8,7 @@ use App\Models\ArticleConcept;
 use App\Models\Concept;
 use App\Services\ContentGraph\ConceptAliasSyncService;
 use App\Services\ContentGraph\ConceptDuplicateAuditService;
+use App\Services\ContentGraph\ConceptMergeService;
 use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -31,6 +32,7 @@ class ConceptController extends Controller
         private readonly ContentGraphService $contentGraph,
         private readonly ConceptAliasSyncService $aliasSync,
         private readonly ConceptDuplicateAuditService $duplicateAudit,
+        private readonly ConceptMergeService $conceptMerge,
     ) {}
 
     public function index()
@@ -103,7 +105,46 @@ class ConceptController extends Controller
             'links' => $links,
             'catalog' => $catalog,
             'answerableQuestionIds' => $answerableQuestionIds,
+            // Mission 18 — Merge Workflow Foundation: quali altri concetti
+            // ConceptDuplicateAuditService (Mission 17) segnala come
+            // possibile duplicato DI QUESTO, per offrire "Unisci qui"
+            // direttamente sulla pagina di modifica — mai un ricalcolo
+            // della regola di duplicazione qui.
+            'duplicatesOfThisConcept' => $this->duplicatesOf($concept),
         ]);
+    }
+
+    public function merge(Concept $concept, Concept $duplicate)
+    {
+        if ($concept->id === $duplicate->id) {
+            return back()->with('error', 'Un concetto non può essere fuso con se stesso.');
+        }
+
+        $duplicateName = $duplicate->name;
+        $report = $this->conceptMerge->merge($concept, $duplicate);
+
+        return redirect()->route('admin.concepts.edit', $concept)->with('success', sprintf(
+            '"%s" è stato fuso in questo concetto: %d alias spostati, %d articoli spostati (%d conflitti risolti), %d domande spostate.',
+            $duplicateName,
+            $report['aliases_moved'],
+            $report['article_links_moved'],
+            $report['article_links_conflicts_resolved'],
+            $report['questions_moved'],
+        ));
+    }
+
+    /**
+     * @return list<array{id:int,name:string,slug:string,status:string}>
+     */
+    private function duplicatesOf(Concept $concept): array
+    {
+        return collect($this->duplicateAudit->audit())
+            ->filter(fn (array $group) => collect($group['concepts'])->contains('id', $concept->id))
+            ->flatMap(fn (array $group) => $group['concepts'])
+            ->filter(fn (array $entry) => $entry['id'] !== $concept->id)
+            ->unique('id')
+            ->values()
+            ->all();
     }
 
     public function update(Request $request, Concept $concept)

@@ -13,6 +13,31 @@
 </div>
 @endif
 
+@if($concept && ! empty($duplicatesOfThisConcept))
+  <section class="admin-card" style="max-width:900px;margin-bottom:1.25rem;background:#fffbeb;border:1px solid #fde68a;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.5rem;">
+      Possibili duplicati di questo concetto
+    </div>
+    <p style="font-size:.82rem;color:#78350f;margin:0 0 .75rem;">
+      Segnalato da un confronto testuale prudente (nome/alias identici dopo normalizzazione) — verifica sempre che siano davvero lo stesso concetto prima di fondere. La fusione sposta alias, articoli collegati e domande nel concetto corrente e cancella l'altro: non è reversibile.
+    </p>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.6rem;">
+      @foreach($duplicatesOfThisConcept as $other)
+        <li style="display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.85rem;color:#78350f;">
+          <span>
+            <a href="{{ route('admin.concepts.edit', $other['id']) }}">{{ $other['name'] }}</a>
+            <span style="color:#b45309;font-size:.75rem;">({{ $other['status'] }})</span>
+          </span>
+          <form method="POST" action="{{ route('admin.concepts.merge', [$concept, $other['id']]) }}" onsubmit="return confirm('Fondere \'{{ $other['name'] }}\' in \'{{ $concept->name }}\'? Alias, articoli collegati e domande verranno spostati qui e \'{{ $other['name'] }}\' verrà eliminato. L\'operazione non è reversibile.');">
+            @csrf
+            <button class="action-btn" type="submit">Unisci qui</button>
+          </form>
+        </li>
+      @endforeach
+    </ul>
+  </section>
+@endif
+
 <form method="POST" action="{{ $concept ? route('admin.concepts.update', $concept) : route('admin.concepts.store') }}">
   @csrf
   @if($concept) @method('PUT') @endif
