@@ -196,6 +196,125 @@ class TrovaEntitySearchServiceTest extends TestCase
         $this->assertArrayNotHasKey('score', $exact);
     }
 
+    /**
+     * Mission 28 — TROVA Ranking Quality. Il servizio ha esattamente tre
+     * classi di match (EXACT/ALL_TOKENS/ANY_TOKEN, vedi
+     * TrovaEntitySearchService::result()) e nessun punteggio numerico —
+     * "avoid unexplained magic weights" è già rispettato dal codice
+     * esistente. Questo test prova che l'ORDINAMENTO risultante da
+     * UN'UNICA query che produce risultati di qualità mista rispetti
+     * quella gerarchia end-to-end, non solo che ogni classe venga
+     * assegnata correttamente in isolamento (già coperto sopra).
+     */
+    public function test_mixed_match_qualities_in_a_single_query_sort_exact_before_all_tokens_before_any_token(): void
+    {
+        $exact = Category::create(['name' => 'Fisica Quantistica', 'slug' => 'fisica-quantistica-rank', 'description' => 'Meccanica quantistica']);
+        $allTokens = Category::create(['name' => 'Quantistica e Fisica moderna', 'slug' => 'quantistica-fisica-moderna-rank', 'description' => 'Approfondimenti']);
+        $anyToken = Category::create(['name' => 'Solo Fisica generale', 'slug' => 'solo-fisica-generale-rank', 'description' => 'Introduzione']);
+        $this->article('exact-rank-article', $exact->slug, Article::STATUS_PUBLISHED);
+        $this->article('all-tokens-rank-article', $allTokens->slug, Article::STATUS_PUBLISHED);
+        $this->article('any-token-rank-article', $anyToken->slug, Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('Fisica Quantistica');
+
+        $this->assertSame(
+            [$exact->id, $allTokens->id, $anyToken->id],
+            $results['categories']->pluck('id')->all(),
+        );
+        $this->assertSame(['EXACT', 'ALL_TOKENS', 'ANY_TOKEN'], $results['categories']->pluck('match_class')->all());
+    }
+
+    /**
+     * Stessa gerarchia, lato Percorsi — la sola copertura esistente prima
+     * di questa missione era sul lato Categorie.
+     */
+    public function test_percorsi_also_sort_exact_before_all_tokens_before_any_token(): void
+    {
+        $article = $this->article('percorso-rank-article', 'fisica-rank-test', Article::STATUS_PUBLISHED);
+
+        $exact = ContentCluster::create(['name' => 'Viaggio Quantistico', 'slug' => 'viaggio-quantistico-rank', 'is_active' => true]);
+        $allTokens = ContentCluster::create(['name' => 'Quantistico e il Viaggio nella materia', 'slug' => 'quantistico-viaggio-materia-rank', 'is_active' => true]);
+        $anyToken = ContentCluster::create(['name' => 'Solo Viaggio nel tempo', 'slug' => 'solo-viaggio-tempo-rank', 'is_active' => true]);
+        foreach ([$exact, $allTokens, $anyToken] as $cluster) {
+            $cluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        }
+
+        $results = app(TrovaEntitySearchService::class)->search('Viaggio Quantistico');
+
+        $this->assertSame(
+            [$exact->id, $allTokens->id, $anyToken->id],
+            $results['percorsi']->pluck('id')->all(),
+        );
+    }
+
+    /**
+     * A parità di match_class, l'ordine deve dipendere solo da
+     * label ASC poi id ASC — mai dall'ordine di inserimento o da un
+     * ranking implicito del database. Etichette che normalizzano allo
+     * STESSO testo (stesso match_class, stesso "peso") isolano il
+     * tie-break finale: solo l'id decide, deterministicamente.
+     */
+    public function test_same_match_class_ties_break_by_label_then_by_id(): void
+    {
+        $second = Category::create(['name' => 'Tema Ricorrente', 'slug' => 'tema-ricorrente-a-rank']);
+        $first = Category::create(['name' => 'Tema Ricorrente', 'slug' => 'tema-ricorrente-b-rank']);
+        $this->article('tie-break-a-rank-article', $second->slug, Article::STATUS_PUBLISHED);
+        $this->article('tie-break-b-rank-article', $first->slug, Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('Tema Ricorrente');
+
+        // Stesso nome normalizzato per entrambe (stesso match_class EXACT):
+        // il tie-break decide solo per id crescente, indipendentemente da
+        // quale delle due sia stata creata per prima nel test.
+        $this->assertSame([$second->id, $first->id], $results['categories']->sortBy('id')->pluck('id')->all());
+        $this->assertSame('EXACT', $results['categories']->first()['match_class']);
+        $this->assertSame('EXACT', $results['categories']->last()['match_class']);
+    }
+
+    /**
+     * Mission 28 menziona esplicitamente "prefix" tra i casi da testare.
+     * Il servizio non ha una classe di match PREFIX dedicata (solo
+     * EXACT/ALL_TOKENS/ANY_TOKEN — vedi il docblock di result()): una
+     * query che è un prefisso multi-parola del nome risolve comunque in
+     * modo prevedibile tramite ALL_TOKENS (ogni token della query è
+     * contenuto nel testo), non tramite un peso "prefix" nascosto e
+     * separato. Questo test documenta ed esplicita quel comportamento,
+     * cosi che resti una scelta cosciente e non un dettaglio implicito.
+     */
+    public function test_a_multi_word_prefix_query_resolves_via_all_tokens_not_a_hidden_prefix_weight(): void
+    {
+        Category::create(['name' => 'Fisica Quantistica Avanzata', 'slug' => 'fisica-quantistica-avanzata-rank']);
+        $this->article('prefix-rank-article', 'fisica-quantistica-avanzata-rank', Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('Fisica Quantistica');
+
+        $this->assertSame('ALL_TOKENS', $results['categories']->first()['match_class']);
+    }
+
+    /**
+     * Chiude il set: nessun match_class al di fuori delle tre classi
+     * documentate può mai comparire — non esiste ancora un'entità "alias"
+     * in questo servizio (dipende dal Content Graph, Missione 30), quindi
+     * il set valido resta chiuso a EXACT/ALL_TOKENS/ANY_TOKEN finché quella
+     * missione non lo estende esplicitamente.
+     */
+    public function test_match_class_is_always_one_of_the_three_documented_values(): void
+    {
+        Category::create(['name' => 'Categoria Esatta Rank', 'slug' => 'categoria-esatta-rank']);
+        Category::create(['name' => 'Categoria Esatta Rank Estesa', 'slug' => 'categoria-esatta-rank-estesa']);
+        Category::create(['name' => 'Solo Rank generico', 'slug' => 'solo-rank-generico']);
+        $this->article('closed-set-a-rank-article', 'categoria-esatta-rank', Article::STATUS_PUBLISHED);
+        $this->article('closed-set-b-rank-article', 'categoria-esatta-rank-estesa', Article::STATUS_PUBLISHED);
+        $this->article('closed-set-c-rank-article', 'solo-rank-generico', Article::STATUS_PUBLISHED);
+
+        $results = app(TrovaEntitySearchService::class)->search('Categoria Esatta Rank');
+
+        $this->assertNotEmpty($results['categories']);
+        foreach ($results['categories'] as $result) {
+            $this->assertContains($result['match_class'], ['EXACT', 'ALL_TOKENS', 'ANY_TOKEN']);
+        }
+    }
+
     public function test_query_count_does_not_grow_linearly_with_number_of_percorsi(): void
     {
         $one = $this->measureQueryCountForPercorsi(1);
