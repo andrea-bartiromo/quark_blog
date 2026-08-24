@@ -7,6 +7,25 @@
   <a class="btn btn--primary" href="{{ route('admin.concepts.create') }}">Nuovo concetto</a>
 </div>
 
+@if(! empty($duplicates))
+  <section style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.5rem;">
+      Possibili concetti duplicati ({{ count($duplicates) }}) — informativo, nessuna fusione automatica
+    </div>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.6rem;">
+      @foreach($duplicates as $group)
+        <li style="font-size:.85rem;color:#78350f;">
+          <span style="color:#92400e;">"{{ $group['normalized_text'] }}"</span> —
+          @foreach($group['concepts'] as $i => $c)
+            <a href="{{ route('admin.concepts.edit', $c['id']) }}">{{ $c['name'] }}</a>
+            <span style="color:#b45309;font-size:.75rem;">({{ $c['matched_via'] }}, {{ $c['status'] }})</span>{{ $i < count($group['concepts']) - 1 ? ', ' : '' }}
+          @endforeach
+        </li>
+      @endforeach
+    </ul>
+  </section>
+@endif
+
 <div class="admin-table-wrap">
   <table class="admin-table">
     <thead><tr><th>Nome</th><th>Stato</th><th>Alias</th><th>Articoli collegati</th><th>Domande</th><th>Azioni</th></tr></thead>

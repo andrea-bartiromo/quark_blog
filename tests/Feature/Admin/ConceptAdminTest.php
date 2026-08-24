@@ -147,6 +147,29 @@ class ConceptAdminTest extends TestCase
         ]);
     }
 
+    public function test_index_shows_no_duplicate_panel_when_no_concepts_collide(): void
+    {
+        $editor = $this->editor();
+        Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('Possibili concetti duplicati', false);
+    }
+
+    public function test_index_flags_two_concepts_sharing_the_same_normalized_name(): void
+    {
+        $editor = $this->editor();
+        Concept::create(['name' => 'Entropia', 'slug' => 'entropia-1', 'status' => 'active']);
+        Concept::create(['name' => 'entropia', 'slug' => 'entropia-2', 'status' => 'draft']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.index'));
+
+        $response->assertOk();
+        $response->assertSee('Possibili concetti duplicati (1)', false);
+    }
+
     public function test_edit_form_excludes_already_linked_articles_from_the_catalog(): void
     {
         $editor = $this->editor();

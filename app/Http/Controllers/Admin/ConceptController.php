@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\ArticleConcept;
 use App\Models\Concept;
 use App\Services\ContentGraph\ConceptAliasSyncService;
+use App\Services\ContentGraph\ConceptDuplicateAuditService;
 use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class ConceptController extends Controller
     public function __construct(
         private readonly ContentGraphService $contentGraph,
         private readonly ConceptAliasSyncService $aliasSync,
+        private readonly ConceptDuplicateAuditService $duplicateAudit,
     ) {}
 
     public function index()
@@ -38,7 +40,13 @@ class ConceptController extends Controller
             ->orderBy('name')
             ->paginate(25);
 
-        return view('admin.concepts.index', ['concepts' => $concepts]);
+        return view('admin.concepts.index', [
+            'concepts' => $concepts,
+            // Mission 17 — Duplicate Concept Detection: read-only audit,
+            // mai un merge/eliminazione automatico — solo un segnale per
+            // l'editor (stesso contratto di PercorsoCoverageAuditService).
+            'duplicates' => $this->duplicateAudit->audit(),
+        ]);
     }
 
     public function create()
