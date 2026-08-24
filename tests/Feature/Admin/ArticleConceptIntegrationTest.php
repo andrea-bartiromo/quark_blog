@@ -313,6 +313,41 @@ class ArticleConceptIntegrationTest extends TestCase
         ]);
     }
 
+    public function test_article_edit_page_shows_a_concept_suggestion_found_in_the_body(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Termodinamica base',
+            'slug' => 'termodinamica-base-'.uniqid(),
+            'body' => '<p>L\'entropia di un sistema isolato non diminuisce mai.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        $this->concept('Entropia');
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        $response->assertSee('Concetti suggeriti');
+        $response->assertSee('trovato come', false);
+    }
+
+    public function test_article_edit_page_shows_no_suggestion_panel_when_nothing_matches(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article();
+        $this->concept('Entropia');
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $article));
+
+        $response->assertOk();
+        $response->assertDontSee('Concetti suggeriti');
+    }
+
     public function test_available_concepts_list_excludes_already_linked_concepts(): void
     {
         $editor = $this->editor();

@@ -23,6 +23,7 @@ use App\Models\Concept;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\ContentGraph\ConceptSuggestionService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\ImageService;
@@ -60,6 +61,7 @@ class ArticleController extends Controller
         private readonly MediaRetirementService $mediaRetirementService,
         private readonly ResponsiveImageVariantService $responsiveImageVariants,
         private readonly ContentGraphService $contentGraph,
+        private readonly ConceptSuggestionService $conceptSuggestions,
     ) {}
 
     public function index(Request $request)
@@ -524,6 +526,12 @@ class ArticleController extends Controller
             'conceptLinks' => $conceptLinks,
             'availableConcepts' => $availableConcepts,
             'conceptSearch' => $conceptSearch,
+            // Mission 20 — Article Editor Concept Suggestions V1: concetti
+            // già attivi il cui nome/alias compare nel testo dell'articolo
+            // e non è ancora collegato — mai un collegamento automatico,
+            // solo un suggerimento accettato tramite l'azione "Collega" già
+            // esistente più sotto.
+            'conceptSuggestions' => $this->conceptSuggestions->suggestForArticle($article),
         ]);
     }
 
