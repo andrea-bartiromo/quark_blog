@@ -12,20 +12,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
   {{--
-      Cache-busting basato su filemtime(), non un numero di versione
-      manuale da ricordare di incrementare a ogni modifica (stesso
-      principio già in uso per premium-fixes.css?v=10 nel layout
-      pubblico, ma automatico qui): senza questo, un browser che aveva
-      già scaricato admin.css PRIMA di una modifica a questo file (es.
-      l'introduzione della sidebar comprimibile) può continuare a
-      servire la versione in cache invariata per giorni — il body
-      riceve comunque la classe admin-sidebar-compact dal pulsante di
-      collasso (il JavaScript funziona), ma senza le regole CSS che le
-      danno un effetto visibile: il controllo sembra "non fare nulla"
-      pur funzionando correttamente. Root cause verificata empiricamente
-      con un browser reale, non assunta — vedi docs/ADMIN_SIDEBAR.md.
+      Cache-busting via VersionedAsset (mai un numero manuale da
+      ricordare di incrementare a ogni modifica): senza questo, un
+      browser che aveva già scaricato admin.css PRIMA di una modifica a
+      questo file (es. l'introduzione della sidebar comprimibile) può
+      continuare a servire la versione in cache invariata per giorni —
+      il body riceve comunque la classe admin-sidebar-compact dal
+      pulsante di collasso (il JavaScript funziona), ma senza le regole
+      CSS che le danno un effetto visibile: il controllo sembra "non
+      fare nulla" pur funzionando correttamente. Root cause verificata
+      empiricamente con un browser reale, non assunta — vedi
+      docs/ADMIN_SIDEBAR.md.
   --}}
-  <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ is_file(public_path('css/admin.css')) ? filemtime(public_path('css/admin.css')) : 1 }}">
+  <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/admin.css') }}">
   <meta name="robots" content="noindex,nofollow">
 </head>
 
