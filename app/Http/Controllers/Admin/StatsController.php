@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
+use App\Models\Category;
 use App\Services\ArticleAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,10 +52,14 @@ class StatsController extends Controller
                 'read_minutes',
             ]);
 
-        // Per categoria
+        // Per categoria — DB-first (stessa fonte di Category::options()
+        // usata altrove): con lo snapshot statico di config() qui, un
+        // articolo in una categoria creata dall'admin dopo il deploy
+        // spariva silenziosamente da questo breakdown (non solo con
+        // un'etichetta sbagliata: l'intera categoria non compariva).
         $byCategory = [];
 
-        foreach (config('laboratorio.categories') as $slug => $label) {
+        foreach (Category::options(false) as $slug => $label) {
             $top = $articles->where('category', $slug)->take(3);
 
             if ($top->count() > 0) {

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Newsletter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -130,7 +131,12 @@ class SendNewsletterJob implements ShouldQueue
     private function buildHtml($articles, string $intro = '', ?Newsletter $subscriber = null): string
     {
         $base = config('app.url');
-        $cats = config('laboratorio.categories');
+
+        // DB-first (stessa fonte di Category::options() usata altrove):
+        // un articolo in una categoria creata dopo il deploy deve avere
+        // un'etichetta leggibile nell'email reale inviata agli iscritti,
+        // non degradare silenziosamente allo slug grezzo qui sotto.
+        $cats = Category::options(false);
 
         $articlesHtml = '';
 

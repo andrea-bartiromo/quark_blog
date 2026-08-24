@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -73,5 +74,66 @@ class AppServiceProvider extends ServiceProvider
         // cambiare dopo il boot, e comunque irrilevante fuori da una
         // richiesta HTTP reale (l'unico contesto in cui vengono generati
         // canonical/sitemap/feed).
+
+        // header/category-bar/sidebar/footer sono inclusi da ogni pagina
+        // pubblica tramite layouts/app.blade.php, senza un controller
+        // dedicato che possa passare le categorie come fa già
+        // HomeController per la home o ArticleController per la pagina
+        // articolo — per questi 4 partial, il composer è la fonte unica.
+        // Prima leggevano tutti config('laboratorio.categories') (lo
+        // snapshot statico congelato al deploy): una categoria creata
+        // dall'admin dopo il deploy non compariva in nessuno dei quattro,
+        // nonostante fosse già selezionabile per la pubblicazione — la
+        // stessa classe di bug già corretta lato Redazione in #253, qui
+        // sulla navigazione pubblica.
+        //
+        // Carichiamo una sola volta per Request anche lo stato `is_active`:
+        // la navigazione usa solo categorie attive, mentre i badge di
+        // articoli già pubblicati devono continuare a mostrare il nome
+        // umano anche se la categoria viene successivamente disattivata.
+        // Così manteniamo entrambe le semantiche senza aggiungere una
+        // seconda query. Il fallback a config resta identico a
+        // Category::options() quando la tabella non è ancora disponibile.
+        View::composer(
+            [
+                'components.header',
+                'components.category-bar',
+                'components.sidebar',
+                'components.footer',
+            ],
+            function ($view) {
+                $request = request();
+                $activeCacheKey = 'kairus.category_options';
+                $allCacheKey = 'kairus.category_label_options';
+
+                if (! $request->attributes->has($activeCacheKey)) {
+                    try {
+                        $categories = Category::query()
+                            ->ordered()
+                            ->get(['name', 'slug', 'is_active']);
+
+                        if ($categories->isNotEmpty()) {
+                            $all = $categories->pluck('name', 'slug')->toArray();
+                            $active = $categories
+                                ->where('is_active', true)
+                                ->pluck('name', 'slug')
+                                ->toArray();
+                        } else {
+                            $all = config('laboratorio.categories', []);
+                            $active = $all;
+                        }
+                    } catch (\Throwable $e) {
+                        $all = config('laboratorio.categories', []);
+                        $active = $all;
+                    }
+
+                    $request->attributes->set($activeCacheKey, $active);
+                    $request->attributes->set($allCacheKey, $all);
+                }
+
+                $view->with('categoryOptions', $request->attributes->get($activeCacheKey));
+                $view->with('categoryLabelOptions', $request->attributes->get($allCacheKey));
+            }
+        );
     }
 }
