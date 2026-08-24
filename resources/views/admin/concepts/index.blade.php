@@ -25,6 +25,35 @@
   </div>
 </div>
 
+@if(! empty($orphanArticles) || ! empty($orphanConcepts))
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-bottom:1.25rem;">
+    @if(! empty($orphanArticles))
+      <section style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:var(--radius);padding:1rem 1.25rem;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#374151;margin-bottom:.5rem;">
+          Articoli pubblicati senza concetti ({{ count($orphanArticles) }})
+        </div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem;max-height:220px;overflow-y:auto;">
+          @foreach($orphanArticles as $article)
+            <li style="font-size:.82rem;"><a href="{{ route('admin.articles.edit', $article['id']) }}">{{ $article['title'] }}</a></li>
+          @endforeach
+        </ul>
+      </section>
+    @endif
+    @if(! empty($orphanConcepts))
+      <section style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:var(--radius);padding:1rem 1.25rem;">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#374151;margin-bottom:.5rem;">
+          Concetti attivi senza articoli ({{ count($orphanConcepts) }})
+        </div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem;max-height:220px;overflow-y:auto;">
+          @foreach($orphanConcepts as $orphan)
+            <li style="font-size:.82rem;"><a href="{{ route('admin.concepts.edit', $orphan['id']) }}">{{ $orphan['name'] }}</a></li>
+          @endforeach
+        </ul>
+      </section>
+    @endif
+  </div>
+@endif
+
 @if(! empty($duplicates))
   <section style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem;">
     <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.5rem;">

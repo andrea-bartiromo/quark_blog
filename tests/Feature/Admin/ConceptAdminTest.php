@@ -178,6 +178,35 @@ class ConceptAdminTest extends TestCase
         $response->assertSee(route('admin.articles.edit', $article), false);
     }
 
+    public function test_index_shows_orphan_articles_and_concepts(): void
+    {
+        $editor = $this->editor();
+        $this->article('Termodinamica base');
+        Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.index'));
+
+        $response->assertOk();
+        $response->assertSee('Articoli pubblicati senza concetti (1)');
+        $response->assertSee('Concetti attivi senza articoli (1)');
+        $response->assertSee('Termodinamica base');
+        $response->assertSee('Entropia');
+    }
+
+    public function test_index_shows_no_orphan_panels_when_everything_is_linked(): void
+    {
+        $editor = $this->editor();
+        $article = $this->article('Termodinamica base');
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $concept->articleLinks()->create(['article_id' => $article->id, 'relation_type' => 'primary', 'weight' => 90]);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('senza concetti');
+        $response->assertDontSee('senza articoli');
+    }
+
     public function test_index_shows_coverage_metrics(): void
     {
         $editor = $this->editor();

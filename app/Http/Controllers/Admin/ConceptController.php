@@ -12,6 +12,7 @@ use App\Services\ContentGraph\ConceptDuplicateAuditService;
 use App\Services\ContentGraph\ConceptMergeService;
 use App\Services\ContentGraph\ConceptQuestionReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
+use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -38,6 +39,7 @@ class ConceptController extends Controller
         private readonly ConceptMergeService $conceptMerge,
         private readonly ContentGraphCoverageService $coverage,
         private readonly ConceptQuestionReadinessService $questionReadiness,
+        private readonly ContentGraphOrphanAuditService $orphanAudit,
     ) {}
 
     public function index()
@@ -56,6 +58,10 @@ class ConceptController extends Controller
             // Mission 19 — Coverage Metrics: solo numeri aggregati, nessun
             // elenco di singoli orfani (diagnostica separata).
             'coverage' => $this->coverage->summary(),
+            // Mission 23 — Orphan Health: la listing per-item che Mission
+            // 19 ha deliberatamente lasciato fuori.
+            'orphanArticles' => $this->orphanAudit->orphanArticles(),
+            'orphanConcepts' => $this->orphanAudit->orphanConcepts(),
         ]);
     }
 
