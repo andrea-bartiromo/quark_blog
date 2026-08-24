@@ -4,6 +4,7 @@ namespace Tests\Unit\SearchConsole;
 
 use App\Models\Article;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchZeroResultQuery;
 use App\Models\User;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
 use Carbon\Carbon;
@@ -235,5 +236,71 @@ class SearchOpportunityScoringServiceTest extends TestCase
         $opportunities = app(SearchOpportunityScoringService::class)->forPeriod($this->periodStart, $this->periodEnd);
 
         $this->assertSame('alto punteggio', $opportunities->first()->query);
+    }
+
+    // ── Mission 32 — Search Opportunity Pipeline ────────────────────────
+
+    public function test_a_zero_result_query_below_the_minimum_hits_threshold_is_not_flagged(): void
+    {
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'sotto soglia',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS - 1,
+        ]);
+
+        $opportunities = app(SearchOpportunityScoringService::class)->internalZeroResultOpportunities(collect());
+
+        $this->assertTrue($opportunities->isEmpty());
+    }
+
+    public function test_a_zero_result_query_at_or_above_the_threshold_becomes_an_opportunity(): void
+    {
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'buco nero rotante',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS,
+        ]);
+
+        $opportunities = app(SearchOpportunityScoringService::class)->internalZeroResultOpportunities(collect());
+
+        $this->assertCount(1, $opportunities);
+        $opportunity = $opportunities->first();
+        $this->assertSame(SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH, $opportunity->type);
+        $this->assertSame('buco nero rotante', $opportunity->query);
+        $this->assertSame(SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS, $opportunity->impressions);
+        $this->assertSame((float) SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS, $opportunity->score);
+        $this->assertNull($opportunity->article);
+    }
+
+    /**
+     * "Avoid duplicate opportunity creation": la stessa query, già
+     * segnalata come TYPE_NO_STRONG_LANDING_PAGE dal lato Search Console,
+     * non deve generare una seconda opportunità qui — stesso concetto
+     * editoriale, due fonti diverse, un solo item da gestire.
+     */
+    public function test_a_query_already_flagged_as_no_strong_landing_page_is_not_duplicated(): void
+    {
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'Argomento Senza Articolo',
+            'hit_count' => 10,
+        ]);
+
+        $this->row(['query' => 'argomento senza articolo', 'impressions' => 40, 'article_id' => null]);
+        $existing = app(SearchOpportunityScoringService::class)->forPeriod($this->periodStart, $this->periodEnd);
+
+        $internal = app(SearchOpportunityScoringService::class)->internalZeroResultOpportunities($existing);
+
+        $this->assertTrue($internal->isEmpty());
+    }
+
+    public function test_a_distinct_query_not_flagged_elsewhere_still_becomes_an_internal_opportunity(): void
+    {
+        SearchZeroResultQuery::create(['normalized_query' => 'query distinta', 'hit_count' => 5]);
+
+        $this->row(['query' => 'query non correlata', 'impressions' => 40, 'article_id' => null]);
+        $existing = app(SearchOpportunityScoringService::class)->forPeriod($this->periodStart, $this->periodEnd);
+
+        $internal = app(SearchOpportunityScoringService::class)->internalZeroResultOpportunities($existing);
+
+        $this->assertCount(1, $internal);
+        $this->assertSame('query distinta', $internal->first()->query);
     }
 }

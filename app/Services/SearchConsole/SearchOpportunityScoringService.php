@@ -3,8 +3,10 @@
 namespace App\Services\SearchConsole;
 
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchZeroResultQuery;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Motore di scoring per le "opportunità di ricerca" — v1 esplicitamente
@@ -32,6 +34,16 @@ class SearchOpportunityScoringService
     public const TYPE_RISING_QUERY = 'rising_query';
 
     /**
+     * Mission 32 — Search Opportunity Pipeline. Sorgente interna
+     * (search_zero_result_queries, Missione 31), non Search Console:
+     * un lettore reale ha digitato questa query esatta su Kairus e non ha
+     * mai trovato alcun articolo pubblicato — segnale diretto di contenuto
+     * mancante, non un'impression esterna. Vedi
+     * internalZeroResultOpportunities().
+     */
+    public const TYPE_INTERNAL_ZERO_RESULT_SEARCH = 'internal_zero_result_search';
+
+    /**
      * Soglia minima di evidenza: sotto questo numero di impression una
      * query è statisticamente troppo rumorosa per generare
      * un'"opportunità" affidabile (es. 3 impression con 0 click su
@@ -39,6 +51,15 @@ class SearchOpportunityScoringService
      * arbitrario, regolabile.
      */
     public const MIN_IMPRESSIONS = 20;
+
+    /**
+     * Soglia minima deliberatamente più bassa di MIN_IMPRESSIONS: ogni
+     * occorrenza qui è un visitatore reale del sito che ha digitato quella
+     * query esatta e non ha trovato nulla — un segnale molto più diretto e
+     * meno rumoroso di una singola impression nella SERP di Google, quindi
+     * richiede meno ripetizioni prima di essere considerato affidabile.
+     */
+    public const MIN_INTERNAL_ZERO_RESULT_HITS = 3;
 
     /**
      * Soglia minima di impression nel periodo precedente perché una
@@ -102,6 +123,61 @@ class SearchOpportunityScoringService
         }
 
         return $opportunities->sortByDesc(fn (SearchOpportunity $o) => $o->score)->values();
+    }
+
+    /**
+     * Mission 32 — Search Opportunity Pipeline: "Connect zero-result/
+     * high-interest search signals to the existing Search Opportunity
+     * foundation where architecture supports it. Avoid duplicate
+     * opportunity creation." Indipendente da un periodo Search Console
+     * (search_zero_result_queries non ha alcuna dimensione temporale a
+     * periodo, solo un conteggio cumulativo — vedi Missione 31): va quindi
+     * chiamato separatamente da forPeriod(), mai innestato dentro di esso,
+     * cosi' resta visibile anche quando nessun CSV Search Console e' mai
+     * stato importato.
+     *
+     * "Avoid duplicate opportunity creation": una query già segnalata come
+     * TYPE_NO_STRONG_LANDING_PAGE in $existingOpportunities (stesso
+     * concetto — "questa query non ha una pagina forte" — ma dalla fonte
+     * Search Console) non genera una seconda opportunità qui, confrontando
+     * il testo in forma normalizzata leggera (case/spazi), non un
+     * confronto esatto fragile.
+     *
+     * @param  Collection<int, SearchOpportunity>  $existingOpportunities
+     * @return Collection<int, SearchOpportunity>
+     */
+    public function internalZeroResultOpportunities(Collection $existingOpportunities): Collection
+    {
+        $alreadyFlaggedQueries = $existingOpportunities
+            ->filter(fn (SearchOpportunity $o) => $o->type === self::TYPE_NO_STRONG_LANDING_PAGE)
+            ->map(fn (SearchOpportunity $o) => $this->looseNormalize($o->query))
+            ->all();
+
+        return SearchZeroResultQuery::query()
+            ->where('hit_count', '>=', self::MIN_INTERNAL_ZERO_RESULT_HITS)
+            ->get()
+            ->reject(fn (SearchZeroResultQuery $row) => in_array($this->looseNormalize($row->normalized_query), $alreadyFlaggedQueries, true))
+            ->map(fn (SearchZeroResultQuery $row) => new SearchOpportunity(
+                type: self::TYPE_INTERNAL_ZERO_RESULT_SEARCH,
+                query: $row->normalized_query,
+                article: null,
+                impressions: $row->hit_count,
+                clicks: 0,
+                ctr: null,
+                position: null,
+                score: $row->hit_count,
+                explanation: sprintf(
+                    '%d ricerche interne su Kairus per "%s" non hanno mai trovato alcun articolo pubblicato: segnale diretto di contenuto mancante, non un\'impression esterna.',
+                    $row->hit_count,
+                    $row->normalized_query
+                ),
+            ))
+            ->values();
+    }
+
+    private function looseNormalize(string $value): string
+    {
+        return Str::of($value)->lower()->squish()->value();
     }
 
     private function expectedCtrForPosition(float $position): float

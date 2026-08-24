@@ -32,27 +32,27 @@ class SearchOpportunityController extends Controller
             $type = null;
         }
 
-        if ($periods->isEmpty()) {
-            return view('admin.search-opportunities.index', [
-                'periods' => $periods,
-                'selectedPeriod' => null,
-                'opportunities' => collect(),
-                'typeOptions' => $typeOptions,
-                'selectedType' => $type,
-                'statusOptions' => SearchOpportunityStatus::statusOptions(),
-                'opportunityStatuses' => [],
-            ]);
-        }
-
         $latest = $periods->first();
         $previous = $periods->get(1);
 
-        $opportunities = $this->scoring->forPeriod(
-            Carbon::parse($latest['period_start']),
-            Carbon::parse($latest['period_end']),
-            $previous ? Carbon::parse($previous['period_start']) : null,
-            $previous ? Carbon::parse($previous['period_end']) : null,
-        );
+        // Mission 32: le opportunità da ricerca interna a zero risultati
+        // (search_zero_result_queries, Missione 31) non dipendono da un
+        // periodo Search Console — restano visibili anche senza alcun CSV
+        // mai importato, quindi si calcolano sempre, non solo dentro il
+        // ramo "periodi disponibili".
+        $opportunities = $latest
+            ? $this->scoring->forPeriod(
+                Carbon::parse($latest['period_start']),
+                Carbon::parse($latest['period_end']),
+                $previous ? Carbon::parse($previous['period_start']) : null,
+                $previous ? Carbon::parse($previous['period_end']) : null,
+            )
+            : collect();
+
+        $opportunities = $opportunities
+            ->merge($this->scoring->internalZeroResultOpportunities($opportunities))
+            ->sortByDesc(fn ($o) => $o->score)
+            ->values();
 
         if ($type !== null) {
             $opportunities = $opportunities->filter(fn ($o) => $o->type === $type)->values();
@@ -131,6 +131,7 @@ class SearchOpportunityController extends Controller
             SearchOpportunityScoringService::TYPE_NEAR_PAGE_ONE => 'Vicino alla pagina 1',
             SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE => 'Nessuna landing page dedicata',
             SearchOpportunityScoringService::TYPE_RISING_QUERY => 'Query in crescita',
+            SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH => 'Ricerca interna senza risultati',
         ];
     }
 }

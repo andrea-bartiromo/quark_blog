@@ -4,7 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchZeroResultQuery;
 use App\Models\User;
+use App\Services\SearchConsole\SearchOpportunityScoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -133,6 +135,88 @@ class SearchOpportunityControllerTest extends TestCase
 
         $response->assertSessionHasErrors('csv');
         $this->assertSame(0, SearchConsoleQuery::count());
+    }
+
+    // ── Mission 32 — Search Opportunity Pipeline ────────────────────────
+
+    public function test_internal_zero_result_opportunities_show_even_without_any_search_console_import(): void
+    {
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'buco nero rotante',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities'));
+
+        $response->assertOk();
+        $response->assertSee('buco nero rotante');
+        $response->assertSee('Ricerca interna senza risultati');
+        $response->assertDontSee('Nessun dato Search Console importato finora.');
+    }
+
+    public function test_index_can_be_filtered_to_only_internal_zero_result_opportunities(): void
+    {
+        SearchConsoleQuery::create([
+            'query' => 'alta impression basso ctr',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 200,
+            'ctr' => 0.001,
+            'position' => 25,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'batch-1',
+            'imported_at' => now(),
+        ]);
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'solo ricerca interna',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities', [
+            'tipo' => SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('solo ricerca interna');
+        $response->assertDontSee('alta impression basso ctr');
+    }
+
+    /**
+     * "Avoid duplicate opportunity creation": la stessa query segnalata sia
+     * da Search Console (no_strong_landing_page) sia dalla diagnostica
+     * interna deve comparire una sola volta nella pagina.
+     */
+    public function test_a_query_flagged_by_both_sources_appears_only_once(): void
+    {
+        SearchConsoleQuery::create([
+            'query' => 'argomento condiviso',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 0,
+            'impressions' => 40,
+            'ctr' => 0.0,
+            'position' => 30,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'batch-1',
+            'imported_at' => now(),
+        ]);
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'argomento condiviso',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities'));
+
+        $response->assertOk();
+        $response->assertSee('Nessuna landing page dedicata');
+        // "Ricerca interna senza risultati" resta nel <select> dei filtri
+        // (elenco statico di tutti i tipi, indipendente dai dati): la prova
+        // che nessuna riga duplicata sia stata generata è l'assenza della
+        // spiegazione specifica di quel tipo, mai presente altrove.
+        $response->assertDontSee('ricerche interne su Kairus');
     }
 
     public function test_period_end_before_period_start_is_rejected(): void

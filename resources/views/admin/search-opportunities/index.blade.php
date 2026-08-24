@@ -14,23 +14,30 @@
 </div>
 @endif
 
-@if(is_null($selectedPeriod))
+@if(is_null($selectedPeriod) && $opportunities->isEmpty())
 
   <div class="articles-empty-state">
     <p class="articles-empty-state__icon" aria-hidden="true">🔎</p>
     <p>Nessun dato Search Console importato finora.</p>
     <p class="articles-empty-state__hint">
-      <a href="{{ route('admin.search-opportunities.import-form') }}">Importa un export CSV</a> per iniziare a vedere opportunità.
+      <a href="{{ route('admin.search-opportunities.import-form') }}">Importa un export CSV</a> per iniziare a vedere opportunità,
+      oppure attendi che compaiano ricerche interne senza risultati (nessun import richiesto per queste).
     </p>
   </div>
 
 @else
 
   <p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;">
-    Periodo: <strong>{{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_start'])->format('d/m/Y') }}
-    – {{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_end'])->format('d/m/Y') }}</strong>
-    (import più recente tra {{ $periods->count() }} disponibili).
-    Soglia minima di evidenza: {{ \App\Services\SearchConsole\SearchOpportunityScoringService::MIN_IMPRESSIONS }} impression nel periodo.
+    @if($selectedPeriod)
+      Periodo Search Console: <strong>{{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_start'])->format('d/m/Y') }}
+      – {{ \Illuminate\Support\Carbon::parse($selectedPeriod['period_end'])->format('d/m/Y') }}</strong>
+      (import più recente tra {{ $periods->count() }} disponibili).
+      Soglia minima di evidenza: {{ \App\Services\SearchConsole\SearchOpportunityScoringService::MIN_IMPRESSIONS }} impression nel periodo,
+      {{ \App\Services\SearchConsole\SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS }} ricerche per le opportunità interne.
+    @else
+      Nessun dato Search Console importato: sotto solo le ricerche interne su Kairus senza risultati
+      (soglia minima {{ \App\Services\SearchConsole\SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS }} occorrenze).
+    @endif
   </p>
 
   <form method="GET" action="{{ route('admin.search-opportunities') }}" class="articles-toolbar" style="margin-bottom:1.25rem;">
