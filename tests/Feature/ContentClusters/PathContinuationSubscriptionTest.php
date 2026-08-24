@@ -147,6 +147,28 @@ class PathContinuationSubscriptionTest extends TestCase
         $this->assertSame(0, ContentClusterSubscriber::count());
     }
 
+    /**
+     * Percorsi Discovery Convergence: prima di questo fix il controller
+     * usava ancora lo scope legacy active(), che ignora publish_at — un
+     * Percorso attivo ma programmato nel futuro poteva quindi accettare
+     * una nuova iscrizione via submit diretto, anche se la sua pagina
+     * pubblica risponde 404 fino a quel momento.
+     */
+    public function test_a_scheduled_not_yet_public_path_rejects_a_direct_subscribe_submit(): void
+    {
+        $cluster = ContentCluster::factory()->create([
+            'is_active' => true,
+            'publish_at' => now()->addWeek(),
+            'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING,
+        ]);
+
+        $this->post(route('percorsi.subscribe', $cluster->slug), ['email' => 'programmato@example.com'])
+            ->assertRedirect();
+
+        $this->assertSame(0, CommunicationSubscriber::count());
+        $this->assertSame(0, ContentClusterSubscriber::count());
+    }
+
     public function test_honeypot_field_silently_rejects_the_submit(): void
     {
         $cluster = $this->updatingCluster();

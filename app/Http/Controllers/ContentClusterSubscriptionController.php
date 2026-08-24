@@ -43,7 +43,7 @@ class ContentClusterSubscriptionController extends Controller
             'email' => ['required', 'email', 'max:150'],
         ]);
 
-        $cluster = ContentCluster::query()->where('slug', $slug)->active()->first();
+        $cluster = ContentCluster::query()->where('slug', $slug)->publiclyVisible()->first();
 
         // Un Percorso concluso o inattivo non deve MAI accettare una nuova
         // iscrizione, anche via submit diretto che aggira la UI (Parti
