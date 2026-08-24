@@ -14,12 +14,28 @@ class BackupDatabaseTest extends TestCase
 
     private string $backupDir;
 
+    /**
+     * `storage/backups/` also holds real, git-tracked reference fixtures
+     * (database-2026-05-02-*.sqlite) unrelated to this test — it is not
+     * this test's private sandbox. Clearing it wholesale in setUp()/
+     * tearDown() would permanently destroy those on every suite run. Any
+     * pre-existing file is moved aside here and restored in tearDown(),
+     * so this test still gets an empty directory to work with without
+     * touching anything it did not itself create.
+     *
+     * @var array<int, string> basenames moved aside, to restore verbatim
+     */
+    private array $preExistingBackups = [];
+
+    private string $preExistingHoldingDir;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->source = database_path('database.sqlite');
         $this->backupDir = storage_path('backups');
+        $this->preExistingHoldingDir = sys_get_temp_dir().'/kairus-backup-test-holding-'.getmypid();
 
         if (! is_dir(dirname($this->source))) {
             mkdir(dirname($this->source), 0755, true);
@@ -27,9 +43,15 @@ class BackupDatabaseTest extends TestCase
         file_put_contents($this->source, 'sqlite-backup-fixture');
 
         if (is_dir($this->backupDir)) {
-            foreach (glob($this->backupDir.'/*') ?: [] as $file) {
-                if (is_file($file)) {
-                    unlink($file);
+            $preExisting = array_filter(glob($this->backupDir.'/*') ?: [], 'is_file');
+
+            if ($preExisting !== []) {
+                mkdir($this->preExistingHoldingDir, 0755, true);
+
+                foreach ($preExisting as $file) {
+                    $basename = basename($file);
+                    rename($file, $this->preExistingHoldingDir.'/'.$basename);
+                    $this->preExistingBackups[] = $basename;
                 }
             }
         } else {
@@ -43,6 +65,14 @@ class BackupDatabaseTest extends TestCase
             if (is_file($file)) {
                 unlink($file);
             }
+        }
+
+        foreach ($this->preExistingBackups as $basename) {
+            rename($this->preExistingHoldingDir.'/'.$basename, $this->backupDir.'/'.$basename);
+        }
+
+        if (is_dir($this->preExistingHoldingDir)) {
+            rmdir($this->preExistingHoldingDir);
         }
 
         if (file_exists($this->source)) {
