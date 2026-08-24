@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\SearchZeroResultQuery;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -635,5 +636,42 @@ class SearchControllerTest extends TestCase
 
         $hasReplace = collect($queries)->contains(fn (array $q) => str_contains(strtoupper($q['query']), 'REPLACE('));
         $this->assertTrue($hasReplace, 'Una query con trattino deve continuare a normalizzare la colonna.');
+    }
+
+    // ── Mission 31 — Search Zero-Result Diagnostics ─────────────────────
+
+    public function test_a_text_query_returning_zero_results_is_recorded_as_a_diagnostic(): void
+    {
+        $this->article(['title' => 'Un articolo completamente estraneo']);
+
+        $response = $this->get(route('ricerca', ['q' => 'inesistente xyz123']));
+
+        $response->assertOk();
+        $this->assertSame(0, $response->viewData('results')->total());
+        $this->assertDatabaseHas('search_zero_result_queries', [
+            'normalized_query' => 'inesistente xyz123',
+            'hit_count' => 1,
+        ]);
+    }
+
+    public function test_a_text_query_returning_at_least_one_result_is_never_recorded(): void
+    {
+        $this->article(['title' => 'Il Test di Turing spiegato davvero']);
+
+        $this->get(route('ricerca', ['q' => 'turing']))->assertOk();
+
+        $this->assertSame(0, SearchZeroResultQuery::count());
+    }
+
+    /**
+     * Un filtro senza alcun testo (solo categoria/autore/data) non è una
+     * "ricerca fallita" nello stesso senso — non deve mai generare una
+     * voce diagnostica, anche se produce zero risultati.
+     */
+    public function test_a_filter_only_search_with_no_text_is_never_recorded_even_with_zero_results(): void
+    {
+        $this->get(route('ricerca', ['categoria' => 'una-categoria-senza-articoli']))->assertOk();
+
+        $this->assertSame(0, SearchZeroResultQuery::count());
     }
 }

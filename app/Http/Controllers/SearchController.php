@@ -4,11 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\Search\ArticleSearchService;
+use App\Services\Search\SearchZeroResultDiagnosticsService;
 use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-    public function __construct(private readonly ArticleSearchService $searchService) {}
+    public function __construct(
+        private readonly ArticleSearchService $searchService,
+        private readonly SearchZeroResultDiagnosticsService $zeroResultDiagnostics,
+    ) {}
 
     public function index(Request $request)
     {
@@ -29,6 +33,14 @@ class SearchController extends Controller
                 $from ?: null,
                 $to ?: null
             );
+
+            // Diagnostica interna (Mission 31): solo per query testuali
+            // reali che tornano zero risultati — mai per un filtro senza
+            // testo (categoria/autore/data da soli non sono una "ricerca
+            // fallita" nello stesso senso).
+            if ($query !== '' && $results->total() === 0) {
+                $this->zeroResultDiagnostics->record($query);
+            }
         }
 
         $authors = User::has('articles')->orderBy('name')->get(['id', 'name']);

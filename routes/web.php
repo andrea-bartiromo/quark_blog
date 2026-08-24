@@ -29,6 +29,7 @@ use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
+use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
 use App\Http\Controllers\Admin\SecondReadAnalyticsController;
 use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
@@ -234,6 +235,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Second read (Growth S2 — "Continua da qui")
     Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');
+
+    // Diagnostica ricerca a zero risultati (Mission 31)
+    Route::get('/diagnostica-ricerca', [SearchZeroResultDiagnosticsController::class, 'index'])->name('search-zero-result-diagnostics');
 
     // Editorial Operations Dashboard V1 (Mission 09)
     Route::get('/operazioni-editoriali', [EditorialOperationsDashboardController::class, 'index'])->name('editorial-operations');
