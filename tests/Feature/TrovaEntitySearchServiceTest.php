@@ -181,6 +181,100 @@ class TrovaEntitySearchServiceTest extends TestCase
         $this->assertTrue($results['percorsi']->contains('id', $immediatePercorso->id));
     }
 
+    /**
+     * Mission 29 — TROVA Percorsi Scheduling Safety. La formulazione della
+     * missione elenca esplicitamente "inactive future Percorsi" come caso
+     * da coprire: is_active=false E publish_at futuro insieme, non solo
+     * separatamente (già provato altrove — vedi
+     * test_percorso_requires_a_non_empty_continuous_public_prefix per
+     * is_active=false da solo, e
+     * test_a_scheduled_not_yet_public_percorso_is_excluded_even_with_a_public_prefix
+     * per publish_at futuro da solo). scopePubliclyVisible() valuta
+     * is_active PRIMA di publish_at (vedi ContentCluster::scopePubliclyVisible()),
+     * quindi il caso combinato è già coperto dalla stessa query — questo
+     * test lo rende esplicito e non deducibile.
+     */
+    public function test_a_percorso_that_is_both_inactive_and_scheduled_for_the_future_is_excluded(): void
+    {
+        $published = $this->article('percorso-inattivo-futuro-test', 'fisica-test', Article::STATUS_PUBLISHED);
+
+        $inactiveAndFuture = ContentCluster::create([
+            'name' => 'Percorso Inattivo Futuro Test',
+            'slug' => 'percorso-inattivo-futuro-test',
+            'is_active' => false,
+            'publish_at' => now()->addWeek(),
+        ]);
+        $inactiveAndFuture->articles()->attach($published->id, ['position' => 10, 'is_primary' => true]);
+
+        $results = app(TrovaEntitySearchService::class)->search('Percorso Inattivo Futuro Test');
+
+        $this->assertFalse($results['percorsi']->contains('id', $inactiveAndFuture->id));
+    }
+
+    /**
+     * Un Percorso i cui membri sono TUTTI non pubblici (nessun gap parziale,
+     * zero prefisso pubblico fin dall'inizio) è un caso distinto dal "gap"
+     * già testato sopra — qui non esiste alcun membro pubblico, non solo il
+     * primo. ContentClusterPublicSequence::resolveLoaded() deve risolvere a
+     * una lista vuota, escludendo il Percorso.
+     */
+    public function test_a_percorso_with_no_publicly_visible_articles_at_all_is_excluded(): void
+    {
+        $draft = $this->article('percorso-tutto-bozza-test', 'fisica-test', Article::STATUS_DRAFT, null);
+        $scheduled = $this->article('percorso-tutto-programmato-test', 'fisica-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $cluster = ContentCluster::create(['name' => 'Percorso Senza Membri Pubblici Test', 'slug' => 'percorso-senza-membri-pubblici-test', 'is_active' => true]);
+        $cluster->articles()->attach($draft->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($scheduled->id, ['position' => 20, 'is_primary' => false]);
+
+        $results = app(TrovaEntitySearchService::class)->search('Percorso Senza Membri Pubblici Test');
+
+        $this->assertFalse($results['percorsi']->contains('id', $cluster->id));
+    }
+
+    /**
+     * Un Percorso pubblicamente visibile (is_active=true, nessuna
+     * programmazione) ma senza alcun articolo collegato non deve mai
+     * comparire: nessun prefisso pubblico può esistere su una sequenza
+     * vuota. Distinto dal caso sopra (membri presenti ma tutti non
+     * pubblici) — qui manca la relazione stessa.
+     */
+    public function test_a_publicly_visible_percorso_with_no_articles_attached_is_excluded(): void
+    {
+        $cluster = ContentCluster::create(['name' => 'Percorso Vuoto Test', 'slug' => 'percorso-vuoto-test', 'is_active' => true]);
+
+        $results = app(TrovaEntitySearchService::class)->search('Percorso Vuoto Test');
+
+        $this->assertFalse($results['percorsi']->contains('id', $cluster->id));
+    }
+
+    /**
+     * Contratto di sicurezza pubblica per l'item risultato: un Percorso non
+     * deve mai esporre, tramite il proprio metadato TROVA, quanti articoli
+     * contiene, quali sono, o dove si trova il gap che li nasconde. Chiude
+     * esplicitamente la formulazione "articles beyond a continuous-prefix
+     * gap through path/entity metadata" della Missione 29: prova che le
+     * uniche chiavi esposte sono quelle documentate in
+     * TrovaEntitySearchService::result(), nessuna in più.
+     */
+    public function test_percorso_result_never_exposes_article_membership_or_gap_metadata(): void
+    {
+        $public = $this->article('percorso-schema-pubblico-test', 'fisica-test', Article::STATUS_PUBLISHED);
+        $hidden = $this->article('percorso-schema-nascosto-test', 'fisica-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $cluster = ContentCluster::create(['name' => 'Percorso Schema Test', 'slug' => 'percorso-schema-test', 'is_active' => true]);
+        $cluster->articles()->attach($public->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($hidden->id, ['position' => 20, 'is_primary' => false]);
+
+        $result = app(TrovaEntitySearchService::class)->search('Percorso Schema Test')['percorsi']->first();
+
+        $this->assertNotNull($result);
+        $this->assertSame(
+            ['type', 'id', 'label', 'slug', 'match_class', 'match_rank'],
+            array_keys($result)
+        );
+    }
+
     public function test_match_classes_are_deterministic_without_numeric_relevance_scores(): void
     {
         Category::create(['name' => 'Cosmo Test', 'slug' => 'cosmo-test', 'description' => 'Missioni e universo']);
