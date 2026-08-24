@@ -17,10 +17,13 @@ use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
 use App\Models\ActivityLog;
 use App\Models\Article;
+use App\Models\ArticleConcept;
 use App\Models\Category;
+use App\Models\Concept;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\ContentGraph\ContentGraphService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
@@ -33,6 +36,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class ArticleController extends Controller
@@ -55,6 +59,7 @@ class ArticleController extends Controller
         private readonly EditorialQualityChecker $qualityChecker,
         private readonly MediaRetirementService $mediaRetirementService,
         private readonly ResponsiveImageVariantService $responsiveImageVariants,
+        private readonly ContentGraphService $contentGraph,
     ) {}
 
     public function index(Request $request)
@@ -489,14 +494,73 @@ class ArticleController extends Controller
             ->with('success', 'Articolo creato.');
     }
 
-    public function edit(Article $article)
+    public function edit(Request $request, Article $article)
     {
+        // Content Graph × Article Editor integration (Mission 05): letture
+        // sempre tramite ContentGraphService::conceptsForArticle(), mai una
+        // seconda query ad-hoc su ArticleConcept — stessa fonte di verità
+        // già usata da Admin\ConceptController::edit() dal lato concetto.
+        $conceptLinks = $this->contentGraph->conceptsForArticle($article);
+        $linkedConceptIds = $conceptLinks->pluck('concept_id');
+
+        $conceptSearch = $request->input('concept_q');
+        $conceptSearch = is_string($conceptSearch) ? mb_substr(trim($conceptSearch), 0, 120) : '';
+
+        $availableConcepts = Concept::query()
+            ->when($linkedConceptIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedConceptIds))
+            ->when($conceptSearch !== '', function ($query) use ($conceptSearch) {
+                $likeTerm = '%'.$this->escapeLike($conceptSearch).'%';
+                $query->whereRaw("name LIKE ? ESCAPE '!'", [$likeTerm]);
+            })
+            ->orderBy('name')
+            ->paginate(20, ['*'], 'concept_page')
+            ->withQueryString();
+
         return view('admin.article-form', [
             'article' => $article,
             'categories' => Category::options(),
             'linkSuggestions' => $article->proposedLinkSuggestions(),
             'qualityReport' => $this->qualityChecker->check($article),
+            'conceptLinks' => $conceptLinks,
+            'availableConcepts' => $availableConcepts,
+            'conceptSearch' => $conceptSearch,
         ]);
+    }
+
+    /**
+     * Collega un concetto del Content Graph a questo articolo. Endpoint
+     * gemello di Admin\ConceptController::linkArticle() (stessa validazione,
+     * stessa chiamata a ContentGraphService::linkArticle()), solo dal lato
+     * articolo: nessuna seconda implementazione della regola di dominio.
+     * updateOrCreate() dentro linkArticle() rende un doppio collegamento
+     * idempotente (aggiorna relation_type/weight) invece di creare righe
+     * duplicate.
+     */
+    public function linkConcept(Request $request, Article $article, Concept $concept)
+    {
+        $validated = $request->validate([
+            'relation_type' => ['nullable', Rule::in([ArticleConcept::RELATION_PRIMARY, ArticleConcept::RELATION_SUPPORTING])],
+            'weight' => ['nullable', 'integer', 'min:0', 'max:255'],
+        ]);
+
+        $this->contentGraph->linkArticle(
+            $article,
+            $concept,
+            $validated['relation_type'] ?? ArticleConcept::RELATION_SUPPORTING,
+            (int) ($validated['weight'] ?? 50),
+        );
+
+        return back()->with('success', 'Concetto collegato.');
+    }
+
+    public function unlinkConcept(Article $article, Concept $concept)
+    {
+        ArticleConcept::query()
+            ->where('article_id', $article->id)
+            ->where('concept_id', $concept->id)
+            ->delete();
+
+        return back()->with('success', 'Collegamento rimosso.');
     }
 
     public function update(
