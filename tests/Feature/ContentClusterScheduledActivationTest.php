@@ -133,6 +133,20 @@ class ContentClusterScheduledActivationTest extends TestCase
         $this->assertNull(app(ArticlePathNavigation::class)->forArticle($article->fresh()));
     }
 
+    public function test_g_article_in_both_a_scheduled_and_a_public_cluster_navigates_only_the_public_one(): void
+    {
+        $article = $this->article('Articolo in due percorsi');
+        $scheduled = ContentCluster::factory()->create(['is_active' => true, 'publish_at' => now()->addDay()]);
+        $public = ContentCluster::factory()->create(['slug' => 'scenario-g-overlap', 'is_active' => true, 'publish_at' => null]);
+        $scheduled->articles()->attach($article->id, ['position' => 10, 'is_primary' => false]);
+        $public->articles()->attach($article->id, ['position' => 10, 'is_primary' => false]);
+
+        $navigation = app(ArticlePathNavigation::class)->forArticle($article->fresh());
+
+        $this->assertNotNull($navigation);
+        $this->assertSame($public->id, $navigation['cluster']->id);
+    }
+
     // ── H: continuous-prefix semantics still apply once activated ───
 
     public function test_h_continuous_prefix_still_stops_at_the_first_non_public_member_once_the_cluster_is_public(): void

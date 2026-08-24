@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ContentCluster;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -52,6 +53,49 @@ class ContentClusterPubliclyVisibleScopeTest extends TestCase
 
         $this->assertTrue($cluster->isPubliclyVisible());
         $this->assertTrue(ContentCluster::publiclyVisible()->whereKey($cluster->id)->exists());
+    }
+
+    /**
+     * A publish_at frozen to the exact same instant as "now" (not merely
+     * a second in the past) must count as due, proving the <= boundary
+     * holds on a true tie rather than only once the clock has moved past it.
+     */
+    public function test_publish_at_landing_on_the_exact_frozen_instant_is_visible(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-04 10:00:00', 'UTC'));
+
+        $cluster = ContentCluster::factory()->create(['is_active' => true, 'publish_at' => now()]);
+
+        $this->assertTrue($cluster->fresh()->isPubliclyVisible());
+        $this->assertTrue(ContentCluster::publiclyVisible()->whereKey($cluster->id)->exists());
+
+        Carbon::setTestNow();
+    }
+
+    /**
+     * Regression guard for the 2026 Europe/Rome spring-forward transition
+     * (02:00 CET jumps to 03:00 CEST on 2026-03-29, so 02:30 local never
+     * exists). A publish_at set to a Rome-local instant either side of that
+     * gap must still resolve correctly once stored as UTC.
+     */
+    public function test_publish_at_around_the_europe_rome_dst_spring_forward_gap_resolves_correctly(): void
+    {
+        // 2026-03-29 03:30 CEST == 01:30 UTC, one hour after the jump.
+        Carbon::setTestNow(Carbon::parse('2026-03-29 01:30:00', 'UTC'));
+
+        $justBefore = ContentCluster::factory()->create([
+            'is_active' => true,
+            'publish_at' => now()->subMinute(),
+        ]);
+        $stillFuture = ContentCluster::factory()->create([
+            'is_active' => true,
+            'publish_at' => now()->addHour(),
+        ]);
+
+        $this->assertTrue($justBefore->fresh()->isPubliclyVisible());
+        $this->assertFalse($stillFuture->fresh()->isPubliclyVisible());
+
+        Carbon::setTestNow();
     }
 
     public function test_inactive_cluster_is_never_visible_even_with_a_past_publish_at(): void
