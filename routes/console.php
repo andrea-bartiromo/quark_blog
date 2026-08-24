@@ -78,6 +78,18 @@ Schedule::command('articles:publish-scheduled')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/articles-publish.log'));
 
+// ── Percorsi: completamento automatico del lifecycle ─────────────
+// Ogni 5 minuti: promuove i Percorsi "in aggiornamento" a "concluso"
+// quando ogni tappa configurata è entrata nel prefisso pubblico continuo
+// (es. una tappa 'scheduled' diventa 'published' col passare del tempo,
+// senza che un editor riapra e salvi il Percorso). Idempotente — una run
+// senza cambiamenti non fa nulla; mai il percorso inverso concluso ->
+// in aggiornamento (vedi ContentClusterLifecycleReconciler).
+Schedule::command('percorsi:reconcile-lifecycle')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/percorsi-reconcile-lifecycle.log'));
+
 // ── Area Progettazione: riallineamento stati derivati ────────────
 // Ogni 5 minuti: riallinea i task di Pubblicazione allo stato corrente
 // dell'articolo collegato (idempotente: una run senza cambiamenti non fa nulla).
