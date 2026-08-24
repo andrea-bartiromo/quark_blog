@@ -136,7 +136,7 @@
         <option value="updating" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'updating' ? 'selected' : '' }}>In aggiornamento</option>
         <option value="complete" {{ old('lifecycle_status', $cluster?->lifecycle_status ?? 'complete') === 'complete' ? 'selected' : '' }}>Concluso</option>
       </select>
-      <small style="color:#6b7280;">Decisione editoriale esplicita: non viene dedotta dalla presenza di bozze o articoli programmati.</small>
+      <small style="color:#6b7280;">Decisione editoriale esplicita: non viene dedotta dalla presenza di bozze o articoli programmati. Eccezione: "In aggiornamento" verrà concluso automaticamente (mai il contrario) quando tutte le tappe configurate saranno entrate nel prefisso pubblico continuo — puoi comunque impostare "Concluso" manualmente in qualsiasi momento.</small>
     </div>
     <button class="btn btn--primary" type="submit">{{ $cluster ? 'Salva metadati' : 'Crea percorso' }}</button>
     @if(!$cluster)<small>Dopo la creazione potrai aggiungere articoli dal catalogo ricercabile e paginato.</small>@endif
