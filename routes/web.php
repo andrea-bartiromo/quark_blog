@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\Communication\CommunicationSenderProfileControlle
 use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DiscoverReadinessController;
+use App\Http\Controllers\Admin\EditorialOperationsDashboardController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -233,6 +234,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Second read (Growth S2 — "Continua da qui")
     Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');
+
+    // Editorial Operations Dashboard V1 (Mission 09)
+    Route::get('/operazioni-editoriali', [EditorialOperationsDashboardController::class, 'index'])->name('editorial-operations');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
