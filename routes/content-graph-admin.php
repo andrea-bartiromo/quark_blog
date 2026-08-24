@@ -13,6 +13,7 @@ Route::middleware(['web', 'auth', 'editor'])->prefix('admin')->name('admin.')->g
     Route::put('/concetti/{concept}', [ConceptController::class, 'update'])->name('concepts.update');
     Route::post('/concetti/{concept}/articoli/{article}', [ConceptController::class, 'linkArticle'])->name('concepts.articles.link');
     Route::delete('/concetti/{concept}/articoli/{article}', [ConceptController::class, 'unlinkArticle'])->name('concepts.articles.unlink');
+    Route::post('/concetti/{concept}/unisci/{duplicate}', [ConceptController::class, 'merge'])->name('concepts.merge');
 
     Route::post('/concetti/{concept}/domande', [ConceptQuestionController::class, 'store'])->name('concepts.questions.store');
     Route::put('/concetti/{concept}/domande/{question}', [ConceptQuestionController::class, 'update'])->name('concepts.questions.update');

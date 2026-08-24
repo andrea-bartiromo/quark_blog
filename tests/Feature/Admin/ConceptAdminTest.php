@@ -170,6 +170,64 @@ class ConceptAdminTest extends TestCase
         $response->assertSee('Possibili concetti duplicati (1)', false);
     }
 
+    public function test_edit_form_shows_a_merge_offer_for_a_flagged_duplicate(): void
+    {
+        $editor = $this->editor();
+        $target = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        Concept::create(['name' => 'entropia', 'slug' => 'entropia-bis', 'status' => 'draft']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $target));
+
+        $response->assertOk();
+        $response->assertSee('Possibili duplicati di questo concetto');
+        $response->assertSee('Unisci qui');
+    }
+
+    public function test_edit_form_shows_no_merge_offer_when_no_duplicate_is_flagged(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+
+        $response = $this->actingAs($editor)->get(route('admin.concepts.edit', $concept));
+
+        $response->assertOk();
+        $response->assertDontSee('Possibili duplicati di questo concetto');
+    }
+
+    public function test_editor_can_merge_a_duplicate_concept_via_the_admin_route(): void
+    {
+        $editor = $this->editor();
+        $target = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $duplicate = Concept::create(['name' => 'entropia', 'slug' => 'entropia-bis', 'status' => 'draft']);
+        $duplicate->aliases()->create(['alias' => 'Shannon entropy']);
+
+        $response = $this->actingAs($editor)->post(route('admin.concepts.merge', [$target, $duplicate]));
+
+        $response->assertRedirect(route('admin.concepts.edit', $target));
+        $this->assertDatabaseMissing('concepts', ['id' => $duplicate->id]);
+        $this->assertDatabaseHas('concept_aliases', ['concept_id' => $target->id, 'alias' => 'Shannon entropy']);
+    }
+
+    public function test_a_concept_cannot_be_merged_into_itself_via_the_admin_route(): void
+    {
+        $editor = $this->editor();
+        $concept = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+
+        $response = $this->actingAs($editor)->post(route('admin.concepts.merge', [$concept, $concept]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('concepts', ['id' => $concept->id]);
+    }
+
+    public function test_guest_cannot_merge_concepts(): void
+    {
+        $target = Concept::create(['name' => 'Entropia', 'slug' => 'entropia', 'status' => 'active']);
+        $duplicate = Concept::create(['name' => 'entropia', 'slug' => 'entropia-bis', 'status' => 'draft']);
+
+        $this->post(route('admin.concepts.merge', [$target, $duplicate]))->assertRedirect(route('login'));
+        $this->assertDatabaseHas('concepts', ['id' => $duplicate->id]);
+    }
+
     public function test_edit_form_excludes_already_linked_articles_from_the_catalog(): void
     {
         $editor = $this->editor();
