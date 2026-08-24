@@ -209,6 +209,11 @@ class Article extends Model
         return $this->hasMany(ArticleLinkSuggestion::class, 'source_article_id');
     }
 
+    public function revisions()
+    {
+        return $this->hasMany(ArticleRevision::class)->latest('created_at');
+    }
+
     /**
      * Suggerimenti di collegamento interno ancora da rivedere per questo
      * articolo, pronti per il pannello "Collegamenti interni suggeriti" —

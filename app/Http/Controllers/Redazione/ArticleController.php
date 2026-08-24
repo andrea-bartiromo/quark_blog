@@ -11,6 +11,7 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\ArticleBodySanitizer;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\ArticleRevisionService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
@@ -31,6 +32,7 @@ class ArticleController extends Controller
         private readonly MediaRetirementService $mediaRetirementService,
         private readonly ArticleBodySanitizer $bodySanitizer,
         private readonly ResponsiveImageVariantService $responsiveImageVariants,
+        private readonly ArticleRevisionService $revisionService,
     ) {}
 
     public function index()
@@ -346,6 +348,17 @@ class ArticleController extends Controller
             // body se un link non è più sicuro) devono avvenire insieme, non
             // in due update() indipendenti.
             DB::transaction(function () use ($article, $data, $request) {
+                // EDITORIAL SAFETY: snapshot dello stato ATTUALE prima di
+                // applicare la modifica — stesso motivo di
+                // Admin\ArticleController::update(), vedi ArticleRevisionService.
+                $this->revisionService->recordIfChanged($article, [
+                    'title' => $data['title'],
+                    'excerpt' => $data['excerpt'] ?? null,
+                    'body' => $data['body'],
+                    'category' => $data['category'],
+                    'status' => 'review',
+                ], $request->user());
+
                 $article->update([
                     'title' => $data['title'],
                     'excerpt' => $data['excerpt'] ?? null,

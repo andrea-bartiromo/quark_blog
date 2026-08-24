@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\ArticleRevisionService;
 use App\Services\ContentGraph\ConceptSuggestionService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
@@ -38,6 +39,7 @@ class ArticleDiscoveryController extends ArticleController
         ResponsiveImageVariantService $responsiveImageVariants,
         ContentGraphService $contentGraph,
         ConceptSuggestionService $conceptSuggestions,
+        ArticleRevisionService $revisionService,
     ) {
         parent::__construct(
             $imageService,
@@ -50,6 +52,7 @@ class ArticleDiscoveryController extends ArticleController
             $responsiveImageVariants,
             $contentGraph,
             $conceptSuggestions,
+            $revisionService,
         );
     }
 
