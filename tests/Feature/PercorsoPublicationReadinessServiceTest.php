@@ -206,6 +206,71 @@ class PercorsoPublicationReadinessServiceTest extends TestCase
     }
 
     /**
+     * Mission 14 — Readiness V3. This is the one genuine blind spot: a
+     * Percorso marked LIFECYCLE_COMPLETE by an editor, but whose public
+     * sequence still stops before the last configured member — readiness
+     * never inspected lifecycle_status before, so this could pass silently.
+     * PercorsoCoverageAuditService::orderHealthForCluster() already detects
+     * it; this test proves evaluate() now consumes that signal rather than
+     * reimplementing it.
+     */
+    public function test_complete_lifecycle_with_hidden_remainder_is_flagged(): void
+    {
+        $first = $this->article('v3-hidden-remainder-first', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $gap = $this->article('v3-hidden-remainder-gap', Article::STATUS_SCHEDULED, now()->addDays(3));
+        $cluster = $this->cluster('Concluso Con Resto Nascosto', $first);
+        $cluster->update(['lifecycle_status' => ContentCluster::LIFECYCLE_COMPLETE]);
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Continua.']);
+        $cluster->articles()->attach($gap->id, ['position' => 20, 'is_primary' => false, 'transition_text' => null]);
+
+        $report = app(PercorsoPublicationReadinessService::class)->evaluate($cluster->fresh());
+
+        $this->assertTrue($report['findings']->contains('code', 'ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER'));
+        $finding = $report['findings']->firstWhere('code', 'ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER');
+        $this->assertSame('WARNING', $finding['severity']);
+    }
+
+    public function test_updating_lifecycle_with_the_same_hidden_remainder_is_not_flagged(): void
+    {
+        $first = $this->article('v3-updating-first', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $gap = $this->article('v3-updating-gap', Article::STATUS_SCHEDULED, now()->addDays(3));
+        $cluster = $this->cluster('In Aggiornamento Con Resto Nascosto', $first);
+        $cluster->update(['lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Continua.']);
+        $cluster->articles()->attach($gap->id, ['position' => 20, 'is_primary' => false, 'transition_text' => null]);
+
+        $report = app(PercorsoPublicationReadinessService::class)->evaluate($cluster->fresh());
+
+        // A Percorso still "in aggiornamento" having a hidden remainder is
+        // entirely normal (it's mid-schedule) — only the COMPLETE case is
+        // a genuine signal something was marked done prematurely.
+        $this->assertFalse($report['findings']->contains('code', 'ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER'));
+        $this->assertTrue($report['findings']->contains('code', 'PUBLIC_SEQUENCE_BLOCKED'));
+    }
+
+    /**
+     * Mission 14 — Readiness V3. dangling_transition is editorial_advisory
+     * by design (never blocking) in PercorsoCoverageAuditService, so it
+     * must surface as INFO here too — never as a WARNING/ERROR that would
+     * downgrade an otherwise-healthy Percorso's status.
+     */
+    public function test_dangling_transition_is_info_only_and_never_downgrades_status(): void
+    {
+        $first = $this->article('v3-dangling-first', Article::STATUS_PUBLISHED, now()->subDay());
+        $terminal = $this->article('v3-dangling-terminal', Article::STATUS_PUBLISHED, now());
+        $cluster = $this->cluster('Raccordo Appeso', $first);
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Verso la seconda tappa.']);
+        $cluster->articles()->attach($terminal->id, ['position' => 20, 'is_primary' => true, 'transition_text' => 'Testo rimasto appeso.']);
+
+        $report = app(PercorsoPublicationReadinessService::class)->evaluate($cluster->fresh());
+
+        $finding = $report['findings']->firstWhere('code', 'ORDER_HEALTH_DANGLING_TRANSITION');
+        $this->assertNotNull($finding);
+        $this->assertSame('INFO', $finding['severity']);
+        $this->assertSame('READY', $report['status']);
+    }
+
+    /**
      * Public-safety regression: this service is admin/editorial-only, but a
      * hidden (scheduled/draft) member's title or slug must never leak into
      * a finding message even here — messages stay generic codes/labels,

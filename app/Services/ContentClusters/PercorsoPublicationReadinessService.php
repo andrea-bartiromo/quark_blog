@@ -13,6 +13,7 @@ class PercorsoPublicationReadinessService
     public function __construct(
         private readonly ContentClusterHealth $health,
         private readonly ContentClusterPublicSequence $publicSequence,
+        private readonly PercorsoCoverageAuditService $coverageAudit,
     ) {}
 
     /**
@@ -112,6 +113,35 @@ class PercorsoPublicationReadinessService
                     'position' => $article->pivot?->position,
                 ])->values()->all(),
             ]);
+        }
+
+        // Readiness V3 (Mission 14): PercorsoCoverageAuditService::orderHealthForCluster()
+        // already computes structural_error/publication_warning categories
+        // that ContentClusterHealth's ORDERING_ISSUE and this method's own
+        // prefix checks above already surface independently — folding those
+        // in again here would duplicate the same fact under a second finding
+        // code, not close a real gap. The one category evaluate() genuinely
+        // cannot see, because it never inspects lifecycle_status, is a
+        // Percorso marked "concluso" while still having a hidden trailing
+        // remainder — surfaced here as the one new WARNING. dangling_transition
+        // is intentionally never blocking (editorial_advisory by design, see
+        // PercorsoCoverageAuditService::editorialOrderHealth()'s docblock),
+        // so it is surfaced as INFO only, mirroring the SCHEDULING_NOT_AVAILABLE
+        // INFO precedent below rather than reclassified as a WARNING.
+        $orderHealth = $this->coverageAudit->orderHealthForCluster($cluster);
+        if ($orderHealth['complete_with_hidden_remainder']) {
+            $findings->push($this->finding(
+                'ORDER_HEALTH_COMPLETE_WITH_HIDDEN_REMAINDER',
+                'WARNING',
+                'Il Percorso è marcato come concluso ma la sequenza pubblica si ferma prima dell\'ultima tappa configurata.',
+            ));
+        }
+        if ($orderHealth['dangling_transition'] !== null) {
+            $findings->push($this->finding(
+                'ORDER_HEALTH_DANGLING_TRANSITION',
+                'INFO',
+                'L\'ultima tappa ha un raccordo editoriale compilato: verifica se è ancora pertinente dopo un riordino.',
+            ));
         }
 
         if ($publicationAt !== null) {
