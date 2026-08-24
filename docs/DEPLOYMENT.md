@@ -42,3 +42,20 @@ Database rollback is not implied by a Git rollback. Any release that includes mi
 ## What stays SQLite
 
 SQLite is intentionally retained for local development, PHPUnit and the deterministic Playwright/browser environment. Do not replace those uses merely because production uses MariaDB/MySQL.
+
+## Public asset deployment: two document roots
+
+Production Kairus has two physically separate public trees:
+
+- `~/kairus_app/public` — the Laravel application root's own `public/` directory. This is what `public_path()`, `asset()`, and every piece of PHP code in this repository actually read from.
+- `~/public_html` — the real Apache document root. This is what a browser actually receives over HTTP.
+
+`scripts/selective-deploy-backup.sh` already models these as two separate roots (`--app-root` / `--public-root`, with `app`/`public`-scoped manifest entries), which confirms this is the intended architecture: a release's public-scoped files are meant to land in **both** roots identically. But the actual "copy new release files into both roots" step is not implemented anywhere in this repository — `deploy.sh` never touches `public_html`, and `selective-deploy-backup.sh` only backs up/rolls back what's already there, it never applies new content. That copy step is an external, undocumented operation, and nothing in this repository verifies afterward that the two roots ever converged.
+
+**Incident (2026-08-24):** `public-premium.css` diverged between the two roots — `public_html` had the correct, current 14825-byte file (matching `origin/main`), while `kairus_app/public` had a stale 12504-byte file. `App\Support\VersionedAsset` computed its cache-busting `?v=` from `filemtime(public_path(...))`, i.e. from the stale `kairus_app/public` copy. Its mtime never changed, so browsers kept the old file cached indefinitely even though the correct bytes were already being served — a live regression in the "Continua da qui" article card that was invisible to any check reading from the app root.
+
+**Who else is exposed to this class of bug:** any static file under `public/` (CSS, JS, `favicon.ico`, `site.webmanifest`, icons) that is neither part of the git-tracked release payload's own freshness check nor covered by an existing sync mechanism. The one existing exception is the Media Library (`public/assets/img`), which already has a tested, PHP-runtime-driven secondary-root sync (`PublicMediaSyncService`, driven by `MEDIA_PUBLIC_ROOT`) — that mechanism does **not** cover build-time CSS/JS, which is why the incident happened to a stylesheet and not an uploaded image.
+
+**Fix shipped (`App\Support\VersionedAsset`):** when a `REVISION` file exists at the application root — written by `deploy.sh` only after a fully verified, successful deploy, containing the exact Git SHA of the release — that SHA is used as the cache-busting version instead of any file's `mtime`. A release SHA is identical no matter which tree reads it and changes on every single deploy, so a browser can never keep serving a previous release's cached asset after a new deploy, regardless of mtime skew between the two roots. Local development, tests, and CI are unaffected: without a `REVISION` file, behavior falls back unchanged to the original `filemtime(public_path(...))` logic.
+
+**What this fix does *not* solve:** it only guarantees the *browser* always re-requests assets on every new release. It does not guarantee `public_html` actually *has* the new file — that remains a content-synchronization gap between the two roots, requiring the drift-detection and release-gate work tracked separately (`scripts/selective-deploy-backup.sh` hardening, a diagnostic drift detector, and a pre-`artisan up` consistency check).
