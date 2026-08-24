@@ -337,6 +337,180 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertGreaterThan(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
     }
 
+    // ── Mission 37 — Dashboard Priority Model V2 ─────────────────────────
+
+    /**
+     * Un articolo programmato con published_at nel passato significa che lo
+     * scheduler non lo ha ancora pubblicato — un problema operativo reale,
+     * distinto da "in coda per il futuro". 'overdue' rende visibile questo
+     * fatto senza inventare una nuova regola di scheduling.
+     */
+    public function test_a_scheduled_article_with_a_past_published_at_is_flagged_overdue(): void
+    {
+        $overdue = $this->article('overdue-priority-test', Article::STATUS_SCHEDULED, now()->subHour());
+        $future = $this->article('future-priority-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $rows = collect($snapshot['da_pubblicare'])->keyBy('article_id');
+        $this->assertTrue($rows->get($overdue->id)['overdue']);
+        $this->assertFalse($rows->get($future->id)['overdue']);
+    }
+
+    /**
+     * da_sistemare: un articolo con un finding "critico" (cover/summary/
+     * sources per content health, external_body_images per attribuzione —
+     * lo stesso identico vocabolario già usato da Radar in
+     * EditorialRadarService::opportunities(), mai una seconda definizione)
+     * deve comparire PRIMA di uno con soli finding non critici,
+     * indipendentemente dall'ordine di creazione.
+     */
+    public function test_da_sistemare_sorts_high_priority_findings_before_medium(): void
+    {
+        // MEDIUM-only: excerpt/cover/fonti compilati (niente HIGH), ma
+        // seo_title/description e cover_alt mancanti (WARNING non critici).
+        $mediumOnly = Article::withoutEvents(fn () => Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Articolo Medium Priority',
+            'slug' => 'medium-priority-test',
+            'excerpt' => 'Estratto presente.',
+            'body' => '<p>Corpo.</p>',
+            'category' => 'operations-test',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'read_minutes' => 1,
+            'primary_sources' => 'Fonte primaria.',
+            'cover_image' => 'cover.jpg',
+        ]));
+        // HIGH: excerpt vuoto (helper article() di default) -> 'summary' è
+        // uno degli id critici.
+        $high = $this->article('high-priority-test', Article::STATUS_PUBLISHED, now()->subDays(2));
+
+        $snapshot = $this->service()->snapshot();
+        $ids = collect($snapshot['da_sistemare'])->pluck('article_id')->all();
+
+        $this->assertContains($high->id, $ids);
+        $this->assertContains($mediumOnly->id, $ids);
+        $this->assertLessThan(array_search($mediumOnly->id, $ids), array_search($high->id, $ids));
+
+        $byId = collect($snapshot['da_sistemare'])->keyBy('article_id');
+        $this->assertSame('HIGH', $byId->get($high->id)['priority']);
+        $this->assertSame('MEDIUM', $byId->get($mediumOnly->id)['priority']);
+    }
+
+    /**
+     * contenuti_isolati: più a lungo un articolo pubblicato resta senza
+     * Percorso, più è urgente — quindi l'articolo pubblicato prima deve
+     * comparire per primo, indipendentemente dall'ordine di creazione o
+     * dall'id.
+     */
+    public function test_contenuti_isolati_sorts_the_oldest_published_article_first(): void
+    {
+        $newer = $this->article('isolato-recente', Article::STATUS_PUBLISHED, now()->subDay());
+        $older = $this->article('isolato-vecchio', Article::STATUS_PUBLISHED, now()->subDays(30));
+
+        $snapshot = $this->service()->snapshot();
+        $ids = collect($snapshot['contenuti_isolati'])->pluck('id')->all();
+
+        $this->assertSame([$older->id, $newer->id], $ids);
+        $byId = collect($snapshot['contenuti_isolati'])->keyBy('id');
+        $this->assertNotNull($byId->get($older->id)['published_at']);
+    }
+
+    /**
+     * percorsi_readiness: NOT READY (blocca la pubblicazione) deve comparire
+     * prima di READY WITH WARNINGS, indipendentemente dall'ordine curatoriale
+     * di ContentCluster::ordered().
+     */
+    public function test_percorsi_readiness_sorts_not_ready_before_ready_with_warnings(): void
+    {
+        // READY WITH WARNINGS: tutti i campi ERROR-required compilati e un
+        // pillar impostato (per evitare NO_PILLAR, ERROR), ma seo_title
+        // mancante (WARNING).
+        $withWarningsOnly = ContentCluster::create([
+            'name' => 'Percorso Solo Warning',
+            'slug' => 'percorso-solo-warning-priority',
+            'is_active' => true,
+            'short_description' => 'Breve.',
+            'description' => 'Descrizione completa.',
+            'seo_description' => 'SEO description.',
+            'cover_image' => 'cover.jpg',
+            'takeaways' => 'Takeaway.',
+            'guiding_questions' => 'Domanda?',
+            'closing_text' => 'Chiusura.',
+            'curator_note' => 'Nota.',
+        ]);
+        $member = $this->article('percorso-solo-warning-membro', Article::STATUS_PUBLISHED, now()->subDay());
+        $withWarningsOnly->articles()->attach($member->id, ['position' => 10, 'is_primary' => true, 'transition_text' => null]);
+        $withWarningsOnly->update(['pillar_article_id' => $member->id]);
+
+        // NOT READY: short_description/description mancanti -> ERROR.
+        $notReady = ContentCluster::create([
+            'name' => 'Percorso Not Ready Priority',
+            'slug' => 'percorso-not-ready-priority',
+            'is_active' => true,
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+        $ids = collect($snapshot['percorsi_readiness'])->pluck('cluster_id')->all();
+
+        $this->assertContains($notReady->id, $ids);
+        $this->assertContains($withWarningsOnly->id, $ids);
+        $this->assertLessThan(
+            array_search($withWarningsOnly->id, $ids),
+            array_search($notReady->id, $ids)
+        );
+
+        $byId = collect($snapshot['percorsi_readiness'])->keyBy('cluster_id');
+        $this->assertSame('NOT READY', $byId->get($notReady->id)['status']);
+        $this->assertSame('READY WITH WARNINGS', $byId->get($withWarningsOnly->id)['status']);
+    }
+
+    /**
+     * SEO: la dashboard deve restare scoped a pubblicato+programmato come
+     * ogni altra sezione (stesso confine di
+     * test_draft_articles_are_not_exposed_in_operational_sections) —
+     * SeoMetadataQualityAuditService analizza TUTTI gli articoli (bozze
+     * incluse), ma la lista 'violations' non deve mai far trapelare una
+     * bozza in questa card.
+     */
+    public function test_seo_violations_are_scoped_to_published_and_scheduled_only(): void
+    {
+        $draft = Article::withoutEvents(fn () => Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Bozza con canonical rotto',
+            'slug' => 'bozza-canonical-rotto',
+            'excerpt' => 'Estratto.',
+            'body' => '<p>Corpo.</p>',
+            'category' => 'operations-test',
+            'status' => Article::STATUS_DRAFT,
+            'canonical_url' => 'not a valid url',
+            'read_minutes' => 1,
+        ]));
+        $published = Article::withoutEvents(fn () => Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Pubblicato con canonical rotto',
+            'slug' => 'pubblicato-canonical-rotto',
+            'excerpt' => 'Estratto.',
+            'body' => '<p>Corpo.</p>',
+            'category' => 'operations-test',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'canonical_url' => 'not a valid url',
+            'read_minutes' => 1,
+        ]));
+
+        $snapshot = $this->service()->snapshot();
+        $ids = collect($snapshot['seo']['violations'])->pluck('article_id')->all();
+
+        $this->assertContains($published->id, $ids);
+        $this->assertNotContains($draft->id, $ids);
+
+        $row = collect($snapshot['seo']['violations'])->firstWhere('article_id', $published->id);
+        $this->assertSame('HIGH', $row['priority']);
+        $this->assertNotEmpty($row['reasons']);
+    }
+
     /**
      * Query budget: il numero totale di query non deve esplodere in modo
      * incontrollato al crescere del numero di Percorsi. La dashboard

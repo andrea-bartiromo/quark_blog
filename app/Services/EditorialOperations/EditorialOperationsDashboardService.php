@@ -10,6 +10,7 @@ use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
 use App\Services\EditorialQuality\SourceImageAttributionHealthService;
 use App\Services\EditorialRadar\EditorialRadarProviderGraphService;
+use Illuminate\Support\Collection;
 
 /**
  * Editorial Operations Dashboard V1 — recuperato (Mission 09) dal foundation
@@ -41,6 +42,19 @@ class EditorialOperationsDashboardService
      */
     private const OPPORTUNITA_DISPLAY_LIMIT = 10;
 
+    /**
+     * Mission 37 — Dashboard Priority Model V2. Stesso vocabolario HIGH/
+     * MEDIUM già stabilito da Radar (Mission 35/
+     * EditorialRadarService::opportunities()) per i finding di content
+     * health/attribuzione — riusato qui, mai reinventato, così "HIGH"
+     * significa la stessa cosa ovunque compaia nella dashboard.
+     *
+     * @var list<string>
+     */
+    private const HIGH_PRIORITY_CONTENT_HEALTH_IDS = ['cover', 'summary', 'sources'];
+
+    private const HIGH_PRIORITY_ATTRIBUTION_ID = 'external_body_images';
+
     /** @return array<string, mixed> */
     public function snapshot(): array
     {
@@ -51,6 +65,11 @@ class EditorialOperationsDashboardService
             ->orderBy('id')
             ->get();
 
+        // Mission 37: già ordinati per published_at asc dalla query sopra,
+        // quindi un articolo "in ritardo" (published_at nel passato ma lo
+        // scheduler non lo ha ancora pubblicato) è già in cima per
+        // costruzione — 'overdue' rende visibile IL PERCHÉ, non cambia
+        // l'ordine.
         $toPublish = $articles
             ->where('status', Article::STATUS_SCHEDULED)
             ->map(fn (Article $article) => [
@@ -58,6 +77,7 @@ class EditorialOperationsDashboardService
                 'title' => $article->title,
                 'slug' => $article->slug,
                 'published_at' => $article->published_at?->toISOString(),
+                'overdue' => $article->published_at !== null && $article->published_at->isPast(),
             ])->values()->all();
 
         $toFix = $articles->map(function (Article $article): ?array {
@@ -72,14 +92,28 @@ class EditorialOperationsDashboardService
                 return null;
             }
 
+            // Mission 37: stesso vocabolario HIGH/MEDIUM di Radar — HIGH se
+            // almeno un finding rientra negli id già trattati come critici
+            // altrove nella dashboard (vedi HIGH_PRIORITY_CONTENT_HEALTH_IDS/
+            // HIGH_PRIORITY_ATTRIBUTION_ID), mai una seconda definizione di
+            // "critico" inventata qui.
+            $isHigh = $healthWarnings->contains(fn (array $f) => in_array($f['id'], self::HIGH_PRIORITY_CONTENT_HEALTH_IDS, true))
+                || $attributionWarnings->contains(fn (array $f) => $f['id'] === self::HIGH_PRIORITY_ATTRIBUTION_ID);
+
             return [
                 'article_id' => $article->id,
                 'title' => $article->title,
                 'slug' => $article->slug,
                 'health_warnings' => $healthWarnings->all(),
                 'attribution_warnings' => $attributionWarnings->all(),
+                'priority' => $isHigh ? 'HIGH' : 'MEDIUM',
             ];
-        })->filter()->values()->all();
+        })->filter()->values()
+            // Stable sort: HIGH prima di MEDIUM, a parità mantiene l'ordine
+            // di partenza (published_at asc) grazie a Collection::sortBy()
+            // essere stabile in PHP 8+.
+            ->sortBy(fn (array $row) => $row['priority'] === 'HIGH' ? 0 : 1)
+            ->values()->all();
 
         $coverage = $this->percorsoCoverage->audit();
         $seo = $this->seo->audit();
@@ -101,13 +135,31 @@ class EditorialOperationsDashboardService
         $percorsiReadiness = $this->percorsiReadinessSummary($orderHealthFlaggedClusterIds);
         $opportunities = $this->radar->opportunities();
 
+        // Mission 37: PercorsoCoverageAuditService::articleSummary() non
+        // include published_at (non serve al suo dominio) — arricchito qui,
+        // nel solo layer di aggregazione, riusando $articles già caricato
+        // sopra invece di aggiungere una query o cambiare la forma di un
+        // servizio condiviso. Più a lungo un articolo pubblicato resta
+        // isolato, più la sua posizione in cima alla lista è la priorità:
+        // nessuna soglia arbitraria in giorni, solo l'ordine reale.
+        $articlesById = $articles->keyBy('id');
+        $isolatedArticles = collect($coverage['published_without_path'])
+            ->map(fn (array $row) => [
+                ...$row,
+                'published_at' => $articlesById->get($row['id'])?->published_at?->toISOString(),
+            ])
+            ->sortBy('published_at')
+            ->values()
+            ->all();
+
         return [
             'da_pubblicare' => $toPublish,
             'da_sistemare' => $toFix,
-            'contenuti_isolati' => $coverage['published_without_path'],
+            'contenuti_isolati' => $isolatedArticles,
             'seo' => [
                 'summary' => $seo['summary'],
                 'articles' => $seo['articles'],
+                'violations' => $this->seoViolations($seo['articles'], $articlesById),
             ],
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,
@@ -183,6 +235,15 @@ class EditorialOperationsDashboardService
                 ];
             })
             ->filter()
+            // Mission 37: NOT READY (blocca la pubblicazione futura) prima di
+            // READY WITH WARNINGS, poi per numero di errori/warning — tutti
+            // valori già calcolati da PercorsoPublicationReadinessService,
+            // mai una nuova regola: solo l'ordine di lettura cambia.
+            ->sortBy(fn (array $row) => [
+                $row['status'] === 'NOT READY' ? 0 : 1,
+                -$row['error_count'],
+                -$row['warning_count'],
+            ])
             ->values()
             ->all();
     }
@@ -231,5 +292,55 @@ class EditorialOperationsDashboardService
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * Mission 37 — Dashboard Priority Model V2. SeoMetadataQualityAuditService
+     * analizza TUTTI gli articoli (bozze incluse: il suo dominio non è
+     * scoped a pubblico/programmato). Questa dashboard invece limita ogni
+     * altra sezione a pubblicato+programmato (vedi test
+     * test_draft_articles_are_not_exposed_in_operational_sections) — per
+     * restare coerente con quel confine già stabilito, la lista qui è
+     * ristretta agli stessi articoli via $articlesById, mai un nuovo
+     * controllo di dominio. Priorità HIGH/MEDIUM riusa esattamente la
+     * stessa lettura già fatta da Radar (canonical non valido = HIGH,
+     * titolo/description duplicati = MEDIUM — vedi
+     * EditorialRadarService::opportunities()).
+     *
+     * @param  array<int, array<string, mixed>>  $seoArticleRows
+     * @param  Collection<int, Article>  $articlesById
+     * @return array<int, array<string, mixed>>
+     */
+    private function seoViolations(array $seoArticleRows, $articlesById): array
+    {
+        return collect($seoArticleRows)
+            ->filter(fn (array $row) => $articlesById->has($row['article_id']))
+            ->map(function (array $row) use ($articlesById) {
+                $canonicalWarning = $row['canonical']['status'] === 'WARNING';
+                $duplicateTitle = $row['duplicate_effective_title'];
+                $duplicateDescription = $row['duplicate_effective_description'];
+
+                if (! $canonicalWarning && ! $duplicateTitle && ! $duplicateDescription) {
+                    return null;
+                }
+
+                $reasons = array_values(array_filter([
+                    $canonicalWarning ? $row['canonical']['reason'] : null,
+                    $duplicateTitle ? 'Titolo SEO effettivo duplicato.' : null,
+                    $duplicateDescription ? 'Descrizione SEO effettiva duplicata.' : null,
+                ]));
+
+                return [
+                    'article_id' => $row['article_id'],
+                    'title' => $articlesById->get($row['article_id'])->title,
+                    'slug' => $row['slug'],
+                    'priority' => $canonicalWarning ? 'HIGH' : 'MEDIUM',
+                    'reasons' => $reasons,
+                ];
+            })
+            ->filter()
+            ->sortBy(fn (array $row) => $row['priority'] === 'HIGH' ? 0 : 1)
+            ->values()
+            ->all();
     }
 }

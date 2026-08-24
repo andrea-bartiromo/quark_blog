@@ -79,6 +79,9 @@
         <li style="font-size:.85rem;">
           <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
           <span style="color:#6b7280;"> — {{ \Illuminate\Support\Carbon::parse($row['published_at'])->timezone('Europe/Rome')->translatedFormat('d M Y, H:i') }}</span>
+          @if($row['overdue'])
+            <span style="color:#b91c1c;font-weight:600;"> · in ritardo</span>
+          @endif
         </li>
       @endforeach
     </ul>
@@ -93,6 +96,7 @@
     <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
       @foreach($snapshot['da_sistemare'] as $row)
         <li style="font-size:.85rem;">
+          <span style="font-weight:600;color:{{ $row['priority'] === 'HIGH' ? '#b91c1c' : '#92400e' }};">{{ $row['priority'] }}</span>
           <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
           <span style="color:#6b7280;"> — {{ count($row['health_warnings']) }} contenuto, {{ count($row['attribution_warnings']) }} attribuzione</span>
         </li>
@@ -108,7 +112,12 @@
   @else
     <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
       @foreach($snapshot['contenuti_isolati'] as $row)
-        <li style="font-size:.85rem;"><a href="{{ route('admin.articles.edit', $row['id']) }}">{{ $row['title'] }}</a></li>
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.articles.edit', $row['id']) }}">{{ $row['title'] }}</a>
+          @if($row['published_at'])
+            <span style="color:#6b7280;"> — pubblicato il {{ \Illuminate\Support\Carbon::parse($row['published_at'])->timezone('Europe/Rome')->translatedFormat('d M Y') }}</span>
+          @endif
+        </li>
       @endforeach
     </ul>
   @endif
@@ -174,6 +183,17 @@
       {{ $snapshot['seo']['summary']['duplicate_effective_descriptions'] }} con description effettiva duplicata.
       Dettaglio completo nella pagina di modifica di ciascun articolo.
     </p>
+    @if(! empty($snapshot['seo']['violations']))
+      <ul style="list-style:none;padding:0;margin:.75rem 0 0;display:flex;flex-direction:column;gap:.4rem;">
+        @foreach($snapshot['seo']['violations'] as $row)
+          <li style="font-size:.85rem;">
+            <span style="font-weight:600;color:{{ $row['priority'] === 'HIGH' ? '#b91c1c' : '#92400e' }};">{{ $row['priority'] }}</span>
+            <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
+            <div style="font-size:.72rem;color:#9ca3af;margin-top:.1rem;">{{ implode(' · ', $row['reasons']) }}</div>
+          </li>
+        @endforeach
+      </ul>
+    @endif
   @endif
 </section>
 
