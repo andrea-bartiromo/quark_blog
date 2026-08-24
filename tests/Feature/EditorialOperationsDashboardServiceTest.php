@@ -511,6 +511,59 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertNotEmpty($row['reasons']);
     }
 
+    // ── Mission 38 — Dashboard "Why?" Explanations ───────────────────────
+
+    /**
+     * da_sistemare non deve mai mostrare un badge HIGH/MEDIUM senza un
+     * motivo accanto — reason_summary riusa le label/reason già scritte
+     * dai servizi sottostanti, mai una frase inventata qui.
+     */
+    public function test_da_sistemare_exposes_a_concrete_reason_summary_next_to_the_priority_badge(): void
+    {
+        $article = $this->article('why-priority-test', Article::STATUS_PUBLISHED, now()->subDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['da_sistemare'])->firstWhere('article_id', $article->id);
+        $this->assertNotNull($row);
+        $this->assertNotEmpty($row['reason_summary']);
+        // Nessun placeholder anonimo: ogni riga deve corrispondere a una
+        // label reale già usata altrove (Sommario è tra i finding di
+        // ArticleContentHealthService, l'articolo helper ha excerpt vuoto).
+        $this->assertContains('Sommario', $row['reason_summary']);
+    }
+
+    /**
+     * Sequenza Percorsi: ogni cluster in clusters_with_issues deve esporre
+     * quale/i codice/i strutturale/i lo hanno fatto comparire — stesso
+     * pattern già usato da percorsi_readiness['codes'], mai un nome di
+     * Percorso senza spiegazione.
+     */
+    public function test_clusters_with_issues_expose_which_structural_codes_triggered_them(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Why Test',
+            'slug' => 'percorso-why-test',
+            'is_active' => true,
+        ]);
+        $article = $this->article('percorso-why-membro', Article::STATUS_PUBLISHED, now()->subDay());
+        // position=0 non positiva -> NON_POSITIVE_POSITION (structural_error).
+        DB::table('article_content_cluster')->insert([
+            'content_cluster_id' => $cluster->id,
+            'article_id' => $article->id,
+            'position' => 0,
+            'is_primary' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['percorsi_order_health']['clusters_with_issues'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($row);
+        $this->assertContains('NON_POSITIVE_POSITION', $row['codes']);
+    }
+
     /**
      * Query budget: il numero totale di query non deve esplodere in modo
      * incontrollato al crescere del numero di Percorsi. La dashboard
