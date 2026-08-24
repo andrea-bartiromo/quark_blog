@@ -119,14 +119,19 @@
       <label class="form-checkbox" style="display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $cluster?->is_active ?? false) ? 'checked' : '' }}> Percorso attivo</label>
 
       <div>
-        <label class="form-label" for="publish_date">Data pubblicazione</label>
+        <label class="form-label" for="publish_date">Data pubblicazione (Europe/Rome)</label>
         <input class="form-input" type="date" id="publish_date" name="publish_date"
+               style="{{ $errors->has('publish_date') ? 'border-color:#b91c1c;' : '' }}"
                value="{{ old('publish_date', optional($cluster?->publishAtForEditors())->format('Y-m-d')) }}">
+        @error('publish_date')<small style="display:block;color:#b91c1c;margin-top:.25rem;">{{ $message }}</small>@enderror
 
         <label class="form-label" for="publish_time" style="margin-top:.5rem;">Ora pubblicazione (Europe/Rome)</label>
         <input class="form-input" type="time" id="publish_time" name="publish_time"
+               style="{{ $errors->has('publish_time') ? 'border-color:#b91c1c;' : '' }}"
                value="{{ old('publish_time', optional($cluster?->publishAtForEditors())->format('H:i')) }}">
-        <small style="color:#6b7280;">Lascia vuoto per pubblicare subito quando il Percorso è attivo. Una data/ora già passata rende il Percorso pubblico immediatamente (se attivo); una data/ora futura lo programma.</small>
+        @error('publish_time')<small style="display:block;color:#b91c1c;margin-top:.25rem;">{{ $message }}</small>@enderror
+
+        <small style="color:#6b7280;display:block;margin-top:.35rem;">Lascia vuoto per pubblicare subito quando il Percorso è attivo. Una data/ora già passata rende il Percorso pubblico immediatamente (se attivo); una data/ora futura lo programma. Data e ora vanno compilate insieme.</small>
       </div>
     </section>
 
