@@ -197,6 +197,21 @@ class PercorsoCoverageAuditService
     }
 
     /**
+     * Same row shape editorialOrderHealth() computes per cluster, scoped to
+     * a single Percorso — for admin surfaces (e.g. the edit page's
+     * Publication Timeline View, Mission 13) that need one cluster's order
+     * health without scanning every Percorso in the system.
+     *
+     * @return array<string, mixed>
+     */
+    public function orderHealthForCluster(ContentCluster $cluster): array
+    {
+        $cluster->loadMissing(['articles:id,title,slug,status,published_at']);
+
+        return $this->orderHealthRow($cluster);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function orderHealthRow(ContentCluster $cluster): array

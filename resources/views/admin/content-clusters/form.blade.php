@@ -175,6 +175,50 @@
     $selected = $existing->filter(fn ($article) => $selectedIds->contains((int) $article->id));
   @endphp
 
+  @php
+    $orderHealthLabels = [
+      'missing_position' => ['Posizione mancante', '#b91c1c'],
+      'non_positive_position' => ['Posizione non valida', '#b91c1c'],
+      'duplicate_position' => ['Posizione duplicata', '#b91c1c'],
+      'published_beyond_gap' => ['Pubblicato oltre il gap', '#b91c1c'],
+      'chronological_inversion' => ['Fuori ordine cronologico', '#b45309'],
+      'scheduled_out_of_order' => ['Programmazione fuori ordine', '#b45309'],
+      'dangling_transition' => ['Raccordo senza tappa successiva', '#b45309'],
+    ];
+  @endphp
+
+  @if($selected->isNotEmpty())
+    <section class="admin-card" style="max-width:1100px;margin-top:1.25rem;" aria-labelledby="publication-timeline-title">
+      <h2 id="publication-timeline-title" style="font-size:1rem;">Timeline di pubblicazione</h2>
+      <p><small>Ogni tappa nell'ordine editoriale (posizione), con data di pubblicazione e segnali dalla Editorial Order Health. I segnali rossi indicano un problema strutturale o di pubblico raggiungimento; quelli ambra sono avvisi editoriali, mai bloccanti.</small></p>
+      <div style="overflow-x:auto;">
+        <ol style="display:flex;gap:.75rem;list-style:none;padding:0;margin:.75rem 0 0;min-width:min-content;">
+          @foreach($selected as $article)
+            @php
+              $articleFlags = $orderHealthFlagsByArticleId[$article->id] ?? [];
+            @endphp
+            <li style="flex:0 0 200px;border:1px solid {{ $articleFlags ? '#f3d9b1' : '#e5e7eb' }};border-radius:8px;padding:.6rem;background:{{ $articleFlags ? '#fffbeb' : '#fff' }};">
+              <div style="font-size:.68rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Posizione {{ $article->pivot?->position ?? '—' }}</div>
+              <div style="font-size:.82rem;font-weight:600;margin:.2rem 0;overflow-wrap:anywhere;">{{ $article->title }}</div>
+              <div style="font-size:.75rem;color:#6b7280;">
+                {{ $article->status }}
+                @if($article->published_at)
+                  — {{ $article->published_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}
+                @endif
+              </div>
+              @foreach($articleFlags as $flagCode)
+                @php
+                  $flagInfo = $orderHealthLabels[$flagCode] ?? [$flagCode, '#6b7280'];
+                @endphp
+                <div style="font-size:.68rem;color:{{ $flagInfo[1] }};margin-top:.3rem;">● {{ $flagInfo[0] }}</div>
+              @endforeach
+            </li>
+          @endforeach
+        </ol>
+      </div>
+    </section>
+  @endif
+
   <section class="admin-card" style="max-width:1100px;margin-top:1.25rem;" aria-labelledby="selected-memberships-title">
     <h2 id="selected-memberships-title">Membership selezionate</h2>
     <p>Questa form invia soltanto le membership del Percorso corrente. La dimensione della request non dipende dal catalogo totale.</p>

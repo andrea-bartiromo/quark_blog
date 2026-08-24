@@ -240,6 +240,34 @@ class ContentClusterAdminTest extends TestCase
     }
 
     /**
+     * Mission 13 — Publication Timeline View. The edit page renders a
+     * position-ordered timeline strip showing each member's publish date
+     * and any Editorial Order Health flag (Mission 11) — here, a
+     * chronological inversion between two members out of date order.
+     */
+    public function test_edit_page_timeline_shows_publish_dates_and_order_health_flags(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $earlier = $this->article($editor, 'Tappa in posizione bassa', Article::STATUS_PUBLISHED);
+        $later = $this->article($editor, 'Tappa in posizione alta', Article::STATUS_PUBLISHED);
+        $cluster->articles()->attach($earlier->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($later->id, ['position' => 20, 'is_primary' => false]);
+        // earlier position (10) published AFTER later position (20):
+        // a chronological inversion, editorial_advisory-level (never blocking).
+        $earlier->update(['published_at' => now()]);
+        $later->update(['published_at' => now()->subWeek()]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()
+            ->assertSee('Timeline di pubblicazione')
+            ->assertSee('Posizione 10', false)
+            ->assertSee('Posizione 20', false)
+            ->assertSee('Fuori ordine cronologico');
+    }
+
+    /**
      * Mission 12 — Transition Text Health. The edit form must flag exactly
      * the non-terminal member missing a raccordo, not the terminal one
      * (which legitimately has nothing left to introduce).
