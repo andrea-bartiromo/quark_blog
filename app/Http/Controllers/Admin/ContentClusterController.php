@@ -8,6 +8,7 @@ use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
+use App\Services\ContentClusters\PercorsiAutomationObservability;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class ContentClusterController extends Controller
     public function __construct(
         private readonly ContentClusterMembershipService $memberships,
         private readonly ContentClusterHealth $health,
+        private readonly PercorsiAutomationObservability $automation,
     ) {}
 
     public function index()
@@ -42,6 +44,7 @@ class ContentClusterController extends Controller
         return view('admin.content-clusters.index', [
             'clusters' => $clusters,
             'orphans' => $this->health->orphanCounts(),
+            'automation' => $this->automation->summary(),
         ]);
     }
 

@@ -19,6 +19,21 @@
   <p><small>Questi sono segnali editoriali, non errori bloccanti.</small></p>
 </section>
 
+<section aria-labelledby="cluster-automation-summary" class="admin-card" style="margin-bottom:1rem;">
+  <h2 id="cluster-automation-summary" style="font-size:1rem;">Automazione lifecycle</h2>
+  <p>
+    In aggiornamento: <strong>{{ $automation['updating'] }}</strong> ·
+    Conclusi: <strong>{{ $automation['complete'] }}</strong>
+    @if($automation['last_promotion'])
+      · Ultima conclusione automatica: <strong>{{ $automation['last_promotion']['cluster_name'] ?? '—' }}</strong>
+      ({{ $automation['last_promotion']['at']->diffForHumans() }})
+    @else
+      · Nessuna conclusione automatica registrata finora
+    @endif
+  </p>
+  <p><small>percorsi:reconcile-lifecycle scrive un evento solo quando conclude davvero un Percorso: questi dati mostrano l'ultima modifica automatica osservata, non lo stato di salute dello scheduler stesso.</small></p>
+</section>
+
 <div class="admin-table-wrap">
   <table class="admin-table">
     <thead><tr><th>Nome</th><th>Health</th><th>Stato</th><th>Pubblicati / totali</th><th>Pillar</th><th>Primary</th><th>Warning</th><th>Azioni</th></tr></thead>
