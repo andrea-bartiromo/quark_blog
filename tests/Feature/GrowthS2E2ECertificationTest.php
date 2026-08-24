@@ -277,10 +277,12 @@ class GrowthS2E2ECertificationTest extends TestCase
         // Baseline documentato: articolo senza Continua da qui ≤11
         // (PublicPageQueryBudgetTest storico); con motore+UI ≤12; con
         // l'INSERT di analytics quando il modulo mostra un candidato,
-        // ≤13 (vedi SecondReadAnalyticsTest::
+        // ≤13 storico, ora ≤15 (+2 query bounded, Mission 24/25 — Content
+        // Graph Public Consumer, discoverableConceptsForArticle() per il
+        // JSON-LD `about` — vedi SecondReadAnalyticsTest::
         // test_impression_write_adds_exactly_one_bounded_query). Un solo
         // numero qui, sull'integrazione reale dei tre componenti.
-        $this->assertLessThanOrEqual(13, $withAnalytics);
+        $this->assertLessThanOrEqual(15, $withAnalytics);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

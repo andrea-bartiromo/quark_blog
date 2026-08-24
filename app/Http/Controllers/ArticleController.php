@@ -9,6 +9,7 @@ use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
+use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -159,6 +160,20 @@ class ArticleController extends Controller
 
             'continuation' => $showContinuation ? $continuation : null,
             'continuationTargetUrl' => $continuationTargetUrl,
+
+            // Mission 24/25 — Content Graph Public Consumer: nessun blocco
+            // UI visibile ancora (il catalogo Concetti è popolato solo via
+            // CRUD admin, senza seeder/import di massa — la profondità reale
+            // per articolo non è garantita, quindi un blocco "Concetti
+            // correlati" rischierebbe di apparire vuoto sulla maggior parte
+            // degli articoli). Solo dati strutturati (schema.org `about`),
+            // che degradano in modo invisibile quando non c'è nulla da
+            // mostrare — vedi articles/partials/structured-data.blade.php.
+            // Riusa discoverableConceptsForArticle(), l'UNICO contratto di
+            // lettura pubblica già certificato da
+            // ContentGraphPublicSafetyContractTest: mai un concetto
+            // draft/inattivo può comparire qui.
+            'discoverableConcepts' => app(ContentGraphService::class)->discoverableConceptsForArticle($article),
         ]);
     }
 }

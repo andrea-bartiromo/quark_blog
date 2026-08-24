@@ -117,6 +117,23 @@
         'item' => $article->metaCanonicalUrl(),
     ];
 
+    // Mission 24/25 — Content Graph Public Consumer (design + V1
+    // condizionale): unico consumer pubblico del Content Graph, e
+    // deliberatamente solo qui — nessun blocco UI visibile (vedi
+    // ArticleController::show()). $discoverableConcepts arriva già
+    // filtrato da ContentGraphService::discoverableConceptsForArticle(),
+    // quindi qui non si ricontrolla né si ricalcola nulla: solo il
+    // reshape in schema.org Thing. Chiave 'about' del tutto assente (non
+    // un array vuoto) quando non c'è nulla da dichiarare — degradazione
+    // invisibile, mai una sezione "0 concetti" da qualche parte.
+    $articleStructuredDataAbout = collect($discoverableConcepts ?? [])
+        ->map(fn ($link) => [
+            '@type' => 'Thing',
+            'name' => $link->concept->name,
+        ])
+        ->values()
+        ->all();
+
     $articleStructuredData = [
         '@context' => 'https://schema.org',
         '@graph' => [
@@ -141,6 +158,7 @@
                     'url' => route('autore', $article->author),
                 ],
                 'publisher' => $articleStructuredDataOrganization,
+                ...($articleStructuredDataAbout !== [] ? ['about' => $articleStructuredDataAbout] : []),
             ],
             [
                 '@type' => 'BreadcrumbList',

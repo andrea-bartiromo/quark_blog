@@ -101,7 +101,26 @@ class PublicPageQueryBudgetTest extends TestCase
         // e aggiunge esattamente 1 query bounded per il fallback di
         // categoria quando non esiste un Percorso attivo. Non un N+1: il
         // costo resta costante indipendentemente dal numero di articoli.
-        $this->assertLessThanOrEqual(12, $count);
+        //
+        // Budget +2 ulteriori (Mission 24/25, Content Graph Public
+        // Consumer): ArticleController::show() ora chiama
+        // ContentGraphService::discoverableConceptsForArticle() per i dati
+        // strutturati `about` — 2 query bounded (il check
+        // Article::published()->whereKey()->exists() + la query
+        // ArticleConcept con eager load concept.aliases, che resta 3 query
+        // fisse — article_concepts + concepts IN(...) + concept_aliases
+        // IN(...) — indipendentemente da quanti concetti sono collegati,
+        // stesso identico shape con 1 o con 5 righe, verificato manualmente
+        // con DB::getQueryLog(); l'invarianza O(1) è già certificata a
+        // livello di servizio da ContentGraphPublicSafetyContractTest, non
+        // riverificata qui end-to-end perché la pagina articolo ha già
+        // un'altra sorgente di query non deterministica indipendente dai
+        // concetti — ArticleContinuationService::recordImpression(), che
+        // scrive article_continuation_events solo quando showContinuation
+        // risolve true — che renderebbe un confronto "N concetti vs M
+        // concetti" a livello di pagina intera inaffidabile per ragioni
+        // del tutto estranee a questo consumer.
+        $this->assertLessThanOrEqual(14, $count);
     }
 
     /**
