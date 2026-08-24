@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -146,5 +147,26 @@ class PublishScheduledArticlesTest extends TestCase
             ->assertExitCode(0);
 
         $this->assertSame(2, Article::where('status', Article::STATUS_PUBLISHED)->count());
+    }
+
+    /**
+     * Mission 08 — Percorsi Automation Scheduler Integration. This command
+     * is what actually makes an article's publication take effect, which
+     * both Scheduled Activation (ContentCluster::publiclyVisible()) and
+     * Automatic Lifecycle Completion (percorsi:reconcile-lifecycle) read.
+     * The latter already has scheduler-registration + overlap-protection
+     * tests (ContentClusterAutoLifecycleCompletionTest); this command did
+     * not, which was a test-coverage asymmetry rather than a functional
+     * gap — closing it here for symmetry and to guard routes/console.php
+     * against an accidental frequency/overlap regression.
+     */
+    public function test_command_is_registered_on_the_scheduler_with_overlap_protection(): void
+    {
+        $schedule = app(Schedule::class);
+        $event = collect($schedule->events())
+            ->first(fn ($event) => str_contains((string) ($event->command ?? ''), 'articles:publish-scheduled'));
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->withoutOverlapping);
     }
 }
