@@ -9,6 +9,7 @@ use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
 use App\Services\ContentClusters\PercorsiAutomationObservability;
+use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class ContentClusterController extends Controller
         private readonly ContentClusterHealth $health,
         private readonly PercorsiAutomationObservability $automation,
         private readonly PercorsoPublicationReadinessService $readiness,
+        private readonly PercorsoCoverageAuditService $coverageAudit,
     ) {}
 
     public function index()
@@ -132,6 +134,7 @@ class ContentClusterController extends Controller
 
         $transitionTextGaps = collect($this->readiness->evaluate($contentCluster)['findings'])
             ->firstWhere('code', 'TRANSITION_TEXT_GAPS');
+        $orderHealth = $this->coverageAudit->orderHealthForCluster($contentCluster);
 
         return view('admin.content-clusters.form', [
             'cluster' => $contentCluster,
@@ -139,6 +142,7 @@ class ContentClusterController extends Controller
             'categories' => Article::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
             'health' => $this->health->evaluate($contentCluster),
             'missingTransitionArticleIds' => collect($transitionTextGaps['detail'] ?? [])->pluck('id')->all(),
+            'orderHealthFlagsByArticleId' => $this->orderHealthFlagsByArticleId($orderHealth, $contentCluster),
         ]);
     }
 
@@ -273,5 +277,47 @@ class ContentClusterController extends Controller
         $value = trim((string) ($value ?? ''));
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * Mission 13 — Publication Timeline View. Reduces the single-cluster
+     * order-health row (PercorsoCoverageAuditService::orderHealthForCluster())
+     * — never a recomputation of its rules — into a flat article_id => flag
+     * codes map, so the edit page's timeline strip can flag each member row
+     * with a simple lookup instead of re-walking every finding category.
+     *
+     * @param  array<string, mixed>  $orderHealth
+     * @return array<int, list<string>>
+     */
+    private function orderHealthFlagsByArticleId(array $orderHealth, ContentCluster $cluster): array
+    {
+        $flags = [];
+        $flag = function (array $articles, string $code) use (&$flags) {
+            foreach ($articles as $article) {
+                $flags[$article['id']][] = $code;
+            }
+        };
+
+        $flag($orderHealth['missing_position'], 'missing_position');
+        $flag($orderHealth['non_positive_position'], 'non_positive_position');
+        $flag($orderHealth['published_beyond_gap'], 'published_beyond_gap');
+
+        foreach ($orderHealth['chronological_inversions'] as $pair) {
+            $flags[$pair['later_position']['id']][] = 'chronological_inversion';
+        }
+        foreach ($orderHealth['scheduled_out_of_order'] as $pair) {
+            $flags[$pair['later_position']['id']][] = 'scheduled_out_of_order';
+        }
+        if ($orderHealth['dangling_transition'] !== null) {
+            $flags[$orderHealth['dangling_transition']['id']][] = 'dangling_transition';
+        }
+
+        foreach ($cluster->articles as $article) {
+            if (in_array($article->pivot?->position, $orderHealth['duplicate_position'], true)) {
+                $flags[$article->id][] = 'duplicate_position';
+            }
+        }
+
+        return $flags;
     }
 }

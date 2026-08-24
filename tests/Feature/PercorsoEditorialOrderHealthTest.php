@@ -27,6 +27,35 @@ class PercorsoEditorialOrderHealthTest extends TestCase
         $this->author = User::factory()->create(['role' => 'editor']);
     }
 
+    /**
+     * Mission 13 — Publication Timeline View. orderHealthForCluster() is
+     * the single-cluster entry point admin surfaces use (never scanning
+     * every Percorso in the system) — it must return the exact same row
+     * editorialOrderHealth() already computes for that cluster, proving no
+     * rule was reimplemented or diverged for the scoped variant.
+     */
+    public function test_order_health_for_cluster_matches_the_row_from_the_full_audit(): void
+    {
+        $cluster = ContentCluster::factory()->create(['is_active' => true]);
+        $first = $this->article('Prima', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $second = $this->article('Seconda', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster->articles()->attach([
+            $first->id => ['position' => 10, 'is_primary' => true],
+            $second->id => ['position' => 5, 'is_primary' => false],
+        ]);
+
+        $service = app(PercorsoCoverageAuditService::class);
+        $fullAuditRow = collect($service->editorialOrderHealth()['clusters'])->firstWhere('id', $cluster->id);
+        $scoped = $service->orderHealthForCluster($cluster->fresh());
+
+        $this->assertSame($fullAuditRow, $scoped);
+        // A chronological inversion (position 10 published before position
+        // 5, which is earlier in the sequence but published later) must be
+        // present in both — proving the scoped path isn't silently
+        // skipping a check category.
+        $this->assertNotEmpty($scoped['chronological_inversions']);
+    }
+
     public function test_it_is_strictly_read_only(): void
     {
         $cluster = ContentCluster::factory()->create(['is_active' => true, 'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
