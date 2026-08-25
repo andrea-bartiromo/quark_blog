@@ -291,6 +291,48 @@ class ContentClusterAdminTest extends TestCase
     }
 
     /**
+     * Missione 17 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "show the effective narrative sequence: A →
+     * transition → B. Make broken/missing transitions easy to spot."
+     * L'anteprima narrativa è una superficie distinta dalla tabella di
+     * modifica (sola lettura, ordine di lettura) e dalla Timeline di
+     * pubblicazione (focalizzata sulle date, non sul raccordo).
+     */
+    public function test_narrative_preview_shows_the_real_transition_text_between_two_steps(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $first = $this->article($editor, 'Capitolo uno');
+        $last = $this->article($editor, 'Capitolo due');
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Da qui la storia si sposta sul secondo capitolo.']);
+        $cluster->articles()->attach($last->id, ['position' => 20, 'is_primary' => false, 'transition_text' => null]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()
+            ->assertSee('Anteprima narrativa')
+            ->assertSeeInOrder(['Capitolo uno', 'Da qui la storia si sposta sul secondo capitolo.', 'Capitolo due']);
+    }
+
+    public function test_narrative_preview_flags_a_missing_transition_and_excludes_the_terminal_step(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $first = $this->article($editor, 'Tappa senza raccordo nell\'anteprima');
+        $last = $this->article($editor, 'Tappa finale nell\'anteprima');
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => null]);
+        $cluster->articles()->attach($last->id, ['position' => 20, 'is_primary' => false, 'transition_text' => null]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()->assertSee('⚠ Raccordo mancante verso la tappa successiva.', false);
+
+        // Solo la tappa non terminale genera l'avviso nell'anteprima.
+        $occurrences = substr_count($response->getContent(), '⚠ Raccordo mancante verso la tappa successiva.');
+        $this->assertSame(1, $occurrences);
+    }
+
+    /**
      * Missione 15 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "When a complete path gains a hidden/future
      * member, do not auto-reopen. Surface a strong editorial warning."
