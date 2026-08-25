@@ -234,6 +234,32 @@ class SecondReadAnalyticsV2Test extends TestCase
         $response->assertSee('40.0%');
     }
 
+    /**
+     * Missione 52 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): siteWideTotals()['source_articles_engaged'] era già
+     * calcolato e già coperto da
+     * test_site_wide_totals_are_never_capped_by_the_breakdown_display_limit
+     * a livello di servizio, ma né questa pagina né la card "Continua da
+     * qui" del dashboard editoriale lo mostravano mai — un segnale
+     * distinto dal tasso/conteggio già visibili (ampiezza del
+     * coinvolgimento, non solo la sua intensità).
+     */
+    public function test_the_admin_page_shows_how_many_distinct_source_articles_are_engaged(): void
+    {
+        $target = $this->article('Destinazione coinvolgimento');
+        $a = $this->article('Sorgente coinvolgimento A');
+        $b = $this->article('Sorgente coinvolgimento B');
+
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $a, $target, 1);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $b, $target, 1);
+
+        $response = $this->actingAs($this->editor)->get(route('admin.second-read'));
+
+        $response->assertOk();
+        $response->assertSee('Articoli sorgente coinvolti');
+        $response->assertSee('2');
+    }
+
     public function test_the_admin_page_date_range_filter_excludes_older_events(): void
     {
         $source = $this->article('Articolo vecchio');

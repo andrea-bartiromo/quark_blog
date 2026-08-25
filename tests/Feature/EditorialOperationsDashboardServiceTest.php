@@ -409,6 +409,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(1, $snapshot['second_read']['impressions']);
         $this->assertSame(1, $snapshot['second_read']['second_reads']);
         $this->assertSame(1.0, $snapshot['second_read']['second_read_rate']);
+        $this->assertSame(1, $snapshot['second_read']['source_articles_engaged']);
     }
 
     /**
