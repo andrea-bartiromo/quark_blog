@@ -28,10 +28,22 @@ class SearchOpportunityController extends Controller
     {
         $periods = $this->availablePeriods();
         $typeOptions = $this->typeOptions();
+        $statusOptions = SearchOpportunityStatus::statusOptions();
 
         $type = $request->input('tipo');
         if (! is_string($type) || ! array_key_exists($type, $typeOptions)) {
             $type = null;
+        }
+
+        // Missione 46 (Fase F — Search Intelligence): "opportunity
+        // lifecycle filter" — lo stato è già impostabile per riga
+        // (updateStatus()) e già mostrato, ma nessun filtro esisteva mai
+        // per nasconderlo dall'elenco — un'opportunità già "gestita" o
+        // "ignorata" restava sempre mescolata con quelle nuove. Stesso
+        // identico pattern del filtro `tipo` già esistente qui sopra.
+        $status = $request->input('stato');
+        if (! is_string($status) || ! array_key_exists($status, $statusOptions)) {
+            $status = null;
         }
 
         $latest = $periods->first();
@@ -60,14 +72,26 @@ class SearchOpportunityController extends Controller
             $opportunities = $opportunities->filter(fn ($o) => $o->type === $type)->values();
         }
 
+        // Una sola query per l'intero elenco (già filtrato per tipo), mai
+        // una per riga — stesso principio già documentato da
+        // SearchOpportunityStatusService::statusesFor().
+        $opportunityStatuses = $this->statuses->statusesFor($opportunities);
+
+        if ($status !== null) {
+            $opportunities = $opportunities
+                ->filter(fn ($o) => ($opportunityStatuses[$o->key] ?? SearchOpportunityStatus::STATUS_NEW) === $status)
+                ->values();
+        }
+
         return view('admin.search-opportunities.index', [
             'periods' => $periods,
             'selectedPeriod' => $latest,
             'opportunities' => $opportunities,
             'typeOptions' => $typeOptions,
             'selectedType' => $type,
-            'statusOptions' => SearchOpportunityStatus::statusOptions(),
-            'opportunityStatuses' => $this->statuses->statusesFor($opportunities),
+            'statusOptions' => $statusOptions,
+            'selectedStatus' => $status,
+            'opportunityStatuses' => $opportunityStatuses,
             // Missione 45 (Fase F — Search Intelligence): "import
             // freshness" — cronologia dei singoli import CSV (già
             // idempotenti-per-periodo), mai mostrata finora, solo l'ultimo
