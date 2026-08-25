@@ -114,6 +114,30 @@ class EditorialOperationsDashboardServiceTest extends TestCase
     }
 
     /**
+     * Missione 28 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "upcoming publications panel" — il
+     * pannello 'da_pubblicare' esiste già dalla Mission 09 (V1
+     * Convergence), ma nessun test provava finora che più articoli
+     * programmati appaiano in ordine cronologico (il più imminente prima),
+     * proprietà su cui si basa esplicitamente il commento "Mission 37" nel
+     * servizio. Verificata qui — nessuna nuova regola, solo la copertura
+     * mancante sulla query già ordinata per published_at asc.
+     */
+    public function test_upcoming_publications_are_listed_soonest_first(): void
+    {
+        $furthest = $this->article('mission28-furthest', Article::STATUS_SCHEDULED, now()->addDays(5));
+        $soonest = $this->article('mission28-soonest', Article::STATUS_SCHEDULED, now()->addHours(2));
+        $middle = $this->article('mission28-middle', Article::STATUS_SCHEDULED, now()->addDays(2));
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(
+            [$soonest->id, $middle->id, $furthest->id],
+            collect($snapshot['da_pubblicare'])->pluck('article_id')->all()
+        );
+    }
+
+    /**
      * Mission 35 — Dashboard Radar Opportunities Integration. Recovers the
      * tested-but-never-merged foundation from PR #292
      * (EditorialRadarProviderGraphService) and wires it into the
