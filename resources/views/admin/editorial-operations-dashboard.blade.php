@@ -34,6 +34,9 @@
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
     <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Da pubblicare</div>
     <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['da_pubblicare']) }}</div>
+    @if($snapshot['pubblicazione_readiness']['not_ready_count'] > 0)
+      <span style="font-size:.78rem;color:#b45309;">{{ $snapshot['pubblicazione_readiness']['not_ready_count'] }} non {{ $snapshot['pubblicazione_readiness']['not_ready_count'] === 1 ? 'pronto' : 'pronti' }}</span> ·
+    @endif
     <a href="{{ route('admin.articles.calendar') }}" style="font-size:.78rem;color:#0d9488;">Calendario articoli →</a>
   </div>
 
@@ -99,6 +102,9 @@
           @if($row['overdue'])
             <span style="color:#b91c1c;font-weight:600;"> · in ritardo</span>
           @endif
+          @unless($row['ready'])
+            <span style="color:#b45309;font-weight:600;"> · non pronto</span>
+          @endunless
         </li>
       @endforeach
     </ul>

@@ -146,6 +146,34 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 30 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): un articolo programmato con un warning
+     * content-health aperto deve comparire come "non pronto" nella sezione
+     * "Da pubblicare" della pagina reale, non solo nello snapshot del
+     * servizio.
+     */
+    public function test_editor_sees_a_not_ready_badge_on_a_scheduled_article_with_an_open_issue(): void
+    {
+        $editor = $this->editor();
+        Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo programmato non pronto dashboard',
+            'slug' => 'articolo-programmato-non-pronto-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => '',
+            'category' => 'fisica',
+            'status' => Article::STATUS_SCHEDULED,
+            'read_minutes' => 2,
+            'published_at' => now()->addDay(),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('· non pronto', false);
+    }
+
+    /**
      * Missione 29 (secondo batch autonomo KAIRUS, Fase D — Editorial
      * Operations Command Center): un articolo programmato senza alcun
      * collegamento a un Percorso deve comparire nella sezione dedicata
