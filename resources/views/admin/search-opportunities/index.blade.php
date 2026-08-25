@@ -101,6 +101,7 @@
             <th scope="col">Tipo</th>
             <th scope="col">Query</th>
             <th scope="col">Articolo</th>
+            <th scope="col">Pagina</th>
             <th scope="col">Impression</th>
             <th scope="col">CTR</th>
             <th scope="col">Posizione</th>
@@ -117,6 +118,15 @@
               <td>
                 @if($opportunity->article)
                   <a href="{{ route('admin.articles.edit', $opportunity->article) }}">{{ Str::limit($opportunity->article->title, 40) }}</a>
+                @else
+                  <span style="color:var(--admin-faint);">—</span>
+                @endif
+              </td>
+              <td>
+                @if($opportunity->pageUrl && Str::startsWith($opportunity->pageUrl, ['http://', 'https://']))
+                  <a href="{{ $opportunity->pageUrl }}" target="_blank" rel="noopener noreferrer">{{ Str::limit(parse_url($opportunity->pageUrl, PHP_URL_PATH) ?: $opportunity->pageUrl, 40) }}</a>
+                @elseif($opportunity->pageUrl)
+                  {{ Str::limit($opportunity->pageUrl, 40) }}
                 @else
                   <span style="color:var(--admin-faint);">—</span>
                 @endif

@@ -59,6 +59,68 @@ class SearchOpportunityControllerTest extends TestCase
     }
 
     /**
+     * Missione 48 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): "landing page URL" — SearchOpportunityScoringService
+     * calcola già pageUrl per high_impression_low_ctr/good_position_low_ctr/
+     * near_page_one (vedi SearchOpportunity::$pageUrl), ma la tabella non
+     * mostrava mai quale pagina reale rankeggia: l'editor doveva indovinare.
+     * Collegata a un articolo esistente per evitare la stessa ambiguità di
+     * dati già scoperta e corretta nella Missione 46 (due opportunità
+     * distinte sulla stessa query se article_id è null).
+     */
+    public function test_index_shows_the_landing_page_url_when_the_scoring_service_computes_one(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo con pagina rankeggiata',
+            'slug' => 'articolo-con-pagina-rankeggiata',
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+        ]);
+
+        SearchConsoleQuery::create([
+            'query' => 'query con pagina nota',
+            'page_url' => 'https://kairus.it/articolo/articolo-con-pagina-rankeggiata',
+            'article_id' => $article->id,
+            'clicks' => 1,
+            'impressions' => 200,
+            'ctr' => 0.001,
+            'position' => 25,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'batch-page-url',
+            'imported_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities'));
+
+        $response->assertOk();
+        $response->assertSee('href="https://kairus.it/articolo/articolo-con-pagina-rankeggiata"', false);
+        $response->assertSee('/articolo/articolo-con-pagina-rankeggiata');
+    }
+
+    /**
+     * internal_zero_result_search non ha mai una pagina (nessuna impression
+     * Search Console dietro): la colonna deve mostrare un trattino, non un
+     * link vuoto o rotto.
+     */
+    public function test_index_shows_a_dash_for_opportunities_without_a_page_url(): void
+    {
+        SearchZeroResultQuery::create([
+            'normalized_query' => 'buco nero rotante pagina',
+            'hit_count' => SearchOpportunityScoringService::MIN_INTERNAL_ZERO_RESULT_HITS,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities'));
+
+        $response->assertOk();
+        $response->assertSee('buco nero rotante pagina');
+    }
+
+    /**
      * Missione 45 (secondo batch autonomo KAIRUS, Fase F — Search
      * Intelligence): "import freshness" — la cronologia import (periodi
      * diversi accumulati nel tempo, mai mostrati prima d'ora) deve
