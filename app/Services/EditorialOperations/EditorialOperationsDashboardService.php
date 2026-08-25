@@ -186,11 +186,28 @@ class EditorialOperationsDashboardService
             ->values()
             ->all();
 
+        // Missione 29 (Fase D — Editorial Operations Command Center):
+        // "unassigned scheduled articles" — PercorsoCoverageAuditService::
+        // audit() calcola già scheduled_without_path con la stessa regola
+        // di published_without_path (già usata sopra per contenuti_isolati),
+        // solo mai esposta prima d'ora fuori dal dominio Percorsi. Nessuna
+        // nuova regola qui: solo lo stesso arricchimento con published_at
+        // già applicato alle altre code di articoli.
+        $unassignedScheduledArticles = collect($coverage['scheduled_without_path'])
+            ->map(fn (array $row) => [
+                ...$row,
+                'published_at' => $articlesById->get($row['id'])?->published_at?->toISOString(),
+            ])
+            ->sortBy('published_at')
+            ->values()
+            ->all();
+
         $seoViolations = $this->seoViolations($seo['articles'], $articlesById);
         $overdueCount = collect($toPublish)->where('overdue', true)->count();
         $openProblemsTotal = count($toFix)
             + count($isolatedArticles)
             + count($articlesWithoutConcept)
+            + count($unassignedScheduledArticles)
             + count($percorsiReadiness)
             + $orderHealthSummary['structural_error_count']
             + $orderHealthSummary['publication_warning_count']
@@ -217,6 +234,7 @@ class EditorialOperationsDashboardService
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
             'contenuti_senza_concept' => $articlesWithoutConcept,
+            'programmati_non_assegnati' => $unassignedScheduledArticles,
             'seo' => [
                 'summary' => $seo['summary'],
                 'articles' => $seo['articles'],

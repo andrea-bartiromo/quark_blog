@@ -63,6 +63,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['da_sistemare']);
         $this->assertSame([], $snapshot['contenuti_isolati']);
         $this->assertSame([], $snapshot['contenuti_senza_concept']);
+        $this->assertSame([], $snapshot['programmati_non_assegnati']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -233,6 +234,34 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $snapshot = $this->service()->snapshot();
 
         $this->assertFalse(collect($snapshot['contenuti_senza_concept'])->pluck('id')->contains($published->id));
+    }
+
+    /**
+     * Missione 29 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "unassigned scheduled articles" — riusa
+     * PercorsoCoverageAuditService::audit()['scheduled_without_path']
+     * (stessa regola già usata per published_without_path/contenuti_isolati,
+     * mai una seconda implementazione qui).
+     */
+    public function test_a_scheduled_article_with_no_percorso_is_reported_unassigned(): void
+    {
+        $scheduled = $this->article('senza-percorso-programmato-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame([$scheduled->id], collect($snapshot['programmati_non_assegnati'])->pluck('id')->all());
+        $this->assertSame('DA_RIVEDERE', $snapshot['salute_operativa']['status']);
+    }
+
+    public function test_a_scheduled_article_belonging_to_a_percorso_is_not_reported_unassigned(): void
+    {
+        $scheduled = $this->article('con-percorso-programmato-test', Article::STATUS_SCHEDULED, now()->addDay());
+        $cluster = ContentCluster::create(['name' => 'Percorso Programmato Ops Test', 'slug' => 'percorso-programmato-ops-test', 'is_active' => true]);
+        $cluster->articles()->attach($scheduled->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['programmati_non_assegnati'])->pluck('id')->contains($scheduled->id));
     }
 
     /**
@@ -459,6 +488,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $expectedOpenProblems = count($snapshot['da_sistemare'])
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
+            + count($snapshot['programmati_non_assegnati'])
             + count($snapshot['percorsi_readiness'])
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']
@@ -492,6 +522,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $expectedOpenProblems = count($snapshot['da_sistemare'])
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
+            + count($snapshot['programmati_non_assegnati'])
             + count($snapshot['percorsi_readiness'])
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']
