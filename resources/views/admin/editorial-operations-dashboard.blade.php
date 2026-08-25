@@ -106,6 +106,24 @@
 </section>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Programmati non assegnati a un Percorso</h2>
+  @if(empty($snapshot['programmati_non_assegnati']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Ogni articolo programmato è già collegato ad almeno un Percorso.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+      @foreach($snapshot['programmati_non_assegnati'] as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.articles.edit', $row['id']) }}">{{ $row['title'] }}</a>
+          @if($row['published_at'])
+            <span style="color:#6b7280;"> — previsto per il {{ \Illuminate\Support\Carbon::parse($row['published_at'])->timezone('Europe/Rome')->translatedFormat('d M Y, H:i') }}</span>
+          @endif
+        </li>
+      @endforeach
+    </ul>
+  @endif
+</section>
+
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Da sistemare</h2>
   @if(empty($snapshot['da_sistemare']))
     <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun warning di contenuto o attribuzione aperto.</p>
