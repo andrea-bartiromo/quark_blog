@@ -25,6 +25,17 @@ use Illuminate\View\View;
  * EditorialQualityAuditService::audit() — nessuna nuova regola di
  * dominio, nessun ricalcolo dei controlli già espressi da
  * EditorialQualityChecker.
+ *
+ * Missione 44 (Fase E — Editorial Quality & Readiness): "quality
+ * drill-down". Il servizio calcola già "Problemi più frequenti"
+ * (EditorialQualityAuditService::mostFrequentIssues(), con tanto di
+ * `code` machine-readable), ma la vista lo mostrava solo come un elenco
+ * statico — nessun modo di andare da "12 articoli senza fonte primaria"
+ * ai 12 articoli effettivi senza scorrere a mano l'intera tabella. Il
+ * filtro `problema` qui sotto riusa lo stesso `code` già calcolato, mai
+ * una nuova classificazione: filtra semplicemente gli `entries` già
+ * prodotti da `audit()` per quelli il cui report contiene quel codice tra
+ * i propri `issues()`.
  */
 class EditorialQualityAuditController extends Controller
 {
@@ -57,11 +68,32 @@ class EditorialQualityAuditController extends Controller
             ->reject(fn (array $entry) => $entry['report']->level() === EditorialQualityReport::LEVEL_READY)
             ->values();
 
+        // Un codice valido è solo uno che compare davvero tra i problemi
+        // più frequenti di QUESTO audit (già scoped da $status) — mai un
+        // filtro accettato alla cieca su una stringa arbitraria.
+        $issueCode = $request->input('problema');
+        $knownCodes = array_column($summary->mostFrequentIssues, 'code');
+
+        if (! is_string($issueCode) || ! in_array($issueCode, $knownCodes, true)) {
+            $issueCode = null;
+        }
+
+        $selectedIssueLabel = null;
+
+        if ($issueCode !== null) {
+            $selectedIssueLabel = collect($summary->mostFrequentIssues)->firstWhere('code', $issueCode)['label'];
+            $flagged = $flagged
+                ->filter(fn (array $entry) => collect($entry['report']->issues())->contains(fn ($issue) => $issue->code === $issueCode))
+                ->values();
+        }
+
         return view('admin.editorial-quality.index', [
             'summary' => $summary,
             'flagged' => $flagged,
             'selectedStatus' => $status,
             'statusOptions' => self::VALID_STATUSES,
+            'selectedIssueCode' => $issueCode,
+            'selectedIssueLabel' => $selectedIssueLabel,
         ]);
     }
 }
