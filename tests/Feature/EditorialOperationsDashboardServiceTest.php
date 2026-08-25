@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\User;
 use App\Services\EditorialOperations\EditorialOperationsDashboardService;
@@ -61,6 +62,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['da_pubblicare']);
         $this->assertSame([], $snapshot['da_sistemare']);
         $this->assertSame([], $snapshot['contenuti_isolati']);
+        $this->assertSame([], $snapshot['contenuti_senza_concept']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -179,6 +181,34 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $snapshot = $this->service()->snapshot();
 
         $this->assertFalse(collect($snapshot['contenuti_isolati'])->pluck('id')->contains($published->id));
+    }
+
+    /**
+     * Missione 27 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "actionable problems queue" —
+     * "pubblicato senza Concept" riusa ContentGraphOrphanAuditService::
+     * orphanArticles() (Missione 23, batch precedente), mai una seconda
+     * implementazione della stessa regola.
+     */
+    public function test_a_published_article_with_no_concept_link_is_reported_without_concept(): void
+    {
+        $published = $this->article('senza-concept-operations-test', Article::STATUS_PUBLISHED, now()->subDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame([$published->id], collect($snapshot['contenuti_senza_concept'])->pluck('id')->all());
+        $this->assertSame('DA_RIVEDERE', $snapshot['salute_operativa']['status']);
+    }
+
+    public function test_a_published_article_with_a_concept_link_is_not_reported_without_concept(): void
+    {
+        $published = $this->article('con-concept-operations-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $concept = Concept::create(['name' => 'Entropia operations test', 'slug' => 'entropia-operations-test', 'status' => 'active']);
+        $published->contentConcepts()->create(['concept_id' => $concept->id, 'relation_type' => 'supporting', 'weight' => 50]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['contenuti_senza_concept'])->pluck('id')->contains($published->id));
     }
 
     /**
@@ -404,6 +434,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $expectedOpenProblems = count($snapshot['da_sistemare'])
             + count($snapshot['contenuti_isolati'])
+            + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['percorsi_readiness'])
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']
@@ -436,6 +467,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $expectedOpenProblems = count($snapshot['da_sistemare'])
             + count($snapshot['contenuti_isolati'])
+            + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['percorsi_readiness'])
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']

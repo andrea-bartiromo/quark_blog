@@ -60,6 +60,7 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertSee('Operazioni editoriali');
         $response->assertSee('Nessun articolo programmato in attesa.');
         $response->assertSee('Macchina editoriale sana — nessun problema aperto.');
+        $response->assertSee('Ogni articolo pubblicato è collegato ad almeno un Concept del Content Graph.');
     }
 
     public function test_editor_sees_a_scheduled_article_in_the_da_pubblicare_section(): void
@@ -112,6 +113,35 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Macchina editoriale sana — nessun problema aperto.');
         $response->assertSee('da rivedere.', false);
+    }
+
+    /**
+     * Missione 27 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): un articolo pubblicato senza alcun
+     * collegamento al Content Graph deve comparire nella sezione dedicata
+     * della pagina reale, non solo nello snapshot del servizio.
+     */
+    public function test_editor_sees_a_published_article_without_a_concept_link_in_its_own_section(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo senza concept dashboard',
+            'slug' => 'articolo-senza-concept-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Pubblicati senza Concept');
+        $response->assertSee('Articolo senza concept dashboard');
+        $response->assertSee(route('admin.articles.edit', $article));
     }
 
     /**
