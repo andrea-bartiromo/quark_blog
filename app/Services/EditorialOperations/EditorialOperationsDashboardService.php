@@ -200,6 +200,25 @@ class EditorialOperationsDashboardService
         // policy: "reported, not failed" — un articolo in più Percorsi è
         // un fatto editoriale legittimo, non un'anomalia da contare.
         $articlesInMultiplePaths = $coverage['articles_in_multiple_paths'];
+        // Missione 54 (secondo batch autonomo KAIRUS, Fase F — Search
+        // Intelligence): PercorsoCoverageAuditService::audit() calcola già
+        // paths_with_non_publishable_members (un Percorso che elenca come
+        // membro formale un articolo ancora in bozza/revisione), ma
+        // nessuna vista lo leggeva mai. A differenza di
+        // articles_in_multiple_paths (Missione 53), qui non esiste alcuna
+        // policy_notes che lo dichiari "reported, not failed" — un
+        // membro non pubblicabile in un Percorso che dovrebbe restare
+        // coerente è un problema strutturale reale (stesso trattamento di
+        // paths_with_incoherent_pillar sopra), quindi CONTA in
+        // open_problems_total, un termine per Percorso coinvolto.
+        $nonPublishableMembers = collect($coverage['paths_with_non_publishable_members'])
+            ->map(fn (array $row) => [
+                'cluster_id' => $row['id'],
+                'name' => $row['name'],
+                'members' => $row['non_publishable_members'],
+            ])
+            ->values()
+            ->all();
         $seo = $this->seo->audit();
         $orderHealth = $this->percorsoCoverage->editorialOrderHealth();
         $orderHealthSummary = $this->orderHealthSummary($orderHealth);
@@ -308,7 +327,8 @@ class EditorialOperationsDashboardService
             + $overdueCount
             + $collisionCount
             + count($staleContentCandidates)
-            + count($pillarIssues);
+            + count($pillarIssues)
+            + count($nonPublishableMembers);
 
         return [
             // Missione 26 (Fase D — Editorial Operations Command Center):
@@ -376,6 +396,7 @@ class EditorialOperationsDashboardService
             'percorsi_order_health' => $orderHealthSummary,
             'percorsi_pillar_issues' => $pillarIssues,
             'articles_in_multiple_paths' => $articlesInMultiplePaths,
+            'percorsi_non_publishable_members' => $nonPublishableMembers,
             'opportunita' => [
                 'available' => true,
                 'total' => $opportunities->count(),
