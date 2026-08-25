@@ -466,6 +466,46 @@ class SelectiveDeployBackupScriptTest extends TestCase
     }
 
     /**
+     * Missione 19 (secondo batch autonomo KAIRUS, Fase B — Deployment
+     * Reliability — "Release metadata integrity"): "backup/rollback
+     * preserves previous metadata" era provato finora solo per REVISION
+     * (Missione 11, sopra). DEPLOY_INFO è lo stesso tipo di file "app"-
+     * scoped, ma non era mai stato incluso in un manifest di test: questo
+     * prova che lo STESSO meccanismo generico (nessun caso speciale per
+     * nome file) lo ripristina byte-per-byte insieme a REVISION, chiudendo
+     * il requisito per entrambi i file di metadata invece che solo per uno.
+     */
+    public function test_rollback_restores_deploy_info_together_with_revision(): void
+    {
+        $oldRevision = str_repeat('a', 40);
+        $oldDeployInfo = "revision={$oldRevision}\ndeployed_at_utc=2026-08-20T10:00:00Z\ndatabase_driver=mysql\n";
+
+        File::put($this->appRoot.'/REVISION', $oldRevision."\n");
+        File::put($this->appRoot.'/DEPLOY_INFO', $oldDeployInfo);
+
+        $manifest = $this->root.'/release-metadata.tsv';
+        File::put($manifest, "app\tREVISION\napp\tDEPLOY_INFO\n");
+
+        $backup = $this->runBackup($manifest);
+
+        // Il "deploy fallito": entrambi i file di metadata avanzano.
+        $newRevision = str_repeat('b', 40);
+        $newDeployInfo = "revision={$newRevision}\ndeployed_at_utc=2026-08-25T10:00:00Z\ndatabase_driver=mysql\n";
+        File::put($this->appRoot.'/REVISION', $newRevision."\n");
+        File::put($this->appRoot.'/DEPLOY_INFO', $newDeployInfo);
+
+        $this->rollbackProcess($backup)->mustRun();
+
+        $this->assertSame($oldRevision."\n", File::get($this->appRoot.'/REVISION'));
+        $this->assertSame($oldDeployInfo, File::get($this->appRoot.'/DEPLOY_INFO'));
+        $this->assertStringContainsString(
+            "revision={$oldRevision}",
+            File::get($this->appRoot.'/DEPLOY_INFO'),
+            'Post-rollback, DEPLOY_INFO must reference the same restored revision as REVISION, not the failed release.'
+        );
+    }
+
+    /**
      * Missione 13 (secondo batch autonomo KAIRUS, Fase B — Deployment
      * Reliability): "Ensure selective deploy manifests capture: source
      * SHA, target SHA, file root, file hash, timestamp." Le prime quattro
