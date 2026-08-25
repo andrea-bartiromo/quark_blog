@@ -128,6 +128,23 @@ class EditorialOperationsDashboardService
             ->sortBy(fn (array $row) => $row['priority'] === 'HIGH' ? 0 : 1)
             ->values()->all();
 
+        // Missione 30 (Fase D — Editorial Operations Command Center):
+        // "publication readiness summary" — un articolo programmato è
+        // "pronto" se non ha alcun warning content-health/attribuzione
+        // aperto: stesso insieme di article_id già calcolato sopra per
+        // 'da_sistemare', mai una seconda soglia di "readiness" inventata
+        // qui. L'assegnazione a un Percorso è un segnale diverso (Missione
+        // 29), non un blocco alla pubblicazione del singolo articolo.
+        $articlesWithOpenIssues = collect($toFix)->pluck('article_id')->all();
+        $toPublish = collect($toPublish)
+            ->map(fn (array $row) => [
+                ...$row,
+                'ready' => ! in_array($row['article_id'], $articlesWithOpenIssues, true),
+            ])
+            ->values()
+            ->all();
+        $readyToPublishCount = collect($toPublish)->where('ready', true)->count();
+
         $coverage = $this->percorsoCoverage->audit();
         $seo = $this->seo->audit();
         $orderHealth = $this->percorsoCoverage->editorialOrderHealth();
@@ -231,6 +248,11 @@ class EditorialOperationsDashboardService
                 'active_percorsi_total' => ContentCluster::query()->publiclyVisible()->count(),
             ],
             'da_pubblicare' => $toPublish,
+            'pubblicazione_readiness' => [
+                'total' => count($toPublish),
+                'ready_count' => $readyToPublishCount,
+                'not_ready_count' => count($toPublish) - $readyToPublishCount,
+            ],
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
             'contenuti_senza_concept' => $articlesWithoutConcept,

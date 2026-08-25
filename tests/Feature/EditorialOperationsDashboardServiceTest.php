@@ -60,6 +60,9 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(0, $snapshot['salute_operativa']['published_articles_total']);
         $this->assertSame(0, $snapshot['salute_operativa']['active_percorsi_total']);
         $this->assertSame([], $snapshot['da_pubblicare']);
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['total']);
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['ready_count']);
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['not_ready_count']);
         $this->assertSame([], $snapshot['da_sistemare']);
         $this->assertSame([], $snapshot['contenuti_isolati']);
         $this->assertSame([], $snapshot['contenuti_senza_concept']);
@@ -136,6 +139,61 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             [$soonest->id, $middle->id, $furthest->id],
             collect($snapshot['da_pubblicare'])->pluck('article_id')->all()
         );
+    }
+
+    /**
+     * Missione 30 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "publication readiness summary" — un
+     * articolo programmato senza alcun warning content-health/attribuzione
+     * aperto (stesso insieme di article_id già usato per 'da_sistemare')
+     * deve risultare 'ready' nel pannello 'da_pubblicare', mai una seconda
+     * soglia di "readiness" inventata qui.
+     */
+    public function test_a_scheduled_article_with_no_open_issues_is_marked_ready_to_publish(): void
+    {
+        $cluster = ContentCluster::create(['name' => 'Percorso Readiness Ops Test', 'slug' => 'percorso-readiness-ops-test', 'is_active' => true]);
+        $scheduled = Article::withoutEvents(fn () => Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Pronto per la pubblicazione',
+            'slug' => 'pronto-per-la-pubblicazione-ops-test',
+            'excerpt' => 'Sommario editoriale.',
+            'body' => '<p>Corpo con <a href="/articolo/altro-articolo">collegamento interno</a>.</p>',
+            'category' => 'fisica',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDay(),
+            'read_minutes' => 2,
+            'cover_image' => 'cover.jpg',
+            'cover_alt' => 'Illustrazione.',
+            'cover_credit' => 'Kairus',
+            'cover_source' => 'Archivio Kairus',
+            'cover_license' => 'CC BY 4.0',
+            'seo_title' => 'Titolo SEO',
+            'seo_description' => 'Descrizione SEO',
+            'primary_sources' => 'Fonte primaria verificata',
+        ]));
+        $cluster->articles()->attach($scheduled->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['da_pubblicare'])->firstWhere('article_id', $scheduled->id);
+        $this->assertNotNull($row);
+        $this->assertTrue($row['ready']);
+        $this->assertSame(1, $snapshot['pubblicazione_readiness']['total']);
+        $this->assertSame(1, $snapshot['pubblicazione_readiness']['ready_count']);
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['not_ready_count']);
+    }
+
+    public function test_a_scheduled_article_with_an_open_issue_is_marked_not_ready_to_publish(): void
+    {
+        $scheduled = $this->article('non-pronto-programmato-test', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['da_pubblicare'])->firstWhere('article_id', $scheduled->id);
+        $this->assertNotNull($row);
+        $this->assertFalse($row['ready']);
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['ready_count']);
+        $this->assertSame(1, $snapshot['pubblicazione_readiness']['not_ready_count']);
     }
 
     /**
