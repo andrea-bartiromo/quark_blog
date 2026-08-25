@@ -108,6 +108,61 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringContainsString("Schedule::command('backup:database')", $schedule);
     }
 
+    /**
+     * Missione 19 (secondo batch autonomo KAIRUS, Fase B — Deployment
+     * Reliability — "Release metadata integrity"): REVISION and DEPLOY_INFO
+     * are two separate files written from the same shell variable
+     * ($ACTUAL_SHA). Nothing before this test asserted they stay derived
+     * from that single variable, so a future edit could desync them (e.g.
+     * DEPLOY_INFO's revision= line quietly reintroducing $EXPECTED_SHA, the
+     * pre-verification input, instead of the verified $ACTUAL_SHA) with no
+     * regression to catch it. This locks both writes to the same source of
+     * truth and the write order — always last, only after every check
+     * above (migration gate, asset drift gate) has already passed.
+     *
+     * Missione 13 (già in questo batch, PR precedente) ha già coperto la
+     * cattura dell'hash per-file nei manifest di selective-deploy-backup;
+     * questa missione copre un gap diverso e non ancora testato — la
+     * coerenza reciproca tra REVISION e DEPLOY_INFO dentro deploy.sh
+     * stesso, non il meccanismo di backup/rollback.
+     */
+    public function test_production_deploy_records_revision_and_deploy_info_from_the_same_verified_sha(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString("printf '%s\\n' \"\$ACTUAL_SHA\" > REVISION", $script);
+        $this->assertStringContainsString("printf 'revision=%s\\n' \"\$ACTUAL_SHA\"", $script);
+        $this->assertStringNotContainsString('$EXPECTED_SHA" > REVISION', $script);
+        $this->assertStringNotContainsString("revision=%s\\n' \"\$EXPECTED_SHA\"", $script);
+
+        $revisionWritePosition = strpos($script, '> REVISION');
+        $assetDriftCheckPosition = strpos($script, 'deploy:asset-drift');
+        $migrationGatePosition = strpos($script, 'Pending migrations detected');
+
+        $this->assertNotFalse($revisionWritePosition);
+        $this->assertNotFalse($assetDriftCheckPosition);
+        $this->assertNotFalse($migrationGatePosition);
+        $this->assertGreaterThan($migrationGatePosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the migration safety gate, never before it.');
+        $this->assertGreaterThan($assetDriftCheckPosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the asset drift gate, never before it.');
+    }
+
+    /**
+     * DEPLOY_INFO è un artefatto write-only per l'operatore: nessun codice
+     * applicativo lo legge (verificato con grep su app/ durante l'indagine
+     * di questa missione). Il suo unico requisito di integrità è
+     * strutturale — i tre campi su cui un operatore fa affidamento
+     * ispezionando una release devono essere sempre presenti e in questa
+     * forma.
+     */
+    public function test_deploy_info_records_the_three_fields_an_operator_relies_on(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString("printf 'revision=%s\\n' \"\$ACTUAL_SHA\"", $script);
+        $this->assertStringContainsString("printf 'deployed_at_utc=%s\\n' \"\$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"", $script);
+        $this->assertStringContainsString("printf 'database_driver=%s\\n' \"\$DB_CONNECTION_VALUE\"", $script);
+    }
+
     private function deployScript(): string
     {
         $script = file_get_contents(base_path('deploy.sh'));
