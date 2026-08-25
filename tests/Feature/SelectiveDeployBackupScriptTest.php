@@ -400,6 +400,71 @@ class SelectiveDeployBackupScriptTest extends TestCase
         $this->assertLessThan(128 * 1024, $this->directorySize($backup));
     }
 
+    /**
+     * Missione 11 (secondo batch autonomo KAIRUS, Fase B — Deployment
+     * Reliability): "Cover the exact public-premium.css incident as
+     * regression" — riproduce l'incidente reale (24/08) e prova che un
+     * rollback lo ripara COMPLETAMENTE, non solo sul contenuto del file.
+     *
+     * L'incidente non era "un file sbagliato": era un file corretto sulla
+     * radice servita ma con una querystring di versione (?v=) che
+     * continuava a puntare alla vecchia copia, perché REVISION non faceva
+     * parte di nessun processo di rollback verificato. Un test che
+     * ripristinasse solo public-premium.css sulle due radici, senza
+     * toccare REVISION, proverebbe un rollback INCOMPLETO — esattamente il
+     * tipo di falso senso di sicurezza che questa missione chiede di
+     * escludere esplicitamente.
+     *
+     * REVISION vive a base_path(), fuori da app-root/public-root simulati
+     * da questa classe: qui si prova che il MECCANISMO di backup/rollback
+     * (comune a qualunque file "app"-scoped, incluso REVISION quando
+     * l'operatore lo include nel proprio manifest) ripristina il suo
+     * contenuto byte-per-byte. Che quel contenuto, una volta ripristinato,
+     * produca il token `?v=` corretto è già provato esaustivamente da
+     * VersionedAssetTest — non riprovato qui per non duplicare copertura.
+     */
+    public function test_rollback_restores_public_premium_css_on_both_roots_and_the_revision_token_together(): void
+    {
+        File::ensureDirectoryExists($this->appRoot.'/css');
+        File::ensureDirectoryExists($this->publicRoot.'/css');
+
+        $oldRevision = str_repeat('a', 40);
+        $oldCss = "body{color:blue} /* release {$oldRevision} */\n";
+
+        // Stato pre-incidente: le due radici e il token di versione
+        // coincidono, esattamente come subito dopo un deploy riuscito.
+        File::put($this->appRoot.'/REVISION', $oldRevision."\n");
+        File::put($this->appRoot.'/css/public-premium.css', $oldCss);
+        File::put($this->publicRoot.'/css/public-premium.css', $oldCss);
+
+        $manifest = $this->root.'/public-premium-incident.tsv';
+        File::put($manifest, "app\tREVISION\napp\tcss/public-premium.css\npublic\tcss/public-premium.css\n");
+
+        $backup = $this->runBackup($manifest);
+
+        // Il "deploy fallito": REVISION avanza e public-premium.css cambia
+        // SOLO sulla radice applicativa — la stessa identica divergenza
+        // dell'incidente reale (public_html restava quella corretta e
+        // aggiornata, kairus_app/public quella stale; qui invertiamo i
+        // ruoli concreti ma il punto è lo stesso: le due copie e il token
+        // di versione finiscono disallineati tra loro).
+        $newRevision = str_repeat('b', 40);
+        $newCss = "body{color:red} /* release {$newRevision} */\n";
+        File::put($this->appRoot.'/REVISION', $newRevision."\n");
+        File::put($this->appRoot.'/css/public-premium.css', $newCss);
+
+        $this->rollbackProcess($backup)->mustRun();
+
+        $this->assertSame($oldRevision."\n", File::get($this->appRoot.'/REVISION'), 'REVISION must roll back together with the asset it versions, not be left pointing at the failed release.');
+        $this->assertSame($oldCss, File::get($this->appRoot.'/css/public-premium.css'));
+        $this->assertSame($oldCss, File::get($this->publicRoot.'/css/public-premium.css'));
+        $this->assertSame(
+            File::get($this->appRoot.'/css/public-premium.css'),
+            File::get($this->publicRoot.'/css/public-premium.css'),
+            'Post-rollback, both document roots must serve byte-identical content — the exact property whose absence caused the real incident.'
+        );
+    }
+
     private function runBackup(string $manifest): string
     {
         $process = $this->backupProcess($manifest);
