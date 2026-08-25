@@ -11,6 +11,7 @@ use App\Services\ContentClusterMembershipService;
 use App\Services\ContentClusters\PercorsiActivationCalendarService;
 use App\Services\ContentClusters\PercorsiAutomationObservability;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
+use App\Services\ContentClusters\PercorsoPrefixForecastService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class ContentClusterController extends Controller
         private readonly PercorsoPublicationReadinessService $readiness,
         private readonly PercorsoCoverageAuditService $coverageAudit,
         private readonly PercorsiActivationCalendarService $activationCalendar,
+        private readonly PercorsoPrefixForecastService $prefixForecast,
     ) {}
 
     public function index()
@@ -147,6 +149,7 @@ class ContentClusterController extends Controller
             'missingTransitionArticleIds' => collect($transitionTextGaps['detail'] ?? [])->pluck('id')->all(),
             'orderHealthFlagsByArticleId' => $this->orderHealthFlagsByArticleId($orderHealth, $contentCluster),
             'completeWithHiddenRemainder' => $orderHealth['complete_with_hidden_remainder'],
+            'prefixForecast' => $this->prefixForecast->forecast($contentCluster),
         ]);
     }
 

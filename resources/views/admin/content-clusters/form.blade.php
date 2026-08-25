@@ -257,6 +257,22 @@
     </section>
   @endif
 
+  @if(! empty($prefixForecast['forecast_steps']))
+    <section class="admin-card" style="max-width:820px;margin-top:1.25rem;" aria-labelledby="prefix-forecast-title">
+      <h2 id="prefix-forecast-title" style="font-size:1rem;">Previsione crescita prefisso pubblico</h2>
+      <p><small>Missione 20 — se nulla cambia da qui alla data indicata, il prefisso pubblico dovrebbe crescere in quest'ordine. Non è una garanzia: una tappa Programmata può tornare Bozza prima della sua data.</small></p>
+      <ol style="list-style:none;padding:0;margin:.85rem 0 0;display:flex;flex-direction:column;gap:.4rem;">
+        @foreach($prefixForecast['forecast_steps'] as $step)
+          <li style="display:flex;align-items:baseline;gap:.5rem;">
+            <span style="font-size:.68rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;min-width:2.5rem;">#{{ $step['position'] }}</span>
+            <span style="font-weight:600;">{{ $step['article_title'] }}</span>
+            <span style="font-size:.82rem;color:#374151;">— previsto per il {{ $step['expected_at']->format('d/m/Y H:i') }}</span>
+          </li>
+        @endforeach
+      </ol>
+    </section>
+  @endif
+
   <section class="admin-card" style="max-width:1100px;margin-top:1.25rem;" aria-labelledby="selected-memberships-title">
     <h2 id="selected-memberships-title">Membership selezionate</h2>
     <p>Questa form invia soltanto le membership del Percorso corrente. La dimensione della request non dipende dal catalogo totale.</p>
