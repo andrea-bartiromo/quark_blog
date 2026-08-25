@@ -587,6 +587,67 @@ class EditorialOperationsDashboardServiceTest extends TestCase
     }
 
     /**
+     * Missione 50 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): "percorso pillar integrity" —
+     * PercorsoCoverageAuditService::audit() calcola già
+     * paths_with_incoherent_pillar, ma nessuna vista lo leggeva mai:
+     * né qui né PercorsoPublicationReadinessService, che controlla il
+     * pillar solo quando $cluster->pillarArticle non è null — un
+     * pillar_article_id che punta a un articolo eliminato (la relazione
+     * risolve a null) restava quindi invisibile ovunque.
+     */
+    /**
+     * pillar_article_id punta a un articolo pubblicato reale, ma mai
+     * aggiunto come membro del Percorso — esattamente il caso già provato
+     * a livello di servizio da
+     * PercorsoCoverageAuditServiceTest::test_it_reports_a_pillar_that_is_not_a_member_of_its_path(),
+     * qui verificato che raggiunga davvero lo snapshot della dashboard.
+     * (pillar_target_missing, il terzo codice possibile, non è invece
+     * raggiungibile tramite Article::delete(): pillar_article_id ha
+     * nullOnDelete() sulla FK, quindi la colonna si azzera nella stessa
+     * operazione — nessun test lo copre altrove nel repository per lo
+     * stesso motivo.)
+     */
+    public function test_a_percorso_whose_pillar_is_not_a_member_of_the_path_is_reported_with_an_incoherent_pillar(): void
+    {
+        $pillar = $this->article('pillar-esterno-test', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $cluster = ContentCluster::create(['name' => 'Percorso Pillar Esterno', 'slug' => 'percorso-pillar-esterno', 'is_active' => true, 'pillar_article_id' => $pillar->id]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['percorsi_pillar_issues'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($row);
+        $this->assertSame('pillar_not_in_path', $row['pillar_issue']);
+        $this->assertNotEmpty($row['pillar_issue_label']);
+    }
+
+    public function test_a_percorso_whose_pillar_is_still_a_draft_is_reported_with_an_incoherent_pillar(): void
+    {
+        $pillar = $this->article('pillar-bozza-test', Article::STATUS_DRAFT);
+        $cluster = ContentCluster::create(['name' => 'Percorso Pillar Bozza', 'slug' => 'percorso-pillar-bozza', 'is_active' => true]);
+        $cluster->articles()->attach($pillar->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->update(['pillar_article_id' => $pillar->id]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['percorsi_pillar_issues'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($row);
+        $this->assertSame('pillar_not_publishable', $row['pillar_issue']);
+    }
+
+    public function test_a_percorso_with_a_coherent_pillar_is_never_reported_as_incoherent(): void
+    {
+        $pillar = $this->article('pillar-coerente-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster = ContentCluster::create(['name' => 'Percorso Pillar Coerente', 'slug' => 'percorso-pillar-coerente', 'is_active' => true]);
+        $cluster->articles()->attach($pillar->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->update(['pillar_article_id' => $pillar->id]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['percorsi_pillar_issues'])->pluck('cluster_id')->contains($cluster->id));
+    }
+
+    /**
      * Mission 11 — Editorial Order Health V2. editorial_advisory findings
      * (e.g. dangling_transition) are never blocking by design
      * (PercorsoCoverageAuditService::editorialOrderHealth() docblock), so
@@ -698,7 +759,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['seo']['violations'])
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
-            + count($snapshot['contenuti_da_aggiornare']);
+            + count($snapshot['contenuti_da_aggiornare'])
+            + count($snapshot['percorsi_pillar_issues']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
@@ -734,7 +796,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['seo']['violations'])
             + $overdueCount
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
-            + count($snapshot['contenuti_da_aggiornare']);
+            + count($snapshot['contenuti_da_aggiornare'])
+            + count($snapshot['percorsi_pillar_issues']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }

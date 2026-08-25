@@ -68,6 +68,12 @@
   </div>
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Pillar Percorsi</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['percorsi_pillar_issues']) }}</div>
+    <span style="font-size:.78rem;color:#6b7280;">Pillar incoerenti</span>
+  </div>
+
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
     <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Sequenza Percorsi</div>
     <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ $snapshot['percorsi_order_health']['structural_error_count'] + $snapshot['percorsi_order_health']['publication_warning_count'] }}</div>
     <span style="font-size:.78rem;color:#6b7280;">Errori/warning d'ordine</span>
@@ -263,6 +269,22 @@
           @if($row['also_in_order_health'])
             <div style="font-size:.72rem;color:#b45309;margin-top:.15rem;">Segnalato anche in Sequenza Percorsi qui sotto — probabilmente la stessa causa.</div>
           @endif
+        </li>
+      @endforeach
+    </ul>
+  @endif
+</section>
+
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Pillar Percorsi</h2>
+  @if(empty($snapshot['percorsi_pillar_issues']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Ogni pillar assegnato è coerente con il proprio Percorso.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+      @foreach($snapshot['percorsi_pillar_issues'] as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+          <span style="color:#6b7280;"> — {{ $row['pillar_issue_label'] }}</span>
         </li>
       @endforeach
     </ul>

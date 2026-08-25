@@ -168,6 +168,28 @@ class EditorialOperationsDashboardService
         $readyToPublishCount = collect($toPublish)->where('ready', true)->count();
 
         $coverage = $this->percorsoCoverage->audit();
+        // Missione 50 (secondo batch autonomo KAIRUS, Fase F — Search
+        // Intelligence): "percorso pillar integrity" — PercorsoCoverageAuditService
+        // ::audit() calcola già paths_with_incoherent_pillar (pillar mai
+        // aggiunto come membro del Percorso, o ancora in bozza/revisione),
+        // ma nessuna vista lo aveva mai letto: né qui né
+        // PercorsoPublicationReadinessService, che controlla il pillar solo
+        // rispetto al prefisso pubblico raggiungibile (pillar_outside_
+        // reachable_prefix), mai la sua coerenza strutturale con il
+        // Percorso. Il terzo codice possibile, pillar_target_missing (target
+        // eliminato), non è invece raggiungibile tramite Article::delete():
+        // pillar_article_id ha nullOnDelete() sulla FK, quindi la colonna si
+        // azzera nella stessa operazione — resta comunque gestito qui sotto
+        // per completezza difensiva.
+        $pillarIssues = collect($coverage['paths_with_incoherent_pillar'])
+            ->map(fn (array $row) => [
+                'cluster_id' => $row['id'],
+                'name' => $row['name'],
+                'pillar_issue' => $row['pillar_issue'],
+                'pillar_issue_label' => $this->pillarIssueLabel($row['pillar_issue']),
+            ])
+            ->values()
+            ->all();
         $seo = $this->seo->audit();
         $orderHealth = $this->percorsoCoverage->editorialOrderHealth();
         $orderHealthSummary = $this->orderHealthSummary($orderHealth);
@@ -275,7 +297,8 @@ class EditorialOperationsDashboardService
             + count($seoViolations)
             + $overdueCount
             + $collisionCount
-            + count($staleContentCandidates);
+            + count($staleContentCandidates)
+            + count($pillarIssues);
 
         return [
             // Missione 26 (Fase D — Editorial Operations Command Center):
@@ -341,6 +364,7 @@ class EditorialOperationsDashboardService
             ],
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,
+            'percorsi_pillar_issues' => $pillarIssues,
             'opportunita' => [
                 'available' => true,
                 'total' => $opportunities->count(),
@@ -520,6 +544,21 @@ class EditorialOperationsDashboardService
             $row['scheduled_out_of_order'] !== [] ? 'SCHEDULED_OUT_OF_ORDER' : null,
             $row['dangling_transition'] !== null ? 'DANGLING_TRANSITION' : null,
         ]));
+    }
+
+    /**
+     * Missione 50 — stesso vocabolario dei tre codici già definiti da
+     * PercorsoCoverageAuditService::clusterRow() (pillar_issue), mai
+     * un quarto stato inventato qui.
+     */
+    private function pillarIssueLabel(string $pillarIssue): string
+    {
+        return match ($pillarIssue) {
+            'pillar_target_missing' => 'Il pillar assegnato è stato eliminato.',
+            'pillar_not_in_path' => 'Il pillar assegnato non fa più parte del Percorso.',
+            'pillar_not_publishable' => 'Il pillar assegnato è ancora in bozza/revisione.',
+            default => 'Il pillar assegnato non è coerente.',
+        };
     }
 
     /**
