@@ -36,6 +36,10 @@
     <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Second read rate</dt>
     <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($totals['second_read_rate'] * 100, 1) }}%</dd>
   </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Articoli sorgente coinvolti</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($totals['source_articles_engaged']) }}</dd>
+  </div>
 </dl>
 
 @if($breakdown->isEmpty())

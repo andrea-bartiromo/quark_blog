@@ -94,7 +94,7 @@
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
     <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Continua da qui</div>
     <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ number_format($snapshot['second_read']['second_read_rate'] * 100, 1) }}%</div>
-    <a href="{{ route('admin.second-read') }}" style="font-size:.78rem;color:#0d9488;">{{ number_format($snapshot['second_read']['second_reads']) }} seconde letture — Dettaglio →</a>
+    <a href="{{ route('admin.second-read') }}" style="font-size:.78rem;color:#0d9488;">{{ number_format($snapshot['second_read']['second_reads']) }} seconde letture su {{ number_format($snapshot['second_read']['source_articles_engaged']) }} articoli sorgente — Dettaglio →</a>
   </div>
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">

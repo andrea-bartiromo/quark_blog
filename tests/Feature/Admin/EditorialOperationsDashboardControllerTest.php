@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Article;
+use App\Models\ArticleContinuationEvent;
 use App\Models\ContentCluster;
 use App\Models\SearchConsoleQuery;
 use App\Models\User;
@@ -202,6 +203,50 @@ class EditorialOperationsDashboardControllerTest extends TestCase
      * sulla pagina reale, sia nello stato "mai importato" sia con un
      * import reale, non solo nello snapshot del servizio.
      */
+    /**
+     * Missione 52 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): ContinuationAnalyticsService::siteWideTotals()
+     * calcola già source_articles_engaged, ma la card "Continua da qui"
+     * mostrava solo tasso e conteggio second read, mai quanti articoli
+     * sorgente distinti li generano davvero.
+     */
+    public function test_editor_sees_how_many_source_articles_are_engaged_on_the_second_read_card(): void
+    {
+        $editor = $this->editor();
+        $source = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Sorgente second read dashboard HTTP',
+            'slug' => 'sorgente-second-read-dashboard-http',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        $target = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Destinazione second read dashboard HTTP',
+            'slug' => 'destinazione-second-read-dashboard-http',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('su 1 articoli sorgente');
+    }
+
     public function test_editor_sees_the_search_console_card_in_its_never_imported_state(): void
     {
         $editor = $this->editor();
