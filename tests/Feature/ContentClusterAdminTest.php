@@ -333,6 +333,43 @@ class ContentClusterAdminTest extends TestCase
     }
 
     /**
+     * Missione 20 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "Given scheduled dates, calculate how a path's
+     * public prefix is expected to grow over time." Prova la pagina reale,
+     * non solo PercorsoPrefixForecastService in isolamento — e che il
+     * disclaimer "non è una garanzia" sia effettivamente sulla pagina, non
+     * solo nel commento del servizio.
+     */
+    public function test_edit_page_shows_the_prefix_growth_forecast_for_a_trailing_scheduled_member(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $published = $this->article($editor, 'Tappa già pubblica per la previsione');
+        $scheduled = $this->article($editor, 'Tappa programmata per la previsione', Article::STATUS_SCHEDULED);
+        $cluster->articles()->attach($published->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($scheduled->id, ['position' => 20, 'is_primary' => false]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()
+            ->assertSee('Previsione crescita prefisso pubblico')
+            ->assertSee('Tappa programmata per la previsione')
+            ->assertSee('Non è una garanzia', false);
+    }
+
+    public function test_edit_page_hides_the_prefix_growth_forecast_when_the_next_member_is_a_draft(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create();
+        $draft = $this->article($editor, 'Bozza subito dopo il prefisso', Article::STATUS_DRAFT);
+        $cluster->articles()->attach($draft->id, ['position' => 10, 'is_primary' => true]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()->assertDontSee('Previsione crescita prefisso pubblico');
+    }
+
+    /**
      * Missione 15 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "When a complete path gains a hidden/future
      * member, do not auto-reopen. Surface a strong editorial warning."
