@@ -69,6 +69,31 @@ class ContentClusterPublicSequence
     }
 
     /**
+     * Missione 18 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): stessa identica regola "si ferma al primo
+     * membro non pubblico" di resolve()/resolveLoaded(), ma su un ordine
+     * fornito esplicitamente dal chiamante invece che dalla relazione
+     * reale del Percorso — l'unico punto di ingresso pensato per un
+     * servizio di simulazione (es. PercorsoReorderSimulationService) che
+     * deve valutare un ordine PROPOSTO senza mai leggerlo dal database.
+     * Nessuna nuova logica di prefisso: solo un secondo punto di
+     * ingresso verso la stessa fromOrdered() già usata e testata da
+     * resolve()/resolveLoaded().
+     *
+     * @param  Collection<int, Article>  $orderedArticles
+     * @param  Collection<int, int|string>  $publishedArticleIds
+     * @return array{articles:Collection<int,Article>,has_hidden_remainder:bool}
+     */
+    public function resolveFromOrder(Collection $orderedArticles, Collection $publishedArticleIds): array
+    {
+        if ($orderedArticles->isEmpty()) {
+            return $this->emptyResult();
+        }
+
+        return $this->fromOrdered($orderedArticles, $publishedArticleIds);
+    }
+
+    /**
      * @param  Collection<int, Article>  $ordered
      * @param  Collection<int, int|string>  $publishedArticleIds
      * @return array{articles:Collection<int,Article>,has_hidden_remainder:bool}
