@@ -496,15 +496,22 @@ class EditorialOperationsDashboardService
             ->filter(fn (array $row) => $articlesById->has($row['article_id']))
             ->map(function (array $row) use ($articlesById) {
                 $canonicalWarning = $row['canonical']['status'] === 'WARNING';
+                // Missione 38 (Fase E — Editorial Quality & Readiness): un
+                // canonical duplicato tra due articoli è un conflitto di
+                // canonicalizzazione tanto grave quanto uno sintatticamente
+                // rotto (i motori di ricerca non sanno quale sia la pagina
+                // "vera") — stessa priorità HIGH, mai una terza soglia.
+                $duplicateCanonical = $row['duplicate_canonical_url'];
                 $duplicateTitle = $row['duplicate_effective_title'];
                 $duplicateDescription = $row['duplicate_effective_description'];
 
-                if (! $canonicalWarning && ! $duplicateTitle && ! $duplicateDescription) {
+                if (! $canonicalWarning && ! $duplicateCanonical && ! $duplicateTitle && ! $duplicateDescription) {
                     return null;
                 }
 
                 $reasons = array_values(array_filter([
                     $canonicalWarning ? $row['canonical']['reason'] : null,
+                    $duplicateCanonical ? 'URL canonical duplicato tra più articoli.' : null,
                     $duplicateTitle ? 'Titolo SEO effettivo duplicato.' : null,
                     $duplicateDescription ? 'Descrizione SEO effettiva duplicata.' : null,
                 ]));
@@ -513,7 +520,7 @@ class EditorialOperationsDashboardService
                     'article_id' => $row['article_id'],
                     'title' => $articlesById->get($row['article_id'])->title,
                     'slug' => $row['slug'],
-                    'priority' => $canonicalWarning ? 'HIGH' : 'MEDIUM',
+                    'priority' => ($canonicalWarning || $duplicateCanonical) ? 'HIGH' : 'MEDIUM',
                     'reasons' => $reasons,
                 ];
             })
