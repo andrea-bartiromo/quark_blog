@@ -649,6 +649,82 @@ class EditorialOperationsDashboardServiceTest extends TestCase
     }
 
     /**
+     * Missione 53 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): PercorsoCoverageAuditService::audit() calcola già
+     * articles_in_multiple_paths (con path_count e l'elenco degli slug),
+     * e il suo stesso policy_notes.multiple_paths_are_reported_not_failed
+     * promette esplicitamente che questo venga "reported" — mai
+     * mantenuta prima d'ora, perché nessuna vista leggeva mai questa
+     * chiave.
+     */
+    public function test_an_article_belonging_to_two_percorsi_is_listed_as_belonging_to_multiple_paths(): void
+    {
+        $article = $this->article('doppio-percorso-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $first = ContentCluster::create(['name' => 'Percorso Doppio Uno', 'slug' => 'percorso-doppio-uno', 'is_active' => true]);
+        $second = ContentCluster::create(['name' => 'Percorso Doppio Due', 'slug' => 'percorso-doppio-due', 'is_active' => true]);
+        $first->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        $second->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['articles_in_multiple_paths'])->firstWhere('id', $article->id);
+        $this->assertNotNull($row);
+        $this->assertSame(2, $row['path_count']);
+        $this->assertEqualsCanonicalizing(['percorso-doppio-uno', 'percorso-doppio-due'], $row['paths']);
+    }
+
+    /**
+     * "Reported, not failed" (policy_notes): un articolo in più Percorsi
+     * è un fatto editoriale legittimo, mai un problema — deve restare
+     * fuori da open_problems_total, esattamente come già garantito per
+     * editorial_advisory nel test sopra.
+     */
+    public function test_an_article_in_multiple_paths_never_counts_as_an_open_problem(): void
+    {
+        $article = $this->article('doppio-percorso-non-problema-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $first = ContentCluster::create(['name' => 'Percorso Doppio Non Problema Uno', 'slug' => 'percorso-doppio-non-problema-uno', 'is_active' => true]);
+        $second = ContentCluster::create(['name' => 'Percorso Doppio Non Problema Due', 'slug' => 'percorso-doppio-non-problema-due', 'is_active' => true]);
+        $first->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        $second->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+        $orderHealth = $snapshot['percorsi_order_health'];
+
+        $this->assertNotEmpty($snapshot['articles_in_multiple_paths']);
+
+        // Stessa ricostruzione già usata altrove in questo file per
+        // provare che un termine non contribuisce alla somma: se
+        // articles_in_multiple_paths fosse (erroneamente) sommato,
+        // questa ricostruzione — che non lo include mai — non
+        // corrisponderebbe più al totale reale.
+        $expectedOpenProblems = count($snapshot['da_sistemare'])
+            + count($snapshot['contenuti_isolati'])
+            + count($snapshot['contenuti_senza_concept'])
+            + count($snapshot['programmati_non_assegnati'])
+            + count($snapshot['percorsi_readiness'])
+            + $orderHealth['structural_error_count']
+            + $orderHealth['publication_warning_count']
+            + count($snapshot['seo']['violations'])
+            + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
+            + count($snapshot['contenuti_da_aggiornare'])
+            + count($snapshot['percorsi_pillar_issues']);
+
+        $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
+    }
+
+    public function test_an_article_belonging_to_only_one_percorso_is_never_listed_as_belonging_to_multiple_paths(): void
+    {
+        $article = $this->article('singolo-percorso-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster = ContentCluster::create(['name' => 'Percorso Singolo', 'slug' => 'percorso-singolo', 'is_active' => true]);
+        $cluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['articles_in_multiple_paths'])->pluck('id')->contains($article->id));
+    }
+
+    /**
      * Mission 11 — Editorial Order Health V2. editorial_advisory findings
      * (e.g. dangling_transition) are never blocking by design
      * (PercorsoCoverageAuditService::editorialOrderHealth() docblock), so
