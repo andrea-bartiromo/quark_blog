@@ -69,47 +69,60 @@ class DeployAssetDriftReportCommandTest extends TestCase
     public function test_the_command_exits_successfully_when_configured_and_clean(): void
     {
         $servedRoot = $this->makeServedRoot();
-        config(['deploy.asset_drift_scan_paths' => ['probe.css']]);
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
 
-        file_put_contents(public_path('probe.css'), 'body{color:red}');
-        file_put_contents($servedRoot.'/probe.css', 'body{color:red}');
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:red}');
 
         try {
             $exitCode = Artisan::call('deploy:asset-drift');
             $this->assertSame(0, $exitCode);
         } finally {
-            @unlink(public_path('probe.css'));
+            @unlink(public_path($probe));
         }
     }
 
     public function test_the_command_fails_when_a_real_mismatch_exists(): void
     {
         $servedRoot = $this->makeServedRoot();
-        config(['deploy.asset_drift_scan_paths' => ['probe.css']]);
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
 
-        file_put_contents(public_path('probe.css'), 'body{color:red}');
-        file_put_contents($servedRoot.'/probe.css', 'body{color:blue}');
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:blue}');
 
         try {
             $exitCode = Artisan::call('deploy:asset-drift');
             $this->assertNotSame(0, $exitCode);
         } finally {
-            @unlink(public_path('probe.css'));
+            @unlink(public_path($probe));
         }
     }
 
     public function test_the_command_fails_when_a_release_file_never_reached_the_served_root(): void
     {
         $this->makeServedRoot();
-        config(['deploy.asset_drift_scan_paths' => ['probe.css']]);
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
 
-        file_put_contents(public_path('probe.css'), 'body{color:red}');
+        file_put_contents(public_path($probe), 'body{color:red}');
 
         try {
             $exitCode = Artisan::call('deploy:asset-drift');
             $this->assertNotSame(0, $exitCode);
         } finally {
-            @unlink(public_path('probe.css'));
+            @unlink(public_path($probe));
         }
+    }
+
+    /**
+     * Vedi PublicAssetDriftDetectorTest::probeFile() — stesso motivo: un
+     * nome univoco per test elimina l'unico rischio residuo di collisione
+     * su questo file scritto per design nel vero public_path() applicativo.
+     */
+    private function probeFile(): string
+    {
+        return 'probe-'.uniqid('', true).'.css';
     }
 }
