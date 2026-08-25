@@ -311,6 +311,38 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 36 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "metadata completeness" — SeoMetadataQualityAuditService
+     * calcola già canonical/duplicate-title/duplicate-description (Fase D,
+     * missioni precedenti), ma nessun test HTTP aveva mai provato che la
+     * riga di violazione comparisse davvero nella sezione "SEO" della
+     * pagina reale — solo il livello servizio era coperto.
+     */
+    public function test_editor_sees_a_seo_violation_row_rendered_in_the_seo_section(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo con canonical rotto dashboard',
+            'slug' => 'articolo-canonical-rotto-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+            'canonical_url' => 'not a valid url',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Articolo con canonical rotto dashboard');
+        $response->assertSee(route('admin.articles.edit', $article));
+        $response->assertSee('HIGH');
+    }
+
+    /**
      * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "publication gap dashboard" — il conteggio
      * dedicato deve comparire sulla pagina reale, non solo nello snapshot
