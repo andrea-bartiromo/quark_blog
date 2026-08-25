@@ -10,8 +10,15 @@ use Illuminate\Support\Collection;
  * Workflow editoriale leggero (Mission 6): nuova/vista/gestita/ignorata,
  * mai un punteggio o una raccomandazione automatica — solo uno stato che
  * la redazione assegna a mano. Non crea mai articoli, non modifica mai
- * copy SEO, non tocca mai EditorialRadarService (dominio della Radar
- * dell'altra corsia, non ancora su main).
+ * copy SEO.
+ *
+ * Missione 48/49 (secondo batch autonomo KAIRUS, Fase F — Search
+ * Intelligence): questo servizio è ora consultato anche da
+ * SearchConsoleOpportunityProvider (EditorialRadar), che a sua volta lo
+ * usa per non ripresentare per sempre un'opportunità già "gestita" o
+ * "ignorata" — l'isolamento da EditorialRadarService era solo temporaneo
+ * (quel servizio non era ancora su main quando questa classe è nata), non
+ * un vincolo architetturale permanente.
  */
 class SearchOpportunityStatusService
 {

@@ -4,8 +4,10 @@ namespace App\Services\EditorialRadar\Providers;
 
 use App\Models\Article;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchOpportunityStatus;
 use App\Services\SearchConsole\SearchOpportunity;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
+use App\Services\SearchConsole\SearchOpportunityStatusService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -15,11 +17,26 @@ use Illuminate\Support\Collection;
  * The Search Console service may use a numeric score internally to sort its
  * own list, but Radar deliberately exposes only discrete priority + the
  * provider's human-readable evidence. No opaque score crosses this boundary.
+ *
+ * Missione 48/49 (secondo batch autonomo KAIRUS, Fase F — Search
+ * Intelligence): SearchOpportunityStatusService era stato costruito prima
+ * che questo provider esistesse ("altra corsia, non ancora su main" —
+ * docblock originale del servizio), quindi restava deliberatamente isolato.
+ * Ora che entrambi sono su main, un'opportunità già "gestita" o "ignorata"
+ * dalla redazione (via /admin/search-opportunities) non deve continuare a
+ * ricomparire per sempre qui — mina il senso stesso del workflow di stato.
+ * "Vista" resta invece visibile: significa solo "notata", non "chiusa".
  */
 class SearchConsoleOpportunityProvider
 {
+    private const CLOSED_STATUSES = [
+        SearchOpportunityStatus::STATUS_ACTIONED,
+        SearchOpportunityStatus::STATUS_DISMISSED,
+    ];
+
     public function __construct(
         private readonly SearchOpportunityScoringService $scoring,
+        private readonly SearchOpportunityStatusService $statuses,
     ) {}
 
     /** @return Collection<int, array<string, mixed>> */
@@ -64,9 +81,12 @@ class SearchConsoleOpportunityProvider
                 ->pluck('id')
                 ->mapWithKeys(fn ($id) => [(int) $id => true]);
 
+        $statusByKey = $this->statuses->statusesFor($signals);
+
         return $signals
             ->reject(fn (SearchOpportunity $signal) => $signal->article !== null && ! $publicIds->has((int) $signal->article->id)
             )
+            ->reject(fn (SearchOpportunity $signal) => in_array($statusByKey[$signal->key] ?? SearchOpportunityStatus::STATUS_NEW, self::CLOSED_STATUSES, true))
             ->map(fn (SearchOpportunity $signal) => $this->normalize($signal))
             ->sortBy(fn (array $row) => [
                 match ($row['priority']) {
