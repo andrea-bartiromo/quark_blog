@@ -506,6 +506,37 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 54 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): PercorsoCoverageAuditService::audit() calcola già
+     * paths_with_non_publishable_members, ma nessuna vista lo mostrava
+     * mai.
+     */
+    public function test_editor_sees_a_percorso_with_a_non_publishable_member_rendered_on_the_page(): void
+    {
+        $editor = $this->editor();
+        $member = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Membro bozza dashboard HTTP',
+            'slug' => 'membro-bozza-dashboard-http',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_DRAFT,
+            'read_minutes' => 2,
+        ]);
+        $cluster = ContentCluster::create(['name' => 'Percorso Membro Bozza Dashboard HTTP', 'slug' => 'percorso-membro-bozza-dashboard-http', 'is_active' => true]);
+        $cluster->articles()->attach($member->id, ['position' => 10, 'is_primary' => true]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Percorsi con membri non pubblicabili');
+        $response->assertSee('Percorso Membro Bozza Dashboard HTTP');
+        $response->assertSee('Membro bozza dashboard HTTP');
+        $response->assertSee('Draft');
+    }
+
+    /**
      * Missione 53 (secondo batch autonomo KAIRUS, Fase F — Search
      * Intelligence): PercorsoCoverageAuditService::audit() calcola già
      * articles_in_multiple_paths, ma nessuna vista lo mostrava mai —

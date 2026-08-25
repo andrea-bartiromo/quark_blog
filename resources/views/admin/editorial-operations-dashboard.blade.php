@@ -291,6 +291,26 @@
   @endif
 </section>
 
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Percorsi con membri non pubblicabili</h2>
+  @if(empty($snapshot['percorsi_non_publishable_members']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun Percorso elenca un articolo ancora in bozza o revisione come membro.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+      @foreach($snapshot['percorsi_non_publishable_members'] as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+          <span style="color:#6b7280;"> —
+            @foreach($row['members'] as $member)
+              {{ $member['title'] }} ({{ ucfirst($member['status']) }}){{ ! $loop->last ? ', ' : '' }}
+            @endforeach
+          </span>
+        </li>
+      @endforeach
+    </ul>
+  @endif
+</section>
+
 @if($snapshot['articles_in_multiple_paths'] !== [])
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Contenuti in più Percorsi</h2>

@@ -649,6 +649,69 @@ class EditorialOperationsDashboardServiceTest extends TestCase
     }
 
     /**
+     * Missione 54 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): PercorsoCoverageAuditService::audit() calcola già
+     * paths_with_non_publishable_members (un Percorso che elenca come
+     * membro formale un articolo ancora in bozza/revisione), ma nessuna
+     * vista lo leggeva mai. A differenza di articles_in_multiple_paths
+     * (Missione 53), qui policy_notes non lo dichiara mai "reported, not
+     * failed" — CONTA in open_problems_total.
+     */
+    public function test_a_percorso_listing_a_draft_article_as_a_member_is_reported_with_a_non_publishable_member(): void
+    {
+        $member = $this->article('membro-bozza-test', Article::STATUS_DRAFT);
+        $cluster = ContentCluster::create(['name' => 'Percorso Membro Bozza', 'slug' => 'percorso-membro-bozza', 'is_active' => true]);
+        $cluster->articles()->attach($member->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $row = collect($snapshot['percorsi_non_publishable_members'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($row);
+        $this->assertSame($member->id, $row['members'][0]['id']);
+        $this->assertSame(Article::STATUS_DRAFT, $row['members'][0]['status']);
+    }
+
+    public function test_a_percorso_listing_only_published_members_is_never_reported_with_a_non_publishable_member(): void
+    {
+        $member = $this->article('membro-pubblicato-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster = ContentCluster::create(['name' => 'Percorso Membro Pubblicato', 'slug' => 'percorso-membro-pubblicato', 'is_active' => true]);
+        $cluster->articles()->attach($member->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertFalse(collect($snapshot['percorsi_non_publishable_members'])->pluck('cluster_id')->contains($cluster->id));
+    }
+
+    public function test_a_percorso_with_a_non_publishable_member_counts_toward_open_problems(): void
+    {
+        $member = $this->article('membro-bozza-problema-test', Article::STATUS_DRAFT);
+        ContentCluster::create(['name' => 'Percorso Membro Bozza Problema', 'slug' => 'percorso-membro-bozza-problema', 'is_active' => true])
+            ->articles()->attach($member->id, ['position' => 10, 'is_primary' => true]);
+
+        $snapshot = $this->service()->snapshot();
+        $orderHealth = $snapshot['percorsi_order_health'];
+
+        $this->assertNotEmpty($snapshot['percorsi_non_publishable_members']);
+
+        $expectedOpenProblems = count($snapshot['da_sistemare'])
+            + count($snapshot['contenuti_isolati'])
+            + count($snapshot['contenuti_senza_concept'])
+            + count($snapshot['programmati_non_assegnati'])
+            + count($snapshot['percorsi_readiness'])
+            + $orderHealth['structural_error_count']
+            + $orderHealth['publication_warning_count']
+            + count($snapshot['seo']['violations'])
+            + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
+            + count($snapshot['contenuti_da_aggiornare'])
+            + count($snapshot['percorsi_pillar_issues'])
+            + count($snapshot['percorsi_non_publishable_members']);
+
+        $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
+        $this->assertGreaterThan(0, $snapshot['salute_operativa']['open_problems_total']);
+    }
+
+    /**
      * Missione 53 (secondo batch autonomo KAIRUS, Fase F — Search
      * Intelligence): PercorsoCoverageAuditService::audit() calcola già
      * articles_in_multiple_paths (con path_count e l'elenco degli slug),
@@ -708,7 +771,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues']);
+            + count($snapshot['percorsi_pillar_issues'])
+            + count($snapshot['percorsi_non_publishable_members']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }
@@ -837,7 +901,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues']);
+            + count($snapshot['percorsi_pillar_issues'])
+            + count($snapshot['percorsi_non_publishable_members']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
@@ -874,7 +939,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + $overdueCount
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues']);
+            + count($snapshot['percorsi_pillar_issues'])
+            + count($snapshot['percorsi_non_publishable_members']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }
