@@ -10,6 +10,28 @@
 
 @section('head')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
+
+@php
+    $percorsiIndexUrl = route('percorsi.index');
+
+    $percorsiIndexStructuredData = [
+        '@context' => 'https://schema.org',
+        '@graph' => [
+            [
+                '@type' => 'CollectionPage',
+                '@id' => $percorsiIndexUrl.'#collectionpage',
+                'url' => $percorsiIndexUrl,
+                'name' => 'Percorsi',
+                'description' => 'Percorsi editoriali per esplorare i temi di Kairus in modo ordinato e progressivo.',
+                'isPartOf' => [
+                    '@id' => url('/').'/#website',
+                ],
+            ],
+        ],
+    ];
+@endphp
+
+<script type="application/ld+json">{!! json_encode($percorsiIndexStructuredData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}</script>
 @endsection
 
 @section('content')
