@@ -59,6 +59,7 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Operazioni editoriali');
         $response->assertSee('Nessun articolo programmato in attesa.');
+        $response->assertSee('Macchina editoriale sana — nessun problema aperto.');
     }
 
     public function test_editor_sees_a_scheduled_article_in_the_da_pubblicare_section(): void
@@ -81,6 +82,36 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Articolo programmato dashboard');
         $response->assertSee(route('admin.articles.edit', $article));
+    }
+
+    /**
+     * Missione 26 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): la sintesi "salute_operativa" deve
+     * effettivamente cambiare stato sulla pagina reale, non solo nel
+     * servizio in isolamento — un articolo senza excerpt è già lo stesso
+     * fixture minimale usato altrove per attivare un content-health
+     * WARNING (finding "summary").
+     */
+    public function test_editor_sees_da_rivedere_status_when_a_real_problem_exists(): void
+    {
+        $editor = $this->editor();
+        Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo senza sommario dashboard',
+            'slug' => 'articolo-senza-sommario-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => '',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertDontSee('Macchina editoriale sana — nessun problema aperto.');
+        $response->assertSee('da rivedere.', false);
     }
 
     /**
