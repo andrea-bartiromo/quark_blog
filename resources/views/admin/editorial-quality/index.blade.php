@@ -49,13 +49,24 @@
     <h2 style="font-size:1rem;margin:0 0 .75rem;">Problemi più frequenti</h2>
     <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.35rem;">
       @foreach(array_slice($summary->mostFrequentIssues, 0, 10) as $issue)
-        <li style="font-size:.85rem;display:flex;justify-content:space-between;gap:1rem;">
-          <span>{{ $issue['label'] }}</span>
-          <span style="color:var(--admin-muted);">{{ number_format($issue['count']) }}</span>
+        @php $isSelected = $selectedIssueCode === $issue['code']; @endphp
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.editorial-quality', array_filter(['stato' => $selectedStatus, 'problema' => $issue['code']])) }}"
+             style="display:flex;justify-content:space-between;gap:1rem;{{ $isSelected ? 'font-weight:700;color:#0d9488;' : '' }}">
+            <span>{{ $issue['label'] }}</span>
+            <span style="color:{{ $isSelected ? '#0d9488' : 'var(--admin-muted)' }};">{{ number_format($issue['count']) }}</span>
+          </a>
         </li>
       @endforeach
     </ul>
   </section>
+@endif
+
+@if($selectedIssueCode !== null)
+  <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;padding:.6rem 1rem;margin-bottom:1rem;font-size:.82rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+    <span>Filtrato per: <strong>{{ $selectedIssueLabel }}</strong></span>
+    <a href="{{ route('admin.editorial-quality', array_filter(['stato' => $selectedStatus])) }}" style="color:#0d9488;">Rimuovi filtro →</a>
+  </div>
 @endif
 
 @if($flagged->isEmpty())
@@ -72,6 +83,9 @@
           <th scope="col">Stato</th>
           <th scope="col">Livello</th>
           <th scope="col">Controlli superati</th>
+          @if($selectedIssueCode !== null)
+            <th scope="col">Motivo</th>
+          @endif
         </tr>
       </thead>
       <tbody>
@@ -80,12 +94,18 @@
             $article = $entry['article'];
             $report = $entry['report'];
             $levelColor = $report->level() === \App\Services\EditorialQuality\EditorialQualityReport::LEVEL_INCOMPLETE ? '#b91c1c' : '#b45309';
+            $matchedIssue = $selectedIssueCode === null
+              ? null
+              : collect($report->issues())->firstWhere('code', $selectedIssueCode);
           @endphp
           <tr>
             <td><a href="{{ route('admin.articles.edit', $article) }}">{{ $article->title }}</a></td>
             <td>{{ ucfirst($article->status) }}</td>
             <td><span style="color:{{ $levelColor }};font-weight:600;">{{ $report->levelLabel() }}</span></td>
             <td>{{ $report->passedCount() }}/{{ $report->applicableCount() }}</td>
+            @if($selectedIssueCode !== null)
+              <td style="color:var(--admin-muted);">{{ $matchedIssue?->message }}</td>
+            @endif
           </tr>
         @endforeach
       </tbody>

@@ -110,6 +110,41 @@ class EditorialQualityAuditControllerTest extends TestCase
             ->assertOk();
     }
 
+    /**
+     * Missione 44 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "quality drill-down". "Problemi più
+     * frequenti" mostrava solo un elenco statico label+conteggio — mai un
+     * modo di arrivare dagli articoli effettivi con quello specifico
+     * problema senza scorrere l'intera tabella a mano. Il filtro
+     * `problema` (stesso `code` machine-readable già calcolato da
+     * EditorialQualityAuditService::mostFrequentIssues(), mai una nuova
+     * classificazione) deve restringere la tabella a solo quegli
+     * articoli.
+     */
+    public function test_the_issue_filter_narrows_the_flagged_table_to_only_matching_articles(): void
+    {
+        $noCover = $this->article(['title' => 'Senza copertina', 'cover_image' => null]);
+        $noSources = $this->article(['title' => 'Senza fonti', 'primary_sources' => null]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.editorial-quality', ['problema' => 'cover_present']));
+
+        $response->assertOk();
+        $response->assertSee('Filtrato per:');
+        $response->assertSee($noCover->title);
+        $response->assertDontSee($noSources->title);
+    }
+
+    public function test_an_unknown_issue_code_is_ignored_rather_than_erroring(): void
+    {
+        $flagged = $this->article(['cover_image' => null]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.editorial-quality', ['problema' => 'non-un-codice-reale']));
+
+        $response->assertOk();
+        $response->assertDontSee('Filtrato per:');
+        $response->assertSee($flagged->title);
+    }
+
     public function test_the_page_performs_no_mutation_no_matter_how_many_times_it_is_viewed(): void
     {
         $editor = $this->editor();
