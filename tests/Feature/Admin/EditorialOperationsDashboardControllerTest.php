@@ -207,6 +207,45 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 40 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "publication gaps" a livello di sito — ritmo di
+     * pubblicazione, distinto dal "published_beyond_gap" per-Percorso già
+     * coperto altrove (Missione 21).
+     */
+    public function test_editor_sees_the_publication_cadence_card_in_its_never_published_state(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Ritmo di pubblicazione');
+        $response->assertSee('Mai pubblicato');
+    }
+
+    public function test_editor_sees_days_since_the_last_published_article(): void
+    {
+        $editor = $this->editor();
+        Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo cadenza dashboard',
+            'slug' => 'articolo-cadenza-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDays(3),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Ritmo di pubblicazione');
+        $response->assertSee('giorni dall\'ultima pubblicazione');
+    }
+
+    /**
      * Missione 30 (secondo batch autonomo KAIRUS, Fase D — Editorial
      * Operations Command Center): un articolo programmato con un warning
      * content-health aperto deve comparire come "non pronto" nella sezione
