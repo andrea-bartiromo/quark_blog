@@ -53,6 +53,35 @@ class InternalLinkAuditCommandTest extends TestCase
         $this->assertSame('missing', $report->rows[0]->outgoingLinks[0]['classification']);
     }
 
+    /**
+     * Missione 43 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "broken relationship safeguards". Ogni FK
+     * coinvolta nel Content Graph/Percorsi è già cascade/set-null in
+     * sicurezza (verificato missione per missione dalle migration), e
+     * eliminare un articolo non lascia mai una riga orfana in nessuna
+     * tabella. L'unico punto realmente scoperto era il caso di un link
+     * REALE già inserito nel body pubblicato di un altro articolo verso
+     * un articolo poi eliminato — mai testato esplicitamente prima
+     * d'ora (solo il caso "slug mai esistito" lo era). Stesso identico
+     * percorso di classificazione ('missing', nessun redirect creato
+     * alla cancellazione — Article::booted() non lo fa), ma vale la pena
+     * provarlo esplicitamente: è lo scenario editoriale reale
+     * ("elimino un vecchio articolo" è un'azione normale), non solo
+     * un caso limite sintattico.
+     */
+    public function test_a_link_to_an_article_that_was_since_deleted_is_classified_as_missing(): void
+    {
+        $target = $this->article(['slug' => 'articolo-da-eliminare']);
+        $source = $this->article(['body' => '<p>Vedi <a href="/articolo/articolo-da-eliminare">questo</a>.</p>']);
+
+        $target->delete();
+
+        $report = app(InternalLinkAuditService::class)->audit(articleId: $source->id);
+
+        $this->assertSame(1, $report->brokenLinks);
+        $this->assertSame('missing', $report->rows[0]->outgoingLinks[0]['classification']);
+    }
+
     public function test_a_link_to_a_draft_article_is_classified_as_unpublished(): void
     {
         $draftTarget = $this->article(['slug' => 'ancora-bozza', 'status' => Article::STATUS_DRAFT, 'published_at' => null]);

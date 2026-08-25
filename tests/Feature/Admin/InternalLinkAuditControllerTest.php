@@ -80,6 +80,31 @@ class InternalLinkAuditControllerTest extends TestCase
         $response->assertSee('isolato');
     }
 
+    /**
+     * Missione 43 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "broken relationship safeguards" — un link
+     * reale già presente nel body pubblicato di un articolo verso un
+     * articolo poi eliminato deve comparire davvero, come "link rotti",
+     * nella pagina reale — non solo nel report del servizio (già provato
+     * dal test di servizio equivalente in InternalLinkAuditCommandTest).
+     */
+    public function test_editor_sees_a_broken_link_row_after_the_target_article_is_deleted(): void
+    {
+        $target = $this->article(['title' => 'Articolo da eliminare dashboard', 'slug' => 'articolo-da-eliminare-dashboard']);
+        $source = $this->article([
+            'title' => 'Articolo con link rotto dashboard',
+            'body' => '<p><a href="/articolo/articolo-da-eliminare-dashboard">vedi</a></p>',
+        ]);
+        $target->delete();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.internal-link-audit'));
+
+        $response->assertOk();
+        $response->assertSee('Articolo con link rotto dashboard');
+        $response->assertSee(route('admin.articles.edit', $source));
+        $response->assertSee('1 link rotti');
+    }
+
     public function test_a_published_article_with_an_incoming_link_is_never_reported_as_isolated(): void
     {
         $target = $this->article(['title' => 'Articolo collegato dashboard', 'slug' => 'articolo-collegato-dashboard']);
