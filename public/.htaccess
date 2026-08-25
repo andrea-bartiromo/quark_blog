@@ -5,17 +5,19 @@
 
     RewriteEngine On
 
-    # Forza HTTPS: kairus.it deve avere un solo host canonico. Prima regola
-    # del file cosi' una richiesta http:// viene reindirizzata prima di
-    # qualunque altra riscrittura, preservando path e query string (nessun
-    # "?" nella sostituzione: mod_rewrite ricopia automaticamente la query
-    # string originale). %{HTTPS} riflette la connessione reale terminata
-    # da Apache (cPanel/AutoSSL, nessun reverse proxy davanti): nessun
-    # rischio di loop in questo setup. Se in futuro venisse introdotto un
-    # proxy/CDN che termina TLS a monte, questa condizione andra' sostituita
-    # con un controllo su X-Forwarded-Proto.
-    RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    # Canonicalizza protocollo e host pubblico in un solo redirect.
+    #
+    # Qualunque richiesta HTTP oppure diretta a www.kairus.it viene
+    # reindirizzata permanentemente all'host canonico https://kairus.it,
+    # preservando path e query string.
+    #
+    # %{HTTPS} riflette la connessione reale terminata da Apache
+    # (cPanel/AutoSSL, nessun reverse proxy davanti). Se in futuro venisse
+    # introdotto un proxy/CDN che termina TLS a monte, questa condizione
+    # andra' rivalutata insieme a X-Forwarded-Proto.
+    RewriteCond %{HTTPS} off [OR]
+    RewriteCond %{HTTP_HOST} ^www\.kairus\.it$ [NC]
+    RewriteRule ^ https://kairus.it%{REQUEST_URI} [L,R=301]
 
     # Blocca accesso a file .env e altri sensibili
     RewriteRule ^\.env$ - [F,L]
