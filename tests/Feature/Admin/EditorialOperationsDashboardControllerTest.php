@@ -203,6 +203,53 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 31 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "Percorsi operational health" — le
+     * sezioni "Percorsi non pronti" e "Sequenza Percorsi" esistono e sono
+     * testate a fondo a livello di servizio (vedi
+     * EditorialOperationsDashboardServiceTest), ma nessun test HTTP aveva
+     * mai provato che le loro liste per-Percorso (nome, stato, conteggi,
+     * codici) comparissero davvero sulla pagina reale — solo la frase del
+     * gap dentro "Sequenza Percorsi" era coperta (Missione 21). Stesso
+     * fixture "misto" già usato lato servizio, riusato qui per provare il
+     * rendering HTTP di entrambe le liste.
+     */
+    public function test_editor_sees_percorso_readiness_and_order_health_rows_rendered_on_the_page(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Misto Dashboard HTTP',
+            'slug' => 'percorso-misto-dashboard-http',
+            'is_active' => true,
+        ]);
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Membro percorso misto dashboard',
+            'slug' => 'membro-percorso-misto-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        DB::table('article_content_cluster')->insert([
+            'content_cluster_id' => $cluster->id,
+            'article_id' => $article->id,
+            'position' => 0,
+            'is_primary' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Percorso Misto Dashboard HTTP');
+        $response->assertSee('Segnalato anche in Sequenza Percorsi qui sotto');
+    }
+
+    /**
      * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "publication gap dashboard" — il conteggio
      * dedicato deve comparire sulla pagina reale, non solo nello snapshot
