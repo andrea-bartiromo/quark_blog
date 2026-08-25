@@ -137,4 +137,65 @@ class SearchConsoleCsvImporterTest extends TestCase
 
         $this->assertSame(0, $result->imported);
     }
+
+    public function test_it_imports_the_standard_italian_search_console_query_export(): void
+    {
+        $csv = implode("\n", [
+            'Query più frequenti,Clic,Impressioni,CTR,Posizione',
+            'kairus,1,43,2.33%,2.44',
+            'fotovoltaici organici,0,6,0%,43.67',
+            'robotica medicina,0,1,0%,1',
+        ]);
+
+        $path = tempnam(
+            sys_get_temp_dir(),
+            'search-console-query-'
+        );
+
+        file_put_contents($path, $csv);
+
+        try {
+            $result = app(
+                \App\Services\SearchConsole\SearchConsoleCsvImporter::class
+            )->import(
+                $path,
+                \Carbon\Carbon::parse('2026-07-28'),
+                \Carbon\Carbon::parse('2026-08-24')
+            );
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(3, $result->imported);
+        $this->assertSame(0, $result->matchedToArticle);
+        $this->assertSame(3, $result->unmatched);
+        $this->assertSame([], $result->errors);
+
+        $this->assertDatabaseHas(
+            'search_console_queries',
+            [
+                'query' => 'kairus',
+                'page_url' => '',
+                'clicks' => 1,
+                'impressions' => 43,
+            ]
+        );
+
+        $row = \App\Models\SearchConsoleQuery::query()
+            ->where('query', 'kairus')
+            ->firstOrFail();
+
+        $this->assertNull($row->article_id);
+        $this->assertEqualsWithDelta(
+            0.0233,
+            $row->ctr,
+            0.00001
+        );
+        $this->assertEqualsWithDelta(
+            2.44,
+            $row->position,
+            0.00001
+        );
+    }
+
 }

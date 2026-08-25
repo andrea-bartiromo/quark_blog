@@ -272,7 +272,17 @@ class SearchOpportunityScoringService
      */
     private function noStrongLandingPage(Collection $rows): Collection
     {
-        return $rows->groupBy('query')
+        /*
+         * Questa regola richiede necessariamente la dimensione pagina.
+         *
+         * L'export standard Query di Google Search Console non contiene
+         * page_url: quelle righe restano valide per CTR, posizione e trend,
+         * ma non possono dimostrare l'assenza di una landing page.
+         */
+        $rowsWithPageDimension = $rows
+            ->filter(fn (SearchConsoleQuery $row) => trim((string) $row->page_url) !== '');
+
+        return $rowsWithPageDimension->groupBy('query')
             ->map(function (Collection $queryRows, string $query) {
                 $totalImpressions = $queryRows->sum('impressions');
                 $hasArticle = $queryRows->contains(fn (SearchConsoleQuery $r) => $r->article_id !== null);

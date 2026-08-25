@@ -303,4 +303,38 @@ class SearchOpportunityScoringServiceTest extends TestCase
         $this->assertCount(1, $internal);
         $this->assertSame('query distinta', $internal->first()->query);
     }
+
+    public function test_query_only_export_does_not_claim_that_a_landing_page_is_missing(): void
+    {
+        \App\Models\SearchConsoleQuery::query()->create([
+            'query' => 'kairus',
+            'page_url' => '',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 43,
+            'ctr' => 0.0233,
+            'position' => 2.44,
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-08-24',
+            'import_batch' => (string) \Illuminate\Support\Str::uuid(),
+            'imported_at' => now(),
+        ]);
+
+        $opportunities = app(
+            \App\Services\SearchConsole\SearchOpportunityScoringService::class
+        )->forPeriod(
+            \Carbon\Carbon::parse('2026-05-25'),
+            \Carbon\Carbon::parse('2026-08-24')
+        );
+
+        $this->assertFalse(
+            $opportunities->contains(
+                fn ($opportunity) =>
+                    $opportunity->type
+                    === \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE
+                    && $opportunity->query === 'kairus'
+            )
+        );
+    }
+
 }
