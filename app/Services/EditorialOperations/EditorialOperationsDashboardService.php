@@ -163,14 +163,39 @@ class EditorialOperationsDashboardService
             ->values()
             ->all();
 
+        $seoViolations = $this->seoViolations($seo['articles'], $articlesById);
+        $overdueCount = collect($toPublish)->where('overdue', true)->count();
+        $openProblemsTotal = count($toFix)
+            + count($isolatedArticles)
+            + count($percorsiReadiness)
+            + $orderHealthSummary['structural_error_count']
+            + $orderHealthSummary['publication_warning_count']
+            + count($seoViolations)
+            + $overdueCount;
+
         return [
+            // Missione 26 (Fase D — Editorial Operations Command Center):
+            // "capire in pochi secondi se la macchina editoriale è sana."
+            // Nessuna nuova regola di dominio — solo una somma dei conteggi
+            // di problema già calcolati dalle sezioni sotto (mai i segnali
+            // editorial_advisory, già "mai bloccanti" per contratto — vedi
+            // orderHealthSummary()). Il contesto di catalogo (pubblicati,
+            // Percorsi attivi) usa le stesse scope già pubbliche
+            // (Article::published(), ContentCluster::publiclyVisible())
+            // riusate ovunque nel dominio, mai un nuovo conteggio.
+            'salute_operativa' => [
+                'status' => $openProblemsTotal === 0 ? 'SANA' : 'DA_RIVEDERE',
+                'open_problems_total' => $openProblemsTotal,
+                'published_articles_total' => Article::query()->published()->count(),
+                'active_percorsi_total' => ContentCluster::query()->publiclyVisible()->count(),
+            ],
             'da_pubblicare' => $toPublish,
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
             'seo' => [
                 'summary' => $seo['summary'],
                 'articles' => $seo['articles'],
-                'violations' => $this->seoViolations($seo['articles'], $articlesById),
+                'violations' => $seoViolations,
             ],
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,

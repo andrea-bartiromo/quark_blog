@@ -54,6 +54,10 @@ class EditorialOperationsDashboardServiceTest extends TestCase
     {
         $snapshot = $this->service()->snapshot();
 
+        $this->assertSame('SANA', $snapshot['salute_operativa']['status']);
+        $this->assertSame(0, $snapshot['salute_operativa']['open_problems_total']);
+        $this->assertSame(0, $snapshot['salute_operativa']['published_articles_total']);
+        $this->assertSame(0, $snapshot['salute_operativa']['active_percorsi_total']);
         $this->assertSame([], $snapshot['da_pubblicare']);
         $this->assertSame([], $snapshot['da_sistemare']);
         $this->assertSame([], $snapshot['contenuti_isolati']);
@@ -337,6 +341,108 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertFalse(collect($snapshot['percorsi_order_health']['clusters_with_issues'])->pluck('cluster_id')->contains($cluster->id));
         $this->assertTrue(collect($snapshot['percorsi_order_health']['clusters_with_advisories_only'])->pluck('cluster_id')->contains($cluster->id));
         $this->assertGreaterThan(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
+    }
+
+    // ── Mission 26 (secondo batch autonomo KAIRUS, Fase D — Editorial
+    // Operations Command Center): "salute_operativa" — sintesi in un
+    // colpo d'occhio, mai una nuova regola di dominio. ───────────────────
+
+    public function test_a_content_health_problem_and_isolated_article_count_toward_open_problems(): void
+    {
+        // article() (helper qui sotto) crea un pubblicato senza excerpt
+        // (content health WARNING -> da_sistemare) e senza alcuna
+        // membership Percorso (-> contenuti_isolati): un solo articolo,
+        // due problemi distinti, entrambi già calcolati altrove.
+        $this->article('salute-operativa-doppio-problema', Article::STATUS_PUBLISHED, now()->subDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame('DA_RIVEDERE', $snapshot['salute_operativa']['status']);
+        $this->assertGreaterThanOrEqual(2, $snapshot['salute_operativa']['open_problems_total']);
+        $this->assertSame(1, $snapshot['salute_operativa']['published_articles_total']);
+    }
+
+    /**
+     * Un editorial_advisory (mai bloccante per contratto, vedi il test
+     * sopra) non deve mai contribuire al conteggio di "problemi aperti" —
+     * altrimenti la sintesi di alto livello contraddirebbe la sezione di
+     * dettaglio che lo elenca esplicitamente come "informativo, non
+     * bloccante". Ricalcola l'attesa dagli stessi conteggi già esposti
+     * (mai structural_error_count/publication_warning_count sommati con
+     * editorial_advisory_count) invece di pretendere un fixture "pulito"
+     * su ogni altro controllo di content health, che qui non è lo scopo
+     * del test.
+     */
+    public function test_an_editorial_advisory_only_percorso_never_counts_as_an_open_problem(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Solo Advisory Salute',
+            'slug' => 'percorso-solo-advisory-salute',
+            'is_active' => true,
+            'short_description' => 'Breve.',
+            'description' => 'Descrizione completa.',
+            'seo_title' => 'SEO title',
+            'seo_description' => 'SEO description.',
+            'cover_image' => 'cover.jpg',
+            'takeaways' => 'Takeaway.',
+            'guiding_questions' => 'Domanda?',
+            'closing_text' => 'Chiusura.',
+            'curator_note' => 'Nota.',
+        ]);
+        $first = $this->article('percorso-advisory-salute-primo', Article::STATUS_PUBLISHED, now()->subDays(2));
+        $last = $this->article('percorso-advisory-salute-ultimo', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster->articles()->attach($first->id, ['position' => 10, 'is_primary' => true, 'transition_text' => 'Passo successivo.']);
+        $cluster->articles()->attach($last->id, ['position' => 20, 'is_primary' => true, 'transition_text' => 'Testo rimasto appeso.']);
+        $cluster->update(['pillar_article_id' => $first->id]);
+
+        $snapshot = $this->service()->snapshot();
+        $orderHealth = $snapshot['percorsi_order_health'];
+
+        $this->assertGreaterThan(0, $orderHealth['editorial_advisory_count']);
+        $this->assertSame(0, $orderHealth['structural_error_count']);
+        $this->assertSame(0, $orderHealth['publication_warning_count']);
+
+        $expectedOpenProblems = count($snapshot['da_sistemare'])
+            + count($snapshot['contenuti_isolati'])
+            + count($snapshot['percorsi_readiness'])
+            + $orderHealth['structural_error_count']
+            + $orderHealth['publication_warning_count']
+            + count($snapshot['seo']['violations'])
+            + collect($snapshot['da_pubblicare'])->where('overdue', true)->count();
+
+        $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
+        $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
+    }
+
+    /**
+     * Solo il flag 'overdue' (già provato da
+     * test_a_scheduled_article_with_a_past_published_at_is_flagged_overdue)
+     * deve contribuire il termine "in ritardo" alla somma — un articolo
+     * programmato nel futuro non aggiunge quel termine, anche se genera
+     * comunque un proprio warning content health (già conteggiato altrove
+     * nella formula, non lo scopo di questo test).
+     */
+    public function test_only_the_overdue_scheduled_article_contributes_the_overdue_term(): void
+    {
+        $this->article('salute-operativa-in-ritardo', Article::STATUS_SCHEDULED, now()->subHour());
+        $this->article('salute-operativa-futuro', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+        $orderHealth = $snapshot['percorsi_order_health'];
+        $overdueCount = collect($snapshot['da_pubblicare'])->where('overdue', true)->count();
+
+        $this->assertSame(1, $overdueCount);
+        $this->assertSame('DA_RIVEDERE', $snapshot['salute_operativa']['status']);
+
+        $expectedOpenProblems = count($snapshot['da_sistemare'])
+            + count($snapshot['contenuti_isolati'])
+            + count($snapshot['percorsi_readiness'])
+            + $orderHealth['structural_error_count']
+            + $orderHealth['publication_warning_count']
+            + count($snapshot['seo']['violations'])
+            + $overdueCount;
+
+        $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }
 
     // ── Mission 37 — Dashboard Priority Model V2 ─────────────────────────

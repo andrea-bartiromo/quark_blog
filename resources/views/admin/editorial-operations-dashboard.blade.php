@@ -12,6 +12,23 @@
   automatica). Ogni card rimanda allo strumento giusto per intervenire.
 </p>
 
+@php
+  $health = $snapshot['salute_operativa'];
+@endphp
+<div style="display:flex;align-items:center;gap:.85rem;padding:.85rem 1.1rem;border-radius:var(--radius);margin-bottom:1.25rem;background:{{ $health['status'] === 'SANA' ? '#ecfdf5' : '#fffbeb' }};border:1px solid {{ $health['status'] === 'SANA' ? '#a7f3d0' : '#fde68a' }};">
+  <span aria-hidden="true" style="font-size:1.4rem;">{{ $health['status'] === 'SANA' ? '✅' : '⚠️' }}</span>
+  <div>
+    <strong style="color:{{ $health['status'] === 'SANA' ? '#065f46' : '#92400e' }};">
+      @if($health['status'] === 'SANA')
+        Macchina editoriale sana — nessun problema aperto.
+      @else
+        {{ $health['open_problems_total'] }} {{ $health['open_problems_total'] === 1 ? 'problema aperto' : 'problemi aperti' }} da rivedere.
+      @endif
+    </strong>
+    <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">{{ $health['published_articles_total'] }} {{ $health['published_articles_total'] === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }} · {{ $health['active_percorsi_total'] }} {{ $health['active_percorsi_total'] === 1 ? 'Percorso attivo' : 'Percorsi attivi' }} ora.</div>
+  </div>
+</div>
+
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
