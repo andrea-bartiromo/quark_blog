@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
+use App\Http\Controllers\Admin\ConceptController;
+use App\Http\Controllers\Admin\ConceptQuestionController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\Communication\CommunicationCampaignController;
 use App\Http\Controllers\Admin\Communication\CommunicationDashboardController;
@@ -146,6 +148,20 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     Route::post('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'linkConcept'])->name('articles.concepts.link');
     Route::delete('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'unlinkConcept'])->name('articles.concepts.unlink');
+
+    // Content Graph — Concetti
+    Route::get('/concetti', [ConceptController::class, 'index'])->name('concepts.index');
+    Route::get('/concetti/nuovo', [ConceptController::class, 'create'])->name('concepts.create');
+    Route::post('/concetti', [ConceptController::class, 'store'])->name('concepts.store');
+    Route::get('/concetti/{concept}/modifica', [ConceptController::class, 'edit'])->name('concepts.edit');
+    Route::put('/concetti/{concept}', [ConceptController::class, 'update'])->name('concepts.update');
+    Route::post('/concetti/{concept}/unisci/{duplicate}', [ConceptController::class, 'merge'])->name('concepts.merge');
+
+    Route::post('/concetti/{concept}/articoli/{article}', [ConceptController::class, 'linkArticle'])->name('concepts.articles.link');
+    Route::delete('/concetti/{concept}/articoli/{article}', [ConceptController::class, 'unlinkArticle'])->name('concepts.articles.unlink');
+
+    Route::post('/concetti/{concept}/domande', [ConceptQuestionController::class, 'store'])->name('concepts.questions.store');
+    Route::put('/concetti/{concept}/domande/{question}', [ConceptQuestionController::class, 'update'])->name('concepts.questions.update');
 
     // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
     Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');
