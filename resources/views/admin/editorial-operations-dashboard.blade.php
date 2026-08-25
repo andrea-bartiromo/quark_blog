@@ -53,6 +53,12 @@
   </div>
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Content Graph</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ $snapshot['content_graph']['articles']['coverage_percent'] }}%</div>
+    <a href="{{ route('admin.concepts.index') }}" style="font-size:.78rem;color:#0d9488;">Pubblicati con Concept — Concetti →</a>
+  </div>
+
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
     <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Percorsi non pronti</div>
     <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['percorsi_readiness']) }}</div>
     <a href="{{ route('admin.content-clusters.index') }}" style="font-size:.78rem;color:#0d9488;">Percorsi →</a>

@@ -146,6 +146,23 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 32 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): la card "Content Graph" deve comparire
+     * sulla pagina reale con un link funzionante verso /admin/concetti,
+     * non solo nello snapshot del servizio.
+     */
+    public function test_editor_sees_the_content_graph_card_linking_to_concepts(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Content Graph');
+        $response->assertSee(route('admin.concepts.index'));
+    }
+
+    /**
      * Missione 30 (secondo batch autonomo KAIRUS, Fase D — Editorial
      * Operations Command Center): un articolo programmato con un warning
      * content-health aperto deve comparire come "non pronto" nella sezione
