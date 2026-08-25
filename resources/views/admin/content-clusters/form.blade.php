@@ -226,6 +226,37 @@
     </section>
   @endif
 
+  @if($selected->isNotEmpty())
+    <section class="admin-card" style="max-width:820px;margin-top:1.25rem;" aria-labelledby="narrative-preview-title">
+      <h2 id="narrative-preview-title" style="font-size:1rem;">Anteprima narrativa</h2>
+      <p><small>La sequenza così come la leggerebbe un lettore: titolo, poi il raccordo editoriale verso la tappa successiva. Missione 17 — un raccordo mancante è qui evidenziato, non semplicemente omesso come sulla pagina pubblica.</small></p>
+      <ol style="list-style:none;padding:0;margin:.85rem 0 0;display:flex;flex-direction:column;">
+        @foreach($selected as $article)
+          @php
+            $isLast = $loop->last;
+            $transitionText = $article->pivot?->transition_text;
+            $isMissingTransition = ! $isLast && in_array($article->id, $missingTransitionArticleIds ?? []);
+          @endphp
+          <li>
+            <div style="display:flex;align-items:baseline;gap:.5rem;">
+              <span style="font-size:.68rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;min-width:2.5rem;">#{{ $loop->iteration }}</span>
+              <span style="font-weight:600;">{{ $article->title }}</span>
+            </div>
+            @if(! $isLast)
+              <div style="margin:.4rem 0 .4rem 2.5rem;padding-left:.75rem;border-left:2px solid {{ $isMissingTransition ? '#b45309' : '#d1d5db' }};">
+                @if($transitionText)
+                  <p style="margin:0;font-size:.82rem;color:#374151;font-style:italic;"><span aria-hidden="true">↳</span> {{ $transitionText }}</p>
+                @else
+                  <p style="margin:0;font-size:.82rem;color:#b45309;">⚠ Raccordo mancante verso la tappa successiva.</p>
+                @endif
+              </div>
+            @endif
+          </li>
+        @endforeach
+      </ol>
+    </section>
+  @endif
+
   <section class="admin-card" style="max-width:1100px;margin-top:1.25rem;" aria-labelledby="selected-memberships-title">
     <h2 id="selected-memberships-title">Membership selezionate</h2>
     <p>Questa form invia soltanto le membership del Percorso corrente. La dimensione della request non dipende dal catalogo totale.</p>
