@@ -86,7 +86,7 @@ class SearchConsoleCsvImporter
         }
 
         try {
-            $header = fgetcsv($handle);
+            $header = fgetcsv($handle, null, ',', '"', '');
 
             if ($header === false) {
                 return new SearchConsoleImportResult(
@@ -124,7 +124,7 @@ class SearchConsoleCsvImporter
             $matched = 0;
             $lineNumber = 1;
 
-            while (($record = fgetcsv($handle)) !== false) {
+            while (($record = fgetcsv($handle, null, ',', '"', '')) !== false) {
                 $lineNumber++;
 
                 if (count($rows) >= self::MAX_ROWS) {
