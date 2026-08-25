@@ -37,6 +37,9 @@
     @if($snapshot['pubblicazione_readiness']['not_ready_count'] > 0)
       <span style="font-size:.78rem;color:#b45309;">{{ $snapshot['pubblicazione_readiness']['not_ready_count'] }} non {{ $snapshot['pubblicazione_readiness']['not_ready_count'] === 1 ? 'pronto' : 'pronti' }}</span> ·
     @endif
+    @if($snapshot['pubblicazione_readiness']['collision_count'] > 0)
+      <span style="font-size:.78rem;color:#b91c1c;font-weight:600;">{{ $snapshot['pubblicazione_readiness']['collision_count'] }} stesso orario</span> ·
+    @endif
     <a href="{{ route('admin.articles.calendar') }}" style="font-size:.78rem;color:#0d9488;">Calendario articoli →</a>
   </div>
 
@@ -124,6 +127,9 @@
           <span style="color:#6b7280;"> — {{ \Illuminate\Support\Carbon::parse($row['published_at'])->timezone('Europe/Rome')->translatedFormat('d M Y, H:i') }}</span>
           @if($row['overdue'])
             <span style="color:#b91c1c;font-weight:600;"> · in ritardo</span>
+          @endif
+          @if($row['collision'])
+            <span style="color:#b91c1c;font-weight:600;"> · stesso orario di un altro articolo</span>
           @endif
           @unless($row['ready'])
             <span style="color:#b45309;font-weight:600;"> · non pronto</span>

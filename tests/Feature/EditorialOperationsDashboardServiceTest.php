@@ -635,7 +635,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']
             + count($snapshot['seo']['violations'])
-            + collect($snapshot['da_pubblicare'])->where('overdue', true)->count();
+            + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count();
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
@@ -669,9 +670,44 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + $orderHealth['structural_error_count']
             + $orderHealth['publication_warning_count']
             + count($snapshot['seo']['violations'])
-            + $overdueCount;
+            + $overdueCount
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count();
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
+    }
+
+    /**
+     * Missione 39 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "scheduled publication collision detection" —
+     * il form di pianificazione non impedisce a due articoli di ricevere
+     * lo stesso istante esatto; PublishScheduledArticles li pubblicherebbe
+     * entrambi nella stessa run in un ordine deciso solo dall'id, non da
+     * una scelta editoriale.
+     */
+    public function test_two_scheduled_articles_sharing_the_same_instant_are_both_flagged_as_collisions(): void
+    {
+        $instant = now()->addDay()->setTime(9, 0, 0);
+        $first = $this->article('mission39-collision-first', Article::STATUS_SCHEDULED, $instant);
+        $second = $this->article('mission39-collision-second', Article::STATUS_SCHEDULED, $instant);
+        $unrelated = $this->article('mission39-no-collision', Article::STATUS_SCHEDULED, now()->addDays(2));
+
+        $snapshot = $this->service()->snapshot();
+        $rows = collect($snapshot['da_pubblicare'])->keyBy('article_id');
+
+        $this->assertTrue($rows->get($first->id)['collision']);
+        $this->assertTrue($rows->get($second->id)['collision']);
+        $this->assertFalse($rows->get($unrelated->id)['collision']);
+        $this->assertSame(2, $snapshot['pubblicazione_readiness']['collision_count']);
+    }
+
+    public function test_a_lone_scheduled_article_at_a_unique_instant_is_never_flagged_as_a_collision(): void
+    {
+        $this->article('mission39-lone-scheduled', Article::STATUS_SCHEDULED, now()->addDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(0, $snapshot['pubblicazione_readiness']['collision_count']);
+        $this->assertFalse(collect($snapshot['da_pubblicare'])->first()['collision']);
     }
 
     // ── Mission 37 — Dashboard Priority Model V2 ─────────────────────────

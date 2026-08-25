@@ -73,19 +73,34 @@ class EditorialOperationsDashboardService
             ->orderBy('id')
             ->get();
 
+        $scheduledArticles = $articles->where('status', Article::STATUS_SCHEDULED);
+
+        // Missione 39 (Fase E — Editorial Quality & Readiness): il form di
+        // pianificazione (data + ora, senza secondi) non impedisce a due
+        // articoli di ricevere lo stesso istante — PublishScheduledArticles
+        // li pubblicherebbe entrambi nella stessa run, in un ordine deciso
+        // solo dall'id, non da una scelta editoriale. countBy() sullo
+        // stesso istante ISO riusa la stessa lista già caricata sopra,
+        // nessuna nuova query.
+        $scheduledInstantCounts = $scheduledArticles
+            ->map(fn (Article $article) => $article->published_at?->toISOString())
+            ->filter()
+            ->countBy();
+
         // Mission 37: già ordinati per published_at asc dalla query sopra,
         // quindi un articolo "in ritardo" (published_at nel passato ma lo
         // scheduler non lo ha ancora pubblicato) è già in cima per
         // costruzione — 'overdue' rende visibile IL PERCHÉ, non cambia
         // l'ordine.
-        $toPublish = $articles
-            ->where('status', Article::STATUS_SCHEDULED)
+        $toPublish = $scheduledArticles
             ->map(fn (Article $article) => [
                 'article_id' => $article->id,
                 'title' => $article->title,
                 'slug' => $article->slug,
                 'published_at' => $article->published_at?->toISOString(),
                 'overdue' => $article->published_at !== null && $article->published_at->isPast(),
+                'collision' => $article->published_at !== null
+                    && ($scheduledInstantCounts[$article->published_at->toISOString()] ?? 0) > 1,
             ])->values()->all();
 
         $toFix = $articles->map(function (Article $article): ?array {
@@ -227,6 +242,7 @@ class EditorialOperationsDashboardService
 
         $seoViolations = $this->seoViolations($seo['articles'], $articlesById);
         $overdueCount = collect($toPublish)->where('overdue', true)->count();
+        $collisionCount = collect($toPublish)->where('collision', true)->count();
         $openProblemsTotal = count($toFix)
             + count($isolatedArticles)
             + count($articlesWithoutConcept)
@@ -235,7 +251,8 @@ class EditorialOperationsDashboardService
             + $orderHealthSummary['structural_error_count']
             + $orderHealthSummary['publication_warning_count']
             + count($seoViolations)
-            + $overdueCount;
+            + $overdueCount
+            + $collisionCount;
 
         return [
             // Missione 26 (Fase D — Editorial Operations Command Center):
@@ -258,6 +275,7 @@ class EditorialOperationsDashboardService
                 'total' => count($toPublish),
                 'ready_count' => $readyToPublishCount,
                 'not_ready_count' => count($toPublish) - $readyToPublishCount,
+                'collision_count' => $collisionCount,
             ],
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,

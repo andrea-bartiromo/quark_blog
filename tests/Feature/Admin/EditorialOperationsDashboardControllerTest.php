@@ -235,6 +235,50 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 39 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "scheduled publication collision detection" —
+     * il form di pianificazione (data + ora, senza secondi) non impedisce
+     * a due articoli di ricevere lo stesso istante esatto. Questo test
+     * prova che l'avviso compaia davvero sulla pagina reale, sia nella
+     * lista "Da pubblicare" sia nella KPI card in cima.
+     */
+    public function test_editor_sees_a_scheduling_collision_warning_when_two_articles_share_the_same_instant(): void
+    {
+        $editor = $this->editor();
+        $instant = now()->addDay()->setTime(9, 0, 0);
+        $first = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Primo articolo stesso orario dashboard',
+            'slug' => 'primo-stesso-orario-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => '',
+            'category' => 'fisica',
+            'status' => Article::STATUS_SCHEDULED,
+            'read_minutes' => 2,
+            'published_at' => $instant,
+        ]);
+        Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Secondo articolo stesso orario dashboard',
+            'slug' => 'secondo-stesso-orario-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => '',
+            'category' => 'fisica',
+            'status' => Article::STATUS_SCHEDULED,
+            'read_minutes' => 2,
+            'published_at' => $instant,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Primo articolo stesso orario dashboard');
+        $response->assertSee(route('admin.articles.edit', $first));
+        $response->assertSee('stesso orario di un altro articolo');
+        $response->assertSee('2 stesso orario', false);
+    }
+
+    /**
      * Missione 29 (secondo batch autonomo KAIRUS, Fase D — Editorial
      * Operations Command Center): un articolo programmato senza alcun
      * collegamento a un Percorso deve comparire nella sezione dedicata
