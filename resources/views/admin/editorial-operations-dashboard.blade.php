@@ -152,7 +152,7 @@
     $gapClusterCount = $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count'];
   @endphp
   @if($gapArticleCount > 0)
-    <p style="font-size:.82rem;color:#b91c1c;margin:0 0 .75rem;font-weight:600;">{{ $gapArticleCount }} {{ Str::plural('articolo pubblicato', $gapArticleCount) }} {{ $gapArticleCount === 1 ? 'resta' : 'restano' }} invisibile in {{ $gapClusterCount }} {{ Str::plural('Percorso', $gapClusterCount) }}, bloccato dietro un gap nel prefisso pubblico.</p>
+    <p style="font-size:.82rem;color:#b91c1c;margin:0 0 .75rem;font-weight:600;">{{ $gapArticleCount }} {{ $gapArticleCount === 1 ? 'articolo pubblicato resta invisibile' : 'articoli pubblicati restano invisibili' }} in {{ $gapClusterCount }} {{ $gapClusterCount === 1 ? 'Percorso, bloccato' : 'Percorsi, bloccati' }} dietro un gap nel prefisso pubblico.</p>
   @endif
   @if(empty($snapshot['percorsi_order_health']['clusters_with_issues']))
     <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessuna anomalia di sequenza o posizione rilevata.</p>

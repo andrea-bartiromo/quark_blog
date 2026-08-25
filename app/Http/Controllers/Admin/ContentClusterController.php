@@ -13,6 +13,7 @@ use App\Services\ContentClusters\PercorsiAutomationObservability;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPrefixForecastService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
+use App\Services\ContentClusters\PercorsoSubscriberNotificationReadinessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class ContentClusterController extends Controller
         private readonly PercorsoCoverageAuditService $coverageAudit,
         private readonly PercorsiActivationCalendarService $activationCalendar,
         private readonly PercorsoPrefixForecastService $prefixForecast,
+        private readonly PercorsoSubscriberNotificationReadinessService $subscriberReadiness,
     ) {}
 
     public function index()
@@ -150,6 +152,7 @@ class ContentClusterController extends Controller
             'orderHealthFlagsByArticleId' => $this->orderHealthFlagsByArticleId($orderHealth, $contentCluster),
             'completeWithHiddenRemainder' => $orderHealth['complete_with_hidden_remainder'],
             'prefixForecast' => $this->prefixForecast->forecast($contentCluster),
+            'subscriberReadiness' => $this->subscriberReadiness->summary($contentCluster),
         ]);
     }
 

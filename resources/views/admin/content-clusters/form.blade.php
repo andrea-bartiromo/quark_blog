@@ -273,6 +273,23 @@
     </section>
   @endif
 
+  <section class="admin-card" style="max-width:820px;margin-top:1.25rem;" aria-labelledby="subscriber-readiness-title">
+    <h2 id="subscriber-readiness-title" style="font-size:1rem;">Notifiche "Avvisami quando continua"</h2>
+    @if(! $subscriberReadiness['notifications_would_fire'])
+      <p style="font-size:.82rem;color:#6b7280;margin:0;">Questo Percorso non invierà notifiche alla prossima pubblicazione (concluso o inattivo), anche con abbonati confermati.</p>
+      @if($subscriberReadiness['eligible_now'] > 0)
+        <p style="font-size:.82rem;color:#6b7280;margin:.4rem 0 0;">{{ $subscriberReadiness['eligible_now'] }} {{ $subscriberReadiness['eligible_now'] === 1 ? 'abbonato confermato resterebbe' : 'abbonati confermati resterebbero' }} in attesa.</p>
+      @endif
+    @elseif($subscriberReadiness['active_subscriptions'] === 0)
+      <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun abbonato iscritto a questo Percorso.</p>
+    @else
+      <p style="font-size:.82rem;color:#374151;margin:0;">{{ $subscriberReadiness['eligible_now'] }} su {{ $subscriberReadiness['active_subscriptions'] }} {{ $subscriberReadiness['active_subscriptions'] === 1 ? 'abbonato iscritto riceverebbe' : 'abbonati iscritti riceverebbero' }} davvero la prossima notifica.</p>
+      @if($subscriberReadiness['not_eligible_now'] > 0)
+        <p style="font-size:.82rem;color:#b45309;margin:.4rem 0 0;">{{ $subscriberReadiness['not_eligible_now'] }} non {{ $subscriberReadiness['not_eligible_now'] === 1 ? 'è' : 'sono' }} ancora confermato o non {{ $subscriberReadiness['not_eligible_now'] === 1 ? 'è' : 'sono' }} più raggiungibile.</p>
+      @endif
+    @endif
+  </section>
+
   <section class="admin-card" style="max-width:1100px;margin-top:1.25rem;" aria-labelledby="selected-memberships-title">
     <h2 id="selected-memberships-title">Membership selezionate</h2>
     <p>Questa form invia soltanto le membership del Percorso corrente. La dimensione della request non dipende dal catalogo totale.</p>
