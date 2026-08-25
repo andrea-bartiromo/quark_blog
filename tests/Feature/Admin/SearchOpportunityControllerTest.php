@@ -4,9 +4,12 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchOpportunityStatus;
 use App\Models\SearchZeroResultQuery;
 use App\Models\User;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
+use App\Services\SearchConsole\SearchOpportunityStatusService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -126,6 +129,70 @@ class SearchOpportunityControllerTest extends TestCase
     public function test_an_unknown_type_filter_is_ignored_silently(): void
     {
         $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities', ['tipo' => 'tipo-inventato']));
+
+        $response->assertOk();
+    }
+
+    /**
+     * Missione 46 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): "opportunity lifecycle filter" — lo stato è già
+     * impostabile per riga (updateStatus()) e già mostrato, ma nessun
+     * filtro esisteva mai per nasconderlo dall'elenco. Stesso identico
+     * pattern del filtro `tipo` già testato sopra.
+     */
+    public function test_index_can_be_filtered_by_status(): void
+    {
+        $editor = $this->editor();
+
+        // Collegata a un articolo esistente: evita che la stessa riga generi
+        // *anche* un'opportunità no_strong_landing_page (stesso testo di
+        // query, key diversa), che renderebbe ambiguo l'assertSee/assertDontSee
+        // sotto basato sul solo testo della query.
+        $author = User::factory()->create(['role' => 'author']);
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo per query con stato gestito',
+            'slug' => 'articolo-per-query-con-stato-gestito',
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+        ]);
+
+        SearchConsoleQuery::create([
+            'query' => 'query con stato gestito',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => $article->id,
+            'clicks' => 1,
+            'impressions' => 200,
+            'ctr' => 0.001,
+            'position' => 25,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'batch-status-filter',
+            'imported_at' => now(),
+        ]);
+
+        $opportunity = app(SearchOpportunityScoringService::class)
+            ->forPeriod(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-07'), null, null)
+            ->first();
+
+        app(SearchOpportunityStatusService::class)
+            ->setStatus($opportunity->key, SearchOpportunityStatus::STATUS_ACTIONED, $editor);
+
+        $actionedResponse = $this->actingAs($editor)->get(route('admin.search-opportunities', ['stato' => 'actioned']));
+        $actionedResponse->assertOk();
+        $actionedResponse->assertSee('query con stato gestito');
+
+        $newResponse = $this->actingAs($editor)->get(route('admin.search-opportunities', ['stato' => 'new']));
+        $newResponse->assertOk();
+        $newResponse->assertDontSee('query con stato gestito');
+        $newResponse->assertSee('Nessuna opportunità trovata');
+    }
+
+    public function test_an_unknown_status_filter_is_ignored_silently(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities', ['stato' => 'stato-inventato']));
 
         $response->assertOk();
     }

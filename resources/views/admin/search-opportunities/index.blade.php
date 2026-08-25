@@ -77,12 +77,21 @@
         @endforeach
       </select>
     </div>
+    <div class="articles-toolbar__field">
+      <label class="form-label" for="stato">Stato</label>
+      <select id="stato" name="stato" class="form-select" onchange="this.form.submit()">
+        <option value="">Tutti gli stati</option>
+        @foreach($statusOptions as $value => $label)
+          <option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>
+        @endforeach
+      </select>
+    </div>
   </form>
 
   @if($opportunities->isEmpty())
     <div class="articles-empty-state">
       <p class="articles-empty-state__icon" aria-hidden="true">✅</p>
-      <p>Nessuna opportunità trovata{{ $selectedType ? ' per questo tipo' : '' }} in questo periodo.</p>
+      <p>Nessuna opportunità trovata{{ $selectedType ? ' per questo tipo' : '' }}{{ $selectedStatus ? ' con questo stato' : '' }} in questo periodo.</p>
     </div>
   @else
     <div style="overflow-x:auto;">
