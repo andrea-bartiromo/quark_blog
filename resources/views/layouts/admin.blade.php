@@ -278,6 +278,13 @@
     </div>
     @endif
 
+    @if(session('warning'))
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;
+                padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:#92400e;">
+      ⚠️ {{ session('warning') }}
+    </div>
+    @endif
+
     @yield('content')
 
   </main>

@@ -327,6 +327,67 @@ class ContentClusterAdminTest extends TestCase
         $response->assertOk()->assertDontSee('Percorso completo con nuove tappe non pubbliche');
     }
 
+    /**
+     * Missione 16 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "unique position validation". Non un rifiuto
+     * hard — ContentClusterMembershipService::sync() risolve già
+     * posizioni duplicate in modo deterministico (comportamento
+     * deliberato, coperto da un test esistente) — ma l'editor deve
+     * saperlo, non scoprirlo in silenzio.
+     */
+    public function test_submitting_duplicate_positions_flashes_a_non_blocking_warning(): void
+    {
+        $editor = $this->editor();
+        $first = $this->article($editor, 'Prima tappa');
+        $second = $this->article($editor, 'Seconda tappa');
+        $cluster = ContentCluster::factory()->create();
+        app(ContentClusterMembershipService::class)->sync($cluster, [
+            ['article_id' => $first->id, 'position' => 10],
+            ['article_id' => $second->id, 'position' => 20],
+        ], null);
+
+        $response = $this->actingAs($editor)
+            ->from(route('admin.content-clusters.edit', $cluster))
+            ->put(route('admin.content-clusters.memberships.update', $cluster), [
+                'membership_ids' => [$first->id, $second->id],
+                'memberships' => [
+                    $first->id => ['position' => 10],
+                    $second->id => ['position' => 10],
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.content-clusters.edit', $cluster));
+        $response->assertSessionHas('warning');
+
+        $form = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+        $form->assertSee('Le posizioni inserite contenevano dei duplicati');
+    }
+
+    public function test_submitting_unique_positions_does_not_flash_a_warning(): void
+    {
+        $editor = $this->editor();
+        $first = $this->article($editor, 'Prima tappa unica');
+        $second = $this->article($editor, 'Seconda tappa unica');
+        $cluster = ContentCluster::factory()->create();
+        app(ContentClusterMembershipService::class)->sync($cluster, [
+            ['article_id' => $first->id, 'position' => 10],
+            ['article_id' => $second->id, 'position' => 20],
+        ], null);
+
+        $response = $this->actingAs($editor)
+            ->from(route('admin.content-clusters.edit', $cluster))
+            ->put(route('admin.content-clusters.memberships.update', $cluster), [
+                'membership_ids' => [$first->id, $second->id],
+                'memberships' => [
+                    $first->id => ['position' => 10],
+                    $second->id => ['position' => 30],
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.content-clusters.edit', $cluster));
+        $response->assertSessionMissing('warning');
+    }
+
     private function editor(): User
     {
         $user = User::factory()->create();

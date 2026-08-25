@@ -154,18 +154,23 @@ class ContentClusterController extends Controller
     {
         $data = $this->validatedCluster($request, $contentCluster);
         $hasMembershipPayload = $request->hasAny(['membership_ids', 'memberships', 'pillar_article_id']);
+        $duplicatePositionWarning = null;
 
-        DB::transaction(function () use ($request, $contentCluster, $data, $hasMembershipPayload) {
+        DB::transaction(function () use ($request, $contentCluster, $data, $hasMembershipPayload, &$duplicatePositionWarning) {
             $contentCluster->update($data);
             if ($hasMembershipPayload) {
                 $membershipData = $this->validatedMemberships($request);
                 $memberships = $this->selectedMemberships($membershipData['membership_ids'] ?? [], $membershipData['memberships'] ?? []);
                 $pillar = isset($membershipData['pillar_article_id']) ? (int) $membershipData['pillar_article_id'] : null;
+                $duplicatePositionWarning = $this->duplicatePositionWarning($memberships);
                 $this->memberships->sync($contentCluster, $memberships, $pillar);
             }
         });
 
-        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', $hasMembershipPayload ? 'Percorso aggiornato.' : 'Metadati del Percorso aggiornati.');
+        $redirect = redirect()->route('admin.content-clusters.edit', $contentCluster)
+            ->with('success', $hasMembershipPayload ? 'Percorso aggiornato.' : 'Metadati del Percorso aggiornati.');
+
+        return $duplicatePositionWarning ? $redirect->with('warning', $duplicatePositionWarning) : $redirect;
     }
 
     public function updateMemberships(Request $request, ContentCluster $contentCluster)
@@ -178,9 +183,13 @@ class ContentClusterController extends Controller
 
         $memberships = $this->selectedMemberships($ids->values()->all(), $data['memberships'] ?? []);
         $pillar = isset($data['pillar_article_id']) ? (int) $data['pillar_article_id'] : null;
+        $duplicatePositionWarning = $this->duplicatePositionWarning($memberships);
         $this->memberships->sync($contentCluster, $memberships, $pillar);
 
-        return redirect()->route('admin.content-clusters.edit', $contentCluster)->with('success', 'Membership del Percorso aggiornate.');
+        $redirect = redirect()->route('admin.content-clusters.edit', $contentCluster)
+            ->with('success', 'Membership del Percorso aggiornate.');
+
+        return $duplicatePositionWarning ? $redirect->with('warning', $duplicatePositionWarning) : $redirect;
     }
 
     public function addMembership(ContentCluster $contentCluster, Article $article)
@@ -227,6 +236,32 @@ class ContentClusterController extends Controller
         $data['curator_note'] = $this->nullableTrimmed($data['curator_note'] ?? null);
 
         return $data;
+    }
+
+    /**
+     * Missione 16 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "unique position validation". Non un rifiuto
+     * hard: ContentClusterMembershipService::sync() risolve già in modo
+     * deterministico posizioni duplicate/mancanti (vedi
+     * test_ordering_is_deterministic_for_duplicate_missing_and_removed_positions),
+     * un comportamento deliberato e già testato che questa missione non
+     * deve rompere. Qui si rileva SOLO se l'input inviato dall'editor
+     * conteneva duplicati, per avvisarlo che il riordino automatico ha
+     * potuto non rispettare l'intento originale — mai per bloccare il
+     * salvataggio.
+     *
+     * @param  array<int, array{article_id:int, position?:int|null}>  $memberships
+     */
+    private function duplicatePositionWarning(array $memberships): ?string
+    {
+        $positions = collect($memberships)->pluck('position')->filter(fn ($position) => $position !== null);
+        $duplicateCount = $positions->count() - $positions->unique()->count();
+
+        if ($duplicateCount === 0) {
+            return null;
+        }
+
+        return 'Le posizioni inserite contenevano dei duplicati: sono state riordinate automaticamente. Verifica che la sequenza qui sotto corrisponda a quanto intendevi.';
     }
 
     private function validatedMemberships(Request $request): array
