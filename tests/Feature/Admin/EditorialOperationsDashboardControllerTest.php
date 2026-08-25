@@ -506,6 +506,42 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 53 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): PercorsoCoverageAuditService::audit() calcola già
+     * articles_in_multiple_paths, ma nessuna vista lo mostrava mai —
+     * nonostante policy_notes.multiple_paths_are_reported_not_failed lo
+     * promettesse esplicitamente.
+     */
+    public function test_editor_sees_an_article_belonging_to_multiple_percorsi_rendered_on_the_page(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo in più Percorsi dashboard HTTP',
+            'slug' => 'articolo-in-piu-percorsi-dashboard-http',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        $first = ContentCluster::create(['name' => 'Percorso Multi HTTP Uno', 'slug' => 'percorso-multi-http-uno', 'is_active' => true]);
+        $second = ContentCluster::create(['name' => 'Percorso Multi HTTP Due', 'slug' => 'percorso-multi-http-due', 'is_active' => true]);
+        $first->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        $second->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Contenuti in più Percorsi');
+        $response->assertSee('Articolo in più Percorsi dashboard HTTP');
+        $response->assertSee(route('admin.articles.edit', $article));
+        $response->assertSee('percorso-multi-http-uno');
+        $response->assertSee('percorso-multi-http-due');
+    }
+
+    /**
      * Missione 36 (secondo batch autonomo KAIRUS, Fase E — Editorial
      * Quality & Readiness): "metadata completeness" — SeoMetadataQualityAuditService
      * calcola già canonical/duplicate-title/duplicate-description (Fase D,

@@ -190,6 +190,16 @@ class EditorialOperationsDashboardService
             ])
             ->values()
             ->all();
+        // Missione 53 (secondo batch autonomo KAIRUS, Fase F — Search
+        // Intelligence): PercorsoCoverageAuditService::audit() calcola già
+        // articles_in_multiple_paths (con path_count e l'elenco degli slug),
+        // e il suo stesso policy_notes.multiple_paths_are_reported_not_failed
+        // promette esplicitamente che questo venga "reported" — una promessa
+        // mai mantenuta, perché nessuna vista leggeva mai questa chiave.
+        // Deliberatamente ESCLUSO da open_problems_total, coerente con la
+        // policy: "reported, not failed" — un articolo in più Percorsi è
+        // un fatto editoriale legittimo, non un'anomalia da contare.
+        $articlesInMultiplePaths = $coverage['articles_in_multiple_paths'];
         $seo = $this->seo->audit();
         $orderHealth = $this->percorsoCoverage->editorialOrderHealth();
         $orderHealthSummary = $this->orderHealthSummary($orderHealth);
@@ -365,6 +375,7 @@ class EditorialOperationsDashboardService
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,
             'percorsi_pillar_issues' => $pillarIssues,
+            'articles_in_multiple_paths' => $articlesInMultiplePaths,
             'opportunita' => [
                 'available' => true,
                 'total' => $opportunities->count(),
