@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class SearchOpportunityScoringServiceTest extends TestCase
@@ -306,7 +307,7 @@ class SearchOpportunityScoringServiceTest extends TestCase
 
     public function test_query_only_export_does_not_claim_that_a_landing_page_is_missing(): void
     {
-        \App\Models\SearchConsoleQuery::query()->create([
+        SearchConsoleQuery::query()->create([
             'query' => 'kairus',
             'page_url' => '',
             'article_id' => null,
@@ -316,25 +317,23 @@ class SearchOpportunityScoringServiceTest extends TestCase
             'position' => 2.44,
             'period_start' => '2026-05-25',
             'period_end' => '2026-08-24',
-            'import_batch' => (string) \Illuminate\Support\Str::uuid(),
+            'import_batch' => (string) Str::uuid(),
             'imported_at' => now(),
         ]);
 
         $opportunities = app(
-            \App\Services\SearchConsole\SearchOpportunityScoringService::class
+            SearchOpportunityScoringService::class
         )->forPeriod(
-            \Carbon\Carbon::parse('2026-05-25'),
-            \Carbon\Carbon::parse('2026-08-24')
+            Carbon::parse('2026-05-25'),
+            Carbon::parse('2026-08-24')
         );
 
         $this->assertFalse(
             $opportunities->contains(
-                fn ($opportunity) =>
-                    $opportunity->type
-                    === \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE
+                fn ($opportunity) => $opportunity->type
+                    === SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE
                     && $opportunity->query === 'kairus'
             )
         );
     }
-
 }

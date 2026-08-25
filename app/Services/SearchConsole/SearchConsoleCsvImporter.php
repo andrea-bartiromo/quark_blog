@@ -243,8 +243,7 @@ class SearchConsoleCsvImporter
         $index = [];
 
         foreach (
-            ['query', 'clicks', 'impressions', 'ctr', 'position']
-            as $column
+            ['query', 'clicks', 'impressions', 'ctr', 'position'] as $column
         ) {
             $position = $this->findHeaderPosition(
                 $normalized,
