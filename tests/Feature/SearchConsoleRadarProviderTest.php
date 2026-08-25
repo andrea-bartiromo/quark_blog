@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Article;
 use App\Models\SearchConsoleQuery;
+use App\Models\SearchOpportunityStatus;
 use App\Models\User;
 use App\Services\EditorialRadar\Providers\SearchConsoleOpportunityProvider;
+use App\Services\SearchConsole\SearchOpportunityScoringService;
+use App\Services\SearchConsole\SearchOpportunityStatusService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -60,6 +64,70 @@ class SearchConsoleRadarProviderTest extends TestCase
         $this->assertNull($row['article_id']);
         $this->assertStringStartsWith('Query:', $row['title']);
         $this->assertArrayNotHasKey('score', $row);
+    }
+
+    /**
+     * Missione 48/49 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): SearchOpportunityStatusService esisteva già prima di
+     * questo provider e restava deliberatamente isolato ("altra corsia, non
+     * ancora su main" — docblock originale). Ora che entrambi sono su main,
+     * un'opportunità già "gestita" dalla redazione (via
+     * /admin/search-opportunities) non deve ricomparire per sempre qui.
+     */
+    public function test_an_actioned_opportunity_no_longer_appears_on_the_radar(): void
+    {
+        $article = $this->article('radar-search-actioned', Article::STATUS_PUBLISHED);
+        $this->searchRow($article, 'query gestita radar', impressions: 1000, ctr: 0.01, position: 3.0);
+
+        $opportunity = app(SearchOpportunityScoringService::class)
+            ->forPeriod(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-22'))
+            ->first();
+
+        app(SearchOpportunityStatusService::class)
+            ->setStatus($opportunity->key, SearchOpportunityStatus::STATUS_ACTIONED, null);
+
+        $rows = app(SearchConsoleOpportunityProvider::class)->opportunities();
+
+        $this->assertNull($rows->firstWhere('article_id', $article->id));
+    }
+
+    public function test_a_dismissed_opportunity_no_longer_appears_on_the_radar(): void
+    {
+        $article = $this->article('radar-search-dismissed', Article::STATUS_PUBLISHED);
+        $this->searchRow($article, 'query ignorata radar', impressions: 1000, ctr: 0.01, position: 3.0);
+
+        $opportunity = app(SearchOpportunityScoringService::class)
+            ->forPeriod(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-22'))
+            ->first();
+
+        app(SearchOpportunityStatusService::class)
+            ->setStatus($opportunity->key, SearchOpportunityStatus::STATUS_DISMISSED, null);
+
+        $rows = app(SearchConsoleOpportunityProvider::class)->opportunities();
+
+        $this->assertNull($rows->firstWhere('article_id', $article->id));
+    }
+
+    /**
+     * "Vista" significa solo "notata", non "chiusa": deve restare visibile,
+     * a differenza di "gestita"/"ignorata" sopra — altrimenti la redazione
+     * perderebbe traccia di un'opportunità ancora aperta.
+     */
+    public function test_a_merely_reviewed_opportunity_still_appears_on_the_radar(): void
+    {
+        $article = $this->article('radar-search-reviewed', Article::STATUS_PUBLISHED);
+        $this->searchRow($article, 'query vista radar', impressions: 1000, ctr: 0.01, position: 3.0);
+
+        $opportunity = app(SearchOpportunityScoringService::class)
+            ->forPeriod(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-22'))
+            ->first();
+
+        app(SearchOpportunityStatusService::class)
+            ->setStatus($opportunity->key, SearchOpportunityStatus::STATUS_REVIEWED, null);
+
+        $rows = app(SearchConsoleOpportunityProvider::class)->opportunities();
+
+        $this->assertNotNull($rows->firstWhere('article_id', $article->id));
     }
 
     public function test_provider_query_count_is_bounded_and_does_not_scale_per_signal(): void
