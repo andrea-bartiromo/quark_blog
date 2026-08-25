@@ -128,6 +128,61 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk()->assertSee('1 articolo pubblicato resta invisibile in 1 Percorso');
     }
 
+    /**
+     * Missione 22 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): trovato mentre si costruiva la readiness delle
+     * notifiche — Str::plural() pluralizza secondo regole inglesi
+     * (aggiunge una "s"), mai testato oltre N=1 nella Missione 21, quindi
+     * "2 Percorsi" diventava silenziosamente "2 Percorsos". Corretto in
+     * entrambi i punti (qui e nella pagina di modifica del Percorso) con
+     * ternari espliciti in italiano; questo test blocca la regressione
+     * esercitando davvero il conteggio plurale, non solo N=1.
+     */
+    public function test_the_publication_gap_summary_uses_correct_italian_plural_forms_above_one(): void
+    {
+        $editor = $this->editor();
+
+        foreach ([1, 2] as $i) {
+            $cluster = ContentCluster::create([
+                'name' => "Percorso Con Gap Plurale {$i}",
+                'slug' => "percorso-con-gap-plurale-{$i}",
+                'is_active' => true,
+            ]);
+            $draftGate = Article::create([
+                'user_id' => $editor->id,
+                'title' => "Cancello bozza plurale {$i}",
+                'slug' => "cancello-bozza-plurale-{$i}",
+                'body' => '<p>Corpo.</p>',
+                'excerpt' => 'Estratto.',
+                'category' => 'fisica',
+                'status' => Article::STATUS_DRAFT,
+                'read_minutes' => 2,
+            ]);
+            $publishedBehindGap = Article::create([
+                'user_id' => $editor->id,
+                'title' => "Bloccato dietro il gap plurale {$i}",
+                'slug' => "bloccato-dietro-gap-plurale-{$i}",
+                'body' => '<p>Corpo.</p>',
+                'excerpt' => 'Estratto.',
+                'category' => 'fisica',
+                'status' => Article::STATUS_PUBLISHED,
+                'read_minutes' => 2,
+                'published_at' => now()->subDay(),
+            ]);
+            DB::table('article_content_cluster')->insert([
+                ['content_cluster_id' => $cluster->id, 'article_id' => $draftGate->id, 'position' => 10, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()],
+                ['content_cluster_id' => $cluster->id, 'article_id' => $publishedBehindGap->id, 'position' => 20, 'is_primary' => false, 'created_at' => now(), 'updated_at' => now()],
+            ]);
+        }
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk()
+            ->assertSee('2 articoli pubblicati restano invisibili in 2 Percorsi, bloccati dietro un gap nel prefisso pubblico.')
+            ->assertDontSee('Percorsos', false)
+            ->assertDontSee('articolos', false);
+    }
+
     public function test_the_dashboard_route_is_not_reachable_without_authentication_and_is_not_registered_outside_the_editor_gate(): void
     {
         $route = collect(Route::getRoutes())->first(fn ($r) => $r->getName() === 'admin.editorial-operations');

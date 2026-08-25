@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\CommunicationSubscriber;
 use App\Models\ContentCluster;
+use App\Models\ContentClusterSubscriber;
 use App\Models\User;
 use App\Services\ContentClusterMembershipService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -367,6 +369,53 @@ class ContentClusterAdminTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
 
         $response->assertOk()->assertDontSee('Previsione crescita prefisso pubblico');
+    }
+
+    /**
+     * Missione 22 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "Percorsi subscriber notification readiness."
+     * Prova la pagina reale, non solo PercorsoSubscriberNotificationReadinessService
+     * in isolamento — e che "iscritto" e "raggiungerebbe davvero" restino
+     * numeri distinti quando un abbonato non è confermato.
+     */
+    public function test_edit_page_distinguishes_confirmed_subscribers_from_merely_subscribed_ones(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create([
+            'is_active' => true,
+            'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING,
+        ]);
+        ContentClusterSubscriber::factory()->for(
+            CommunicationSubscriber::factory()->confirmed(), 'subscriber'
+        )->create(['content_cluster_id' => $cluster->id]);
+        ContentClusterSubscriber::factory()->for(
+            CommunicationSubscriber::factory(), 'subscriber'
+        )->create(['content_cluster_id' => $cluster->id]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()
+            ->assertSee('Notifiche "Avvisami quando continua"', false)
+            ->assertSee('1 su 2 abbonati iscritti riceverebbero davvero la prossima notifica.')
+            ->assertSee('1 non è ancora confermato o non è più raggiungibile.');
+    }
+
+    public function test_edit_page_warns_that_a_complete_percorso_will_never_notify_its_subscribers(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create([
+            'is_active' => true,
+            'lifecycle_status' => ContentCluster::LIFECYCLE_COMPLETE,
+        ]);
+        ContentClusterSubscriber::factory()->for(
+            CommunicationSubscriber::factory()->confirmed(), 'subscriber'
+        )->create(['content_cluster_id' => $cluster->id]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()
+            ->assertSee('non invierà notifiche alla prossima pubblicazione')
+            ->assertSee('1 abbonato confermato resterebbe in attesa.');
     }
 
     /**
