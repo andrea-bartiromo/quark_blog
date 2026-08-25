@@ -3,8 +3,10 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Article;
+use App\Models\ContentCluster;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -79,6 +81,51 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Articolo programmato dashboard');
         $response->assertSee(route('admin.articles.edit', $article));
+    }
+
+    /**
+     * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "publication gap dashboard" — il conteggio
+     * dedicato deve comparire sulla pagina reale, non solo nello snapshot
+     * del servizio.
+     */
+    public function test_editor_sees_the_publication_gap_summary_for_a_published_article_stuck_behind_a_gap(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Con Gap Dashboard',
+            'slug' => 'percorso-con-gap-dashboard',
+            'is_active' => true,
+        ]);
+        $draftGate = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Cancello bozza dashboard',
+            'slug' => 'cancello-bozza-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_DRAFT,
+            'read_minutes' => 2,
+        ]);
+        $publishedBehindGap = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Bloccato dietro il gap dashboard',
+            'slug' => 'bloccato-dietro-gap-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        DB::table('article_content_cluster')->insert([
+            ['content_cluster_id' => $cluster->id, 'article_id' => $draftGate->id, 'position' => 10, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['content_cluster_id' => $cluster->id, 'article_id' => $publishedBehindGap->id, 'position' => 20, 'is_primary' => false, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk()->assertSee('1 articolo pubblicato resta invisibile in 1 Percorso');
     }
 
     public function test_the_dashboard_route_is_not_reachable_without_authentication_and_is_not_registered_outside_the_editor_gate(): void

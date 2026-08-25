@@ -284,10 +284,25 @@ class EditorialOperationsDashboardService
             || $row['scheduled_out_of_order'] !== []
             || $row['dangling_transition'] !== null;
 
+        // Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+        // Advanced Operations): "publication gap dashboard". published_beyond_gap
+        // era già calcolato per cluster (editorialOrderHealth(),
+        // publication_warning) e già visibile come UNO dei tanti codici in
+        // clusters_with_issues, ma senza un conteggio proprio: un editor non
+        // poteva sapere QUANTI articoli già pubblicati restano invisibili
+        // dietro un gap senza aprire ogni Percorso segnalato e contarli a
+        // mano. Nessun nuovo calcolo — solo un riassunto in più dello stesso
+        // elenco già prodotto da orderHealthRow()/editorialOrderHealth().
+        $publishedBeyondGapClusters = collect($orderHealth['publication_warning']['published_beyond_gap']);
+        $publishedBeyondGapArticleCount = $publishedBeyondGapClusters
+            ->sum(fn (array $row) => count($row['published_beyond_gap']));
+
         return [
             'structural_error_count' => $structuralErrorCount,
             'publication_warning_count' => $publicationWarningCount,
             'editorial_advisory_count' => $editorialAdvisoryCount,
+            'published_beyond_gap_article_count' => $publishedBeyondGapArticleCount,
+            'published_beyond_gap_cluster_count' => $publishedBeyondGapClusters->count(),
             'clusters_with_issues' => collect($orderHealth['clusters'])
                 ->filter($blockingIssue)
                 ->map(fn (array $row) => [

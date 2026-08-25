@@ -147,6 +147,13 @@
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Sequenza Percorsi</h2>
+  @php
+    $gapArticleCount = $snapshot['percorsi_order_health']['published_beyond_gap_article_count'];
+    $gapClusterCount = $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count'];
+  @endphp
+  @if($gapArticleCount > 0)
+    <p style="font-size:.82rem;color:#b91c1c;margin:0 0 .75rem;font-weight:600;">{{ $gapArticleCount }} {{ Str::plural('articolo pubblicato', $gapArticleCount) }} {{ $gapArticleCount === 1 ? 'resta' : 'restano' }} invisibile in {{ $gapClusterCount }} {{ Str::plural('Percorso', $gapClusterCount) }}, bloccato dietro un gap nel prefisso pubblico.</p>
+  @endif
   @if(empty($snapshot['percorsi_order_health']['clusters_with_issues']))
     <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessuna anomalia di sequenza o posizione rilevata.</p>
   @else
