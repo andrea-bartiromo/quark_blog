@@ -9,11 +9,13 @@
 
 <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;
             padding:.85rem 1.1rem;margin-bottom:1.25rem;font-size:.82rem;color:#0f766e;">
-  ℹ️ Carica un export CSV di Google Search Console (colonne: <code>query, page,
-  clicks, impressions, ctr, position</code>) indicando il periodo a cui si
-  riferisce. Un secondo import per lo stesso periodo sostituisce il
-  precedente, non si somma. Formato completo in
-  <code>docs/SEARCH_OPPORTUNITIES.md</code>.
+  ℹ️ Carica il file <strong>Query.csv</strong> esportato direttamente da
+  Google Search Console. Sono riconosciute automaticamente anche le
+  intestazioni italiane (<code>Query più frequenti, Clic, Impressioni, CTR,
+  Posizione</code>). Resta supportato anche il precedente formato combinato
+  <code>query, page, clicks, impressions, ctr, position</code>.
+  Un secondo import per lo stesso periodo sostituisce il precedente,
+  non si somma.
 </div>
 
 @if($errors->any())
