@@ -156,11 +156,11 @@ class SearchConsoleCsvImporterTest extends TestCase
 
         try {
             $result = app(
-                \App\Services\SearchConsole\SearchConsoleCsvImporter::class
+                SearchConsoleCsvImporter::class
             )->import(
                 $path,
-                \Carbon\Carbon::parse('2026-07-28'),
-                \Carbon\Carbon::parse('2026-08-24')
+                Carbon::parse('2026-07-28'),
+                Carbon::parse('2026-08-24')
             );
         } finally {
             @unlink($path);
@@ -181,7 +181,7 @@ class SearchConsoleCsvImporterTest extends TestCase
             ]
         );
 
-        $row = \App\Models\SearchConsoleQuery::query()
+        $row = SearchConsoleQuery::query()
             ->where('query', 'kairus')
             ->firstOrFail();
 
@@ -197,5 +197,4 @@ class SearchConsoleCsvImporterTest extends TestCase
             0.00001
         );
     }
-
 }
