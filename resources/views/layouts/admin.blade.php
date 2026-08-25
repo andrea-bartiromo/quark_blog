@@ -186,7 +186,7 @@
       <x-admin.nav-group label="Analisi" :open="$analisiOpen">
         <x-admin.nav-link :route="route('admin.editorial-operations')" :active="$isEditorialOperations" icon="🧮">Operazioni editoriali</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.editorial-quality')" :active="$isEditorialQuality" icon="🩺">Qualità editoriale</x-admin.nav-link>
-        <x-admin.nav-link :route="route('admin.internal-link-audit')" :active="$isInternalLinkAudit" icon="🔗">Link interni</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.internal-link-audit')" :active="$isInternalLinkAudit" icon="🌉">Link interni</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
