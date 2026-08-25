@@ -465,6 +465,73 @@ class SelectiveDeployBackupScriptTest extends TestCase
         );
     }
 
+    /**
+     * Missione 13 (secondo batch autonomo KAIRUS, Fase B — Deployment
+     * Reliability): "Ensure selective deploy manifests capture: source
+     * SHA, target SHA, file root, file hash, timestamp." Le prime quattro
+     * erano già catturate (metadata.env, roots.tsv); mancava l'hash
+     * per-file, aggiunto in questa missione come file-hashes.tsv.
+     */
+    public function test_backup_records_a_sha256_hash_per_backed_up_file(): void
+    {
+        File::put($this->appRoot.'/one.php', "content-a\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tone.php\n");
+
+        $backup = $this->runBackup($manifest);
+
+        $expectedHash = hash('sha256', "content-a\n");
+        $this->assertSame("app\tone.php\t{$expectedHash}\n", File::get($backup.'/file-hashes.tsv'));
+    }
+
+    /**
+     * La verifica di integrità (Missione 13) deve fermare il rollback
+     * PRIMA di toccare qualunque destinazione, non a metà: qui il file
+     * nel backup viene alterato dopo la creazione del backup stesso (come
+     * farebbe una corruzione o una manomissione mentre riposa su
+     * backup-root), e il rollback deve fallire chiuso senza scrivere nulla.
+     */
+    public function test_rollback_fails_closed_when_a_backed_up_file_no_longer_matches_its_recorded_hash(): void
+    {
+        File::put($this->appRoot.'/one.php', "original\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tone.php\n");
+        $backup = $this->runBackup($manifest);
+
+        // Simula corruzione/manomissione del backup dopo la sua creazione.
+        File::put($backup.'/files/app/one.php', "tampered\n");
+        File::put($this->appRoot.'/one.php', "deployed\n");
+
+        $process = $this->rollbackProcess($backup);
+        $process->run();
+
+        $this->assertFalse($process->isSuccessful());
+        $this->assertStringContainsString('backup integrity check failed', $process->getErrorOutput());
+        $this->assertSame("deployed\n", File::get($this->appRoot.'/one.php'), 'A failed integrity check must not touch the destination at all.');
+        $this->assertFileDoesNotExist($backup.'/.rollback-complete');
+    }
+
+    /**
+     * Retrocompatibilità esplicita: un backup creato da una versione di
+     * questo script precedente alla Missione 13 non ha file-hashes.tsv —
+     * il rollback deve continuare a funzionare esattamente come prima,
+     * saltando semplicemente la verifica che non può fare.
+     */
+    public function test_rollback_still_succeeds_on_a_pre_mission13_backup_without_file_hashes(): void
+    {
+        File::put($this->appRoot.'/one.php', "original\n");
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tone.php\n");
+        $backup = $this->runBackup($manifest);
+
+        File::delete($backup.'/file-hashes.tsv');
+        File::put($this->appRoot.'/one.php', "deployed\n");
+
+        $this->rollbackProcess($backup)->mustRun();
+
+        $this->assertSame("original\n", File::get($this->appRoot.'/one.php'));
+    }
+
     private function runBackup(string $manifest): string
     {
         $process = $this->backupProcess($manifest);
