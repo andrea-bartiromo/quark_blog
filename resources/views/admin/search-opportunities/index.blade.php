@@ -40,6 +40,33 @@
     @endif
   </p>
 
+  @if($importHistory !== [])
+    <details style="margin-bottom:1.25rem;">
+      <summary style="cursor:pointer;font-size:.82rem;color:#374151;">Cronologia import ({{ count($importHistory) }})</summary>
+      <div style="overflow-x:auto;margin-top:.6rem;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Periodo</th>
+              <th scope="col">Importato il</th>
+              <th scope="col">Righe</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($importHistory as $import)
+              <tr>
+                <td>{{ \Illuminate\Support\Carbon::parse($import['period_start'])->format('d/m/Y') }}
+                  – {{ \Illuminate\Support\Carbon::parse($import['period_end'])->format('d/m/Y') }}</td>
+                <td>{{ \Illuminate\Support\Carbon::parse($import['imported_at'])->timezone('Europe/Rome')->format('d/m/Y H:i') }}</td>
+                <td>{{ number_format($import['row_count']) }}</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    </details>
+  @endif
+
   <form method="GET" action="{{ route('admin.search-opportunities') }}" class="articles-toolbar" style="margin-bottom:1.25rem;">
     <div class="articles-toolbar__field">
       <label class="form-label" for="tipo">Tipo di opportunità</label>
