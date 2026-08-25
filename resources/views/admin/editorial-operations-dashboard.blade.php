@@ -113,6 +113,12 @@
     @endif
   </div>
 
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Da aggiornare</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['contenuti_da_aggiornare']) }}</div>
+    <a href="{{ route('admin.verification') }}" style="font-size:.78rem;color:#0d9488;">Aggiornamento necessario — Verifica →</a>
+  </div>
+
 </div>
 
 @foreach(['distribuzione' => 'Distribuzione'] as $key => $label)
@@ -220,6 +226,25 @@
       @endforeach
     </ul>
   @endif
+</section>
+
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Da aggiornare</h2>
+  @if(empty($snapshot['contenuti_da_aggiornare']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun articolo pubblicato o programmato è segnato "Aggiornamento necessario".</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+      @foreach($snapshot['contenuti_da_aggiornare'] as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.articles.edit', $row['article_id']) }}">{{ $row['title'] }}</a>
+          @if($row['published_at'])
+            <span style="color:#6b7280;"> — pubblicato il {{ \Illuminate\Support\Carbon::parse($row['published_at'])->timezone('Europe/Rome')->translatedFormat('d M Y') }}</span>
+          @endif
+        </li>
+      @endforeach
+    </ul>
+  @endif
+  <a href="{{ route('admin.verification') }}" style="font-size:.78rem;color:#0d9488;">Gestisci stato di verifica →</a>
 </section>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">

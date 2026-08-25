@@ -68,6 +68,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['da_sistemare']);
         $this->assertSame([], $snapshot['contenuti_isolati']);
         $this->assertSame([], $snapshot['contenuti_senza_concept']);
+        $this->assertSame([], $snapshot['contenuti_da_aggiornare']);
         $this->assertSame([], $snapshot['programmati_non_assegnati']);
         $this->assertSame(0.0, $snapshot['content_graph']['articles']['coverage_percent']);
         $this->assertSame(0, $snapshot['content_graph']['articles']['published_total']);
@@ -164,6 +165,49 @@ class EditorialOperationsDashboardServiceTest extends TestCase
 
         $this->assertTrue($snapshot['ritmo_pubblicazione']['available']);
         $this->assertSame(2, $snapshot['ritmo_pubblicazione']['days_since_last_publication']);
+    }
+
+    /**
+     * Missione 41 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "stale content candidates" — il dominio ha già
+     * un segnale esplicito e non inventato, Article::verification_status
+     * === 'needs_update' (già gestito da /admin/verifica), mai una soglia
+     * di anzianità arbitraria. Il gap reale era la mancata esposizione sul
+     * command center.
+     */
+    public function test_a_published_article_needing_an_update_is_listed_as_a_stale_content_candidate(): void
+    {
+        $article = $this->articleWithVerification(Article::STATUS_PUBLISHED, now()->subDay(), 'needs_update');
+        $this->articleWithVerification(Article::STATUS_PUBLISHED, now()->subDays(2), 'verified');
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame([$article->id], collect($snapshot['contenuti_da_aggiornare'])->pluck('article_id')->all());
+    }
+
+    public function test_a_draft_article_needing_an_update_is_never_listed_as_a_stale_content_candidate(): void
+    {
+        $this->articleWithVerification(Article::STATUS_DRAFT, null, 'needs_update');
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame([], $snapshot['contenuti_da_aggiornare']);
+    }
+
+    private function articleWithVerification(string $status, ?\DateTimeInterface $publishedAt, string $verificationStatus): Article
+    {
+        return Article::withoutEvents(fn () => Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Articolo verifica '.uniqid(),
+            'slug' => 'articolo-verifica-'.uniqid(),
+            'excerpt' => '',
+            'body' => '<p>Body</p>',
+            'category' => 'operations-test',
+            'status' => $status,
+            'published_at' => $publishedAt,
+            'read_minutes' => 1,
+            'verification_status' => $verificationStatus,
+        ]));
     }
 
     /**
@@ -653,7 +697,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + $orderHealth['publication_warning_count']
             + count($snapshot['seo']['violations'])
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
-            + collect($snapshot['da_pubblicare'])->where('collision', true)->count();
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
+            + count($snapshot['contenuti_da_aggiornare']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
@@ -688,7 +733,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + $orderHealth['publication_warning_count']
             + count($snapshot['seo']['violations'])
             + $overdueCount
-            + collect($snapshot['da_pubblicare'])->where('collision', true)->count();
+            + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
+            + count($snapshot['contenuti_da_aggiornare']);
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }

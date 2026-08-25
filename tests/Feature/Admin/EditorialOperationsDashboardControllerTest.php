@@ -147,6 +147,39 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 41 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "stale content candidates" — Article::
+     * verification_status === 'needs_update' è un segnale già esistente
+     * (pagina /admin/verifica), mai esposto prima d'ora sul command
+     * center. Questo test prova che compaia davvero nella sezione "Da
+     * aggiornare" della pagina reale.
+     */
+    public function test_editor_sees_an_article_needing_an_update_in_its_own_section(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo da aggiornare dashboard',
+            'slug' => 'articolo-da-aggiornare-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+            'verification_status' => 'needs_update',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Da aggiornare');
+        $response->assertSee('Articolo da aggiornare dashboard');
+        $response->assertSee(route('admin.articles.edit', $article));
+        $response->assertSee(route('admin.verification'));
+    }
+
+    /**
      * Missione 32 (secondo batch autonomo KAIRUS, Fase D — Editorial
      * Operations Command Center): la card "Content Graph" deve comparire
      * sulla pagina reale con un link funzionante verso /admin/concetti,

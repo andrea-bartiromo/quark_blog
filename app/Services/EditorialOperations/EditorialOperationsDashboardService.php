@@ -225,6 +225,27 @@ class EditorialOperationsDashboardService
             ->values()
             ->all();
 
+        // Missione 41 (Fase E — Editorial Quality & Readiness): "stale
+        // content candidates" — il dominio ha già un segnale esplicito e
+        // non inventato per questo, Article::verification_status ===
+        // 'needs_update' (già gestito dalla pagina dedicata /admin/verifica),
+        // mai una soglia di anzianità arbitraria (ArticleContentHealthService
+        // ::freshness() la esclude esplicitamente: "nessuna soglia editoriale
+        // di anzianità è definita nel dominio corrente"). Il gap reale è che
+        // questo segnale non è mai stato esposto sul command center — riusa
+        // $articles già caricato sopra, nessuna nuova query.
+        $staleContentCandidates = $articles
+            ->where('verification_status', 'needs_update')
+            ->map(fn (Article $article) => [
+                'article_id' => $article->id,
+                'title' => $article->title,
+                'slug' => $article->slug,
+                'published_at' => $article->published_at?->toISOString(),
+            ])
+            ->sortBy('published_at')
+            ->values()
+            ->all();
+
         // Missione 29 (Fase D — Editorial Operations Command Center):
         // "unassigned scheduled articles" — PercorsoCoverageAuditService::
         // audit() calcola già scheduled_without_path con la stessa regola
@@ -253,7 +274,8 @@ class EditorialOperationsDashboardService
             + $orderHealthSummary['publication_warning_count']
             + count($seoViolations)
             + $overdueCount
-            + $collisionCount;
+            + $collisionCount
+            + count($staleContentCandidates);
 
         return [
             // Missione 26 (Fase D — Editorial Operations Command Center):
@@ -281,6 +303,7 @@ class EditorialOperationsDashboardService
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
             'contenuti_senza_concept' => $articlesWithoutConcept,
+            'contenuti_da_aggiornare' => $staleContentCandidates,
             // Missione 32 (Fase D — Editorial Operations Command Center):
             // "Content Graph operational health" — solo i numeri aggregati
             // già calcolati da ContentGraphCoverageService (Missione 19,
