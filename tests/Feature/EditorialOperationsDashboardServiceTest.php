@@ -67,6 +67,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['contenuti_isolati']);
         $this->assertSame([], $snapshot['contenuti_senza_concept']);
         $this->assertSame([], $snapshot['programmati_non_assegnati']);
+        $this->assertSame(0.0, $snapshot['content_graph']['articles']['coverage_percent']);
+        $this->assertSame(0, $snapshot['content_graph']['articles']['published_total']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -292,6 +294,26 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $snapshot = $this->service()->snapshot();
 
         $this->assertFalse(collect($snapshot['contenuti_senza_concept'])->pluck('id')->contains($published->id));
+    }
+
+    /**
+     * Missione 32 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "Content Graph operational health" —
+     * riusa ContentGraphCoverageService::summary() (Missione 19, primo
+     * batch), mai un ricalcolo della percentuale di copertura qui.
+     */
+    public function test_content_graph_coverage_reflects_real_article_concept_links(): void
+    {
+        $withConcept = $this->article('con-concept-coverage-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $concept = Concept::create(['name' => 'Coverage operations test', 'slug' => 'coverage-operations-test', 'status' => 'active']);
+        $withConcept->contentConcepts()->create(['concept_id' => $concept->id, 'relation_type' => 'supporting', 'weight' => 50]);
+        $this->article('senza-concept-coverage-test', Article::STATUS_PUBLISHED, now()->subDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(2, $snapshot['content_graph']['articles']['published_total']);
+        $this->assertSame(1, $snapshot['content_graph']['articles']['published_with_concept_link']);
+        $this->assertSame(50.0, $snapshot['content_graph']['articles']['coverage_percent']);
     }
 
     /**

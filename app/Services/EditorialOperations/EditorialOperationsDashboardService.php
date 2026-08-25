@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
+use App\Services\ContentGraph\ContentGraphCoverageService;
 use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
@@ -34,6 +35,7 @@ class EditorialOperationsDashboardService
         private readonly SeoMetadataQualityAuditService $seo,
         private readonly EditorialRadarProviderGraphService $radar,
         private readonly ContentGraphOrphanAuditService $contentGraphOrphans,
+        private readonly ContentGraphCoverageService $contentGraphCoverage,
     ) {}
 
     /**
@@ -256,6 +258,14 @@ class EditorialOperationsDashboardService
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
             'contenuti_senza_concept' => $articlesWithoutConcept,
+            // Missione 32 (Fase D — Editorial Operations Command Center):
+            // "Content Graph operational health" — solo i numeri aggregati
+            // già calcolati da ContentGraphCoverageService (Missione 19,
+            // primo batch), mai un ricalcolo. La diagnostica per-item più
+            // approfondita (classificazione salute concetto, copertura
+            // domande pubbliche, ecc.) è compito dedicato della Fase G
+            // (Missioni 55-64) — qui solo il riepilogo operativo.
+            'content_graph' => $this->contentGraphCoverage->summary(),
             'programmati_non_assegnati' => $unassignedScheduledArticles,
             'seo' => [
                 'summary' => $seo['summary'],
