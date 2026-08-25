@@ -9,6 +9,7 @@ use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
 use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentHealth\ArticleContentHealthService;
+use App\Services\ContinuationAnalyticsService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
 use App\Services\EditorialQuality\SourceImageAttributionHealthService;
 use App\Services\EditorialRadar\EditorialRadarProviderGraphService;
@@ -36,6 +37,7 @@ class EditorialOperationsDashboardService
         private readonly EditorialRadarProviderGraphService $radar,
         private readonly ContentGraphOrphanAuditService $contentGraphOrphans,
         private readonly ContentGraphCoverageService $contentGraphCoverage,
+        private readonly ContinuationAnalyticsService $continuationAnalytics,
     ) {}
 
     /**
@@ -266,6 +268,13 @@ class EditorialOperationsDashboardService
             // domande pubbliche, ecc.) è compito dedicato della Fase G
             // (Missioni 55-64) — qui solo il riepilogo operativo.
             'content_graph' => $this->contentGraphCoverage->summary(),
+            // Missione 33 (Fase D — Editorial Operations Command Center):
+            // "second-read operational health" — riusa
+            // ContinuationAnalyticsService::siteWideTotals() (Missione 33),
+            // mai un ricalcolo qui. Nessun limite di finestra temporale:
+            // stesso "sempre" di default già usato dalla pagina
+            // /admin/second-read.
+            'second_read' => $this->continuationAnalytics->siteWideTotals(),
             'programmati_non_assegnati' => $unassignedScheduledArticles,
             'seo' => [
                 'summary' => $seo['summary'],

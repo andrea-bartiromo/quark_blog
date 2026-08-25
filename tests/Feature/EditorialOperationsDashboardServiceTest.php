@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\ArticleContinuationEvent;
 use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\User;
@@ -69,6 +70,9 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['programmati_non_assegnati']);
         $this->assertSame(0.0, $snapshot['content_graph']['articles']['coverage_percent']);
         $this->assertSame(0, $snapshot['content_graph']['articles']['published_total']);
+        $this->assertSame(0, $snapshot['second_read']['impressions']);
+        $this->assertSame(0, $snapshot['second_read']['second_reads']);
+        $this->assertSame(0.0, $snapshot['second_read']['second_read_rate']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -314,6 +318,34 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(2, $snapshot['content_graph']['articles']['published_total']);
         $this->assertSame(1, $snapshot['content_graph']['articles']['published_with_concept_link']);
         $this->assertSame(50.0, $snapshot['content_graph']['articles']['coverage_percent']);
+    }
+
+    /**
+     * Missione 33 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "second-read operational health" —
+     * riusa ContinuationAnalyticsService::siteWideTotals() (Missione 33),
+     * mai un ricalcolo qui.
+     */
+    public function test_second_read_totals_reflect_real_continuation_events(): void
+    {
+        $source = $this->article('sorgente-second-read-ops-test', Article::STATUS_PUBLISHED, now()->subDay());
+        $target = $this->article('destinazione-second-read-ops-test', Article::STATUS_PUBLISHED, now()->subDay());
+        ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+        ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_SECOND_READ_START,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(1, $snapshot['second_read']['impressions']);
+        $this->assertSame(1, $snapshot['second_read']['second_reads']);
+        $this->assertSame(1.0, $snapshot['second_read']['second_read_rate']);
     }
 
     /**

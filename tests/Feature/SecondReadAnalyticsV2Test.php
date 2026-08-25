@@ -128,6 +128,62 @@ class SecondReadAnalyticsV2Test extends TestCase
         $this->assertLessThanOrEqual(2, $queryCount);
     }
 
+    // ── siteWideTotals() ─────────────────────────────────────────────
+
+    /**
+     * Missione 33 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "second-read operational health".
+     * SecondReadAnalyticsController::index() sommava articleBreakdown()
+     * per calcolare i totali — quella lista è troncata a `limit` (50 per
+     * default) per la visualizzazione, quindi con più di `limit` articoli
+     * sorgente distinti i totali sarebbero stati sottostimati. Qui una
+     * finestra "limit=1" simula esattamente quel tetto e prova che
+     * siteWideTotals() resta corretto indipendentemente da esso — mai più
+     * una somma della lista troncata.
+     */
+    public function test_site_wide_totals_are_never_capped_by_the_breakdown_display_limit(): void
+    {
+        $target = $this->article('Destinazione condivisa totali');
+        foreach (range(1, 3) as $i) {
+            $source = $this->article("Sorgente totali {$i}");
+            $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $source, $target, 2);
+            $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $source, $target, 1);
+        }
+
+        $service = app(ContinuationAnalyticsService::class);
+        $limitedBreakdown = $service->articleBreakdown(limit: 1);
+        $totals = $service->siteWideTotals();
+
+        $this->assertCount(1, $limitedBreakdown);
+        $this->assertSame(6, $totals['impressions']);
+        $this->assertSame(3, $totals['second_reads']);
+        $this->assertSame(0.5, $totals['second_read_rate']);
+        $this->assertSame(3, $totals['source_articles_engaged']);
+    }
+
+    public function test_site_wide_totals_respect_since_and_until_bounds(): void
+    {
+        $source = $this->article('Sorgente totali intervallo');
+        $target = $this->article('Destinazione totali intervallo');
+
+        $old = ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+        ArticleContinuationEvent::whereKey($old->id)->update(['created_at' => now()->subDays(10)]);
+
+        ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+
+        $recentOnly = app(ContinuationAnalyticsService::class)->siteWideTotals(now()->subDays(5));
+
+        $this->assertSame(1, $recentOnly['impressions']);
+    }
+
     // ── Admin controller ─────────────────────────────────────────────
 
     public function test_guests_cannot_view_the_second_read_admin_page(): void
@@ -156,6 +212,26 @@ class SecondReadAnalyticsV2Test extends TestCase
         $response->assertOk();
         $response->assertSee($source->title);
         $response->assertSee('50.0%');
+    }
+
+    public function test_the_admin_page_totals_sum_across_multiple_source_articles(): void
+    {
+        $target = $this->article('Destinazione multipla');
+        $a = $this->article('Sorgente multipla A');
+        $b = $this->article('Sorgente multipla B');
+
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $a, $target, 3);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $a, $target, 1);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $b, $target, 2);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $b, $target, 1);
+
+        $response = $this->actingAs($this->editor)->get(route('admin.second-read'));
+
+        $response->assertOk();
+        // 2 second read su 5 impression totali (3+2, non solo quelle del
+        // primo articolo in classifica) = 40.0%, mai il tasso di un solo
+        // articolo isolato.
+        $response->assertSee('40.0%');
     }
 
     public function test_the_admin_page_date_range_filter_excludes_older_events(): void
