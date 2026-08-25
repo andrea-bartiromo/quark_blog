@@ -290,6 +290,43 @@ class ContentClusterAdminTest extends TestCase
         $this->assertSame(1, $occurrences);
     }
 
+    /**
+     * Missione 15 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "When a complete path gains a hidden/future
+     * member, do not auto-reopen. Surface a strong editorial warning."
+     * Il fatto era già calcolato (orderHealthForCluster()) ma mai
+     * mostrato in modo prominente sulla pagina di modifica — solo come
+     * uno tra i flag per-articolo della tabella. Questo test prova la
+     * pagina reale, non solo il servizio in isolamento.
+     */
+    public function test_edit_page_shows_a_prominent_warning_when_a_complete_percorso_gains_a_hidden_member(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create(['lifecycle_status' => ContentCluster::LIFECYCLE_COMPLETE]);
+        $published = $this->article($editor, 'Tappa pubblica', Article::STATUS_PUBLISHED);
+        $hidden = $this->article($editor, 'Tappa nascosta aggiunta dopo la conclusione', Article::STATUS_DRAFT);
+        $cluster->articles()->attach($published->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($hidden->id, ['position' => 20, 'is_primary' => false]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()->assertSee('Percorso completo con nuove tappe non pubbliche');
+    }
+
+    public function test_edit_page_does_not_show_the_hidden_remainder_warning_for_an_updating_percorso(): void
+    {
+        $editor = $this->editor();
+        $cluster = ContentCluster::factory()->create(['lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
+        $published = $this->article($editor, 'Tappa pubblica in aggiornamento', Article::STATUS_PUBLISHED);
+        $hidden = $this->article($editor, 'Tappa ancora non pubblica', Article::STATUS_DRAFT);
+        $cluster->articles()->attach($published->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($hidden->id, ['position' => 20, 'is_primary' => false]);
+
+        $response = $this->actingAs($editor)->get(route('admin.content-clusters.edit', $cluster));
+
+        $response->assertOk()->assertDontSee('Percorso completo con nuove tappe non pubbliche');
+    }
+
     private function editor(): User
     {
         $user = User::factory()->create();
