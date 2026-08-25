@@ -83,6 +83,16 @@ class EditorialQualityGateUiTest extends TestCase
         $this->assertDatabaseHas('articles', ['id' => $article->id, 'status' => Article::STATUS_PUBLISHED]);
     }
 
+    /**
+     * Missione 35 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): la sidebar admin ora include una voce di
+     * navigazione "Qualità editoriale" (verso l'audit sitewide), presente
+     * su OGNI pagina admin per costruzione — quindi questa asserzione va
+     * scoperta al solo contenuto principale (dopo <main>), altrimenti il
+     * testo della sidebar farebbe scattare un falso positivo qui, esattamente
+     * come già gestito da altri test che ispezionano solo il contenuto di
+     * pagina (vedi EditorialOperationsDashboardControllerTest).
+     */
     public function test_the_card_is_never_shown_when_creating_a_new_article(): void
     {
         $editor = $this->editor();
@@ -90,6 +100,7 @@ class EditorialQualityGateUiTest extends TestCase
         $response = $this->actingAs($editor)->get(route('admin.articles.create'));
 
         $response->assertOk();
-        $response->assertDontSeeText('Qualità editoriale');
+        $mainContent = strstr($response->getContent(), '<main') ?: '';
+        $this->assertStringNotContainsString('Qualità editoriale', $mainContent);
     }
 }
