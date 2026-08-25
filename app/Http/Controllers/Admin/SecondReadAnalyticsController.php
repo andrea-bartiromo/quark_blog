@@ -26,14 +26,7 @@ class SecondReadAnalyticsController extends Controller
         $range = $this->resolveRange($request);
 
         $breakdown = $this->analytics->articleBreakdown($range['since'], $range['until']);
-
-        $totals = [
-            'impressions' => (int) $breakdown->sum('impressions'),
-            'second_reads' => (int) $breakdown->sum('second_reads'),
-        ];
-        $totals['second_read_rate'] = $totals['impressions'] > 0
-            ? round($totals['second_reads'] / $totals['impressions'], 4)
-            : 0.0;
+        $totals = $this->analytics->siteWideTotals($range['since'], $range['until']);
 
         return view('admin.second-read-analytics.index', [
             'breakdown' => $breakdown,

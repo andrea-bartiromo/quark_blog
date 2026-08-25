@@ -115,6 +115,44 @@ class ContinuationAnalyticsService
     }
 
     /**
+     * Totali sitewide nel periodo indicato — MAI sommare articleBreakdown()
+     * per ottenere questo numero: quella lista è troncata a `limit` per la
+     * visualizzazione, quindi una somma dei suoi valori sottostimerebbe i
+     * totali reali non appena le sorgenti distinte superano il limite.
+     * Qui invece due COUNT semplici, senza alcun raggruppamento per
+     * articolo sorgente e quindi senza alcun tetto.
+     *
+     * @return array{impressions:int,second_reads:int,second_read_rate:float,source_articles_engaged:int}
+     */
+    public function siteWideTotals(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null): array
+    {
+        $impressions = ArticleContinuationEvent::query()
+            ->where('event_type', ArticleContinuationEvent::EVENT_IMPRESSION)
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->count();
+
+        $secondReads = ArticleContinuationEvent::query()
+            ->where('event_type', ArticleContinuationEvent::EVENT_SECOND_READ_START)
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->count();
+
+        $sourceArticlesEngaged = ArticleContinuationEvent::query()
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->distinct('source_article_id')
+            ->count('source_article_id');
+
+        return [
+            'impressions' => $impressions,
+            'second_reads' => $secondReads,
+            'second_read_rate' => $impressions > 0 ? round($secondReads / $impressions, 4) : 0.0,
+            'source_articles_engaged' => $sourceArticlesEngaged,
+        ];
+    }
+
+    /**
      * Riepilogo per articolo sorgente nel periodo indicato, ordinato per
      * second read decrescenti — il segnale editoriale che questa missione
      * chiede di rendere visibile (quali articoli avviano davvero una
