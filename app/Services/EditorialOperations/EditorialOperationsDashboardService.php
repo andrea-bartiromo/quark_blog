@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
+use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
 use App\Services\EditorialQuality\SourceImageAttributionHealthService;
@@ -32,6 +33,7 @@ class EditorialOperationsDashboardService
         private readonly SourceImageAttributionHealthService $attribution,
         private readonly SeoMetadataQualityAuditService $seo,
         private readonly EditorialRadarProviderGraphService $radar,
+        private readonly ContentGraphOrphanAuditService $contentGraphOrphans,
     ) {}
 
     /**
@@ -163,10 +165,32 @@ class EditorialOperationsDashboardService
             ->values()
             ->all();
 
+        // Missione 27 (Fase D — Editorial Operations Command Center):
+        // "actionable problems queue" — "pubblicato senza Concept" è
+        // l'unico esempio della missione non ancora coperto da nessuna
+        // sezione esistente E con un dato pronto, già testato, già a
+        // livello di singolo articolo: ContentGraphOrphanAuditService::
+        // orphanArticles() (Missione 23, batch precedente). Le altre
+        // voci d'esempio della missione o sono già coperte altrove
+        // (contenuti_isolati, percorsi_order_health) o sono il compito
+        // dedicato di una missione successiva con una nuance propria
+        // (Missione 29 — pubblicazione programmata non assegnata;
+        // Missione 34 — Search Console) — mai anticipate qui in forma
+        // grezza per non doverle poi ridisegnare.
+        $articlesWithoutConcept = collect($this->contentGraphOrphans->orphanArticles())
+            ->map(fn (array $row) => [
+                ...$row,
+                'published_at' => $articlesById->get($row['id'])?->published_at?->toISOString(),
+            ])
+            ->sortBy('published_at')
+            ->values()
+            ->all();
+
         $seoViolations = $this->seoViolations($seo['articles'], $articlesById);
         $overdueCount = collect($toPublish)->where('overdue', true)->count();
         $openProblemsTotal = count($toFix)
             + count($isolatedArticles)
+            + count($articlesWithoutConcept)
             + count($percorsiReadiness)
             + $orderHealthSummary['structural_error_count']
             + $orderHealthSummary['publication_warning_count']
@@ -192,6 +216,7 @@ class EditorialOperationsDashboardService
             'da_pubblicare' => $toPublish,
             'da_sistemare' => $toFix,
             'contenuti_isolati' => $isolatedArticles,
+            'contenuti_senza_concept' => $articlesWithoutConcept,
             'seo' => [
                 'summary' => $seo['summary'],
                 'articles' => $seo['articles'],
