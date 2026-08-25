@@ -343,6 +343,41 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 37 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "image readiness" — la copertura è già
+     * completa e stratificata (ArticleContentHealthService::cover(),
+     * SourceImageAttributionHealthService, EditorialQualityChecker
+     * CATEGORY_MEDIA), ma nessun test HTTP aveva mai provato che un
+     * warning legato all'immagine di copertina comparisse davvero nella
+     * sezione "Da sistemare" della pagina reale — solo il livello
+     * servizio era coperto (stesso pattern di gap già colmato per
+     * Percorsi in Missione 31 e SEO in Missione 36).
+     */
+    public function test_editor_sees_a_missing_cover_warning_row_rendered_in_the_da_sistemare_section(): void
+    {
+        $editor = $this->editor();
+        $article = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Articolo senza copertina dashboard',
+            'slug' => 'articolo-senza-copertina-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Articolo senza copertina dashboard');
+        $response->assertSee(route('admin.articles.edit', $article));
+        $response->assertSee('HIGH');
+        $response->assertSee('Copertina');
+    }
+
+    /**
      * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "publication gap dashboard" — il conteggio
      * dedicato deve comparire sulla pagina reale, non solo nello snapshot
