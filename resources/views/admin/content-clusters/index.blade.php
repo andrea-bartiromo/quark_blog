@@ -34,6 +34,22 @@
   <p><small>percorsi:reconcile-lifecycle scrive un evento solo quando conclude davvero un Percorso: questi dati mostrano l'ultima modifica automatica osservata, non lo stato di salute dello scheduler stesso.</small></p>
 </section>
 
+<section aria-labelledby="cluster-activation-calendar" class="admin-card" style="margin-bottom:1rem;">
+  <h2 id="cluster-activation-calendar" style="font-size:1rem;">Calendario attivazioni</h2>
+  <p>
+    Attivi ora: <strong>{{ $activationCalendar['active_now'] }}</strong> ·
+    Programmati: <strong>{{ $activationCalendar['scheduled'] }}</strong> ·
+    Inattivi: <strong>{{ $activationCalendar['inactive'] }}</strong>
+    @if($activationCalendar['next_activation'])
+      · Prossima attivazione: <strong>{{ $activationCalendar['next_activation']['cluster_name'] }}</strong>
+      ({{ $activationCalendar['next_activation']['at']->format('d/m/Y H:i') }})
+    @else
+      · Nessuna attivazione programmata
+    @endif
+  </p>
+  <p><small>Orari mostrati in Europe/Rome; persistenza sempre in UTC.</small></p>
+</section>
+
 <div class="admin-table-wrap">
   <table class="admin-table">
     <thead><tr><th>Nome</th><th>Health</th><th>Stato</th><th>Pubblicati / totali</th><th>Pillar</th><th>Primary</th><th>Warning</th><th>Azioni</th></tr></thead>

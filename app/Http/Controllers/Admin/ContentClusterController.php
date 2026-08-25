@@ -8,6 +8,7 @@ use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
+use App\Services\ContentClusters\PercorsiActivationCalendarService;
 use App\Services\ContentClusters\PercorsiAutomationObservability;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
@@ -25,6 +26,7 @@ class ContentClusterController extends Controller
         private readonly PercorsiAutomationObservability $automation,
         private readonly PercorsoPublicationReadinessService $readiness,
         private readonly PercorsoCoverageAuditService $coverageAudit,
+        private readonly PercorsiActivationCalendarService $activationCalendar,
     ) {}
 
     public function index()
@@ -49,6 +51,7 @@ class ContentClusterController extends Controller
             'clusters' => $clusters,
             'orphans' => $this->health->orphanCounts(),
             'automation' => $this->automation->summary(),
+            'activationCalendar' => $this->activationCalendar->summary(),
         ]);
     }
 
