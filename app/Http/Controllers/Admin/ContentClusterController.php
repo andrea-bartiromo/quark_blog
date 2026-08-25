@@ -146,6 +146,7 @@ class ContentClusterController extends Controller
             'health' => $this->health->evaluate($contentCluster),
             'missingTransitionArticleIds' => collect($transitionTextGaps['detail'] ?? [])->pluck('id')->all(),
             'orderHealthFlagsByArticleId' => $this->orderHealthFlagsByArticleId($orderHealth, $contentCluster),
+            'completeWithHiddenRemainder' => $orderHealth['complete_with_hidden_remainder'],
         ]);
     }
 

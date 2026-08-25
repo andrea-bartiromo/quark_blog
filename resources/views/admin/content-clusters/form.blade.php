@@ -16,6 +16,13 @@
 </div>
 @endif
 
+@if($cluster && ($completeWithHiddenRemainder ?? false))
+<section class="admin-alert admin-alert--danger" aria-labelledby="cluster-hidden-remainder-warning" role="alert">
+  <h2 id="cluster-hidden-remainder-warning" style="font-size:1rem;margin:0 0 .5rem;">Percorso completo con nuove tappe non pubbliche</h2>
+  <p style="margin:0;">Questo Percorso è marcato come "concluso", ma la sequenza pubblica si ferma prima dell'ultima tappa configurata: sono state aggiunte tappe non ancora pubbliche dopo la conclusione. Il Percorso NON viene riaperto automaticamente — una decisione editoriale esplicita (marcarlo di nuovo "in aggiornamento", o pubblicare/rimuovere le tappe nascoste) resta a te.</p>
+</section>
+@endif
+
 @if($cluster && !empty($health['findings']))
 <section class="admin-alert" aria-labelledby="cluster-health-warnings" role="status">
   <h2 id="cluster-health-warnings" style="font-size:1rem;margin:0 0 .5rem;">Stato editoriale del percorso</h2>
