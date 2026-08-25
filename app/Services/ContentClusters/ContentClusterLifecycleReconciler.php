@@ -25,6 +25,17 @@ use App\Models\ContentCluster;
  */
 class ContentClusterLifecycleReconciler
 {
+    /**
+     * Testo base dell'ActivityLog registrato da
+     * ReconcileContentClusterLifecycle a ogni promozione riuscita. Unica
+     * fonte di verità condivisa con PercorsiAutomationObservability, che
+     * riconosce queste righe con un confronto sul PREFISSO (Missione 14,
+     * secondo batch autonomo KAIRUS): il comando appende in coda a questa
+     * stessa costante il prefisso pubblico e il conteggio tappe, mai
+     * sostituendola, cosi' quel confronto continua a funzionare.
+     */
+    public const PROMOTION_BASE_ACTION = 'Percorso concluso automaticamente (tutte le tappe configurate sono pubbliche)';
+
     public function __construct(
         private readonly ContentClusterPublicSequence $publicSequence,
     ) {}

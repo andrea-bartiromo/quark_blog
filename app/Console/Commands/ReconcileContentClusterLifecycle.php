@@ -59,8 +59,22 @@ class ReconcileContentClusterLifecycle extends Command
                 // user_id nullo: ActivityLog e la vista admin.activity già
                 // mostrano "Sistema" per le azioni senza utente autenticato
                 // (stesso pattern di PublishScheduledArticles).
+                //
+                // Missione 14 (secondo batch autonomo KAIRUS, Fase C):
+                // prefisso e conteggio tappe appesi in coda al testo base
+                // — mai al suo posto — perché
+                // PercorsiAutomationObservability::PROMOTION_ACTION
+                // individua "l'ultima conclusione automatica" con un
+                // confronto sul PREFISSO di questa stessa stringa (vedi
+                // quella classe): il testo base resta la costante,
+                // immutata, che quel confronto continua a riconoscere.
                 ActivityLog::record(
-                    'Percorso concluso automaticamente (tutte le tappe configurate sono pubbliche)',
+                    sprintf(
+                        '%s — prefisso pubblico continuo: %d/%d tappe',
+                        ContentClusterLifecycleReconciler::PROMOTION_BASE_ACTION,
+                        $result->publicPrefixLength,
+                        $result->totalMembershipCount,
+                    ),
                     'content_cluster',
                     $cluster->id,
                     $cluster->name
