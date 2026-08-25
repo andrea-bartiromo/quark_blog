@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DiscoverReadinessController;
 use App\Http\Controllers\Admin\EditorialOperationsDashboardController;
 use App\Http\Controllers\Admin\EditorialQualityAuditController;
+use App\Http\Controllers\Admin\InternalLinkAuditController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -268,6 +269,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Editorial Quality Gate — sitewide audit (Missione 35, batch KAIRUS)
     Route::get('/qualita-editoriale', [EditorialQualityAuditController::class, 'index'])->name('editorial-quality');
+
+    // Internal Link Audit — orphan article detection (Missione 42, batch KAIRUS)
+    Route::get('/link-interni', [InternalLinkAuditController::class, 'index'])->name('internal-link-audit');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');

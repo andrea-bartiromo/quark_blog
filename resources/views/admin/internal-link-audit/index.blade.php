@@ -1,0 +1,97 @@
+@extends('layouts.admin')
+@section('title','Link interni')
+@section('content')
+
+<div class="admin-topbar">
+  <h1 class="admin-page-title">Link interni</h1>
+</div>
+
+<p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;">
+  Fotografa lo stato dei collegamenti interni tra articoli: rotti, isolati, opportunità —
+  un articolo "isolato" è pubblicato ma non riceve alcun collegamento da nessun altro
+  articolo del sito, quindi irraggiungibile dalla navigazione da-articolo-ad-articolo anche
+  se già collegato a un Concept o a un Percorso. Sola lettura: nessuna modifica viene mai
+  applicata da questa pagina.
+</p>
+
+<dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Analizzati</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->analyzed) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Isolati (pubblicati, zero incoming)</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;color:{{ $report->isolatedArticles > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($report->isolatedArticles) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Link rotti</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;color:{{ $report->brokenLinks > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($report->brokenLinks) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Anchor ambigui</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->articlesWithAmbiguousAnchors) }}</dd>
+  </div>
+</dl>
+
+<section class="admin-card" style="margin-bottom:1.5rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Pubblicati senza incoming links</h2>
+  @if($report->publishedWithoutIncomingLinks === [])
+    <p style="font-size:.82rem;color:var(--admin-muted);margin:0;">Nessuno — ogni articolo pubblicato riceve almeno un collegamento interno.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+      @foreach($report->publishedWithoutIncomingLinks as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.articles.edit', $row['id']) }}">{{ $row['title'] }}</a>
+        </li>
+      @endforeach
+    </ul>
+  @endif
+</section>
+
+@if($flagged->isEmpty())
+  <div class="articles-empty-state">
+    <p class="articles-empty-state__icon" aria-hidden="true">✅</p>
+    <p>Nessuno — tutti gli articoli analizzati sono senza anomalie rilevate.</p>
+  </div>
+@else
+  <div style="overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th scope="col">Articolo</th>
+          <th scope="col">Stato</th>
+          <th scope="col">Anomalie</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($flagged as $row)
+          @php
+            $reasons = [];
+            if ($row->countByClassification('missing') > 0) {
+              $reasons[] = $row->countByClassification('missing').' link rotti';
+            }
+            if ($row->countByClassification('self') > 0) {
+              $reasons[] = 'self-link';
+            }
+            if ($row->countByClassification('unpublished') > 0) {
+              $reasons[] = $row->countByClassification('unpublished').' target non pubblicati';
+            }
+            if ($row->hasAmbiguousAnchor) {
+              $reasons[] = 'anchor ambigui';
+            }
+            if ($row->isOrphan()) {
+              $reasons[] = 'isolato';
+            }
+          @endphp
+          <tr>
+            <td><a href="{{ route('admin.articles.edit', $row->articleId) }}">{{ $row->title }}</a></td>
+            <td>{{ ucfirst($row->status) }}</td>
+            <td>{{ implode(', ', $reasons) }}</td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+@endif
+
+@endsection
