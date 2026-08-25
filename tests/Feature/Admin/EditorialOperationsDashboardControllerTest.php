@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Models\SearchConsoleQuery;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -160,6 +161,49 @@ class EditorialOperationsDashboardControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Content Graph');
         $response->assertSee(route('admin.concepts.index'));
+    }
+
+    /**
+     * Missione 34 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): la card "Search Console" deve comparire
+     * sulla pagina reale, sia nello stato "mai importato" sia con un
+     * import reale, non solo nello snapshot del servizio.
+     */
+    public function test_editor_sees_the_search_console_card_in_its_never_imported_state(): void
+    {
+        $editor = $this->editor();
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Search Console');
+        $response->assertSee('Mai importato');
+        $response->assertSee(route('admin.search-opportunities.import-form'));
+    }
+
+    public function test_editor_sees_days_since_last_search_console_import(): void
+    {
+        $editor = $this->editor();
+        SearchConsoleQuery::create([
+            'query' => 'query dashboard test',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 10,
+            'ctr' => 0.1,
+            'position' => 5,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'dashboard-test-batch',
+            'imported_at' => now()->subDays(5),
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Search Console');
+        $response->assertSee('giorni dall\'ultimo import');
+        $response->assertSee(route('admin.search-opportunities'));
     }
 
     /**
