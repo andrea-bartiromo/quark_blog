@@ -33,6 +33,52 @@ class SeoMetadataQualityAuditServiceTest extends TestCase
         $this->assertSame('WARNING', $row['canonical']['status']);
     }
 
+    /**
+     * Missione 38 (Fase E — Editorial Quality & Readiness): un canonical
+     * override che punta a un dominio diverso dal sito dice ai motori di
+     * ricerca "il contenuto vero vive altrove" — de-indicizza di fatto la
+     * pagina reale. Stesso confronto host case-insensitive già usato da
+     * ArticleLinkInsertionService::isSafeInternalUrl().
+     */
+    public function test_it_warns_when_canonical_points_to_a_different_domain(): void
+    {
+        $article = $this->article('Canonical fuori dominio', ['canonical_url' => 'https://example.com/altrove']);
+
+        $row = collect(app(SeoMetadataQualityAuditService::class)->audit()['articles'])->firstWhere('article_id', $article->id);
+
+        $this->assertSame('WARNING', $row['canonical']['status']);
+        $this->assertSame('Canonical effettivo punta a un dominio diverso dal sito.', $row['canonical']['reason']);
+    }
+
+    public function test_the_default_canonical_falling_back_to_the_articles_own_route_is_never_flagged(): void
+    {
+        $article = $this->article('Canonical di fallback');
+
+        $row = collect(app(SeoMetadataQualityAuditService::class)->audit()['articles'])->firstWhere('article_id', $article->id);
+
+        $this->assertSame('OK', $row['canonical']['status']);
+    }
+
+    /**
+     * Missione 38: il canonical di fallback è la route dello slug proprio
+     * dell'articolo (sempre unico grazie al vincolo UNIQUE su
+     * articles.slug) — un duplicato può nascere SOLO da un override
+     * esplicito che collide con un altro articolo, un vero conflitto di
+     * canonicalizzazione, non un falso positivo.
+     */
+    public function test_two_articles_sharing_the_same_overridden_canonical_are_flagged_as_duplicates(): void
+    {
+        $first = $this->article('Primo canonical condiviso', ['canonical_url' => 'https://kairus.it/articolo/pagina-unica']);
+        $second = $this->article('Secondo canonical condiviso', ['canonical_url' => 'https://kairus.it/articolo/pagina-unica']);
+
+        $report = app(SeoMetadataQualityAuditService::class)->audit();
+        $rows = collect($report['articles']);
+
+        $this->assertTrue($rows->firstWhere('article_id', $first->id)['duplicate_canonical_url']);
+        $this->assertTrue($rows->firstWhere('article_id', $second->id)['duplicate_canonical_url']);
+        $this->assertSame(2, $report['summary']['duplicate_canonical_urls']);
+    }
+
     public function test_it_reuses_existing_quality_gate_seo_checks(): void
     {
         $article = $this->article(str_repeat('Titolo molto lungo ', 8), ['status' => Article::STATUS_PUBLISHED, 'published_at' => now()->subDay()]);

@@ -378,6 +378,53 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 38 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "slug/canonical integrity" — lo slug è già
+     * protetto a livello DB (vincolo UNIQUE + Article::uniqueSlug()), ma il
+     * canonical override non aveva alcuna verifica né di dominio né di
+     * duplicazione tra articoli. Aggiunte entrambe a
+     * SeoMetadataQualityAuditService::canonicalCheck()/audit(); questo test
+     * prova che un canonical duplicato comparisca davvero, con priorità
+     * HIGH, nella sezione "SEO" della pagina reale.
+     */
+    public function test_editor_sees_a_duplicate_canonical_violation_row_rendered_in_the_seo_section(): void
+    {
+        $editor = $this->editor();
+        $first = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Primo articolo canonical duplicato dashboard',
+            'slug' => 'primo-canonical-duplicato-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+            'canonical_url' => 'https://kairus.it/articolo/pagina-condivisa-dashboard',
+        ]);
+        Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Secondo articolo canonical duplicato dashboard',
+            'slug' => 'secondo-canonical-duplicato-dashboard',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+            'canonical_url' => 'https://kairus.it/articolo/pagina-condivisa-dashboard',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Primo articolo canonical duplicato dashboard');
+        $response->assertSee(route('admin.articles.edit', $first));
+        $response->assertSee('URL canonical duplicato tra più articoli.');
+        $response->assertSee('HIGH');
+    }
+
+    /**
      * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
      * Advanced Operations): "publication gap dashboard" — il conteggio
      * dedicato deve comparire sulla pagina reale, non solo nello snapshot

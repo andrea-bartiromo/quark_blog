@@ -34,7 +34,18 @@ class SeoMetadataQualityAuditService
             ->filter()
             ->countBy();
 
-        $rows = $articles->map(function (Article $article) use ($duplicateArticleTitleIndex, $effectiveTitleCounts, $effectiveDescriptionCounts) {
+        // Missione 38 (Fase E — Editorial Quality & Readiness): il
+        // canonical di fallback è la route dello slug proprio dell'articolo
+        // (sempre unico grazie al vincolo UNIQUE su articles.slug), quindi
+        // un duplicato può nascere SOLO da un override esplicito che
+        // collide con un altro articolo — un conflitto di canonicalizzazione
+        // reale, non un falso positivo.
+        $effectiveCanonicalCounts = $articles
+            ->map(fn (Article $article) => $this->normalize($article->metaCanonicalUrl()))
+            ->filter()
+            ->countBy();
+
+        $rows = $articles->map(function (Article $article) use ($duplicateArticleTitleIndex, $effectiveTitleCounts, $effectiveDescriptionCounts, $effectiveCanonicalCounts) {
             $quality = $this->qualityChecker->check($article, $duplicateArticleTitleIndex);
             $seoChecks = array_values(array_map(
                 fn (EditorialQualityCheckResult $result) => [
@@ -47,6 +58,7 @@ class SeoMetadataQualityAuditService
 
             $effectiveTitle = $this->normalize($article->metaTitle());
             $effectiveDescription = $this->normalize($article->metaDescription());
+            $effectiveCanonical = $this->normalize($article->metaCanonicalUrl());
 
             return [
                 'article_id' => $article->id,
@@ -57,6 +69,7 @@ class SeoMetadataQualityAuditService
                 'uses_seo_description_fallback' => blank($article->seo_description),
                 'duplicate_effective_title' => $effectiveTitle !== '' && ($effectiveTitleCounts[$effectiveTitle] ?? 0) > 1,
                 'duplicate_effective_description' => $effectiveDescription !== '' && ($effectiveDescriptionCounts[$effectiveDescription] ?? 0) > 1,
+                'duplicate_canonical_url' => $effectiveCanonical !== '' && ($effectiveCanonicalCounts[$effectiveCanonical] ?? 0) > 1,
                 'canonical' => $this->canonicalCheck($article),
                 'social_metadata' => $this->socialMetadataCheck($article),
             ];
@@ -68,6 +81,7 @@ class SeoMetadataQualityAuditService
                 'analyzed' => $rows->count(),
                 'duplicate_effective_titles' => $rows->where('duplicate_effective_title', true)->count(),
                 'duplicate_effective_descriptions' => $rows->where('duplicate_effective_description', true)->count(),
+                'duplicate_canonical_urls' => $rows->where('duplicate_canonical_url', true)->count(),
                 'canonical_warnings' => $rows->filter(fn (array $row) => $row['canonical']['status'] === 'WARNING')->count(),
             ],
             'policy_notes' => [
@@ -90,6 +104,16 @@ class SeoMetadataQualityAuditService
 
         if (parse_url($url, PHP_URL_QUERY) !== null || parse_url($url, PHP_URL_FRAGMENT) !== null) {
             return ['status' => 'WARNING', 'reason' => 'Canonical effettivo contiene query string o fragment.', 'url' => $url];
+        }
+
+        // Missione 38 (Fase E — Editorial Quality & Readiness): un canonical
+        // override che punta a un dominio diverso dal sito stesso dice ai
+        // motori di ricerca "il contenuto vero vive altrove" — de-indicizza
+        // di fatto la pagina reale. Stesso confronto host case-insensitive
+        // già usato da ArticleLinkInsertionService::isSafeInternalUrl().
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+        if ($appHost !== null && mb_strtolower($host) !== mb_strtolower($appHost)) {
+            return ['status' => 'WARNING', 'reason' => 'Canonical effettivo punta a un dominio diverso dal sito.', 'url' => $url];
         }
 
         return ['status' => 'OK', 'reason' => 'Canonical effettivo sintatticamente valido.', 'url' => $url];
