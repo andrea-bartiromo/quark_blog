@@ -40,6 +40,7 @@ class EditorialOperationsDashboardService
         private readonly ContentGraphCoverageService $contentGraphCoverage,
         private readonly ContinuationAnalyticsService $continuationAnalytics,
         private readonly SearchConsoleFreshnessService $searchConsoleFreshness,
+        private readonly PublicationCadenceService $publicationCadence,
     ) {}
 
     /**
@@ -302,6 +303,13 @@ class EditorialOperationsDashboardService
             // compito dedicato della Fase F (Missione 45 — import
             // freshness), mai anticipata in forma grezza qui.
             'search_console' => $this->searchConsoleFreshness->summary(),
+            // Missione 40 (Fase E — Editorial Quality & Readiness):
+            // "publication gaps" a livello di sito, distinto dal
+            // "published_beyond_gap" per-Percorso già coperto sopra (Missione
+            // 21) — riusa PublicationCadenceService::summary() (Missione 40),
+            // mai un ricalcolo qui. Nessuna soglia di "troppo tempo": non
+            // definita nel repository, mai inventata qui.
+            'ritmo_pubblicazione' => $this->publicationCadence->summary(),
             'programmati_non_assegnati' => $unassignedScheduledArticles,
             'seo' => [
                 'summary' => $seo['summary'],

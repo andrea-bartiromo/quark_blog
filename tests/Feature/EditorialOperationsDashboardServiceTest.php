@@ -75,6 +75,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(0, $snapshot['second_read']['second_reads']);
         $this->assertSame(0.0, $snapshot['second_read']['second_read_rate']);
         $this->assertFalse($snapshot['search_console']['available']);
+        $this->assertFalse($snapshot['ritmo_pubblicazione']['available']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -147,6 +148,22 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             [$soonest->id, $middle->id, $furthest->id],
             collect($snapshot['da_pubblicare'])->pluck('article_id')->all()
         );
+    }
+
+    /**
+     * Missione 40 (secondo batch autonomo KAIRUS, Fase E — Editorial
+     * Quality & Readiness): "publication gaps" a livello di sito — riusa
+     * PublicationCadenceService::summary(), mai un ricalcolo qui.
+     */
+    public function test_ritmo_pubblicazione_reflects_the_most_recently_published_article(): void
+    {
+        $this->article('mission40-oldest', Article::STATUS_PUBLISHED, now()->subDays(10));
+        $this->article('mission40-newest', Article::STATUS_PUBLISHED, now()->subDays(2));
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertTrue($snapshot['ritmo_pubblicazione']['available']);
+        $this->assertSame(2, $snapshot['ritmo_pubblicazione']['days_since_last_publication']);
     }
 
     /**

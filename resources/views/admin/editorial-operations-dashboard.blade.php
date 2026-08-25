@@ -102,6 +102,17 @@
     @endif
   </div>
 
+  <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Ritmo di pubblicazione</div>
+    @if($snapshot['ritmo_pubblicazione']['available'])
+      <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ $snapshot['ritmo_pubblicazione']['days_since_last_publication'] }}</div>
+      <a href="{{ route('admin.articles.calendar') }}" style="font-size:.78rem;color:#0d9488;">{{ $snapshot['ritmo_pubblicazione']['days_since_last_publication'] === 1 ? 'giorno dall\'ultima pubblicazione' : 'giorni dall\'ultima pubblicazione' }} — Calendario →</a>
+    @else
+      <div style="font-size:1.4rem;font-weight:700;margin:.35rem 0;color:#b45309;">Mai pubblicato</div>
+      <a href="{{ route('admin.articles.calendar') }}" style="font-size:.78rem;color:#0d9488;">Calendario articoli →</a>
+    @endif
+  </div>
+
 </div>
 
 @foreach(['distribuzione' => 'Distribuzione'] as $key => $label)
