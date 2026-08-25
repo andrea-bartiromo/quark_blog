@@ -110,6 +110,7 @@
       $isSearchOpportunities = request()->routeIs('admin.search-opportunities*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
+      $isEditorialQuality = request()->routeIs('admin.editorial-quality*');
       $isActivity      = request()->routeIs('admin.activity');
       $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
       $isProfile       = request()->routeIs('admin.profile*');
@@ -129,7 +130,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isEditorialQuality;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -183,6 +184,7 @@
 
       <x-admin.nav-group label="Analisi" :open="$analisiOpen">
         <x-admin.nav-link :route="route('admin.editorial-operations')" :active="$isEditorialOperations" icon="🧮">Operazioni editoriali</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.editorial-quality')" :active="$isEditorialQuality" icon="🩺">Qualità editoriale</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
