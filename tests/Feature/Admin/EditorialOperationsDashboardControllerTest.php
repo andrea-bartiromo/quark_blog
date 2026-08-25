@@ -427,6 +427,40 @@ class EditorialOperationsDashboardControllerTest extends TestCase
     }
 
     /**
+     * Missione 50 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): "percorso pillar integrity" —
+     * PercorsoCoverageAuditService::audit() calcola già
+     * paths_with_incoherent_pillar, ma nessuna vista lo mostrava mai.
+     */
+    public function test_editor_sees_a_percorso_with_an_incoherent_pillar_rendered_on_the_page(): void
+    {
+        $editor = $this->editor();
+        $pillar = Article::create([
+            'user_id' => $editor->id,
+            'title' => 'Pillar esterno dashboard HTTP',
+            'slug' => 'pillar-esterno-dashboard-http',
+            'body' => '<p>Corpo.</p>',
+            'excerpt' => 'Estratto.',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'read_minutes' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+        ContentCluster::create([
+            'name' => 'Percorso Pillar Incoerente Dashboard HTTP',
+            'slug' => 'percorso-pillar-incoerente-dashboard-http',
+            'is_active' => true,
+            'pillar_article_id' => $pillar->id,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.editorial-operations'));
+
+        $response->assertOk();
+        $response->assertSee('Percorso Pillar Incoerente Dashboard HTTP');
+        $response->assertSee('Il pillar assegnato non fa più parte del Percorso.');
+    }
+
+    /**
      * Missione 36 (secondo batch autonomo KAIRUS, Fase E — Editorial
      * Quality & Readiness): "metadata completeness" — SeoMetadataQualityAuditService
      * calcola già canonical/duplicate-title/duplicate-description (Fase D,
