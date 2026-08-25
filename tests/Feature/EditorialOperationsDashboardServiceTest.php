@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleContinuationEvent;
 use App\Models\Concept;
 use App\Models\ContentCluster;
+use App\Models\SearchConsoleQuery;
 use App\Models\User;
 use App\Services\EditorialOperations\EditorialOperationsDashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,6 +74,7 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(0, $snapshot['second_read']['impressions']);
         $this->assertSame(0, $snapshot['second_read']['second_reads']);
         $this->assertSame(0.0, $snapshot['second_read']['second_read_rate']);
+        $this->assertFalse($snapshot['search_console']['available']);
         $this->assertSame([], $snapshot['percorsi_readiness']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
@@ -346,6 +348,34 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(1, $snapshot['second_read']['impressions']);
         $this->assertSame(1, $snapshot['second_read']['second_reads']);
         $this->assertSame(1.0, $snapshot['second_read']['second_read_rate']);
+    }
+
+    /**
+     * Missione 34 (secondo batch autonomo KAIRUS, Fase D — Editorial
+     * Operations Command Center): "Search Opportunities operational
+     * health" — riusa SearchConsoleFreshnessService::summary() (Missione
+     * 34), mai un ricalcolo qui.
+     */
+    public function test_search_console_freshness_reflects_the_real_last_import(): void
+    {
+        SearchConsoleQuery::create([
+            'query' => 'query freschezza operations test',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 10,
+            'ctr' => 0.1,
+            'position' => 5,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'operations-test-batch',
+            'imported_at' => now()->subDays(3),
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertTrue($snapshot['search_console']['available']);
+        $this->assertSame(3, $snapshot['search_console']['days_since_last_import']);
     }
 
     /**

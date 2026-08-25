@@ -13,6 +13,7 @@ use App\Services\ContinuationAnalyticsService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
 use App\Services\EditorialQuality\SourceImageAttributionHealthService;
 use App\Services\EditorialRadar\EditorialRadarProviderGraphService;
+use App\Services\SearchConsole\SearchConsoleFreshnessService;
 use Illuminate\Support\Collection;
 
 /**
@@ -38,6 +39,7 @@ class EditorialOperationsDashboardService
         private readonly ContentGraphOrphanAuditService $contentGraphOrphans,
         private readonly ContentGraphCoverageService $contentGraphCoverage,
         private readonly ContinuationAnalyticsService $continuationAnalytics,
+        private readonly SearchConsoleFreshnessService $searchConsoleFreshness,
     ) {}
 
     /**
@@ -275,6 +277,13 @@ class EditorialOperationsDashboardService
             // stesso "sempre" di default già usato dalla pagina
             // /admin/second-read.
             'second_read' => $this->continuationAnalytics->siteWideTotals(),
+            // Missione 34 (Fase D — Editorial Operations Command Center):
+            // "Search Opportunities operational health" — riusa
+            // SearchConsoleFreshnessService::summary() (Missione 34), mai
+            // un ricalcolo qui. Nessuna soglia di staleness: quella è il
+            // compito dedicato della Fase F (Missione 45 — import
+            // freshness), mai anticipata in forma grezza qui.
+            'search_console' => $this->searchConsoleFreshness->summary(),
             'programmati_non_assegnati' => $unassignedScheduledArticles,
             'seo' => [
                 'summary' => $seo['summary'],
