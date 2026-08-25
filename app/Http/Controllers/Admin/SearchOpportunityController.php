@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ImportSearchConsoleCsvRequest;
 use App\Models\SearchConsoleQuery;
 use App\Models\SearchOpportunityStatus;
 use App\Services\SearchConsole\SearchConsoleCsvImporter;
+use App\Services\SearchConsole\SearchConsoleFreshnessService;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
 use App\Services\SearchConsole\SearchOpportunityStatusService;
 use Carbon\Carbon;
@@ -20,6 +21,7 @@ class SearchOpportunityController extends Controller
     public function __construct(
         private readonly SearchOpportunityScoringService $scoring,
         private readonly SearchOpportunityStatusService $statuses,
+        private readonly SearchConsoleFreshnessService $freshness,
     ) {}
 
     public function index(Request $request): View
@@ -66,6 +68,11 @@ class SearchOpportunityController extends Controller
             'selectedType' => $type,
             'statusOptions' => SearchOpportunityStatus::statusOptions(),
             'opportunityStatuses' => $this->statuses->statusesFor($opportunities),
+            // Missione 45 (Fase F — Search Intelligence): "import
+            // freshness" — cronologia dei singoli import CSV (già
+            // idempotenti-per-periodo), mai mostrata finora, solo l'ultimo
+            // periodo disponibile lo era tramite $periods sopra.
+            'importHistory' => $this->freshness->importHistory(),
         ]);
     }
 

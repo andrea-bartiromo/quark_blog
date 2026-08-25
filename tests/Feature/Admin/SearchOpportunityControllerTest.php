@@ -55,6 +55,49 @@ class SearchOpportunityControllerTest extends TestCase
         $response->assertSee('query interessante');
     }
 
+    /**
+     * Missione 45 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): "import freshness" — la cronologia import (periodi
+     * diversi accumulati nel tempo, mai mostrati prima d'ora) deve
+     * comparire davvero sulla pagina reale.
+     */
+    public function test_index_shows_the_import_history_across_multiple_periods(): void
+    {
+        SearchConsoleQuery::create([
+            'query' => 'batch vecchio',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 10,
+            'ctr' => 0.1,
+            'position' => 5,
+            'period_start' => '2026-07-01',
+            'period_end' => '2026-07-07',
+            'import_batch' => 'batch-vecchio-http',
+            'imported_at' => now()->subDays(10),
+        ]);
+        SearchConsoleQuery::create([
+            'query' => 'batch recente',
+            'page_url' => 'https://kairus.it/notizie',
+            'article_id' => null,
+            'clicks' => 1,
+            'impressions' => 10,
+            'ctr' => 0.1,
+            'position' => 5,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-07',
+            'import_batch' => 'batch-recente-http',
+            'imported_at' => now()->subDays(2),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities'));
+
+        $response->assertOk();
+        $response->assertSee('Cronologia import (2)');
+        $response->assertSee('01/07/2026');
+        $response->assertSee('01/08/2026');
+    }
+
     public function test_index_can_be_filtered_by_type(): void
     {
         SearchConsoleQuery::create([
