@@ -61,6 +61,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame(0, $snapshot['percorsi_order_health']['structural_error_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['publication_warning_count']);
         $this->assertSame(0, $snapshot['percorsi_order_health']['editorial_advisory_count']);
+        $this->assertSame(0, $snapshot['percorsi_order_health']['published_beyond_gap_article_count']);
+        $this->assertSame(0, $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count']);
         $this->assertSame([], $snapshot['percorsi_order_health']['clusters_with_advisories_only']);
         $this->assertTrue($snapshot['opportunita']['available']);
         $this->assertSame(0, $snapshot['opportunita']['total']);
@@ -562,6 +564,64 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $row = collect($snapshot['percorsi_order_health']['clusters_with_issues'])->firstWhere('cluster_id', $cluster->id);
         $this->assertNotNull($row);
         $this->assertContains('NON_POSITIVE_POSITION', $row['codes']);
+    }
+
+    /**
+     * Missione 21 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "publication gap dashboard". PUBLISHED_BEYOND_GAP
+     * era già calcolato e già uno dei codici possibili in clusters_with_issues
+     * (vedi PercorsoCoverageAuditService::orderHealthRow()), ma non era mai
+     * stato provato end-to-end sulla dashboard reale, e non esisteva un
+     * conteggio dedicato di QUANTI articoli restano invisibili per questo
+     * motivo — solo un codice tra tanti in un elenco misto. Riproduce
+     * l'incidente concettuale: una tappa non pubblicata in posizione 1
+     * blocca il prefisso pubblico, lasciando una tappa già PUBLISHED in
+     * posizione 2 irraggiungibile.
+     */
+    public function test_a_published_article_stuck_behind_a_gap_is_counted_in_the_publication_gap_summary(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Con Gap',
+            'slug' => 'percorso-con-gap',
+            'is_active' => true,
+        ]);
+        $draftGate = $this->article('percorso-gap-cancello', Article::STATUS_DRAFT, null);
+        $publishedBehindGap = $this->article('percorso-gap-bloccato', Article::STATUS_PUBLISHED, now()->subDay());
+        DB::table('article_content_cluster')->insert([
+            ['content_cluster_id' => $cluster->id, 'article_id' => $draftGate->id, 'position' => 10, 'is_primary' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['content_cluster_id' => $cluster->id, 'article_id' => $publishedBehindGap->id, 'position' => 20, 'is_primary' => false, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(1, $snapshot['percorsi_order_health']['published_beyond_gap_article_count']);
+        $this->assertSame(1, $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count']);
+        $row = collect($snapshot['percorsi_order_health']['clusters_with_issues'])->firstWhere('cluster_id', $cluster->id);
+        $this->assertNotNull($row);
+        $this->assertContains('PUBLISHED_BEYOND_GAP', $row['codes']);
+    }
+
+    public function test_a_percorso_with_no_gap_does_not_count_toward_the_publication_gap_summary(): void
+    {
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Senza Gap',
+            'slug' => 'percorso-senza-gap',
+            'is_active' => true,
+        ]);
+        $published = $this->article('percorso-senza-gap-membro', Article::STATUS_PUBLISHED, now()->subDay());
+        DB::table('article_content_cluster')->insert([
+            'content_cluster_id' => $cluster->id,
+            'article_id' => $published->id,
+            'position' => 10,
+            'is_primary' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(0, $snapshot['percorsi_order_health']['published_beyond_gap_article_count']);
+        $this->assertSame(0, $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count']);
     }
 
     /**
