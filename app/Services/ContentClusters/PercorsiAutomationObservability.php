@@ -31,8 +31,6 @@ use Illuminate\Support\Carbon;
  */
 class PercorsiAutomationObservability
 {
-    private const PROMOTION_ACTION = 'Percorso concluso automaticamente (tutte le tappe configurate sono pubbliche)';
-
     /**
      * @return array{
      *     updating: int,
@@ -47,9 +45,16 @@ class PercorsiAutomationObservability
             ->groupBy('lifecycle_status')
             ->pluck('aggregate', 'lifecycle_status');
 
+        // Missione 14 (secondo batch autonomo KAIRUS): confronto sul
+        // prefisso, non piu' sull'uguaglianza esatta — da questa missione
+        // ReconcileContentClusterLifecycle appende in coda a
+        // ContentClusterLifecycleReconciler::PROMOTION_BASE_ACTION il
+        // prefisso pubblico e il conteggio tappe di quella specifica
+        // promozione, quindi il testo completo varia da riga a riga anche
+        // se l'evento e' lo stesso.
         $lastPromotion = ActivityLog::query()
             ->where('subject_type', 'content_cluster')
-            ->where('action', self::PROMOTION_ACTION)
+            ->where('action', 'like', ContentClusterLifecycleReconciler::PROMOTION_BASE_ACTION.'%')
             ->latest('created_at')
             ->first();
 

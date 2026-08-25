@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\ContentCluster;
 use App\Models\User;
@@ -382,5 +383,31 @@ class ContentClusterAutoLifecycleCompletionTest extends TestCase
             'subject_type' => 'content_cluster',
             'subject_id' => $cluster->id,
         ]);
+    }
+
+    /**
+     * Missione 14 (secondo batch autonomo KAIRUS, Fase C — Percorsi
+     * Advanced Operations): "Enhance lifecycle reconciliation
+     * observability. Show: ... prefix length, member count ...". Prova
+     * end-to-end (comando reale, non solo il servizio in isolamento) che
+     * quei due numeri, gia' calcolati da
+     * ContentClusterLifecycleReconciler ma prima scartati, arrivano ora
+     * fino alla riga di ActivityLog effettivamente visibile in
+     * admin.activity.
+     */
+    public function test_activity_log_action_text_includes_prefix_length_and_member_count(): void
+    {
+        $cluster = ContentCluster::factory()->create(['name' => 'Percorso a tre tappe', 'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
+        $cluster->articles()->attach($this->publishedArticle('Uno')->id, ['position' => 10]);
+        $cluster->articles()->attach($this->publishedArticle('Due')->id, ['position' => 20]);
+        $cluster->articles()->attach($this->publishedArticle('Tre')->id, ['position' => 30]);
+
+        $this->artisan('percorsi:reconcile-lifecycle')->assertExitCode(0);
+
+        $log = ActivityLog::query()->where('subject_type', 'content_cluster')->where('subject_id', $cluster->id)->first();
+
+        $this->assertNotNull($log);
+        $this->assertStringStartsWith(ContentClusterLifecycleReconciler::PROMOTION_BASE_ACTION, $log->action);
+        $this->assertStringContainsString('3/3 tappe', $log->action);
     }
 }
