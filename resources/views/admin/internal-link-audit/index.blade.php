@@ -20,6 +20,18 @@
     <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->analyzed) }}</dd>
   </div>
   <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Senza link interni</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->withoutOutgoingLinks) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Con 1 link</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->withOneOutgoingLink) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Con 2+ link</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->withTwoOrMoreOutgoingLinks) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
     <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Isolati (pubblicati, zero incoming)</dt>
     <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;color:{{ $report->isolatedArticles > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($report->isolatedArticles) }}</dd>
   </div>
@@ -30,6 +42,22 @@
   <div class="admin-card" style="margin:0;">
     <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Anchor ambigui</dt>
     <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->articlesWithAmbiguousAnchors) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Self-link</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;color:{{ $report->selfLinks > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($report->selfLinks) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Target non pubblicati</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;color:{{ $report->unpublishedTargets > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($report->unpublishedTargets) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Target scheduled sicuri</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->scheduledSafeLinks) }}</dd>
+  </div>
+  <div class="admin-card" style="margin:0;">
+    <dt style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--admin-muted);">Link reindirizzati</dt>
+    <dd style="margin:.2rem 0 0;font-weight:600;font-size:1.4rem;">{{ number_format($report->redirectedLinks) }}</dd>
   </div>
 </dl>
 

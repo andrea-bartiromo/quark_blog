@@ -4,7 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
+use App\Models\ArticleSlugRedirect;
 use App\Models\User;
+use App\Services\InternalLinking\InternalLinkAuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -185,6 +187,64 @@ class InternalLinkAuditControllerTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Programmati senza link interni');
         $response->assertDontSee('Opportunità di collegamento ad alta confidenza');
+    }
+
+    /**
+     * Missione 51 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): InternalLinkAuditCommand (CLI) stampa già tutti e
+     * undici i campi del report nella sezione "ARTICOLI", ma la pagina
+     * reale ne mostrava solo 4 di 11 — withoutOutgoingLinks,
+     * withOneOutgoingLink, withTwoOrMoreOutgoingLinks, selfLinks,
+     * unpublishedTargets, scheduledSafeLinks e redirectedLinks restavano
+     * calcolati ma mai visibili fuori dalla CLI. Il servizio è già
+     * usato qui come oracolo dei numeri attesi (stesso principio
+     * "aggregazione, mai una regola di dominio" già applicato altrove in
+     * questo file) — le classificazioni stesse sono già esaustivamente
+     * provate da InternalLinkAuditCommandTest.
+     */
+    public function test_editor_sees_all_seven_previously_hidden_articles_stat_cards_rendered_on_the_page(): void
+    {
+        $editor = $this->editor();
+
+        // Senza link interni.
+        $this->article(['title' => 'Senza link mission51']);
+
+        // Con 1 link (valido).
+        $target = $this->article(['title' => 'Target valido mission51', 'slug' => 'target-valido-mission51']);
+        $this->article(['body' => '<p><a href="/articolo/target-valido-mission51">vedi</a></p>']);
+
+        // Self-link.
+        $selfLinker = $this->article(['slug' => 'si-collega-da-solo-mission51']);
+        $selfLinker->update(['body' => '<p><a href="/articolo/si-collega-da-solo-mission51">questo stesso articolo</a></p>']);
+
+        // Link reindirizzato.
+        $redirectTarget = $this->article(['title' => 'Target redirect mission51', 'slug' => 'nuovo-slug-mission51']);
+        ArticleSlugRedirect::create(['old_slug' => 'vecchio-slug-mission51', 'article_id' => $redirectTarget->id]);
+        $this->article(['body' => '<p><a href="/articolo/vecchio-slug-mission51">vedi</a></p>']);
+
+        $report = app(InternalLinkAuditService::class)->audit();
+
+        $response = $this->actingAs($editor)->get(route('admin.internal-link-audit'));
+
+        $response->assertOk();
+        $response->assertSee('Senza link interni');
+        $response->assertSee('Con 1 link');
+        $response->assertSee('Con 2+ link');
+        $response->assertSee('Self-link');
+        $response->assertSee('Target non pubblicati');
+        $response->assertSee('Target scheduled sicuri');
+        $response->assertSee('Link reindirizzati');
+        $response->assertSee(number_format($report->withoutOutgoingLinks));
+        $response->assertSee(number_format($report->withOneOutgoingLink));
+        $response->assertSee(number_format($report->withTwoOrMoreOutgoingLinks));
+        $response->assertSee(number_format($report->selfLinks));
+        $response->assertSee(number_format($report->unpublishedTargets));
+        $response->assertSee(number_format($report->scheduledSafeLinks));
+        $response->assertSee(number_format($report->redirectedLinks));
+        $this->assertGreaterThan(0, $report->withoutOutgoingLinks);
+        $this->assertGreaterThan(0, $report->withOneOutgoingLink);
+        $this->assertSame(1, $report->selfLinks);
+        $this->assertSame(1, $report->redirectedLinks);
     }
 
     public function test_the_page_performs_no_mutation_no_matter_how_many_times_it_is_viewed(): void
