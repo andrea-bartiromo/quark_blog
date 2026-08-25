@@ -48,6 +48,56 @@
   @endif
 </section>
 
+@if($report->scheduledWithoutInternalLinks !== [])
+<section class="admin-card" style="margin-bottom:1.5rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Programmati senza link interni</h2>
+  <p style="font-size:.82rem;color:var(--admin-muted);margin:0 0 .6rem;">
+    Articoli programmati che usciranno senza alcun collegamento interno in uscita — un'occasione persa
+    di contesto per il lettore se pubblicati così come sono ora.
+  </p>
+  <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
+    @foreach($report->scheduledWithoutInternalLinks as $row)
+      <li style="font-size:.85rem;">
+        <a href="{{ route('admin.articles.edit', $row['id']) }}">{{ $row['title'] }}</a>
+      </li>
+    @endforeach
+  </ul>
+</section>
+@endif
+
+@if($report->highConfidenceUnusedSuggestions !== [])
+<section class="admin-card" style="margin-bottom:1.5rem;">
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Opportunità di collegamento ad alta confidenza</h2>
+  <p style="font-size:.82rem;color:var(--admin-muted);margin:0 0 .6rem;">
+    Suggerimenti di collegamento interno non ancora rivisti, con punteggio di confidenza alto e
+    temporalmente inseribili subito — una coda pronta all'azione, non un invito ad automatizzare
+    l'inserimento.
+  </p>
+  <div style="overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th scope="col">Da</th>
+          <th scope="col">A</th>
+          <th scope="col">Anchor</th>
+          <th scope="col">Confidenza</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($report->highConfidenceUnusedSuggestions as $suggestion)
+          <tr>
+            <td><a href="{{ route('admin.articles.edit', $suggestion['source']['id']) }}">{{ Str::limit($suggestion['source']['title'], 40) }}</a></td>
+            <td><a href="{{ route('admin.articles.edit', $suggestion['target']['id']) }}">{{ Str::limit($suggestion['target']['title'], 40) }}</a></td>
+            <td>{{ $suggestion['anchor_text'] }}</td>
+            <td>{{ $suggestion['confidence_score'] }}</td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+</section>
+@endif
+
 @if($flagged->isEmpty())
   <div class="articles-empty-state">
     <p class="articles-empty-state__icon" aria-hidden="true">✅</p>

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Article;
+use App\Models\ArticleLinkSuggestion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -126,6 +127,64 @@ class InternalLinkAuditControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('Pubblicati senza incoming links');
         $response->assertSee('Nessuno — ogni articolo pubblicato riceve almeno un collegamento interno.');
+    }
+
+    /**
+     * Missione 47 (secondo batch autonomo KAIRUS, Fase F — Search
+     * Intelligence): InternalLinkAuditService già calcola
+     * scheduledWithoutInternalLinks e highConfidenceUnusedSuggestions (vedi
+     * InternalLinkAuditCommandTest per la prova a livello di servizio), ma
+     * la pagina reale non li mostrava mai — restavano dati morti.
+     */
+    public function test_editor_sees_a_scheduled_article_without_internal_links(): void
+    {
+        $scheduled = $this->article([
+            'title' => 'Articolo programmato senza link',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDay(),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.internal-link-audit'));
+
+        $response->assertOk();
+        $response->assertSee('Programmati senza link interni');
+        $response->assertSee('Articolo programmato senza link');
+        $response->assertSee(route('admin.articles.edit', $scheduled));
+    }
+
+    public function test_editor_sees_a_high_confidence_unused_suggestion(): void
+    {
+        $source = $this->article(['title' => 'Sorgente suggerimento']);
+        $target = $this->article(['title' => 'Destinazione suggerimento']);
+
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'termine specifico',
+            'reason' => 'motivo',
+            'confidence_score' => 85,
+            'status' => ArticleLinkSuggestion::STATUS_PROPOSED,
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.internal-link-audit'));
+
+        $response->assertOk();
+        $response->assertSee('Opportunità di collegamento ad alta confidenza');
+        $response->assertSee('Sorgente suggerimento');
+        $response->assertSee('Destinazione suggerimento');
+        $response->assertSee('termine specifico');
+        $response->assertSee('85');
+    }
+
+    public function test_neither_new_section_appears_when_nothing_qualifies(): void
+    {
+        $this->article();
+
+        $response = $this->actingAs($this->editor())->get(route('admin.internal-link-audit'));
+
+        $response->assertOk();
+        $response->assertDontSee('Programmati senza link interni');
+        $response->assertDontSee('Opportunità di collegamento ad alta confidenza');
     }
 
     public function test_the_page_performs_no_mutation_no_matter_how_many_times_it_is_viewed(): void
