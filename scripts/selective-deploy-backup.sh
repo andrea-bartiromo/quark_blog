@@ -77,6 +77,7 @@ backup)
   mkdir -p "$backup_dir/files/app" "$backup_dir/files/public"
   : > "$backup_dir/backed-up-files.tsv"
   : > "$backup_dir/new-files.tsv"
+  : > "$backup_dir/file-hashes.tsv"
   cp -p "$manifest" "$backup_dir/manifest.tsv"
   printf 'app\t%s\npublic\t%s\n' "$app_root" "$public_root" > "$backup_dir/roots.tsv"
   declare -A seen=()
@@ -100,6 +101,8 @@ backup)
       mkdir -p "$(dirname "$dest")"
       cp -a -- "$src" "$dest"
       printf '%s\t%s\n' "$scope" "$rel" >> "$backup_dir/backed-up-files.tsv"
+      file_hash="$(sha256sum -- "$dest" | cut -d' ' -f1)"
+      printf '%s\t%s\t%s\n' "$scope" "$rel" "$file_hash" >> "$backup_dir/file-hashes.tsv"
     else
       printf '%s\t%s\n' "$scope" "$rel" >> "$backup_dir/new-files.tsv"
     fi
@@ -176,6 +179,28 @@ rollback)
     done < "$backup_dir/$list"
   done
   [[ "$rollback_count" -eq "$manifest_count" ]] || fail "rollback lists do not exactly cover stored manifest"
+
+  # Provenienza del manifest (Missione 13, secondo batch autonomo KAIRUS):
+  # se il backup ha registrato un hash per-file al momento della sua
+  # creazione, riverificarlo ORA, prima di mutare qualunque destinazione,
+  # prova che la copia usata per il rollback è ancora byte-per-byte quella
+  # catturata al momento del backup — non degradata, non manomessa mentre
+  # era ferma su backup-root. Retrocompatibile: un backup creato da una
+  # versione precedente di questo script (senza file-hashes.tsv) salta
+  # semplicemente la verifica, comportamento identico a prima di questa
+  # missione.
+  if [[ -f "$backup_dir/file-hashes.tsv" ]]; then
+    while IFS=$'\t' read -r scope rel expected_hash extra || [[ -n "${scope:-}" ]]; do
+      [[ -n "${scope:-}" ]] || continue
+      [[ -z "${extra:-}" ]] || fail "invalid file-hashes entry: $scope ${rel:-}"
+      key="$scope"$'\t'"$rel"
+      [[ -n "${manifest_entries[$key]+x}" ]] || fail "file-hashes entry is not in stored manifest: $scope $rel"
+      src="$backup_dir/files/$scope/$rel"
+      [[ -e "$src" ]] || fail "backed up source missing for hash verification: $scope $rel"
+      actual_hash="$(sha256sum -- "$src" | cut -d' ' -f1)"
+      [[ "$actual_hash" == "$expected_hash" ]] || fail "backup integrity check failed (content changed since backup was created): $scope $rel"
+    done < "$backup_dir/file-hashes.tsv"
+  fi
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do
     [[ -n "${scope:-}" ]] || continue
