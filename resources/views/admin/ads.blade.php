@@ -5,8 +5,11 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Pubblicità</h1>
-  <button onclick="document.getElementById('modal-new').style.display='flex'"
-          class="btn btn--primary">+ Nuovo annuncio</button>
+  <button type="button"
+          id="modal-new-open"
+          class="btn btn--primary"
+          aria-haspopup="dialog"
+          aria-controls="modal-new">+ Nuovo annuncio</button>
 </div>
 
 @if(session('success'))
@@ -133,13 +136,20 @@
 
 {{-- Modal nuovo annuncio --}}
 <div id="modal-new"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-new-title"
+     aria-hidden="true"
      style="display:none;position:fixed;inset:0;z-index:999;
             background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:12px;padding:1.5rem;
               max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-      <h2 style="font-size:1rem;font-weight:700;color:#111827;margin:0;">Nuovo annuncio</h2>
-      <button onclick="document.getElementById('modal-new').style.display='none'"
+      <h2 id="modal-new-title"
+          style="font-size:1rem;font-weight:700;color:#111827;margin:0;">Nuovo annuncio</h2>
+      <button type="button"
+              id="modal-new-close"
+              aria-label="Chiudi finestra nuovo annuncio"
               style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#6b7280;">×</button>
     </div>
     <form method="POST" action="{{ route('admin.ads.store') }}">
@@ -148,7 +158,7 @@
       <div style="display:flex;gap:.5rem;margin-top:1rem;">
         <button type="submit" class="btn btn--primary">Crea annuncio</button>
         <button type="button"
-                onclick="document.getElementById('modal-new').style.display='none'"
+                id="modal-new-cancel"
                 class="btn btn--secondary">Annulla</button>
       </div>
     </form>
@@ -159,6 +169,117 @@
 
 @section('scripts')
 <script>
+const newAdModal = document.getElementById('modal-new');
+const newAdModalOpen = document.getElementById('modal-new-open');
+const newAdModalClose = document.getElementById('modal-new-close');
+const newAdModalCancel = document.getElementById('modal-new-cancel');
+
+let newAdModalLastFocused = null;
+
+const newAdModalFocusableSelector =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]):not([tabindex="-1"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function openNewAdModal() {
+  if (!newAdModal || newAdModal.style.display === 'flex') {
+    return;
+  }
+
+  newAdModalLastFocused = document.activeElement;
+  newAdModal.style.display = 'flex';
+  newAdModal.setAttribute('aria-hidden', 'false');
+
+  const firstFocusable = newAdModal.querySelector(newAdModalFocusableSelector);
+
+  if (firstFocusable) {
+    firstFocusable.focus();
+  }
+}
+
+function closeNewAdModal() {
+  if (!newAdModal || newAdModal.style.display === 'none') {
+    return;
+  }
+
+  newAdModal.style.display = 'none';
+  newAdModal.setAttribute('aria-hidden', 'true');
+
+  if (
+    newAdModalLastFocused &&
+    typeof newAdModalLastFocused.focus === 'function'
+  ) {
+    newAdModalLastFocused.focus();
+  }
+
+  newAdModalLastFocused = null;
+}
+
+if (newAdModalOpen) {
+  newAdModalOpen.addEventListener('click', openNewAdModal);
+}
+
+if (newAdModalClose) {
+  newAdModalClose.addEventListener('click', closeNewAdModal);
+}
+
+if (newAdModalCancel) {
+  newAdModalCancel.addEventListener('click', closeNewAdModal);
+}
+
+if (newAdModal) {
+  newAdModal.addEventListener('click', event => {
+    if (event.target === newAdModal) {
+      closeNewAdModal();
+    }
+  });
+}
+
+document.addEventListener('keydown', event => {
+  if (
+    !newAdModal ||
+    newAdModal.style.display !== 'flex'
+  ) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeNewAdModal();
+
+    return;
+  }
+
+  if (event.key !== 'Tab') {
+    return;
+  }
+
+  const focusable = Array.from(
+    newAdModal.querySelectorAll(newAdModalFocusableSelector)
+  );
+
+  if (focusable.length === 0) {
+    event.preventDefault();
+
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (
+    event.shiftKey &&
+    document.activeElement === first
+  ) {
+    event.preventDefault();
+    last.focus();
+  } else if (
+    !event.shiftKey &&
+    document.activeElement === last
+  ) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+
 function openEdit(id) {
   document.querySelectorAll('[id^="edit-row-"]').forEach(r => r.style.display = 'none');
   document.getElementById('edit-row-' + id).style.display = 'table-row';
