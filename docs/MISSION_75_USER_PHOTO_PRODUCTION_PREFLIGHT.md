@@ -59,13 +59,18 @@ do not follow with a copy, move, delete, link, or permission change.
 ```bash
 find public/assets/img -maxdepth 3 -type f -printf '%P\n' | sort
 find storage/app/public -maxdepth 4 -type f -printf '%P\n' | sort
-find public/storage -maxdepth 1 -printf '%y %p -> %l\n'
+find public/storage -maxdepth 1 -printf '%y %p -> %l\n'\nprintf 'configured media.public_root: '; php artisan tinker --execute='var_export(config("media.public_root")); echo PHP_EOL;'
 ```
 
-For every redacted `PATH_WITH_SLASH` shape, determine which of these candidate
-roots contains the file:
+The configured `media.public_root` is the filesystem actually serving
+`assets/img/*` in split-root deployments. Resolve it first and include it as a
+candidate root; an application-root copy alone is never sufficient evidence.
+
+For every distinct non-empty value — including **every bare filename**, not a
+sample — determine which of these candidate roots contains the file:
 
 - `public/assets/img/{photo}`
+- `{configured media.public_root}/{photo}` when configured;
 - `storage/app/public/{photo}` (normally exposed as `public/storage/{photo}`)
 - both roots
 - neither root
@@ -78,8 +83,10 @@ record them as unsafe anomalies requiring manual review.
 
 ### A — all non-empty values are bare filenames
 
-Choose A only when `PATH_WITH_SLASH = 0` and sampled files resolve under
-`public/assets/img`. Normalize every real rendering call site to the
+Choose A only when `PATH_WITH_SLASH = 0` and **every distinct bare filename**
+resolves to the same content in the filesystem that actually serves
+`assets/img` (`media.public_root` when configured, otherwise
+`public/assets/img`). Missing, split-root-only, or conflicting values block A. Normalize every real rendering call site to the
 media-library/responsive-image contract. No data migration is needed.
 
 ### B — legacy paths exist and resolve safely
@@ -109,7 +116,8 @@ decision. Do not guess which file is canonical.
 - aggregate counts for all three shapes;
 - redacted classification of every slash-containing value (bounded query may
   need pagination if it returns 100 rows);
-- root-resolution counts: assets only / storage only / both / neither;
+- complete per-distinct-value root resolution for all non-empty bare filenames;
+- root-resolution counts: application assets / configured served root / storage / multiple / neither;
 - confirmation whether `public/storage` is the expected symlink;
 - selected decision A, B, or separately authorized C.
 
