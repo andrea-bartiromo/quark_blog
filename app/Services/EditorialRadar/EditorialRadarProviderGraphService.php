@@ -4,6 +4,7 @@ namespace App\Services\EditorialRadar;
 
 use App\Services\EditorialRadar\Providers\SearchConsoleOpportunityProvider;
 use App\Services\EditorialRadar\Providers\SecondReadOpportunityProvider;
+use App\Services\EditorialRadar\Providers\AttributionOpportunityProvider;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,6 +21,7 @@ class EditorialRadarProviderGraphService
         private readonly EditorialRadarService $core,
         private readonly SearchConsoleOpportunityProvider $searchConsole,
         private readonly SecondReadOpportunityProvider $secondRead,
+        private readonly AttributionOpportunityProvider $attribution,
     ) {}
 
     /** @return Collection<int, array<string, mixed>> */
@@ -28,6 +30,7 @@ class EditorialRadarProviderGraphService
         return $this->core->opportunities()
             ->concat($this->searchConsole->opportunities())
             ->concat($this->secondRead->opportunities())
+            ->concat($this->attribution->opportunities())
             ->unique('key')
             ->sortBy(fn (array $row) => [
                 match ($row['priority']) {
