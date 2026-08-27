@@ -9,16 +9,10 @@ use App\Models\ConceptQuestion;
 /**
  * Mission 21 — Question Status Workflow V2: audit read-only per singola
  * ConceptQuestion, itemizzando ESATTAMENTE le stesse condizioni già
- * applicate da ContentGraphService::answerableQuestionsForConcept() —
- * mai una seconda versione della regola, solo una spiegazione di quale
- * condizione manca. Stesso principio "mai bloccare il campo status
- * dell'editor" già stabilito da ConceptQuestionController (un editor può
- * salvare "approved" incompleto senza errore) e stesso pattern
- * "read-only, itemized findings" di PercorsoPublicationReadinessService.
+ * applicate da ContentGraphService::answerableQuestionsForConcept().
  *
- * Questo servizio non sostituisce la colonna binaria "Raggiungibilità
- * pubblica" già esistente (continua a derivare da
- * answerableQuestionsForConcept()): la estende con IL PERCHÉ.
+ * Mission 59 adds the bounded approved-question catalogue audit while keeping
+ * this class as the single explanation of the public gate.
  */
 class ConceptQuestionReadinessService
 {
@@ -39,6 +33,66 @@ class ConceptQuestionReadinessService
     {
         $question->loadMissing(['concept']);
 
+        $targetIsPublished = $question->target_article_id !== null
+            && Article::query()->published()->whereKey($question->target_article_id)->exists();
+
+        return $this->evaluateFacts($question, $targetIsPublished);
+    }
+
+    /**
+     * Audit every approved question with a bounded query shape.
+     *
+     * The FK uses nullOnDelete(), therefore a deleted target is represented by
+     * TARGET_MISSING rather than an impossible dangling target id.
+     *
+     * @return list<array{
+     *     question_id:int,
+     *     concept_id:int,
+     *     question:string,
+     *     answerable:bool,
+     *     findings:list<array{code:string,message:string}>,
+     *     concept_edit_url:string
+     * }>
+     */
+    public function auditApproved(): array
+    {
+        $questions = ConceptQuestion::query()
+            ->approved()
+            ->with('concept')
+            ->orderBy('concept_id')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $publishedTargetIds = Article::query()
+            ->published()
+            ->whereIn('id', $questions->pluck('target_article_id')->filter()->unique()->all())
+            ->pluck('id')
+            ->flip();
+
+        return $questions
+            ->map(function (ConceptQuestion $question) use ($publishedTargetIds) {
+                $result = $this->evaluateFacts(
+                    $question,
+                    $question->target_article_id !== null
+                        && $publishedTargetIds->has($question->target_article_id),
+                );
+
+                return [
+                    'question_id' => $question->id,
+                    'concept_id' => $question->concept_id,
+                    'question' => $question->question,
+                    'answerable' => $result['answerable'],
+                    'findings' => $result['findings'],
+                    'concept_edit_url' => route('admin.concepts.edit', $question->concept_id),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function evaluateFacts(ConceptQuestion $question, bool $targetIsPublished): array
+    {
         $findings = [];
 
         if ($question->status !== ConceptQuestion::STATUS_APPROVED) {
@@ -55,11 +109,7 @@ class ConceptQuestionReadinessService
 
         if ($question->target_article_id === null) {
             $findings[] = $this->finding(self::TARGET_MISSING, 'Manca un articolo target.');
-        } elseif (! Article::query()->published()->whereKey($question->target_article_id)->exists()) {
-            // Stesso gate canonico di answerableQuestionsForConcept()
-            // (whereHas('targetArticle', fn ($q) => $q->published())) — mai
-            // Article::isPublished(), che verifica solo lo status e non
-            // published_at <= now().
+        } elseif (! $targetIsPublished) {
             $findings[] = $this->finding(self::TARGET_NOT_PUBLISHED, 'L\'articolo target non è pubblicato.');
         }
 
