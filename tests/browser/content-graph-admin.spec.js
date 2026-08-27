@@ -45,7 +45,9 @@ for (const width of viewportWidths) {
         await page.setViewportSize({ width, height: 900 });
         await loginAsEditor(page);
 
-        const conceptName = `Concetto Browser ${width}`;
+        const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const conceptName = `Concetto Browser ${width} ${runId}`;
+        const questionText = `Cosa è un test end-to-end? ${width} ${runId}`;
 
         // Index page: heading, create action, no horizontal overflow.
         await page.goto(conceptsPath);
@@ -64,9 +66,10 @@ for (const width of viewportWidths) {
         await expect(page).toHaveURL(/\/admin\/concetti\/\d+\/modifica$/);
         await expect(page.getByText('Concetto creato. Ora puoi aggiungere alias, articoli e domande.')).toBeVisible();
         await expectPageFits(page);
+        const conceptEditUrl = page.url();
 
         // Alias round-trip.
-        const aliasValue = `alias-${width}`;
+        const aliasValue = `alias-${width}-${runId}`;
         await page.getByLabel('Alias (uno per riga)').fill(aliasValue);
         await page.getByRole('button', { name: 'Salva concetto' }).click();
         await expect(page.getByText('Concetto aggiornato.')).toBeVisible();
@@ -98,7 +101,7 @@ for (const width of viewportWidths) {
         await expect(page.getByText('Nessun articolo collegato a questo concetto.')).toBeVisible();
 
         // New draft question: not publicly reachable yet.
-        await page.getByLabel('Domanda', { exact: true }).fill('Cosa è un test end-to-end?');
+        await page.getByLabel('Domanda', { exact: true }).fill(questionText);
         await page.getByRole('button', { name: 'Aggiungi domanda' }).click();
         await expect(page.getByText('— Non pubblica')).toBeVisible();
         await expectPageFits(page);
@@ -108,14 +111,15 @@ for (const width of viewportWidths) {
         // ContentGraphService::answerableQuestionsForConcept() treats as
         // publicly reachable — the dynamic indicator flip is exactly the
         // behavior worth checking in a real browser rather than PHPUnit.
-        await page.getByLabel('Stato').selectOption('active');
+        await page.locator('#status').selectOption('active');
         await page.getByRole('button', { name: 'Salva concetto' }).click();
         await expect(page.getByText('Concetto aggiornato.')).toBeVisible();
 
         const targetArticleId = await findArticleId(page, targetArticleTitle);
-        await page.goto(page.url());
-        await page.getByRole('button', { name: 'Modifica' }).first().click();
-        const editRow = page.locator('tr[id^="question-edit-"]');
+        await page.goto(conceptEditUrl);
+        const questionRow = page.locator('tr').filter({ hasText: questionText }).first();
+        await questionRow.getByRole('button', { name: 'Modifica' }).click();
+        const editRow = page.locator('tr[id^="question-edit-"]:visible');
         await editRow.getByLabel('Risposta (sintesi)').fill('Una verifica end-to-end in un browser reale.');
         await editRow.getByLabel('Articolo target (ID)').fill(targetArticleId);
         await editRow.getByLabel('Stato').selectOption('approved');
