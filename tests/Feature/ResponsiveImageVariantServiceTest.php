@@ -214,4 +214,33 @@ class ResponsiveImageVariantServiceTest extends TestCase
         $this->assertStringContainsString('partial-960w.webp 960w', $resolved['srcset']);
         $this->assertStringContainsString('partial.webp 2000w', $resolved['srcset']);
     }
+
+    public function test_corrupt_or_wrong_width_variant_is_not_advertised(): void
+    {
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/validated.webp', 1600, 900);
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/validated.webp');
+
+        file_put_contents(public_path('assets/img/articles/covers/validated-480w.webp'), 'not-an-image');
+
+        $resolved = $this->service()->resolveForMarkup('articles/covers/validated.webp');
+
+        $this->assertStringNotContainsString('validated-480w.webp', $resolved['srcset']);
+        $this->assertStringContainsString('validated-960w.webp', $resolved['srcset']);
+    }
+
+    public function test_variant_missing_from_configured_served_root_is_not_advertised(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/served.webp', 1600, 900);
+        copy($absolutePath, $this->isolatedMediaPublicRoot.'/articles/covers/served.webp');
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/served.webp');
+
+        @unlink($this->isolatedMediaPublicRoot.'/articles/covers/served-480w.webp');
+
+        $resolved = $this->service()->resolveForMarkup('articles/covers/served.webp');
+
+        $this->assertStringNotContainsString('served-480w.webp', $resolved['srcset']);
+        $this->assertStringContainsString('served-960w.webp', $resolved['srcset']);
+    }
+
 }
