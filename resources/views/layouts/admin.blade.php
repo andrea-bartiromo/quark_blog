@@ -112,6 +112,7 @@
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
       $isEditorialQuality = request()->routeIs('admin.editorial-quality*');
       $isInternalLinkAudit = request()->routeIs('admin.internal-link-audit*');
+      $isArticleDiscoveryAudit = request()->routeIs('admin.article-discovery-audit*');
       $isActivity      = request()->routeIs('admin.activity');
       $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
       $isProfile       = request()->routeIs('admin.profile*');
@@ -131,7 +132,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isEditorialQuality || $isInternalLinkAudit;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isEditorialQuality || $isInternalLinkAudit || $isArticleDiscoveryAudit;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -187,6 +188,7 @@
         <x-admin.nav-link :route="route('admin.editorial-operations')" :active="$isEditorialOperations" icon="🧮">Operazioni editoriali</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.editorial-quality')" :active="$isEditorialQuality" icon="🩺">Qualità editoriale</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.internal-link-audit')" :active="$isInternalLinkAudit" icon="🌉">Link interni</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.article-discovery-audit')" :active="$isArticleDiscoveryAudit" icon="🧭">Discovery articoli</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
