@@ -12,6 +12,7 @@
 
 namespace App\Models;
 
+use App\Events\ArticlePublished;
 use App\Services\ContentClusters\PathContinuationNotifier;
 use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use App\Services\ProjectEditorialLinkService;
@@ -19,6 +20,7 @@ use App\Services\ProjectTaskSyncService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class Article extends Model
@@ -127,6 +129,33 @@ class Article extends Model
         static::updated(function (Article $article) {
             if ($article->wasChanged('status') && $article->status === self::STATUS_PUBLISHED) {
                 app(PathContinuationNotifier::class)->notifyIfPublished($article);
+            }
+        });
+
+        // Social Distribution: un solo evento applicativo sul momento in
+        // cui l'articolo diventa effettivamente pubblico. L'evento e'
+        // after-commit e non esegue provider; il try/catch mantiene la
+        // pubblicazione del sito fail-open anche se il dispatcher fallisse.
+        $dispatchPublished = static function (Article $article): void {
+            try {
+                ArticlePublished::dispatch($article);
+            } catch (\Throwable $exception) {
+                Log::warning('ArticlePublished non emesso; la pubblicazione del sito resta valida.', [
+                    'article_id' => $article->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        };
+
+        static::created(function (Article $article) use ($dispatchPublished) {
+            if ($article->status === self::STATUS_PUBLISHED) {
+                $dispatchPublished($article);
+            }
+        });
+
+        static::updated(function (Article $article) use ($dispatchPublished) {
+            if ($article->wasChanged('status') && $article->status === self::STATUS_PUBLISHED) {
+                $dispatchPublished($article);
             }
         });
     }
