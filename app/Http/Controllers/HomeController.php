@@ -44,6 +44,11 @@ class HomeController extends Controller
 
         $categoryRecords = Category::ordered()->get()->keyBy('slug');
         $categoryOptions = Category::options();
+        // Le tile di navigazione restano limitate alle categorie attive,
+        // mentre gli articoli gia pubblicati conservano sempre la label
+        // umana anche se la loro categoria viene disattivata. Derivato
+        // dalla query $categoryRecords gia eseguita: zero query aggiuntive.
+        $categoryLabelOptions = $categoryRecords->pluck('name', 'slug')->toArray();
 
         // Articoli per categoria: dopo la rimozione dell'eager load author
         // inutilizzato (commit precedente), il costo era comunque ancora
@@ -109,6 +114,7 @@ class HomeController extends Controller
             'trending',
             'categoryRecords',
             'categoryOptions',
+            'categoryLabelOptions',
             'turingHome',
             'homePaths'
         ));
