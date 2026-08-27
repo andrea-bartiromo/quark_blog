@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\SocialPublication;
 use App\Services\SocialDistribution\SocialProviderException;
 use App\Services\SocialDistribution\SocialProviderRegistry;
+use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,7 +25,7 @@ class PublishSocialDistribution implements ShouldQueue
 
     public function __construct(public int $publicationId) {}
 
-    public function handle(SocialProviderRegistry $providers): void
+    public function handle(SocialProviderRegistry $providers, SocialArticlePayloadFactory $payloads): void
     {
         $publication = DB::transaction(function () {
             $row = SocialPublication::query()->lockForUpdate()->find($this->publicationId);
@@ -54,7 +55,9 @@ class PublishSocialDistribution implements ShouldQueue
         }
 
         try {
-            $result = $providers->forChannel($publication->channel)->publishArticleDistribution($publication);
+            $payload = $payloads->forPublication($publication);
+            $result = $providers->forChannel($publication->channel)
+                ->publishArticleDistribution($payload, $publication->event_key);
             SocialPublication::whereKey($publication->id)
                 ->where('status', SocialPublication::STATUS_PROCESSING)
                 ->update([
