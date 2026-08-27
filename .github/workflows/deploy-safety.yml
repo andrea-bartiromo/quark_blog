@@ -137,6 +137,10 @@ jobs:
       - name: TEST — valid state (correct SHA, no pending migrations, no configured served root) must succeed and record revision metadata
         run: |
           set -eu
+          # Restore only the tracked cache files whose mode/content may have
+          # been changed by the first successful deploy. REVISION and
+          # DEPLOY_INFO remain in place, so idempotency is still exercised.
+          git checkout -- bootstrap/cache
           REAL_SHA="$(git rev-parse HEAD)"
           bash deploy.sh "$REAL_SHA"
           test -f REVISION
