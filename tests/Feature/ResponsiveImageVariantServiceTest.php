@@ -144,6 +144,44 @@ class ResponsiveImageVariantServiceTest extends TestCase
         $this->assertFileExists(public_path('assets/img/articles/covers/never-had-variants.webp'));
     }
 
+    public function test_delete_normalizes_a_windows_style_legacy_disk_name(): void
+    {
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/windows.webp', 2000, 1000);
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/windows.webp');
+
+        $variant = public_path('assets/img/articles/covers/windows-480w.webp');
+        $this->assertFileExists($variant);
+
+        $this->service()->deleteForDiskName('articles\\covers\\windows.webp');
+
+        $this->assertFileDoesNotExist($variant);
+        $this->assertFileExists($absolutePath);
+    }
+
+    public function test_delete_finds_old_variants_after_the_configured_widths_change(): void
+    {
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/old-config.webp', 2000, 1000);
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/old-config.webp');
+        $oldVariant = public_path('assets/img/articles/covers/old-config-480w.webp');
+        $this->assertFileExists($oldVariant);
+
+        config(['media.responsive_widths' => [320]]);
+        $this->service()->deleteForDiskName('articles/covers/old-config.webp');
+
+        $this->assertFileDoesNotExist($oldVariant);
+    }
+
+    public function test_delete_rejects_parent_directory_segments(): void
+    {
+        $unrelated = public_path('assets/unrelated-480w.webp');
+        @mkdir(dirname($unrelated), 0775, true);
+        file_put_contents($unrelated, 'non eliminare');
+
+        $this->service()->deleteForDiskName('../unrelated.webp');
+
+        $this->assertFileExists($unrelated);
+    }
+
     public function test_delete_for_disk_name_never_touches_a_similarly_named_but_distinct_media(): void
     {
         // "foto-2.webp" contiene lo stesso prefisso di base di un ipotetico
