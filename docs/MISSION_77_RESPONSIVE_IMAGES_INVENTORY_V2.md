@@ -8,9 +8,10 @@ rendering code was changed.
 
 The shared `x-responsive-image` component resolves the original dimensions and
 available variants through `ResponsiveImageVariantService`. Consequently,
-"intrinsic: derived" and "srcset: conditional" below mean that attributes are
-emitted only when the referenced media-library file is readable and variants
-actually exist. The component defaults to `loading=lazy` and `decoding=async`.
+"intrinsic: derived" means the referenced original is readable. `srcset` is
+emitted for a readable original even when it is the sole candidate; generated
+responsive delivery exists only when additional validated width variants are
+present. These cases must not be conflated. The component defaults to `loading=lazy` and `decoding=async`.
 
 ## Public inventory
 
@@ -19,7 +20,7 @@ actually exist. The component defaults to `loading=lazy` and `decoding=async`.
 | Home featured hero (`home/partials/hero-trending`) | component | derived | conditional | `100vw` mobile, `62vw` desktop | eager / high | LCP hero |
 | Home latest cards (`home/partials/latest-articles`) | component | derived | conditional | `100/50/33vw` | lazy / auto | card grid |
 | Home category carousel (`home/partials/category-grid`) | component | derived | conditional | `100/50/33vw` | lazy / auto | carousel tile |
-| Home Percorsi discovery (`home/partials/paths-discovery`) | raw IMG | fixed 184×184 | none | none | lazy / auto | small square thumbnail |
+| Home Percorsi discovery (`home/partials/paths-discovery`) | raw IMG | declared 184×184, but committed covers are 1600×900 | none | none | lazy / auto | wide 16:9 visual; full-width below 760px |
 | Article cover (`articles/partials/hero`) | component | derived | conditional | `100vw` mobile, 1240px desktop | eager / high | LCP hero |
 | Article image viewer (`media/image-viewer`) | raw IMG | derived locally | none | none | lazy / auto | hidden/dialog full image |
 | Article body (`ArticleBodyImageService`) | stored IMG | derived for safe local files; external unchanged | none | none | lazy / auto added at render | editorial body media |
@@ -40,7 +41,7 @@ actually exist. The component defaults to `loading=lazy` and `decoding=async`.
 | Speciale feature cards | CSS background | none | none | none | CSS discovery / auto | decorative card image |
 | Speciale chapter opener | raw IMG | none | none | none | lazy / auto | chapter editorial media |
 | Speciale hotspot | raw IMG | derived for safe local file | none | none | lazy / auto | interactive diagram |
-| Turing portrait (`turing/partials/hero`) | raw IMG | none | none | none | eager / auto | above-fold portrait |
+| Homepage Turing teaser CMS background (`home/partials/turing-teaser`) | CSS background | none | none | none | CSS discovery / auto | optional CMS-driven homepage background |\n| Turing portrait (`turing/partials/hero`) | raw IMG | none | none | none | eager / auto | above-fold portrait |
 | Turing legacy/Enigma surfaces | raw IMG or CSS background | generally none | none | none | mixed, mostly lazy | special-project editorial media |
 | Turing article figure | raw IMG | caller optional | none | none | lazy / auto | editorial figure |
 
@@ -71,8 +72,11 @@ Mission 75.
 
 ### P2 — Mission 79 responsive delivery candidates
 
-- Home Percorsi thumbnail is intrinsically stable (184×184) but always downloads
-  one source; evaluate the shared component with a fixed 184px `sizes` contract.
+- Home Percorsi covers are 16:9 assets in a wide responsive slot, not 184px
+  thumbnails. Derive `sizes` from `.home-path-link__visual` and its 760px
+  breakpoint; never preserve the inaccurate 184px contract.
+- Audit the optional homepage Turing CMS background separately: CSS backgrounds
+  cannot use the IMG `srcset` contract and need evidence before conversion.
 - Speciale and Turing local editorial media currently have no `srcset`. Route
   media-library-backed sources through one resolver/component after P1.
 - Article body and image-viewer media intentionally lack `srcset`; variant
