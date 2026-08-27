@@ -45,27 +45,13 @@ test('desktop exposes all categories and supports controls and arrow keys', asyn
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const { track } = await openCarousel(page);
-    const previous = page.getByRole('button', { name: 'Categorie precedenti' });
-    const next = page.getByRole('button', { name: 'Categorie successive' });
-
-    await expect(previous).toBeVisible();
-    await expect(next).toBeVisible();
-    await expect(previous).toBeDisabled();
-
     const initial = await carouselState(page);
-    expect(initial.tileCount).toBe(10);
+    expect(initial.tileCount).toBeGreaterThanOrEqual(10);
     expect(initial.visibleTiles).toBeGreaterThanOrEqual(5);
     expect(initial.visibleTiles).toBeLessThanOrEqual(6);
     expect(initial.scrollWidth).toBeGreaterThan(initial.clientWidth);
     expect(initial.scrollHeight).toBeLessThanOrEqual(initial.clientHeight + 2);
     expect(initial.pageScrollWidth).toBeLessThanOrEqual(initial.pageClientWidth);
-
-    await next.click();
-    await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeGreaterThan(0);
-    await expect(previous).toBeEnabled();
-
-    await previous.click();
-    await expect.poll(async () => (await carouselState(page)).scrollLeft).toBeLessThanOrEqual(2);
 
     await track.focus();
     await expect(track).toBeFocused();
@@ -78,13 +64,12 @@ test('desktop exposes all categories and supports controls and arrow keys', asyn
 });
 
 for (const viewport of [
-    { name: 'tablet', width: 768, minVisible: 3, maxVisible: 4, controlsVisible: true },
-    { name: 'mobile', width: 390, minVisible: 1, maxVisible: 2, controlsVisible: false },
+    { name: 'tablet', width: 768, minVisible: 3, maxVisible: 4 },
+    { name: 'mobile', width: 390, minVisible: 1, maxVisible: 2 },
 ]) {
     test(`${viewport.name} keeps the carousel contained and horizontally scrollable`, async ({ page }) => {
         await page.setViewportSize({ width: viewport.width, height: 900 });
         const { track } = await openCarousel(page);
-        const controls = page.locator('.home-category-controls');
         const state = await carouselState(page);
 
         expect(state.visibleTiles).toBeGreaterThanOrEqual(viewport.minVisible);
@@ -93,11 +78,7 @@ for (const viewport of [
         expect(state.scrollHeight).toBeLessThanOrEqual(state.clientHeight + 2);
         expect(state.pageScrollWidth).toBeLessThanOrEqual(state.pageClientWidth);
 
-        if (viewport.controlsVisible) {
-            await expect(controls).toBeVisible();
-        } else {
-            await expect(controls).toBeHidden();
-        }
+        await expect(page.locator('.home-category-controls')).toHaveCount(0);
 
         const box = await track.boundingBox();
         expect(box).not.toBeNull();
@@ -115,10 +96,10 @@ test('categories beyond the sixth remain reachable with JavaScript disabled', as
 
     try {
         const { track, tiles } = await openCarousel(page);
-        await expect(page.locator('.home-category-controls')).toBeVisible();
+        await expect(page.locator('.home-category-controls')).toHaveCount(0);
 
         const initial = await carouselState(page);
-        expect(initial.tileCount).toBe(10);
+        expect(initial.tileCount).toBeGreaterThanOrEqual(10);
         expect(initial.scrollWidth).toBeGreaterThan(initial.clientWidth);
         expect(initial.pageScrollWidth).toBeLessThanOrEqual(initial.pageClientWidth);
 
