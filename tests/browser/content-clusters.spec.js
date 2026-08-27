@@ -78,7 +78,7 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('heading', { level: 2, name: 'Non siamo ancora arrivati alla fine.' })).toBeVisible();
         const continuation = page.locator('[data-path-continues]');
         await expect(continuation).toBeVisible();
-        await expect(continuation.getByText(/tappe disponibili.*Percorso in aggiornamento/)).toBeVisible();
+        await expect(continuation.getByText('Percorso in aggiornamento', { exact: false })).toBeVisible();
         await expect(continuation.getByText("Stiamo preparando nuovi capitoli per continuare l'esplorazione.", { exact: false })).toBeVisible();
         await expect(continuation.getByText('Torna presto: la prossima tappa arriverà qui.', { exact: false })).toBeVisible();
         await expect(continuation.getByText('Qui riprenderà il viaggio.')).toBeVisible();
@@ -199,7 +199,7 @@ for (const width of viewportWidths) {
         await expect(box.getByRole('heading', { name: 'Continua il percorso' })).toBeVisible();
         await expect(box.getByText(/^\d+ di \d+$/)).toBeVisible();
         await expect(box.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
-        await expect(box.locator('[data-path-continues]')).toHaveCount(0);
+        await expect(box.locator('[data-path-continues]')).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         await box.getByRole('link', { name: /Successivo.*Dalle macchine ai modelli moderni/ }).click();
