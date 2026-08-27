@@ -104,7 +104,7 @@ for (const width of viewportWidths) {
         // Unlink it back out before exercising the article-side direction.
         const unlinkRow = linkedTable.locator('tr').filter({ hasText: targetArticleTitle });
         page.once('dialog', (dialog) => dialog.accept());
-        await unlinkRow.getByRole('button', { name: 'Rimuovi' }).click();
+        await unlinkRow.getByRole('button', { name: 'Rimuovi' }).first().click();
         await expect(page.getByText('Collegamento rimosso.')).toBeVisible();
         await expect(page.getByText('Nessun articolo collegato a questo concetto.')).toBeVisible();
 
@@ -188,7 +188,7 @@ for (const width of viewportWidths) {
 
         // Remove the reverse relation and verify the empty state again.
         page.once('dialog', (dialog) => dialog.accept());
-        await linkedConceptsList.getByRole('button', { name: 'Rimuovi' }).click();
+        await linkedConceptsList.getByRole('button', { name: 'Rimuovi' }).first().click();
         await expect(page.getByText('Nessun concetto collegato a questo articolo.')).toBeVisible();
 
         // Mission 62: the existing Concept index exposes compact row health,
