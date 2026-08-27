@@ -234,14 +234,15 @@ class ResponsiveImageVariantService
             'height' => $originalHeight,
         ];
     }
+
     private function servedMediaRoot(): string
     {
         $configured = config('media.public_root');
 
         if (is_string($configured) && trim($configured) !== '') {
-            return rtrim(str_replace('\\\\', '/', trim($configured)), '/');
+            return rtrim(str_replace('\\', '/', trim($configured)), '/');
         }
 
-        return rtrim(str_replace('\\\\', '/', public_path('assets/img')), '/');
+        return rtrim(str_replace('\\', '/', public_path('assets/img')), '/');
     }
 }
