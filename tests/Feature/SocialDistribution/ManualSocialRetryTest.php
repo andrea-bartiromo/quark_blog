@@ -14,12 +14,24 @@ class ManualSocialRetryTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function article(User $author): Article
+    {
+        return Article::withoutEvents(fn () => Article::create([
+            'user_id' => $author->id,
+            'title' => 'Retry social '.uniqid(),
+            'slug' => 'retry-social-'.uniqid(),
+            'body' => '<p>Corpo.</p>',
+            'category' => 'tecnologia',
+            'status' => Article::STATUS_DRAFT,
+        ]));
+    }
+
     public function test_retry_reuses_only_a_retryable_logical_delivery(): void
     {
         config(['social_distribution.enabled' => true]);
         Bus::fake();
         $editor = User::factory()->create(['role' => 'editor']);
-        $article = Article::factory()->create();
+        $article = $this->article($editor);
         $publication = SocialPublication::create(['article_id' => $article->id, 'channel' => 'facebook', 'event_key' => 'article:'.$article->id, 'status' => SocialPublication::STATUS_RETRYABLE]);
 
         $this->actingAs($editor)->post(route('admin.articles.social-publications.retry', [$article, $publication]))->assertRedirect();
@@ -34,7 +46,7 @@ class ManualSocialRetryTest extends TestCase
         config(['social_distribution.enabled' => true]);
         Bus::fake();
         $editor = User::factory()->create(['role' => 'editor']);
-        $article = Article::factory()->create();
+        $article = $this->article($editor);
         $publication = SocialPublication::create(['article_id' => $article->id, 'channel' => 'facebook', 'event_key' => 'article:'.$article->id, 'status' => SocialPublication::STATUS_SUCCEEDED]);
 
         $this->actingAs($editor)->post(route('admin.articles.social-publications.retry', [$article, $publication]))->assertRedirect();
