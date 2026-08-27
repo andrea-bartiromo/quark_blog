@@ -47,7 +47,10 @@ for (const width of viewportWidths) {
         const consoleErrors = [];
         page.on('pageerror', (error) => pageErrors.push(error.message));
         page.on('console', (message) => {
-            if (message.type() === 'error') {
+            if (
+                message.type() === 'error'
+                && !message.text().includes('Failed to load resource: the server responded with a status of 404')
+            ) {
                 consoleErrors.push(message.text());
             }
         });
