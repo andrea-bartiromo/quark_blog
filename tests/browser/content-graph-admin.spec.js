@@ -43,6 +43,14 @@ async function findArticleId(page, title) {
 for (const width of viewportWidths) {
     test(`content graph admin flow works end-to-end at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
+        const pageErrors = [];
+        const consoleErrors = [];
+        page.on('pageerror', (error) => pageErrors.push(error.message));
+        page.on('console', (message) => {
+            if (message.type() === 'error') {
+                consoleErrors.push(message.text());
+            }
+        });
         await loginAsEditor(page);
 
         const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -182,5 +190,21 @@ for (const width of viewportWidths) {
         page.once('dialog', (dialog) => dialog.accept());
         await linkedConceptsList.getByRole('button', { name: 'Rimuovi' }).click();
         await expect(page.getByText('Nessun concetto collegato a questo articolo.')).toBeVisible();
+
+        // Mission 62: the existing Concept index exposes compact row health,
+        // progressive disclosure and a keyboard-focusable remediation CTA.
+        await page.goto(conceptsPath);
+        const diagnosticRow = page.locator('tr').filter({ hasText: conceptName }).first();
+        await expect(diagnosticRow.getByText('Incompleto')).toBeVisible();
+        const verifyLink = diagnosticRow.getByRole('link', { name: 'Verifica' });
+        await expect(verifyLink).toBeVisible();
+        await verifyLink.focus();
+        await expect(verifyLink).toBeFocused();
+        await diagnosticRow.getByText(/Diagnosi \(\d+\)/).click();
+        await expect(diagnosticRow.getByText('ACTIVE_WITHOUT_ARTICLE_LINK')).toBeVisible();
+        await expectPageFits(page);
+
+        expect(pageErrors).toEqual([]);
+        expect(consoleErrors).toEqual([]);
     });
 }

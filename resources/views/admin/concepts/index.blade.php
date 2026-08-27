@@ -75,19 +75,33 @@
 
 <div class="admin-table-wrap">
   <table class="admin-table">
-    <thead><tr><th>Nome</th><th>Stato</th><th>Alias</th><th>Articoli collegati</th><th>Domande</th><th>Azioni</th></tr></thead>
+    <thead><tr><th>Nome</th><th>Stato</th><th>Salute operativa</th><th>Alias</th><th>Articoli collegati</th><th>Domande</th><th>Azioni</th></tr></thead>
     <tbody>
       @forelse($concepts as $concept)
+        @php($health = $conceptHealth->get($concept->id))
         <tr>
           <td><strong>{{ $concept->name }}</strong><br><code>{{ $concept->slug }}</code></td>
           <td><span class="status {{ $concept->status === 'active' ? 'status--published' : 'status--draft' }}">{{ ucfirst($concept->status) }}</span></td>
+          <td>
+            <span class="status {{ $health['health'] === 'READY' ? 'status--published' : 'status--draft' }}">{{ $health['label'] }}</span>
+            @if(! empty($health['codes']))
+              <details style="margin-top:.35rem;max-width:18rem;">
+                <summary style="cursor:pointer;font-size:.75rem;">Diagnosi ({{ count($health['codes']) }})</summary>
+                <ul style="margin:.35rem 0 0;padding-left:1rem;font-size:.72rem;">
+                  @foreach(array_slice($health['codes'], 0, 3) as $code)
+                    <li><code style="overflow-wrap:anywhere;">{{ $code }}</code></li>
+                  @endforeach
+                </ul>
+              </details>
+            @endif
+          </td>
           <td>{{ $concept->aliases_count }}</td>
           <td>{{ $concept->article_links_count }}</td>
           <td>{{ $concept->questions_count }}</td>
-          <td><a class="action-btn" href="{{ route('admin.concepts.edit', $concept) }}">Modifica</a></td>
+          <td><a class="action-btn" href="{{ route('admin.concepts.edit', $concept) }}">{{ $health['health'] === 'READY' ? 'Modifica' : 'Verifica' }}</a></td>
         </tr>
       @empty
-        <tr><td colspan="6" style="text-align:center;padding:2rem;color:#6b7280;">Nessun concetto disponibile.</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:#6b7280;">Nessun concetto disponibile.</td></tr>
       @endforelse
     </tbody>
   </table>
