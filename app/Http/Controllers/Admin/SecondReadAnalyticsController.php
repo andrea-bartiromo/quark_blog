@@ -26,10 +26,12 @@ class SecondReadAnalyticsController extends Controller
         $range = $this->resolveRange($request);
 
         $breakdown = $this->analytics->articleBreakdown($range['since'], $range['until']);
+        $pathBreakdown = $this->analytics->pathBreakdown($range['since'], $range['until']);
         $totals = $this->analytics->siteWideTotals($range['since'], $range['until']);
 
         return view('admin.second-read-analytics.index', [
             'breakdown' => $breakdown,
+            'pathBreakdown' => $pathBreakdown,
             'totals' => $totals,
             'rangeOption' => $range['option'],
         ]);
