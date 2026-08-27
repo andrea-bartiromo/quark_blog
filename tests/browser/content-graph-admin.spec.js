@@ -75,7 +75,7 @@ for (const width of viewportWidths) {
         await expect(page.getByText('Concetto aggiornato.')).toBeVisible();
         await expect(page.getByLabel('Alias (uno per riga)')).toHaveValue(aliasValue);
 
-        // Link an existing published article from the catalog.
+        // Link an existing published article from the concept-side catalog.
         await page.getByLabel('Cerca titolo').fill(targetArticleTitle);
         await page.getByRole('button', { name: 'Filtra' }).click();
         await expect(page).toHaveURL(/q=/);
@@ -88,12 +88,12 @@ for (const width of viewportWidths) {
         await expect(linkedTable.getByText(targetArticleTitle)).toBeVisible();
         await expectPageFits(page);
 
-        // Once linked, the article must disappear from the "collega" catalog.
+        // Once linked, the article must disappear from the concept-side catalog.
         await page.getByLabel('Cerca titolo').fill(targetArticleTitle);
         await page.getByRole('button', { name: 'Filtra' }).click();
         await expect(page.getByText('Nessun articolo corrisponde ai filtri correnti.')).toBeVisible();
 
-        // Unlink it back out.
+        // Unlink it back out before exercising the article-side direction.
         const unlinkRow = linkedTable.locator('tr').filter({ hasText: targetArticleTitle });
         page.once('dialog', (dialog) => dialog.accept());
         await unlinkRow.getByRole('button', { name: 'Rimuovi' }).click();
@@ -120,30 +120,65 @@ for (const width of viewportWidths) {
         const questionRow = page.locator('tr').filter({ hasText: questionText }).first();
         await questionRow.getByRole('button', { name: 'Modifica' }).click();
         const editRow = page.locator('tr[id^="question-edit-"]:visible');
-        await editRow.getByLabel('Risposta (sintesi)').fill('Una verifica end-to-end in un browser reale.');
-        await editRow.getByLabel('Articolo target (ID)').fill(targetArticleId);
-        await editRow.getByLabel('Stato').selectOption('approved');
+        await expect(editRow).toBeVisible();
+        await editRow.locator('textarea[name="answer_summary"]').fill('Una verifica end-to-end in un browser reale.');
+        await editRow.locator('input[name="target_article_id"]').fill(targetArticleId);
+        await editRow.locator('select[name="status"]').selectOption('approved');
         await editRow.getByRole('button', { name: 'Salva domanda' }).click();
 
         await expect(page.getByText('✓ Pubblica')).toBeVisible();
         await expectPageFits(page);
 
-        // Reverse direction: the article editor's own Content Graph panel
-        // must reflect the same underlying article_concepts state.
+        // Reverse direction: create the relation from the article editor and
+        // verify the complete Article -> Concept round-trip.
         await page.goto(`${articlesPath}?q=${encodeURIComponent(targetArticleTitle)}`);
         await page.locator('tr').filter({ hasText: targetArticleTitle }).first().getByRole('link', { name: 'Modifica' }).click();
         await expect(page.getByText('Concetti collegati (Content Graph)')).toBeVisible();
-        await page.getByText('Collega un nuovo concetto…').click();
-        await page.getByLabel('Cerca concetto').fill(conceptName);
-        await page.getByRole('button', { name: 'Filtra' }).click();
-        const conceptCatalogEntry = page.locator('li').filter({ hasText: conceptName });
-        await expect(conceptCatalogEntry).toHaveCount(1);
-        await conceptCatalogEntry.getByRole('button', { name: 'Collega' }).click();
+        await expect(page.getByText('Nessun concetto collegato a questo articolo.')).toBeVisible();
 
-        const linkedConceptsList = page.locator('ul').filter({ has: page.getByRole('link', { name: conceptName }) });
+        const catalogDetails = page.locator('details').filter({
+            has: page.getByText('Collega un nuovo concetto…'),
+        });
+        await catalogDetails.locator('summary').click();
+        await catalogDetails.getByLabel('Cerca concetto').fill(conceptName);
+        await catalogDetails.getByRole('button', { name: 'Filtra' }).click();
+
+        // Filtering reloads the edit page, so the catalog returns closed.
+        const filteredDetails = page.locator('details').filter({
+            has: page.getByText('Collega un nuovo concetto…'),
+        });
+        await filteredDetails.locator('summary').click();
+
+        const conceptCatalogEntry = filteredDetails.locator('li').filter({ hasText: conceptName });
+        await expect(conceptCatalogEntry).toHaveCount(1);
+        const conceptLinkForm = conceptCatalogEntry.locator('form[method="POST"]');
+        await expect(conceptLinkForm).toHaveCount(1);
+        const conceptLinkButton = conceptLinkForm.locator('button[type="submit"]');
+        await expect(conceptLinkButton).toBeVisible();
+        await expect(conceptLinkButton).toHaveText('Collega');
+        await conceptLinkButton.click();
+
+        const linkedConceptsList = page.locator('ul').filter({
+            has: page.getByRole('link', { name: conceptName }),
+        });
         await expect(linkedConceptsList.getByRole('link', { name: conceptName })).toBeVisible();
         await expectPageFits(page);
 
+        // The linked concept must no longer be offered by the available catalog.
+        const postLinkDetails = page.locator('details').filter({
+            has: page.getByText('Collega un nuovo concetto…'),
+        });
+        await postLinkDetails.locator('summary').click();
+        await postLinkDetails.getByLabel('Cerca concetto').fill(conceptName);
+        await postLinkDetails.getByRole('button', { name: 'Filtra' }).click();
+
+        const postFilterDetails = page.locator('details').filter({
+            has: page.getByText('Collega un nuovo concetto…'),
+        });
+        await postFilterDetails.locator('summary').click();
+        await expect(postFilterDetails.locator('li').filter({ hasText: conceptName })).toHaveCount(0);
+
+        // Remove the reverse relation and verify the empty state again.
         page.once('dialog', (dialog) => dialog.accept());
         await linkedConceptsList.getByRole('button', { name: 'Rimuovi' }).click();
         await expect(page.getByText('Nessun concetto collegato a questo articolo.')).toBeVisible();
