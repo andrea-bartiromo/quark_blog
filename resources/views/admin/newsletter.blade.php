@@ -17,7 +17,7 @@
 
 <section class="admin-card" style="margin-bottom:1.25rem;overflow-x:auto;" aria-labelledby="source-report-title">
   <h2 id="source-report-title" style="font-size:1rem;margin-top:0;">Iscrizioni per superficie</h2>
-  <p style="font-size:.78rem;color:#6b7280;">Conteggi aggregati reali. Nessun tasso di conversione è mostrato perché non esiste un denominatore affidabile di impression.</p>
+  <p style="font-size:.78rem;color:#6b7280;">Conteggi aggregati reali. Non vengono calcolate percentuali: manca un denominatore affidabile di impression.</p>
   <table class="admin-table" style="min-width:420px;">
     <thead><tr><th>Superficie</th><th>Iscrizioni</th><th>Confermate</th></tr></thead>
     <tbody>
