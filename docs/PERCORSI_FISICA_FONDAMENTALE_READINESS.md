@@ -38,7 +38,7 @@ e nessuna relazione è stata modificata.
 | Tema | Evidenza reale su `main` | Esito per il Percorso |
 |---|---|---|
 | Relatività | slug `relativita-speciale`, membro non primario di *Spazio* | candidato condizionale; contenuto e stato da verificare nel DB reale |
-| GPS | nessuno slug o contenuto editoriale versionato; compare solo in fixture di test | gap essenziale/applicativo, non candidato reale |
+| GPS | gli snapshot SQLite versionati `storage/backups/database-2026-05-02-*.sqlite` contengono gli slug pubblicati `lugre-primo-esperimento-italiano-luna-gps-2025` e `galileo-gps-europeo-italia-navigazione-satellitare-2025` | candidati condizionali: gli snapshot sono evidence versionata, ma contenuto, attualità e stato production richiedono revisione umana |
 | Orologi atomici | slug `orologi-atomici`, membro primario di *Scienza quotidiana* | candidato condizionale; forte ponte applicativo, con rischio duplicazione |
 | Tempo | `guardare-lontano-nello-spazio-guardare-indietro-nel-tempo` e `come-i-telescopi-vedono-il-passato`, entrambi in *Spazio* | candidati di contesto, non nucleo automaticamente trasferibile |
 | Onde | `microonde` e `wi-fi` in *Scienza quotidiana* offrono un possibile ingresso alle onde elettromagnetiche | candidati deboli/condizionali; taglio editoriale da verificare |
@@ -70,8 +70,9 @@ reale e revisione editoriale:
 3. `orologi-atomici` — misura del tempo e ponte verso le applicazioni.
 4. `relativita-speciale` — struttura concettuale prima delle applicazioni
    relativistiche.
-5. Un articolo GPS — oggi mancante — come verifica concreta della
-   relatività e degli orologi atomici.
+5. Uno dei due candidati GPS presenti negli snapshot versionati — solo dopo
+   verifica editoriale e confronto con il catalogo production — come applicazione
+   concreta di relatività e orologi atomici.
 6. Ottica e laser — entrambi mancanti — prima di passare alle frontiere.
 7. Entanglement/fisica quantistica — mancante, adatto a una tappa avanzata.
 
@@ -83,7 +84,8 @@ tempo fisico.
 
 - **Bloccante:** nessun pillar verificato e nessuna prova versionata dello
   stato pubblico dei candidati nel catalogo reale.
-- **Contenuto:** GPS, ottica, laser ed entanglement non hanno candidati
+- **Contenuto:** GPS ha due candidati negli snapshot versionati ma non ancora
+  certificati rispetto al catalogo production; ottica, laser ed entanglement non hanno candidati
   editoriali reali su `main`; la copertura delle onde è soltanto inferita
   dagli slug e va letta prima di essere accettata.
 - **Sovrapposizione con *Spazio*:** `relativita-speciale` e i due contenuti
