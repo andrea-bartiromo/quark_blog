@@ -66,7 +66,7 @@ class ConceptQuestionReadinessService
 
         $publishedTargetIds = Article::query()
             ->published()
-            ->whereKey($questions->pluck('target_article_id')->filter()->unique())
+            ->whereIn('id', $questions->pluck('target_article_id')->filter()->unique()->all())
             ->pluck('id')
             ->flip();
 
