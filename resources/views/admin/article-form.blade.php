@@ -463,7 +463,7 @@
 <section class="admin-card social-deliveries" style="margin-top:1.5rem;overflow-x:auto;" aria-labelledby="social-deliveries-title">
   <h3 id="social-deliveries-title" style="margin-top:0;font-size:.95rem;">Consegne social</h3>
   <table style="width:100%;min-width:680px;border-collapse:collapse;font-size:.82rem;">
-    <thead><tr><th>Canale</th><th>Stato</th><th>Tentativi</th><th>Ultimo esito</th><th>Destinazione</th><th>Errore</th></tr></thead>
+    <thead><tr><th>Canale</th><th>Stato</th><th>Tentativi</th><th>Ultimo esito</th><th>Destinazione</th><th>Errore</th><th>Azione</th></tr></thead>
     <tbody>
     @foreach($socialPublications as $publication)
       <tr>
@@ -476,6 +476,14 @@
           @else{{ $publication->remote_id ?: '—' }}@endif
         </td>
         <td>{{ $publication->sanitizedError() ?? '—' }}</td>
+        <td>
+          @if($publication->status === \App\Models\SocialPublication::STATUS_RETRYABLE)
+          <form method="POST" action="{{ route('admin.articles.social-publications.retry', [$article, $publication]) }}" onsubmit="return confirm('Riprova questa consegna fallita? Verrà riutilizzata la stessa pubblicazione logica.');">
+            @csrf
+            <button class="action-btn" type="submit">Riprova invio fallito</button>
+          </form>
+          @else—@endif
+        </td>
       </tr>
     @endforeach
     </tbody>
