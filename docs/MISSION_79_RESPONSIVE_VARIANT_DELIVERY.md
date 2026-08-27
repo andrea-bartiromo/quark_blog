@@ -2,23 +2,25 @@
 
 ## Outcome
 
-`VERIFIED_ALREADY_PRESENT`
+`IMPLEMENTED_HARDENING_AFTER_REVIEW`
 
-Current `main` already implements the minimum responsive-variant system. No
-rendering or media-pipeline change is justified by this audit.
+The existing minimum system is retained, with focused hardening for three
+review-proven gaps: served-root verification, variant-content validation and
+post-EXIF sizing.
 
 ## Evidence
 
 - `config/media.php` defaults to the measured 480px and 960px targets. The
   documented rendered range is approximately 197–1208px across 390, 768 and
   1440px viewports.
-- `ImageService::generateResponsiveVariants()` skips targets greater than or
-  equal to the source width, excludes animated GIF, preserves alpha, corrects
-  JPEG orientation and writes validated WebP atomically.
+- `ImageService::generateResponsiveVariants()` excludes animated GIF, preserves
+  alpha, corrects JPEG orientation, then derives dimensions from the oriented GD
+  resource before resampling and writes validated WebP atomically.
 - Generation is capability-gated by GD and `imagewebp`; no AVIF URL or file is
   advertised because no AVIF pipeline is implemented.
-- `ResponsiveImageVariantService::existingVariantsFor()` checks the real
-  filesystem. Missing or partial variants never become fictional candidates.
+- `ResponsiveImageVariantService::existingVariantsFor()` checks the configured
+  served media root (not merely the application copy) and accepts only readable
+  WebP files whose real width matches the advertised descriptor.
 - `resolveForMarkup()` includes only verified variants plus the readable
   original and derives its intrinsic dimensions from real metadata.
 - `components/responsive-image.blade.php` emits `srcset` only when candidates
@@ -27,8 +29,9 @@ rendering or media-pipeline change is justified by this audit.
   33/50/62vw grids, and 1200/1240px desktop heroes with real mobile breakpoints.
 - Upload paths for Media, Admin/Redazione article covers, category images and
   profile photos call `generateForUpload()`.
-- `media:generate-responsive` covers legacy media, is dry-run by default,
-  bounded/filterable and requires explicit execution/force flags for writes.
+- `media:generate-responsive` covers legacy media, is dry-run by default and
+  bounded/filterable. `--execute` enables writes; `--force` only skips the
+  interactive confirmation and is not required in non-interactive execution.
 
 ## Regression coverage
 
