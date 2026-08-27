@@ -112,7 +112,15 @@ class ResponsiveImageVariantService
         // import eseguiti su Windows possono contenere backslash. La
         // generazione li normalizza gia' tramite ImageService; la pulizia
         // deve applicare la stessa regola o lascerebbe varianti orfane.
-        $diskName = str_replace('\\', '/', trim($diskName));
+        $diskName = str_replace('\\', '/', $diskName);
+
+        // Never change a stored media identity silently. Whitespace/control
+        // characters are invalid here: reject them instead of trimming into
+        // the name of a different media item.
+        if ($diskName !== trim($diskName) || preg_match('/[\\x00-\\x1F\\x7F]/', $diskName) === 1) {
+            return;
+        }
+
         $diskName = ltrim($diskName, '/');
 
         // Questo servizio gestisce esclusivamente nomi relativi sotto
