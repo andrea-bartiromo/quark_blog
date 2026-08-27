@@ -130,6 +130,9 @@ jobs:
           test ! -f REVISION
           test ! -f DEPLOY_INFO
           rm -rf "$EMPTY_SERVED_ROOT"
+          # The failed deploy intentionally runs cache-building commands before
+          # detecting served-root drift; restore those tracked cache artifacts.
+          git checkout -- .
 
       - name: TEST — valid state (correct SHA, no pending migrations, no configured served root) must succeed and record revision metadata
         run: |
