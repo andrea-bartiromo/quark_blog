@@ -113,90 +113,6 @@
       @include('partials.editorial-quality-gate', ['qualityReport' => $qualityReport])
     @endif
 
-    @if($article)
-    <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
-      <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Concetti collegati (Content Graph)</div>
-
-      @if($conceptLinks->isEmpty())
-      <p style="font-size:.8rem;color:#6b7280;margin:0 0 1rem;">Nessun concetto collegato a questo articolo.</p>
-      @else
-      <ul style="list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-direction:column;gap:.5rem;">
-        @foreach($conceptLinks as $link)
-        <li style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .65rem;">
-          <div>
-            <a href="{{ route('admin.concepts.edit', $link->concept_id) }}" style="font-weight:600;font-size:.82rem;color:#111827;">{{ $link->concept->name ?? '—' }}</a>
-            <div style="font-size:.68rem;color:#6b7280;">
-              {{ $link->relation_type === \App\Models\ArticleConcept::RELATION_PRIMARY ? 'Primario' : 'Di supporto' }} · peso {{ $link->weight }}
-            </div>
-          </div>
-          <form method="POST" action="{{ route('admin.articles.concepts.unlink', [$article, $link->concept_id]) }}" onsubmit="return confirm('Rimuovere questo collegamento?');">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="action-btn" style="color:var(--color-accent);">Rimuovi</button>
-          </form>
-        </li>
-        @endforeach
-      </ul>
-      @endif
-
-      @if(! empty($conceptSuggestions))
-      <div style="margin-bottom:1rem;padding:.75rem;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;">
-        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e;margin-bottom:.5rem;">Concetti suggeriti</div>
-        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
-          @foreach($conceptSuggestions as $suggestion)
-          <li style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
-            <span style="font-size:.8rem;">
-              <strong>{{ $suggestion['concept']->name }}</strong>
-              <span style="color:#6b7280;">— trovato come "{{ $suggestion['matched_text'] }}"</span>
-            </span>
-            <form method="POST" action="{{ route('admin.articles.concepts.link', [$article, $suggestion['concept']]) }}">
-              @csrf
-              <input type="hidden" name="relation_type" value="supporting">
-              <input type="hidden" name="weight" value="50">
-              <button class="action-btn" type="submit">Collega</button>
-            </form>
-          </li>
-          @endforeach
-        </ul>
-      </div>
-      @endif
-
-      <details style="margin-top:.5rem;">
-        <summary style="cursor:pointer;font-size:.78rem;font-weight:600;color:#0d9488;">Collega un nuovo concetto…</summary>
-
-        <form method="GET" action="{{ route('admin.articles.edit', $article) }}" style="display:flex;gap:.5rem;align-items:end;margin:.75rem 0;">
-          <div class="form-group" style="margin:0;flex:1;">
-            <label class="form-label" for="concept_q">Cerca concetto</label>
-            <input class="form-input" id="concept_q" name="concept_q" maxlength="120" value="{{ $conceptSearch }}" style="font-size:.82rem;">
-          </div>
-          <button type="submit" class="action-btn">Filtra</button>
-        </form>
-
-        @if($availableConcepts->isEmpty())
-        <p style="font-size:.78rem;color:#6b7280;">Nessun concetto disponibile da collegare.</p>
-        @else
-        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
-          @foreach($availableConcepts as $concept)
-          <li style="border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .65rem;">
-            <form method="POST" action="{{ route('admin.articles.concepts.link', [$article, $concept]) }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
-              @csrf
-              <span style="font-size:.8rem;font-weight:600;flex:1;min-width:120px;">{{ $concept->name }}</span>
-              <select name="relation_type" class="form-select" style="width:auto;font-size:.78rem;">
-                <option value="supporting">Di supporto</option>
-                <option value="primary">Primario</option>
-              </select>
-              <input type="number" name="weight" min="0" max="255" value="50" class="form-input" style="width:5rem;font-size:.78rem;">
-              <button class="action-btn" type="submit">Collega</button>
-            </form>
-          </li>
-          @endforeach
-        </ul>
-        <div style="margin-top:.5rem;">{{ $availableConcepts->onEachSide(1)->links() }}</div>
-        @endif
-      </details>
-    </div>
-    @endif
-
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria principale *</div>
       <select class="form-select" name="category" required>
@@ -444,6 +360,90 @@
 
   </div>
 </form>
+
+@if($article)
+<div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+  <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Concetti collegati (Content Graph)</div>
+
+  @if($conceptLinks->isEmpty())
+  <p style="font-size:.8rem;color:#6b7280;margin:0 0 1rem;">Nessun concetto collegato a questo articolo.</p>
+  @else
+  <ul style="list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-direction:column;gap:.5rem;">
+    @foreach($conceptLinks as $link)
+    <li style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .65rem;">
+      <div>
+        <a href="{{ route('admin.concepts.edit', $link->concept_id) }}" style="font-weight:600;font-size:.82rem;color:#111827;">{{ $link->concept->name ?? '—' }}</a>
+        <div style="font-size:.68rem;color:#6b7280;">
+          {{ $link->relation_type === \App\Models\ArticleConcept::RELATION_PRIMARY ? 'Primario' : 'Di supporto' }} · peso {{ $link->weight }}
+        </div>
+      </div>
+      <form method="POST" action="{{ route('admin.articles.concepts.unlink', [$article, $link->concept_id]) }}" onsubmit="return confirm('Rimuovere questo collegamento?');">
+        @csrf
+        @method('DELETE')
+        <button type="submit" class="action-btn" style="color:var(--color-accent);">Rimuovi</button>
+      </form>
+    </li>
+    @endforeach
+  </ul>
+  @endif
+
+  @if(! empty($conceptSuggestions))
+  <div style="margin-bottom:1rem;padding:.75rem;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;">
+    <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e;margin-bottom:.5rem;">Concetti suggeriti</div>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+      @foreach($conceptSuggestions as $suggestion)
+      <li style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+        <span style="font-size:.8rem;">
+          <strong>{{ $suggestion['concept']->name }}</strong>
+          <span style="color:#6b7280;">— trovato come "{{ $suggestion['matched_text'] }}"</span>
+        </span>
+        <form method="POST" action="{{ route('admin.articles.concepts.link', [$article, $suggestion['concept']]) }}">
+          @csrf
+          <input type="hidden" name="relation_type" value="supporting">
+          <input type="hidden" name="weight" value="50">
+          <button class="action-btn" type="submit">Collega</button>
+        </form>
+      </li>
+      @endforeach
+    </ul>
+  </div>
+  @endif
+
+  <details style="margin-top:.5rem;">
+    <summary style="cursor:pointer;font-size:.78rem;font-weight:600;color:#0d9488;">Collega un nuovo concetto…</summary>
+
+    <form method="GET" action="{{ route('admin.articles.edit', $article) }}" style="display:flex;gap:.5rem;align-items:end;margin:.75rem 0;">
+      <div class="form-group" style="margin:0;flex:1;">
+        <label class="form-label" for="concept_q">Cerca concetto</label>
+        <input class="form-input" id="concept_q" name="concept_q" maxlength="120" value="{{ $conceptSearch }}" style="font-size:.82rem;">
+      </div>
+      <button type="submit" class="action-btn">Filtra</button>
+    </form>
+
+    @if($availableConcepts->isEmpty())
+    <p style="font-size:.78rem;color:#6b7280;">Nessun concetto disponibile da collegare.</p>
+    @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+      @foreach($availableConcepts as $concept)
+      <li style="border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .65rem;">
+        <form method="POST" action="{{ route('admin.articles.concepts.link', [$article, $concept]) }}" style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+          @csrf
+          <span style="font-size:.8rem;font-weight:600;flex:1;min-width:120px;">{{ $concept->name }}</span>
+          <select name="relation_type" class="form-select" style="width:auto;font-size:.78rem;">
+            <option value="supporting">Di supporto</option>
+            <option value="primary">Primario</option>
+          </select>
+          <input type="number" name="weight" min="0" max="255" value="50" class="form-input" style="width:5rem;font-size:.78rem;">
+          <button class="action-btn" type="submit">Collega</button>
+        </form>
+      </li>
+      @endforeach
+    </ul>
+    <div style="margin-top:.5rem;">{{ $availableConcepts->onEachSide(1)->links() }}</div>
+    @endif
+  </details>
+</div>
+@endif
 
 @if($article && $article->projects->isNotEmpty())
   <div class="admin-card" style="margin-top:1.5rem;">
