@@ -59,7 +59,6 @@ jobs:
         run: |
           php artisan migrate:fresh --force
           php artisan db:seed --class=Database\\Seeders\\BrowserTestSeeder --force
-          php artisan db:seed --class=Database\\Seeders\\ResponsiveImageFixtureSeeder --force
           php artisan optimize:clear
 
       - name: Setup Node
@@ -74,8 +73,18 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Execute browser tests
-        run: npm run test:browser
+      - name: Execute existing browser tests on the canonical fixture
+        run: |
+          mapfile -t SPECS < <(find tests/browser -name '*.spec.js' ! -name 'responsive-images.spec.js' -print)
+          npx playwright test --workers=1 "${SPECS[@]}"
+
+      - name: Prepare responsive-image fixture
+        run: |
+          php artisan db:seed --class=Database\\Seeders\\ResponsiveImageFixtureSeeder --force
+          php artisan optimize:clear
+
+      - name: Execute responsive-image browser tests in isolation
+        run: npx playwright test --workers=1 tests/browser/responsive-images.spec.js
 
       - name: Upload Playwright failure artifacts
         if: failure()
