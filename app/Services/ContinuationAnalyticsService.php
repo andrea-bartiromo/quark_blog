@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Models\ArticleContinuationEvent;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -205,5 +206,48 @@ class ContinuationAnalyticsService
 
             return $row;
         });
+    }
+
+    /**
+     * Riepilogo per Percorso basato sulla relazione corrente tra articolo
+     * sorgente e content cluster. Gli eventi non salvano il contesto del
+     * Percorso: se un articolo appartiene a piu Percorsi, il suo segnale e
+     * attribuito a ciascuno di essi e le righe non devono essere sommate.
+     *
+     * @return Collection<int, array{content_cluster_id:int,name:string,slug:string,impressions:int,second_reads:int,second_read_rate:float,source_articles_engaged:int}>
+     */
+    public function pathBreakdown(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null, int $limit = 50): Collection
+    {
+        $limit = max(1, min($limit, 100));
+
+        return DB::table('article_continuation_events as events')
+            ->join('article_content_cluster as membership', 'membership.article_id', '=', 'events.source_article_id')
+            ->join('content_clusters as clusters', 'clusters.id', '=', 'membership.content_cluster_id')
+            ->select(['clusters.id as content_cluster_id', 'clusters.name', 'clusters.slug'])
+            ->selectRaw('SUM(CASE WHEN events.event_type = ? THEN 1 ELSE 0 END) as impressions', [ArticleContinuationEvent::EVENT_IMPRESSION])
+            ->selectRaw('SUM(CASE WHEN events.event_type = ? THEN 1 ELSE 0 END) as second_reads', [ArticleContinuationEvent::EVENT_SECOND_READ_START])
+            ->selectRaw('COUNT(DISTINCT events.source_article_id) as source_articles_engaged')
+            ->when($since, fn ($query) => $query->where('events.created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('events.created_at', '<=', $until))
+            ->groupBy('clusters.id', 'clusters.name', 'clusters.slug')
+            ->orderByDesc('second_reads')
+            ->orderByDesc('impressions')
+            ->orderBy('clusters.id')
+            ->limit($limit)
+            ->get()
+            ->map(function ($row): array {
+                $impressions = (int) $row->impressions;
+                $secondReads = (int) $row->second_reads;
+
+                return [
+                    'content_cluster_id' => (int) $row->content_cluster_id,
+                    'name' => (string) $row->name,
+                    'slug' => (string) $row->slug,
+                    'impressions' => $impressions,
+                    'second_reads' => $secondReads,
+                    'second_read_rate' => $impressions > 0 ? round($secondReads / $impressions, 4) : 0.0,
+                    'source_articles_engaged' => (int) $row->source_articles_engaged,
+                ];
+            });
     }
 }
