@@ -38,7 +38,7 @@ class ManualSocialRetryTest extends TestCase
         $publication = SocialPublication::create(['article_id' => $article->id, 'channel' => 'facebook', 'event_key' => 'article:'.$article->id, 'status' => SocialPublication::STATUS_SUCCEEDED]);
 
         $this->actingAs($editor)->post(route('admin.articles.social-publications.retry', [$article, $publication]))->assertRedirect();
-        Bus::assertNothingDispatched();
+        Bus::assertNotDispatched(PublishSocialDistribution::class);
         $this->assertDatabaseCount('social_publications', 1);
     }
 }

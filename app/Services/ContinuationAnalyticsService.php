@@ -179,8 +179,8 @@ class ContinuationAnalyticsService
 
         $rows = $counts->groupBy('source_article_id')
             ->map(function ($eventRows, $sourceId) {
-                $impressions = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_IMPRESSION)->total ?? 0);
-                $secondReads = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_SECOND_READ_START)->total ?? 0);
+                $impressions = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_IMPRESSION)?->total ?? 0);
+                $secondReads = (int) ($eventRows->firstWhere('event_type', ArticleContinuationEvent::EVENT_SECOND_READ_START)?->total ?? 0);
 
                 return [
                     'source_article_id' => (int) $sourceId,

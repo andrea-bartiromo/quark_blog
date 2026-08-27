@@ -21,7 +21,7 @@ class FacebookSocialProviderTest extends TestCase
         $article = Article::withoutEvents(fn () => Article::create([
             'user_id' => User::factory()->create(['role' => 'author'])->id,
             'title' => 'Titolo Facebook',
-            'slug' => 'titolo-facebook',
+            'slug' => 'titolo-facebook-'.uniqid(),
             'excerpt' => 'Copy breve Facebook',
             'body' => '<p>Corpo.</p>',
             'category' => 'tecnologia',

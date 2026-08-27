@@ -59,6 +59,7 @@ jobs:
         run: |
           php artisan migrate:fresh --force
           php artisan db:seed --class=Database\\Seeders\\BrowserTestSeeder --force
+          php artisan db:seed --class=Database\\Seeders\\ResponsiveImageFixtureSeeder --force
           php artisan optimize:clear
 
       - name: Setup Node

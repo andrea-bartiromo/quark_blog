@@ -14,8 +14,12 @@ class SecondReadRadarProviderTest extends TestCase
 
     public function test_weak_signal_is_suppressed_and_explainable_threshold_is_emitted(): void
     {
-        $source = Article::factory()->create(['status' => 'published']);
-        $target = Article::factory()->create(['status' => 'published']);
+        $source = Article::withoutEvents(
+            fn () => Article::factory()->create(['status' => Article::STATUS_PUBLISHED])
+        );
+        $target = Article::withoutEvents(
+            fn () => Article::factory()->create(['status' => Article::STATUS_PUBLISHED])
+        );
 
         for ($i = 0; $i < 19; $i++) {
             ArticleContinuationEvent::create(['source_article_id' => $source->id, 'target_article_id' => $target->id, 'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION]);
