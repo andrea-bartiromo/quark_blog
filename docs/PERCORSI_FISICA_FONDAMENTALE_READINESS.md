@@ -24,6 +24,87 @@ durante lo sviluppo (vedi sotto). Costruire un Percorso "Fisica
 Fondamentale" oggi richiederebbe inventare articoli — cosa esplicitamente
 esclusa da questa missione.
 
+## Missione 70 — ricertificazione current-main (2026-08-27)
+
+**Stato: NEEDS CONTENT / REQUIRES PRODUCTION FACT. Human review
+obbligatoria.** L'audit corrente conferma che `main` non contiene un dump
+del catalogo editoriale reale. La mappa versionata prova l'esistenza di
+intenzioni editoriali e slug, non lo stato, la completezza o la qualità
+degli articoli corrispondenti in produzione. Nessun Percorso è stato creato
+e nessuna relazione è stata modificata.
+
+### Copertura dei temi richiesti
+
+| Tema | Evidenza reale su `main` | Esito per il Percorso |
+|---|---|---|
+| Relatività | slug `relativita-speciale`, membro non primario di *Spazio* | candidato condizionale; contenuto e stato da verificare nel DB reale |
+| GPS | nessuno slug o contenuto editoriale versionato; compare solo in fixture di test | gap essenziale/applicativo, non candidato reale |
+| Orologi atomici | slug `orologi-atomici`, membro primario di *Scienza quotidiana* | candidato condizionale; forte ponte applicativo, con rischio duplicazione |
+| Tempo | `guardare-lontano-nello-spazio-guardare-indietro-nel-tempo` e `come-i-telescopi-vedono-il-passato`, entrambi in *Spazio* | candidati di contesto, non nucleo automaticamente trasferibile |
+| Onde | `microonde` e `wi-fi` in *Scienza quotidiana* offrono un possibile ingresso alle onde elettromagnetiche | candidati deboli/condizionali; taglio editoriale da verificare |
+| Ottica | nessuna evidenza editoriale versionata dedicata | gap essenziale per una progressione completa |
+| Entanglement | nessuna evidenza editoriale versionata | gap di fisica moderna |
+| Laser | nessuna evidenza editoriale versionata | gap applicativo |
+
+Le occorrenze in `tests/Feature/InternalLinkingQualityTest.php` (relatività,
+GPS, orologi atomici) sono fixture sintetiche create per provare il motore
+di linking: non sono articoli candidati e non aumentano la readiness.
+
+### Pillar candidate
+
+**Nessun pillar evidence-backed disponibile su `main`.**
+`relativita-speciale` è il candidato più vicino a un contenuto fondamentale,
+ma è troppo specifico per essere dichiarato automaticamente introduzione
+generale alla fisica e risulta già assegnato a *Spazio*. Può diventare pillar
+solo dopo revisione umana del testo reale, del suo stato pubblico e del suo
+ruolo rispetto al Percorso esistente.
+
+### Candidate members e ordine proposto
+
+Ordine esclusivamente condizionale, da applicare solo dopo verifica nel DB
+reale e revisione editoriale:
+
+1. **Nuovo/vero overview pillar di fisica fondamentale** — oggi mancante.
+2. `microonde` e/o `wi-fi` — fenomeni osservabili per introdurre le onde,
+   solo se il testo spiega davvero la fisica e non soltanto la tecnologia.
+3. `orologi-atomici` — misura del tempo e ponte verso le applicazioni.
+4. `relativita-speciale` — struttura concettuale prima delle applicazioni
+   relativistiche.
+5. Un articolo GPS — oggi mancante — come verifica concreta della
+   relatività e degli orologi atomici.
+6. Ottica e laser — entrambi mancanti — prima di passare alle frontiere.
+7. Entanglement/fisica quantistica — mancante, adatto a una tappa avanzata.
+
+Gli articoli sul passato osservato dai telescopi possono essere rimandi
+laterali o tappe avanzate, ma non sostituiscono un'introduzione autonoma al
+tempo fisico.
+
+### Gaps e rischi di duplicazione
+
+- **Bloccante:** nessun pillar verificato e nessuna prova versionata dello
+  stato pubblico dei candidati nel catalogo reale.
+- **Contenuto:** GPS, ottica, laser ed entanglement non hanno candidati
+  editoriali reali su `main`; la copertura delle onde è soltanto inferita
+  dagli slug e va letta prima di essere accettata.
+- **Sovrapposizione con *Spazio*:** `relativita-speciale` e i due contenuti
+  sul tempo cosmologico sono già membri di quel Percorso. Duplicarli può
+  essere legittimo, ma richiede una decisione su primary membership,
+  narrazione e CTA; non vanno spostati automaticamente.
+- **Sovrapposizione con *Scienza quotidiana*:** `microonde`, `wi-fi` e
+  `orologi-atomici` sono già tappe primarie. Riutilizzarli in blocco
+  indebolirebbe l'identità di entrambi i Percorsi.
+- **Coerenza pedagogica:** una sequenza costruita solo riusando contenuti
+  esistenti salterebbe da tecnologie quotidiane a relatività senza coprire
+  meccanica, onde/ottica in modo sistematico e fisica quantistica.
+
+### Decisione richiesta alla redazione
+
+Prima di qualunque builder o backfill, una persona deve verificare nel CMS
+reale titolo, slug, stato, qualità e sovrapposizioni dei candidati; scegliere
+un pillar; decidere quali articoli possano appartenere a più Percorsi; e
+approvare l'ordine. Senza questi fatti la readiness non può salire a
+`READY WHEN SCHEDULED CONTENT PUBLISHES` o `READY NOW`.
+
 ## Inventario contenuti reali (evidenza, non ipotesi)
 
 Fonti realmente presenti nel repository, verificate leggendo il codice:
