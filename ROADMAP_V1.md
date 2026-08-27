@@ -173,3 +173,16 @@ I due Critici (`.env` di produzione, cron `schedule:run`) e "DOMINIO" in `robots
 ## Attività con il miglior rapporto impatto/tempo (residua)
 
 **Sostituire "DOMINIO" in `robots.txt`** (5 minuti, basta conoscere il dominio finale): è l'unico intervento rimasto ad alta priorità che non richiede altro che un'informazione, non una decisione — impatto SEO immediato dal giorno del lancio.
+
+
+## September 2026 convergence rebaseline (Mission 104)
+
+| Layer | Status |
+|---|---|
+| Repository main | `e84249bf5dace3694404464301bb0fa870f576e6` observed; final mission stack not yet merged |
+| Pull requests | Missions 55–104 represented by evidence/PRs; current tail intentionally open for review |
+| Production-ready | No — executable release gates, migrations and external provider facts remain |
+| Deployed | No deployment performed by this batch |
+| Verified online | No production verification claimed |
+
+Milestones reached in proposed code: bounded newsletter source persistence/reporting, social delivery foundation and admin recovery, Communication 2.0 convergence certification, explainable Second Read Radar integration. External social activation, provider feedback, production migrations and final release verification remain separate milestones.
