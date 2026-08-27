@@ -5,7 +5,7 @@
 `BLOCKED_PENDING_STACK_MERGE_AND_EXECUTABLE_RELEASE_EVIDENCE`
 
 - **FINAL_MAIN_SHA (observed):** `e84249bf5dace3694404464301bb0fa870f576e6`
-- **Final proposed stack before this handoff:** `ae80e974dfd09118018e052f2a7faec7756026b5` (Mission 103)
+- **Final proposed stack before this handoff:** `cea41a8dd706bda39287fb61c51b6a6a8c24fd99` (Mission 103)
 - Repository comparison: 61 commits / 50 changed files ahead of main before Mission 104.
 - No deploy or production mutation was performed.
 - Mission PRs are intentional review items, not accidental drafts. Their open state means work is **proposed**, not merged or online.
