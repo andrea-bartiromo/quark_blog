@@ -215,6 +215,26 @@ for (const width of viewportWidths) {
         await expect(lastBox.getByRole('button', { name: 'Avvisami quando continua' })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
+        if (width === 390) {
+            const continuationCard = page.locator('.continue-reading__card');
+            await expect(continuationCard).toBeVisible();
+            await expect(page.locator('a[href*="/articolo/browser-complete-path-article"]')).toHaveCount(1);
+
+            await continuationCard.focus();
+            await expect(continuationCard).toBeFocused();
+            const focusStyle = await continuationCard.evaluate(element => {
+                const style = getComputedStyle(element);
+                return {
+                    outlineStyle: style.outlineStyle,
+                    outlineWidth: parseFloat(style.outlineWidth),
+                    pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+                };
+            });
+            expect(focusStyle.outlineStyle).not.toBe('none');
+            expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+            expect(focusStyle.pageFits).toBeTruthy();
+        }
+
         await lastBox.getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
         await expect(page).toHaveURL(/\/articolo\/browser-turing-article$/);
 
