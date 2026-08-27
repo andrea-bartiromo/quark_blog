@@ -71,6 +71,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         $this->assertSame([], $snapshot['contenuti_da_aggiornare']);
         $this->assertSame([], $snapshot['programmati_non_assegnati']);
         $this->assertSame(0.0, $snapshot['content_graph']['articles']['coverage_percent']);
+        $this->assertSame(0, $snapshot['content_graph_actionable']['total']);
+        $this->assertSame([], $snapshot['content_graph_actionable']['items']);
         $this->assertSame(0, $snapshot['content_graph']['articles']['published_total']);
         $this->assertSame(0, $snapshot['second_read']['impressions']);
         $this->assertSame(0, $snapshot['second_read']['second_reads']);
@@ -705,7 +707,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
             + count($snapshot['percorsi_pillar_issues'])
-            + count($snapshot['percorsi_non_publishable_members']);
+            + count($snapshot['percorsi_non_publishable_members'])
+            + $snapshot['content_graph_actionable']['total'];
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertGreaterThan(0, $snapshot['salute_operativa']['open_problems_total']);
@@ -772,7 +775,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
             + count($snapshot['percorsi_pillar_issues'])
-            + count($snapshot['percorsi_non_publishable_members']);
+            + count($snapshot['percorsi_non_publishable_members'])
+            + $snapshot['content_graph_actionable']['total'];
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }
@@ -902,7 +906,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
             + count($snapshot['percorsi_pillar_issues'])
-            + count($snapshot['percorsi_non_publishable_members']);
+            + count($snapshot['percorsi_non_publishable_members'])
+            + $snapshot['content_graph_actionable']['total'];
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
         $this->assertSame($expectedOpenProblems === 0 ? 'SANA' : 'DA_RIVEDERE', $snapshot['salute_operativa']['status']);
@@ -940,7 +945,8 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
             + count($snapshot['percorsi_pillar_issues'])
-            + count($snapshot['percorsi_non_publishable_members']);
+            + count($snapshot['percorsi_non_publishable_members'])
+            + $snapshot['content_graph_actionable']['total'];
 
         $this->assertSame($expectedOpenProblems, $snapshot['salute_operativa']['open_problems_total']);
     }
@@ -1332,4 +1338,81 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             'Il conteggio query della dashboard non deve dipendere dal numero di articoli (nessun N+1).'
         );
     }
+
+    public function test_content_graph_queue_explains_what_why_and_where_without_duplicate_orphans(): void
+    {
+        $concept = Concept::create([
+            'name' => 'Concept senza domande',
+            'slug' => 'concept-senza-domande',
+            'status' => Concept::STATUS_ACTIVE,
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(1, $snapshot['content_graph_actionable']['total']);
+        $row = $snapshot['content_graph_actionable']['items'][0];
+        $this->assertSame('NO_QUESTIONS', $row['code']);
+        $this->assertSame($concept->name, $row['what']);
+        $this->assertNotSame('', $row['why']);
+        $this->assertSame(route('admin.concepts.edit', $concept), $row['target_url']);
+        $this->assertSame(1, $snapshot['salute_operativa']['open_problems_total']);
+    }
+
+    public function test_approved_question_problem_is_counted_once_with_precise_reason(): void
+    {
+        $concept = Concept::create([
+            'name' => 'Concept domanda incoerente',
+            'slug' => 'concept-domanda-incoerente',
+            'status' => Concept::STATUS_ACTIVE,
+        ]);
+        $concept->questions()->create([
+            'question' => 'Dove porta questa domanda?',
+            'answer_summary' => 'Risposta.',
+            'status' => 'approved',
+        ]);
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertSame(1, $snapshot['content_graph_actionable']['total']);
+        $this->assertStringContainsString('TARGET_MISSING', $snapshot['content_graph_actionable']['items'][0]['code']);
+        $this->assertStringContainsString('Manca un articolo target', $snapshot['content_graph_actionable']['items'][0]['why']);
+    }
+
+    public function test_published_without_concept_is_not_duplicated_in_new_content_graph_queue(): void
+    {
+        $article = $this->article('published-without-concept-existing-queue', Article::STATUS_PUBLISHED, now()->subDay());
+
+        $snapshot = $this->service()->snapshot();
+
+        $this->assertContains($article->id, collect($snapshot['contenuti_senza_concept'])->pluck('id')->all());
+        $this->assertSame(0, $snapshot['content_graph_actionable']['total']);
+    }
+
+    public function test_content_graph_queue_query_shape_does_not_grow_with_concept_count(): void
+    {
+        Concept::create(['name' => 'Uno', 'slug' => 'uno', 'status' => Concept::STATUS_ACTIVE]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->service()->snapshot();
+        $oneConceptQueries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        foreach (range(2, 20) as $number) {
+            Concept::create([
+                'name' => 'Concept '.$number,
+                'slug' => 'concept-'.$number,
+                'status' => Concept::STATUS_ACTIVE,
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->service()->snapshot();
+        $twentyConceptQueries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame($oneConceptQueries, $twentyConceptQueries);
+    }
+
 }
