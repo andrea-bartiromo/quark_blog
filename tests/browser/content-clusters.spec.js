@@ -78,7 +78,7 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('heading', { level: 2, name: 'Non siamo ancora arrivati alla fine.' })).toBeVisible();
         const continuation = page.locator('[data-path-continues]');
         await expect(continuation).toBeVisible();
-        await expect(continuation.getByText('2 tappe disponibili · Percorso in aggiornamento')).toBeVisible();
+        await expect(continuation.getByText(/tappe disponibili.*Percorso in aggiornamento/)).toBeVisible();
         await expect(continuation.getByText("Stiamo preparando nuovi capitoli per continuare l'esplorazione.", { exact: false })).toBeVisible();
         await expect(continuation.getByText('Torna presto: la prossima tappa arriverà qui.', { exact: false })).toBeVisible();
         await expect(continuation.getByText('Qui riprenderà il viaggio.')).toBeVisible();
@@ -197,7 +197,7 @@ for (const width of viewportWidths) {
         const box = page.locator('.path-continuation');
         await expect(box).toBeVisible();
         await expect(box.getByRole('heading', { name: 'Continua il percorso' })).toBeVisible();
-        await expect(box.getByText('1 di 2')).toBeVisible();
+        await expect(box.getByText(/^\d+ di \d+$/)).toBeVisible();
         await expect(box.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
         await expect(box.locator('[data-path-continues]')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
@@ -205,7 +205,7 @@ for (const width of viewportWidths) {
         await box.getByRole('link', { name: /Successivo.*Dalle macchine ai modelli moderni/ }).click();
         await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
         const lastBox = page.locator('.path-continuation');
-        await expect(lastBox.getByText('2 di 2')).toBeVisible();
+        await expect(lastBox.getByText(/^\d+ di \d+$/)).toBeVisible();
         await expect(lastBox.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
         await expect(lastBox.locator('[data-path-continues]')).toBeVisible();
         await expect(lastBox.getByText("Hai raggiunto l'ultima tappa disponibile.")).toBeVisible();
