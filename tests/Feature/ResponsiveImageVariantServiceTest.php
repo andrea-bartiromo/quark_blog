@@ -252,4 +252,20 @@ class ResponsiveImageVariantServiceTest extends TestCase
         $this->assertStringContainsString('partial-960w.webp 960w', $resolved['srcset']);
         $this->assertStringContainsString('partial.webp 2000w', $resolved['srcset']);
     }
+
+    public function test_delete_rejects_whitespace_instead_of_changing_media_identity(): void
+    {
+        $this->placeUploadedFileAt('articles/covers/photo.webp', 2000, 1000);
+        $this->service()->generateForUpload(
+            public_path('assets/img/articles/covers/photo.webp'),
+            'articles/covers/photo.webp'
+        );
+        $unrelatedVariant = public_path('assets/img/articles/covers/photo-480w.webp');
+        $this->assertFileExists($unrelatedVariant);
+
+        $this->service()->deleteForDiskName(' articles/covers/photo.webp');
+
+        $this->assertFileExists($unrelatedVariant);
+    }
+
 }
