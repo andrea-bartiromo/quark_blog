@@ -68,7 +68,7 @@
         <tbody>
           @foreach($pathBreakdown as $row)
             <tr>
-              <td><a href="{{ route('percorsi.show', $row['slug']) }}" target="_blank" rel="noopener">{{ $row['name'] }}</a></td>
+              <td><a href="{{ route('admin.content-clusters.edit', $row['id']) }}">{{ $row['name'] }}</a></td>
               <td>{{ number_format($row['impressions']) }}</td>
               <td>{{ number_format($row['second_reads']) }}</td>
               <td>{{ number_format($row['second_read_rate'] * 100, 1) }}%</td>
