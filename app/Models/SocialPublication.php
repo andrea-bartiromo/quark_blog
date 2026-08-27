@@ -37,4 +37,26 @@ class SocialPublication extends Model
     {
         return $this->belongsTo(Article::class);
     }
+
+    public function safeRemoteUrl(): ?string
+    {
+        if (! is_string($this->remote_url) || filter_var($this->remote_url, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        return strtolower((string) parse_url($this->remote_url, PHP_URL_SCHEME)) === 'https'
+            ? $this->remote_url
+            : null;
+    }
+
+    public function sanitizedError(): ?string
+    {
+        if (! is_string($this->last_error_message) || trim($this->last_error_message) === '') {
+            return null;
+        }
+
+        $message = preg_replace('/(?:access[_-]?token|token|secret|authorization|api[_-]?key)\s*[=:]\s*[^\s,;]+/i', '$1=[REDACTED]', $this->last_error_message);
+
+        return mb_substr((string) $message, 0, 280);
+    }
 }
