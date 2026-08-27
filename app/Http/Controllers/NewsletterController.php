@@ -35,9 +35,11 @@ class NewsletterController extends Controller
                 },
                 'email',
             ],
+            'source' => ['nullable', 'string', 'in:'.implode(',', Newsletter::SOURCES)],
+            ],
         ]);
 
-        $subscriber = Newsletter::subscribe($request->input('email'));
+        $subscriber = Newsletter::subscribe($request->input('email'), $request->input('source'));
 
         // Invia email di conferma
         try {
