@@ -51,6 +51,24 @@ class ConceptQuestion extends Model
         return $query->where('status', self::STATUS_APPROVED);
     }
 
+    /**
+     * Canonical query fragment for the public-answerable question gate.
+     *
+     * Concept activity remains a property of the parent Concept and is checked
+     * by ContentGraphService. Keeping the question-side predicates here lets
+     * aggregate diagnostics reuse the exact same rule without per-Concept
+     * queries or a second implementation.
+     */
+    public function scopePubliclyAnswerable(Builder $query): Builder
+    {
+        return $query
+            ->approved()
+            ->whereNotNull('target_article_id')
+            ->whereNotNull('answer_summary')
+            ->whereRaw("TRIM(answer_summary) <> ''")
+            ->whereHas('targetArticle', fn (Builder $query) => $query->published());
+    }
+
     public function setQuestionAttribute(string $value): void
     {
         $this->attributes['question'] = $value;

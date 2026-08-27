@@ -126,13 +126,9 @@ class ContentGraphService
         }
 
         return ConceptQuestion::query()
-            ->approved()
+            ->publiclyAnswerable()
             ->with('targetArticle')
             ->where('concept_id', $concept->getKey())
-            ->whereNotNull('target_article_id')
-            ->whereNotNull('answer_summary')
-            ->whereRaw("TRIM(answer_summary) <> ''")
-            ->whereHas('targetArticle', fn ($query) => $query->published())
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
