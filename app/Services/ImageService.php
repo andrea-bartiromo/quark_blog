@@ -1109,7 +1109,14 @@ class ImageService
                 $source = $this->applyExifOrientation($source, $sourceAbsolutePath);
             }
 
-            $targetHeight = max(1, (int) round($sourceHeight * ($targetWidth / $sourceWidth)));
+            // EXIF orientations 5–8 swap the axes. Always calculate from
+            // the post-orientation GD resource, never from stale metadata.
+            $orientedWidth = imagesx($source);
+            $orientedHeight = imagesy($source);
+            if ($orientedWidth <= 0 || $orientedHeight <= 0 || $targetWidth >= $orientedWidth) {
+                throw new RuntimeException('Larghezza variante non valida per il sorgente orientato.');
+            }
+            $targetHeight = max(1, (int) round($orientedHeight * ($targetWidth / $orientedWidth)));
 
             $resized = imagecreatetruecolor($targetWidth, $targetHeight);
             if ($resized === false) {
@@ -1117,7 +1124,7 @@ class ImageService
             }
 
             $this->preserveAlphaChannel($resized);
-            imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+            imagecopyresampled($resized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $orientedWidth, $orientedHeight);
 
             return $this->writeWebpAtomically($resized, $destinationPath, $quality);
         } finally {
