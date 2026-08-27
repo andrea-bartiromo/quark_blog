@@ -20,6 +20,7 @@ use App\Models\Article;
 use App\Models\ArticleConcept;
 use App\Models\Category;
 use App\Models\Concept;
+use App\Models\SocialPublication;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
@@ -530,6 +531,15 @@ class ArticleController extends Controller
             ->paginate(20, ['*'], 'concept_page')
             ->withQueryString();
 
+        $socialPublications = collect();
+        if (config('social_distribution.enabled', false)) {
+            $socialPublications = SocialPublication::query()
+                ->whereBelongsTo($article)
+                ->latest('last_attempted_at')
+                ->latest('id')
+                ->get();
+        }
+
         return view('admin.article-form', [
             'article' => $article,
             'categories' => Category::options(),
@@ -544,6 +554,7 @@ class ArticleController extends Controller
             // solo un suggerimento accettato tramite l'azione "Collega" già
             // esistente più sotto.
             'conceptSuggestions' => $this->conceptSuggestions->suggestForArticle($article),
+            'socialPublications' => $socialPublications,
         ]);
     }
 
