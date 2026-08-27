@@ -21,6 +21,7 @@ use App\Models\ArticleConcept;
 use App\Models\Category;
 use App\Models\Concept;
 use App\Models\SocialPublication;
+use App\Jobs\PublishSocialDistribution;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
@@ -556,6 +557,30 @@ class ArticleController extends Controller
             'conceptSuggestions' => $this->conceptSuggestions->suggestForArticle($article),
             'socialPublications' => $socialPublications,
         ]);
+    }
+
+    public function retrySocialPublication(Article $article, SocialPublication $publication)
+    {
+        abort_unless(config('social_distribution.enabled', false), 404);
+        abort_unless($publication->article_id === $article->id, 404);
+
+        $queued = DB::transaction(function () use ($publication) {
+            $locked = SocialPublication::query()->lockForUpdate()->findOrFail($publication->id);
+            if ($locked->status !== SocialPublication::STATUS_RETRYABLE) {
+                return false;
+            }
+
+            PublishSocialDistribution::dispatch($locked->id)->afterCommit();
+            return true;
+        });
+
+        if (! $queued) {
+            return back()->with('error', 'La consegna non è più riprovabile.');
+        }
+
+        ActivityLog::record('Retry consegna social richiesto', 'social_publication', $publication->id, $article->title);
+
+        return back()->with('success', 'Nuovo tentativo accodato sulla stessa consegna.');
     }
 
     /**
