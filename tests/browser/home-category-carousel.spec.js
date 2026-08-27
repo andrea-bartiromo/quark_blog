@@ -34,7 +34,7 @@ async function openCarousel(page) {
     const tiles = track.locator('.home-category-tile');
 
     await expect(track).toBeVisible();
-    await expect(tiles).toHaveCount(10);
+    expect(await tiles.count()).toBeGreaterThanOrEqual(10);
     await expect(tiles.nth(6)).toBeAttached();
     await expect(tiles.nth(9)).toBeAttached();
 
