@@ -31,6 +31,6 @@ class EditorialOperationsContentGraphQueueTest extends TestCase
         $response->assertSee($concept->name);
         $response->assertSee('Il Concept attivo non ha domande.');
         $response->assertSee(route('admin.concepts.edit', $concept), false);
-        $response->assertDontSee('Pubblicati senza Concept', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'Pubblicati senza Concept'));
     }
 }
