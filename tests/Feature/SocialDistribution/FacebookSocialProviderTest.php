@@ -63,11 +63,14 @@ class FacebookSocialProviderTest extends TestCase
 
     public function test_maps_expired_token_and_rate_limit_without_exposing_raw_response(): void
     {
+        Http::fakeSequence()
+            ->push(['error' => ['code' => 190, 'message' => 'raw secret']], 400)
+            ->push(['error' => ['code' => 4, 'message' => 'raw secret']], 429);
+
         foreach ([
-            [['error' => ['code' => 190, 'message' => 'raw secret']], 400, 'facebook_token_expired', false],
-            [['error' => ['code' => 4, 'message' => 'raw secret']], 429, 'facebook_rate_limited', true],
-        ] as [$json, $status, $expected, $retryable]) {
-            Http::fake(['graph.facebook.test/*' => Http::response($json, $status)]);
+            ['facebook_token_expired', false],
+            ['facebook_rate_limited', true],
+        ] as [$expected, $retryable]) {
             try {
                 app(FacebookSocialProvider::class)->publishArticleDistribution($this->payload(), 'event-key');
                 $this->fail('Eccezione provider attesa.');
