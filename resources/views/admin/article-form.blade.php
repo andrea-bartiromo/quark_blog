@@ -459,6 +459,30 @@
   </div>
 @endif
 
+@if($article && config('social_distribution.enabled', false) && $socialPublications->isNotEmpty())
+<section class="admin-card social-deliveries" style="margin-top:1.5rem;overflow-x:auto;" aria-labelledby="social-deliveries-title">
+  <h3 id="social-deliveries-title" style="margin-top:0;font-size:.95rem;">Consegne social</h3>
+  <table style="width:100%;min-width:680px;border-collapse:collapse;font-size:.82rem;">
+    <thead><tr><th>Canale</th><th>Stato</th><th>Tentativi</th><th>Ultimo esito</th><th>Destinazione</th><th>Errore</th></tr></thead>
+    <tbody>
+    @foreach($socialPublications as $publication)
+      <tr>
+        <td>{{ ucfirst($publication->channel) }}</td>
+        <td><span class="status">{{ $publication->status }}</span></td>
+        <td>{{ $publication->attempt_count }}</td>
+        <td>{{ optional($publication->succeeded_at ?? $publication->last_attempted_at)->format('d/m/Y H:i') ?? 'Non tentato' }}</td>
+        <td>
+          @if($publication->safeRemoteUrl())<a href="{{ $publication->safeRemoteUrl() }}" rel="noopener noreferrer" target="_blank">{{ $publication->remote_id ?: 'Apri' }}</a>
+          @else{{ $publication->remote_id ?: '—' }}@endif
+        </td>
+        <td>{{ $publication->sanitizedError() ?? '—' }}</td>
+      </tr>
+    @endforeach
+    </tbody>
+  </table>
+</section>
+@endif
+
 @endsection
 
 @section('scripts')
