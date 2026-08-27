@@ -8,6 +8,8 @@ use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
 use App\Services\ContentGraph\ContentGraphOrphanAuditService;
+use App\Services\ContentGraph\ContentGraphOperationalSummaryService;
+use App\Services\ContentGraph\PublicAnswerableQuestionCoverageService;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\ContinuationAnalyticsService;
 use App\Services\EditorialQuality\SeoMetadataQualityAuditService;
@@ -38,6 +40,7 @@ class EditorialOperationsDashboardService
         private readonly EditorialRadarProviderGraphService $radar,
         private readonly ContentGraphOrphanAuditService $contentGraphOrphans,
         private readonly ContentGraphCoverageService $contentGraphCoverage,
+        private readonly ContentGraphOperationalSummaryService $contentGraphOperational,
         private readonly ContinuationAnalyticsService $continuationAnalytics,
         private readonly SearchConsoleFreshnessService $searchConsoleFreshness,
         private readonly PublicationCadenceService $publicationCadence,
@@ -313,6 +316,66 @@ class EditorialOperationsDashboardService
             ->values()
             ->all();
 
+        // Mission 63 — actionable Content Graph queue. The operational
+        // summary is the source of truth; this dashboard only converts its
+        // bounded rows into the existing "what / why / where" presentation.
+        // Published articles without Concept are deliberately excluded because
+        // they already live in contenuti_senza_concept above.
+        $contentGraphOperational = $this->contentGraphOperational->summary();
+
+        $contentGraphQuestionCoverage = collect($contentGraphOperational['question_coverage']['items'])
+            // Approved-but-not-public rows are represented below by the more
+            // precise approved-question findings, so they are not double-counted.
+            ->where('coverage', '!=', PublicAnswerableQuestionCoverageService::APPROVED_NOT_PUBLIC)
+            ->map(fn (array $row) => [
+                'code' => $row['coverage'],
+                'what' => $row['name'],
+                'why' => match ($row['coverage']) {
+                    PublicAnswerableQuestionCoverageService::NO_QUESTIONS => 'Il Concept attivo non ha domande.',
+                    PublicAnswerableQuestionCoverageService::DRAFT_ONLY => 'Il Concept ha soltanto domande in bozza.',
+                    default => 'Il Concept non ha una domanda pubblicamente rispondibile.',
+                },
+                'target_url' => $row['edit_url'],
+                'target_label' => 'Verifica Concept',
+            ]);
+
+        $contentGraphQuestionIntegrity = collect($contentGraphOperational['approved_question_integrity']['items'])
+            ->map(fn (array $row) => [
+                'code' => collect($row['findings'])->pluck('code')->implode(','),
+                'what' => $row['question'],
+                'why' => collect($row['findings'])->pluck('message')->implode(' '),
+                'target_url' => $row['concept_edit_url'],
+                'target_label' => 'Correggi domanda',
+            ]);
+
+        $contentGraphAliasIntegrity = collect($contentGraphOperational['alias_integrity']['items'])
+            ->map(fn (array $row) => [
+                'code' => $row['code'],
+                'what' => $row['normalized_text'] !== '' ? $row['normalized_text'] : 'Alias vuoto',
+                'why' => 'Alias ambiguo o incoerente nel Content Graph.',
+                'target_url' => $row['aliases'][0]['edit_url'],
+                'target_label' => 'Verifica alias',
+            ]);
+
+        $contentGraphRelationshipIntegrity = collect($contentGraphOperational['relationship_integrity']['items'])
+            ->map(fn (array $row) => [
+                'code' => $row['code'],
+                'what' => $row['concept_name'],
+                'why' => $row['code'] === 'PUBLISHED_ARTICLE_WITH_INACTIVE_CONCEPT'
+                    ? 'Un articolo pubblico è collegato a un Concept non attivo.'
+                    : 'Il Concept attivo è collegato soltanto a contenuti non pubblici.',
+                'target_url' => $row['concept_edit_url'],
+                'target_label' => 'Verifica relazione',
+            ]);
+
+        $contentGraphActionableAll = $contentGraphQuestionCoverage
+            ->concat($contentGraphQuestionIntegrity)
+            ->concat($contentGraphAliasIntegrity)
+            ->concat($contentGraphRelationshipIntegrity)
+            ->values();
+        $contentGraphActionableTotal = $contentGraphActionableAll->count();
+        $contentGraphActionable = $contentGraphActionableAll->take(50)->all();
+
         $seoViolations = $this->seoViolations($seo['articles'], $articlesById);
         $overdueCount = collect($toPublish)->where('overdue', true)->count();
         $collisionCount = collect($toPublish)->where('collision', true)->count();
@@ -328,7 +391,8 @@ class EditorialOperationsDashboardService
             + $collisionCount
             + count($staleContentCandidates)
             + count($pillarIssues)
-            + count($nonPublishableMembers);
+            + count($nonPublishableMembers)
+            + $contentGraphActionableTotal;
 
         return [
             // Missione 26 (Fase D — Editorial Operations Command Center):
@@ -365,6 +429,11 @@ class EditorialOperationsDashboardService
             // domande pubbliche, ecc.) è compito dedicato della Fase G
             // (Missioni 55-64) — qui solo il riepilogo operativo.
             'content_graph' => $this->contentGraphCoverage->summary(),
+            'content_graph_actionable' => [
+                'total' => $contentGraphActionableTotal,
+                'items' => $contentGraphActionable,
+                'items_truncated' => $contentGraphActionableTotal > count($contentGraphActionable),
+            ],
             // Missione 33 (Fase D — Editorial Operations Command Center):
             // "second-read operational health" — riusa
             // ContinuationAnalyticsService::siteWideTotals() (Missione 33),
