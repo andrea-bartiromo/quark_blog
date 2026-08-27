@@ -67,6 +67,7 @@ class PublishSocialDistributionJobTest extends TestCase
     public function test_reexecuted_job_does_not_publish_a_succeeded_delivery_twice(): void
     {
         $publication = $this->publication();
+        config(['social_distribution.channels.facebook.provider' => FakeSocialProvider::class]);
         $job = new PublishSocialDistribution($publication->id);
         $registry = app(SocialProviderRegistry::class);
 
