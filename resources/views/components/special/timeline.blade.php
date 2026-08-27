@@ -104,6 +104,7 @@
             $hasUrl = filled($eventUrl);
             $hasDetails = filled($event['details'] ?? null);
             $media = $resolveMedia($event['image'] ?? null);
+            $mediaDimensions = \App\Support\PublicImageDimensions::forUrl($media);
             $curiosity = $event['curiosity'] ?? null;
             $documents = collect($event['documents'] ?? [])
                 ->filter(fn ($doc) => filled($doc['url'] ?? null) && filled($doc['label'] ?? null))
@@ -158,6 +159,7 @@
                     class="sp-timeline__media"
                     src="{{ $media }}"
                     alt="{{ $event['alt'] ?? $event['title'] ?? '' }}"
+                    @if($mediaDimensions) width="{{ $mediaDimensions[0] }}" height="{{ $mediaDimensions[1] }}" @endif
                     loading="lazy"
                     decoding="async"
                   >
@@ -218,6 +220,7 @@
                     class="sp-timeline__modal-image"
                     src="{{ $media }}"
                     alt="{{ $event['alt'] ?? $event['title'] ?? '' }}"
+                    @if($mediaDimensions) width="{{ $mediaDimensions[0] }}" height="{{ $mediaDimensions[1] }}" @endif
                     loading="lazy"
                     decoding="async"
                   >
