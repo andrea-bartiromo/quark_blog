@@ -24,7 +24,10 @@ class NewsletterSourceReportingTest extends TestCase
             ->assertSee('Iscrizioni per superficie')
             ->assertSee('Homepage')
             ->assertSee('Sconosciuta / legacy')
-            ->assertDontSee('tasso di conversione')
-            ->assertDontSee('private-one@example.test', false);
+            ->assertDontSee('tasso di conversione');
+
+        $this->assertTrue($response->viewData('sourceReport')->every(
+            fn ($row) => ! isset($row->email)
+        ));
     }
 }
