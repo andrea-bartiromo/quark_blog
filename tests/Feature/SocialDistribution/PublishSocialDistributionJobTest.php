@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\SocialDistribution\FakeSocialProvider;
 use App\Services\SocialDistribution\SocialProviderException;
 use App\Services\SocialDistribution\SocialProviderRegistry;
+use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -69,8 +70,8 @@ class PublishSocialDistributionJobTest extends TestCase
         $job = new PublishSocialDistribution($publication->id);
         $registry = app(SocialProviderRegistry::class);
 
-        $job->handle($registry);
-        $job->handle($registry);
+        $job->handle($registry, app(SocialArticlePayloadFactory::class));
+        $job->handle($registry, app(SocialArticlePayloadFactory::class));
 
         $publication->refresh();
         $this->assertSame(SocialPublication::STATUS_SUCCEEDED, $publication->status);
@@ -87,14 +88,14 @@ class PublishSocialDistributionJobTest extends TestCase
         $job = new PublishSocialDistribution($publication->id);
 
         try {
-            $job->handle(app(SocialProviderRegistry::class));
+            $job->handle(app(SocialProviderRegistry::class), app(SocialArticlePayloadFactory::class));
             $this->fail('Il fallimento retryable deve essere rilanciato alla coda.');
         } catch (SocialProviderException) {
             // expected
         }
 
         $this->assertSame(SocialPublication::STATUS_RETRYABLE, $publication->fresh()->status);
-        $job->handle(app(SocialProviderRegistry::class));
+        $job->handle(app(SocialProviderRegistry::class), app(SocialArticlePayloadFactory::class));
 
         $publication->refresh();
         $this->assertSame(SocialPublication::STATUS_SUCCEEDED, $publication->status);
@@ -108,7 +109,10 @@ class PublishSocialDistributionJobTest extends TestCase
         $provider->nextFailure = new SocialProviderException('token_expired', false);
         $this->app->instance(FakeSocialProvider::class, $provider);
 
-        (new PublishSocialDistribution($publication->id))->handle(app(SocialProviderRegistry::class));
+        (new PublishSocialDistribution($publication->id))->handle(
+            app(SocialProviderRegistry::class),
+            app(SocialArticlePayloadFactory::class),
+        );
 
         $publication->refresh();
         $this->assertSame(SocialPublication::STATUS_FAILED, $publication->status);
