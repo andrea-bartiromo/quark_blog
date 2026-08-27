@@ -3,7 +3,6 @@
 namespace App\Services\SocialDistribution;
 
 use App\Contracts\SocialProvider;
-use App\Models\SocialPublication;
 
 class FakeSocialProvider implements SocialProvider
 {
@@ -12,7 +11,7 @@ class FakeSocialProvider implements SocialProvider
 
     public ?SocialProviderException $nextFailure = null;
 
-    public function publishArticleDistribution(SocialPublication $publication): SocialPublishResult
+    public function publishArticleDistribution(SocialArticlePayload $payload, string $idempotencyKey): SocialPublishResult
     {
         if ($this->nextFailure) {
             $failure = $this->nextFailure;
@@ -20,8 +19,8 @@ class FakeSocialProvider implements SocialProvider
             throw $failure;
         }
 
-        return $this->published[$publication->event_key] ??= new SocialPublishResult(
-            'fake-'.hash('sha256', $publication->channel.'|'.$publication->event_key),
+        return $this->published[$idempotencyKey] ??= new SocialPublishResult(
+            'fake-'.hash('sha256', $idempotencyKey),
             null,
         );
     }
