@@ -9,6 +9,7 @@ use App\Models\Concept;
 use App\Models\ConceptQuestion;
 use App\Services\ContentGraph\ConceptAliasSyncService;
 use App\Services\ContentGraph\ConceptDuplicateAuditService;
+use App\Services\ContentGraph\ConceptHealthService;
 use App\Services\ContentGraph\ConceptMergeService;
 use App\Services\ContentGraph\ConceptQuestionReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
@@ -36,6 +37,7 @@ class ConceptController extends Controller
         private readonly ContentGraphService $contentGraph,
         private readonly ConceptAliasSyncService $aliasSync,
         private readonly ConceptDuplicateAuditService $duplicateAudit,
+        private readonly ConceptHealthService $conceptHealth,
         private readonly ConceptMergeService $conceptMerge,
         private readonly ContentGraphCoverageService $coverage,
         private readonly ConceptQuestionReadinessService $questionReadiness,
@@ -51,6 +53,9 @@ class ConceptController extends Controller
 
         return view('admin.concepts.index', [
             'concepts' => $concepts,
+            // Mission 62 — one bounded diagnostic query for every row; the
+            // view only renders this source-of-truth output.
+            'conceptHealth' => $this->conceptHealth->all()->keyBy('concept_id'),
             // Mission 17 — Duplicate Concept Detection: read-only audit,
             // mai un merge/eliminazione automatico — solo un segnale per
             // l'editor (stesso contratto di PercorsoCoverageAuditService).
