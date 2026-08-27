@@ -34,6 +34,26 @@ class ArticleContinueReadingUiTest extends TestCase
         $response->assertSee(route('articolo', $candidate->slug), false);
     }
 
+    public function test_category_fallback_destination_is_not_duplicated_in_related_articles(): void
+    {
+        $current = $this->article('Corrente senza duplicati', 'fisica', now()->subDays(3));
+        $candidate = $this->article('Prosecuzione unica', 'fisica', now());
+        $this->article('Altro correlato', 'fisica', now()->subDay());
+
+        $response = $this->get(route('articolo', $current->slug));
+
+        $response->assertOk();
+        $response->assertSee('id="continue-reading-title"', false);
+
+        preg_match_all(
+            '/<a\b[^>]*href="[^"]*\/articolo\/'.preg_quote($candidate->slug, '/').'[^"]*"/i',
+            $response->getContent(),
+            $matches
+        );
+
+        $this->assertCount(1, $matches[0], 'La destinazione della CTA non deve ricomparire nei correlati.');
+    }
+
     public function test_does_not_render_when_there_is_no_candidate_at_all(): void
     {
         $current = $this->article('Unico articolo del sito', 'fisica');
