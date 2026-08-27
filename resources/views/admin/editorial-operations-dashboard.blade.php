@@ -235,6 +235,29 @@
 </section>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;margin:0 0 .35rem;">Content Graph da verificare</h2>
+  <p style="font-size:.75rem;color:#6b7280;margin:0 0 .75rem;">
+    Incoerenze actionable non già presenti nelle altre code. Per ciascuna voce: cosa, perché e dove correggere.
+  </p>
+  @if(empty($snapshot['content_graph_actionable']['items']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun problema Content Graph aggiuntivo rilevato.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.65rem;">
+      @foreach($snapshot['content_graph_actionable']['items'] as $row)
+        <li style="font-size:.85rem;border-bottom:1px solid #f3f4f6;padding-bottom:.55rem;">
+          <div><code style="font-size:.7rem;overflow-wrap:anywhere;">{{ $row['code'] }}</code> · <strong>{{ $row['what'] }}</strong></div>
+          <div style="font-size:.75rem;color:#6b7280;margin:.15rem 0;">{{ $row['why'] }}</div>
+          <a href="{{ $row['target_url'] }}" style="font-size:.75rem;color:#0d9488;">{{ $row['target_label'] }} →</a>
+        </li>
+      @endforeach
+    </ul>
+    @if($snapshot['content_graph_actionable']['items_truncated'])
+      <p style="font-size:.75rem;color:#92400e;margin:.75rem 0 0;">La lista mostra i primi 50 problemi. Apri Concetti per il dettaglio completo.</p>
+    @endif
+  @endif
+</section>
+
+<section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Da aggiornare</h2>
   @if(empty($snapshot['contenuti_da_aggiornare']))
     <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun articolo pubblicato o programmato è segnato "Aggiornamento necessario".</p>
