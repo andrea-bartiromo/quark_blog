@@ -100,6 +100,9 @@ jobs:
         run: |
           set -eu
           php artisan migrate:rollback --step=1 --force
+          # Artisan/package discovery may refresh tracked cache artifacts.
+          # Normalize the checkout before testing deploy.sh's own dirty-tree gate.
+          git checkout -- .
           REAL_SHA="$(git rev-parse HEAD)"
           if bash deploy.sh "$REAL_SHA"; then
             echo "deploy.sh unexpectedly succeeded with a pending migration" >&2
@@ -113,6 +116,7 @@ jobs:
         run: |
           set -eu
           php artisan migrate --force
+          git checkout -- .
           REAL_SHA="$(git rev-parse HEAD)"
           EMPTY_SERVED_ROOT="$(mktemp -d)"
           # An empty served root makes every release-managed static asset
