@@ -9,9 +9,9 @@ use App\Models\Article;
 use App\Models\SocialPublication;
 use App\Models\User;
 use App\Services\SocialDistribution\FakeSocialProvider;
+use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use App\Services\SocialDistribution\SocialProviderException;
 use App\Services\SocialDistribution\SocialProviderRegistry;
-use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -82,6 +82,7 @@ class PublishSocialDistributionJobTest extends TestCase
     public function test_retryable_failure_is_reclaimed_once_and_can_then_succeed(): void
     {
         $publication = $this->publication();
+        config(['social_distribution.channels.facebook.provider' => FakeSocialProvider::class]);
         $provider = new FakeSocialProvider();
         $provider->nextFailure = new SocialProviderException('rate_limited', true);
         $this->app->instance(FakeSocialProvider::class, $provider);
@@ -105,6 +106,7 @@ class PublishSocialDistributionJobTest extends TestCase
     public function test_non_retryable_failure_is_terminal_and_sanitized(): void
     {
         $publication = $this->publication();
+        config(['social_distribution.channels.facebook.provider' => FakeSocialProvider::class]);
         $provider = new FakeSocialProvider();
         $provider->nextFailure = new SocialProviderException('token_expired', false);
         $this->app->instance(FakeSocialProvider::class, $provider);
