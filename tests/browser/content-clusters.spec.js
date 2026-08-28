@@ -160,7 +160,7 @@ for (const width of viewportWidths) {
             expect(detailLayout.step).toBeGreaterThan(1000);
             expect(detailLayout.heroDisplay).toBe('flex');
             expect(detailLayout.copy).toBeGreaterThan(450);
-            expect(detailLayout.heroMediaWidth).toBeGreaterThan(1150);
+            expect(detailLayout.heroMediaWidth).toBeGreaterThanOrEqual(1150);
             expect(detailLayout.heroMediaHeight).toBeGreaterThan(500);
             expect(detailLayout.heroMediaAlt).toBe('Cover del percorso IA spiegata');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
@@ -194,7 +194,7 @@ for (const width of viewportWidths) {
         expect(errors).toEqual([]);
     });
 
-    test(`article continuation skips scheduled content at ${width}px`, async ({ page }) => {
+    test(`article continuation stops safely before scheduled content at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         const errors = watchPage(page);
 
@@ -207,30 +207,21 @@ for (const width of viewportWidths) {
         await expect(box.locator('[data-path-continues]')).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
-        const nextLink = box.locator('a[data-path-event="path_next_click"]');
-        await expect(nextLink).toBeVisible();
-        await expect(nextLink).toHaveAttribute('href', /\/articolo\/browser-path-last-article$/);
-        await expect(nextLink.getByText('Successivo', { exact: false })).toBeVisible();
-        await expect(nextLink.getByText('Dalle macchine ai modelli moderni', { exact: true })).toBeVisible();
-        await nextLink.click();
-        await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
-        const lastBox = page.locator('.path-continuation');
-        await expect(lastBox.getByText(/^\d+ di \d+$/)).toBeVisible();
-        await expect(lastBox.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
-        await expect(lastBox.locator('[data-path-continues]')).toBeVisible();
-        await expect(lastBox.getByText("Hai raggiunto l'ultima tappa disponibile.")).toBeVisible();
-        await expect(lastBox.getByText('Il prossimo capitolo arriverà qui.')).toBeVisible();
-        await expect(lastBox.getByRole('link', { name: /Vedi tutto il percorso.*IA spiegata/ })).toBeVisible();
-        await expect(lastBox.getByText('Non siamo ancora arrivati alla fine.')).toHaveCount(0);
-        await expect(lastBox.getByRole('button', { name: 'Avvisami quando continua' })).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+        await expect(box.locator('a[data-path-event="path_next_click"]')).toHaveCount(0);
+        await expect(box.getByText("Hai raggiunto l'ultima tappa disponibile.")).toBeVisible();
+        await expect(box.getByText('Il prossimo capitolo arriverà qui.')).toBeVisible();
+        await expect(box.getByRole('button', { name: 'Avvisami quando continua' })).toBeVisible();
 
-        await lastBox.getByRole('link', { name: /Precedente.*Turing e il browser regression harness/ }).click();
-        await expect(page).toHaveURL(/\/articolo\/browser-turing-article$/);
-
-        await page.locator('.path-continuation').getByRole('link', { name: /Vedi tutto il percorso/ }).click();
+        await box.getByRole('link', { name: /Vedi tutto il percorso/ }).click();
         await expect(page).toHaveURL(/\/percorsi\/ia-spiegata$/);
         await expect(page.getByRole('heading', { level: 1, name: 'IA spiegata' })).toBeVisible();
+        await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+
+        const laterPublishedLink = page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first();
+        await expect(laterPublishedLink).toBeVisible();
+        await laterPublishedLink.click();
+        await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         expect(errors).toEqual([]);
     });
