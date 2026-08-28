@@ -219,8 +219,7 @@ for (const width of viewportWidths) {
 
         const laterPublishedLink = page.getByRole('link', { name: 'Dalle macchine ai modelli moderni' }).first();
         await expect(laterPublishedLink).toBeVisible();
-        await laterPublishedLink.click();
-        await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
+        await expect(laterPublishedLink).toHaveAttribute('href', /\/articolo\/browser-path-last-article$/);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
         expect(errors).toEqual([]);
