@@ -8,6 +8,7 @@ use Tests\TestCase;
 class FooterSocialLinksTest extends TestCase
 {
     use RefreshDatabase;
+
     private const LINKEDIN = 'https://www.linkedin.com/company/kairus-it/';
 
     private const FACEBOOK = 'https://www.facebook.com/profile.php?id=61593323495927';
