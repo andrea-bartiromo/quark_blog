@@ -97,6 +97,7 @@ for (const width of viewportWidths) {
                 const detail = document.querySelector('.path-detail');
                 const shell = document.querySelector('.path-detail > .container');
                 const hero = document.querySelector('.path-hero');
+                const heroMedia = document.querySelector('.path-hero img');
                 const title = document.querySelector('.path-hero h1');
                 const copy = document.querySelector('.path-hero__copy');
                 const note = document.querySelector('.path-entrance');
@@ -107,7 +108,7 @@ for (const width of viewportWidths) {
                 const firstStepNumber = document.querySelector('.path-step__number');
                 const firstStepTitle = document.querySelector('.path-step h3');
                 const ending = document.querySelector('.path-ending');
-                if (!detail || !shell || !hero || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
+                if (!detail || !shell || !hero || !heroMedia || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
                 const heroStyle = getComputedStyle(hero);
                 const detailStyle = getComputedStyle(detail);
@@ -127,7 +128,9 @@ for (const width of viewportWidths) {
                     stepTitleSize: parseFloat(getComputedStyle(firstStepTitle).fontSize),
                     stepNumberSize: parseFloat(getComputedStyle(firstStepNumber).fontSize),
                     heroDisplay: heroStyle.display,
-                    heroBackgroundImage: heroStyle.backgroundImage,
+                    heroMediaWidth: heroMedia.getBoundingClientRect().width,
+                    heroMediaHeight: heroMedia.getBoundingClientRect().height,
+                    heroMediaAlt: heroMedia.getAttribute('alt'),
                     heroRadius: parseFloat(heroStyle.borderRadius),
                     detailBackground: detailStyle.backgroundColor,
                     heroBackground: heroStyle.backgroundColor,
@@ -157,7 +160,9 @@ for (const width of viewportWidths) {
             expect(detailLayout.step).toBeGreaterThan(1000);
             expect(detailLayout.heroDisplay).toBe('flex');
             expect(detailLayout.copy).toBeGreaterThan(450);
-            expect(detailLayout.heroBackgroundImage).not.toBe('none');
+            expect(detailLayout.heroMediaWidth).toBeGreaterThan(1150);
+            expect(detailLayout.heroMediaHeight).toBeGreaterThan(500);
+            expect(detailLayout.heroMediaAlt).toBe('Cover del percorso IA spiegata');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
             expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
             expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
@@ -202,7 +207,12 @@ for (const width of viewportWidths) {
         await expect(box.locator('[data-path-continues]')).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
-        await box.getByRole('link', { name: /Successivo.*Dalle macchine ai modelli moderni/ }).click();
+        const nextLink = box.locator('a[data-path-event="path_next_click"]');
+        await expect(nextLink).toBeVisible();
+        await expect(nextLink).toHaveAttribute('href', /\/articolo\/browser-path-last-article$/);
+        await expect(nextLink.getByText('Successivo', { exact: false })).toBeVisible();
+        await expect(nextLink.getByText('Dalle macchine ai modelli moderni', { exact: true })).toBeVisible();
+        await nextLink.click();
         await expect(page).toHaveURL(/\/articolo\/browser-path-last-article$/);
         const lastBox = page.locator('.path-continuation');
         await expect(lastBox.getByText(/^\d+ di \d+$/)).toBeVisible();
