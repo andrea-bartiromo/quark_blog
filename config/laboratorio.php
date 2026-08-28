@@ -22,7 +22,16 @@ return [
         'ambiente' => 'Ambiente',
     ],
 
-    // Vuoto finché i profili non esistono davvero: il footer nasconde il blocco
-    // social quando questo array non contiene nulla.
-    'social' => [],
+    // Profili pubblici ufficiali. Il footer valida nuovamente ogni URL e
+    // mostra soltanto destinazioni HTTPS configurate.
+    'social' => [
+        'linkedin' => [
+            'label' => 'LinkedIn',
+            'url' => env('KAIRUS_LINKEDIN_URL'),
+        ],
+        'facebook' => [
+            'label' => 'Facebook',
+            'url' => env('KAIRUS_FACEBOOK_URL'),
+        ],
+    ],
 ];
