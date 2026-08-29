@@ -45,6 +45,7 @@
               action="{{ route('newsletter.subscribe') }}">
 
             @csrf
+            <input type="hidden" name="source" value="popup">
 
             <input type="hidden"
                    name="_redirect"
