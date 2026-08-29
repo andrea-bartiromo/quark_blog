@@ -3,9 +3,9 @@
 namespace App\Providers;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Events\ArticlePublished;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleDiscoveryController;
-use App\Events\ArticlePublished;
 use App\Listeners\CheckApplicationHealth;
 use App\Listeners\QueueSocialPublications;
 use App\Models\Article;
