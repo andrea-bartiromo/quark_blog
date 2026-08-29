@@ -140,7 +140,7 @@ class UtmLinkGenerator
 
         $hash = substr(hash('sha256', $article->id.'|'.$article->slug), 0, 12);
         $fixedLength = mb_strlen($prefix)+mb_strlen($hash)+mb_strlen($date)+3;
-        $slug = mb_substr($article->slug, 0, self::MAX_CAMPAIGN_LENGTH-$fixedLength);
+        $slug = rtrim(mb_substr($article->slug, 0, self::MAX_CAMPAIGN_LENGTH-$fixedLength), '-');
 
         return $prefix.'-'.$slug.'-'.$hash.'-'.$date;
     }
