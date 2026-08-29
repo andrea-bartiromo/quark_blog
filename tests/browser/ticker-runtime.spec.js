@@ -62,6 +62,7 @@ test('ticker reduced motion is static and remains manually scrollable', async ({
 
     const track = page.locator('.ticker-track');
     const viewport = page.locator('.ticker-viewport');
+    await page.evaluate(() => document.fonts.ready);
     const start = await track.boundingBox();
     await page.waitForTimeout(500);
     const end = await track.boundingBox();
