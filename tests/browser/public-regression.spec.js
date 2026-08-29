@@ -316,7 +316,8 @@ for (const width of viewportWidths) {
         await expect(close).toBeFocused();
 
         await page.keyboard.press('Escape');
-        await expect(dialog).toBeHidden();
+        await expect(dialog).toHaveAttribute('hidden', '');
+        await expect(dialog).not.toHaveClass(/is-open/);
         await expect(trigger).toBeFocused();
         guards.assertClean();
     });
