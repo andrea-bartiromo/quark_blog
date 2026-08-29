@@ -86,16 +86,18 @@ class RelatedArticlesExcludePathNavigationTest extends TestCase
         $this->assertContains($outsider->id, $relatedIds);
     }
 
-    public function test_an_article_outside_any_path_is_unaffected(): void
+    public function test_an_article_outside_any_path_excludes_only_its_continuation_candidate(): void
     {
         $author = $this->author();
-        $article = $this->article($author, 'Articolo senza percorso', 'salute');
-        $related = $this->article($author, 'Correlato', 'salute');
+        $article = $this->article($author, 'Articolo senza percorso', 'salute', now()->subDays(3));
+        $continuation = $this->article($author, 'Prosecuzione', 'salute', now());
+        $related = $this->article($author, 'Correlato', 'salute', now()->subDay());
 
         $response = $this->get(route('articolo', $article->slug));
 
         $response->assertOk();
         $relatedIds = $response->viewData('related')->pluck('id')->all();
+        $this->assertNotContains($continuation->id, $relatedIds);
         $this->assertContains($related->id, $relatedIds);
     }
 
