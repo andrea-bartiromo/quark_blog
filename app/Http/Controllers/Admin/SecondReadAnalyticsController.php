@@ -45,6 +45,7 @@ class SecondReadAnalyticsController extends Controller
         return match ($option) {
             '7' => ['option' => '7', 'since' => Carbon::now()->subDays(7), 'until' => null],
             '30' => ['option' => '30', 'since' => Carbon::now()->subDays(30), 'until' => null],
+            '90' => ['option' => '90', 'since' => Carbon::now()->subDays(90), 'until' => null],
             default => ['option' => 'sempre', 'since' => null, 'until' => null],
         };
     }

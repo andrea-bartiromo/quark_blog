@@ -17,6 +17,7 @@
     <label class="form-label" for="periodo">Periodo</label>
     <select id="periodo" name="periodo" class="form-select" onchange="this.form.submit()">
       <option value="sempre" @selected($rangeOption === 'sempre')>Da sempre</option>
+      <option value="90" @selected($rangeOption === '90')>Ultimi 90 giorni</option>
       <option value="30" @selected($rangeOption === '30')>Ultimi 30 giorni</option>
       <option value="7" @selected($rangeOption === '7')>Ultimi 7 giorni</option>
     </select>

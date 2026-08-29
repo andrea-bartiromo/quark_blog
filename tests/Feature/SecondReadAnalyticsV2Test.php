@@ -278,6 +278,27 @@ class SecondReadAnalyticsV2Test extends TestCase
         $response->assertSee('Nessun dato registrato ancora in questo periodo.');
     }
 
+    public function test_the_admin_page_offers_a_90_day_window_and_applies_it_to_events(): void
+    {
+        $source = $this->article('Articolo finestra novanta giorni');
+        $target = $this->article('Destinazione novanta giorni');
+        $event = ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+        ArticleContinuationEvent::whereKey($event->id)->update(['created_at' => now()->subDays(60)]);
+
+        $thirtyDays = $this->actingAs($this->editor)->get(route('admin.second-read', ['periodo' => '30']));
+        $ninetyDays = $this->actingAs($this->editor)->get(route('admin.second-read', ['periodo' => '90']));
+
+        $thirtyDays->assertOk()->assertSee('Nessun dato registrato ancora in questo periodo.');
+        $ninetyDays->assertOk()
+            ->assertSee('Ultimi 90 giorni')
+            ->assertSee('value="90" selected', false)
+            ->assertSee($source->title);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
 
     private function article(string $title): Article
