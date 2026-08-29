@@ -9,7 +9,8 @@
 | Recipient snapshot/freeze | COMPLETE | `RecipientSnapshotService`; frozen content/recipient semantics |
 | Test send | COMPLETE | `CampaignTestSendService`, explicit confirmed recipient |
 | Provider abstraction | COMPLETE | `EmailDeliveryProvider`, recording/null/mailer adapters |
-| Queue/idempotency | COMPLETE | guarded send claims, deterministic delivery keys, concurrency suites |
+| Delivery idempotency | COMPLETE | guarded send claims, deterministic delivery keys, concurrency suites |
+| Bulk queue execution | PARTIAL | no job, command, scheduler or production route currently drives `CampaignDeliveryOrchestrator`; dry-run invocation is not a production queue driver |
 | Tracking/provider feedback | PARTIAL | status vocabulary exists; no claim that absent webhooks are collected |
 | Legacy transition | DO_NOT_DUPLICATE | legacy newsletter remains operational until an explicit cutover |
 
