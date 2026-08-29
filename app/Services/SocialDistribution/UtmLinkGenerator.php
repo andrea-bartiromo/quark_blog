@@ -115,7 +115,7 @@ class UtmLinkGenerator
     {
         $value = $campaign !== null && trim($campaign) !== ''
             ? trim($campaign)
-            : self::CAMPAIGN_PREFIXES[$channel].'-'.$article->slug.'-'.now()->format('Ymd');
+            : $this->generatedCampaign($article, $channel);
 
         if (mb_strlen($value) > self::MAX_CAMPAIGN_LENGTH) {
             throw new InvalidArgumentException('Nome campagna troppo lungo (max '.self::MAX_CAMPAIGN_LENGTH.' caratteri).');
@@ -126,6 +126,23 @@ class UtmLinkGenerator
         }
 
         return $value;
+    }
+
+    private function generatedCampaign(Article $article, string $channel): string
+    {
+        $prefix = self::CAMPAIGN_PREFIXES[$channel];
+        $date = now()->format('Ymd');
+        $campaign = $prefix.'-'.$article->slug.'-'.$date;
+
+        if (mb_strlen($campaign) <= self::MAX_CAMPAIGN_LENGTH) {
+            return $campaign;
+        }
+
+        $hash = substr(hash('sha256', $article->id.'|'.$article->slug), 0, 12);
+        $fixedLength = mb_strlen($prefix)+mb_strlen($hash)+mb_strlen($date)+3;
+        $slug = mb_substr($article->slug, 0, self::MAX_CAMPAIGN_LENGTH-$fixedLength);
+
+        return $prefix.'-'.$slug.'-'.$hash.'-'.$date;
     }
 
     /**
