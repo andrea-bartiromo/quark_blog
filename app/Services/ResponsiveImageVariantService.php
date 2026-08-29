@@ -108,6 +108,28 @@ class ResponsiveImageVariantService
      */
     public function deleteForDiskName(string $diskName): void
     {
+        // I disk_name correnti sono sempre POSIX-style, ma record legacy o
+        // import eseguiti su Windows possono contenere backslash. La
+        // generazione li normalizza gia' tramite ImageService; la pulizia
+        // deve applicare la stessa regola o lascerebbe varianti orfane.
+        $diskName = str_replace('\\\\', '/', $diskName);
+
+        // Never change a stored media identity silently. Whitespace/control
+        // characters are invalid here: reject them instead of trimming into
+        // the name of a different media item.
+        if ($diskName !== trim($diskName) || preg_match('/[\\x00-\\x1F\\x7F]/', $diskName) === 1) {
+            return;
+        }
+
+        $diskName = ltrim($diskName, '/');
+
+        // Questo servizio gestisce esclusivamente nomi relativi sotto
+        // public/assets/img. Non consentire mai che una scansione derivata
+        // da un dato anomalo risalga fuori dalla media root.
+        if ($diskName === '' || in_array('..', explode('/', $diskName), true)) {
+            return;
+        }
+
         $primaryRoot = public_path('assets/img');
         $dir = dirname($diskName);
         $base = pathinfo($diskName, PATHINFO_FILENAME);
