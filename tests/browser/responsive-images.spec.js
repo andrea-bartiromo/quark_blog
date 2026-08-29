@@ -60,6 +60,20 @@ async function hasHorizontalOverflow(page) {
     return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
 }
 
+async function installLayoutShiftObserver(page) {
+    await page.addInitScript(() => {
+        window.__kairusUnexpectedLayoutShift = 0;
+
+        new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                if (!entry.hadRecentInput) {
+                    window.__kairusUnexpectedLayoutShift += entry.value;
+                }
+            }
+        }).observe({ type: 'layout-shift', buffered: true });
+    });
+}
+
 for (const [viewportName, viewport] of Object.entries(viewports)) {
     test.describe(`responsive images @ ${viewportName} (${viewport.width}px)`, () => {
         test.use({ viewport });
@@ -153,6 +167,33 @@ for (const [viewportName, viewport] of Object.entries(viewports)) {
             for (const route of Object.values(routes)) {
                 await page.goto(route, { waitUntil: 'load' });
                 expect(await hasHorizontalOverflow(page), `overflow on ${route}`).toBe(false);
+            }
+        });
+
+        test('responsive markup is complete and loading causes no large unexpected layout shift', async ({ page }) => {
+            test.slow();
+            await installLayoutShiftObserver(page);
+
+            for (const route of Object.values(routes)) {
+                await page.goto(route, { waitUntil: 'networkidle' });
+
+                const audit = await page.evaluate(() => ({
+                    cls: window.__kairusUnexpectedLayoutShift ?? 0,
+                    broken: Array.from(document.images)
+                        .filter((img) => img.src && !img.src.startsWith('data:') && img.complete && img.naturalWidth === 0)
+                        .map((img) => img.currentSrc || img.src),
+                    incompleteResponsiveMarkup: Array.from(document.images)
+                        .filter((img) => img.srcset)
+                        .filter((img) => !img.sizes || Number(img.getAttribute('width')) <= 0 || Number(img.getAttribute('height')) <= 0)
+                        .map((img) => img.currentSrc || img.src),
+                }));
+
+                expect(audit.broken, `broken images on ${route}`).toEqual([]);
+                expect(audit.incompleteResponsiveMarkup, `incomplete responsive markup on ${route}`).toEqual([]);
+                // "Grossa variazione", non un fragile pixel comparison:
+                // la soglia poor di Core Web Vitals segnala regressioni
+                // sostanziali senza rendere il test sensibile a micro-shift.
+                expect(audit.cls, `large unexpected layout shift on ${route}`).toBeLessThan(0.25);
             }
         });
     });
