@@ -22,21 +22,26 @@ class AttributionOpportunityProvider
     public function availability(): array
     {
         try {
-            $articleSurfaceSignups = Schema::hasColumn('newsletter', 'source')
+            $newsletterSchemaAvailable = Schema::hasColumn('newsletter', 'source');
+            $socialLedgerAvailable = Schema::hasTable('social_publications');
+            $articleSurfaceSignups = $newsletterSchemaAvailable
                 ? Newsletter::query()->where('source', 'article')->count()
                 : null;
-            $socialLedger = Schema::hasTable('social_publications');
 
             return [
                 'newsletter_article_attribution' => [
-                    'status' => 'insufficient',
+                    'status' => $newsletterSchemaAvailable ? 'insufficient' : 'unavailable',
                     'article_surface_signups' => $articleSurfaceSignups,
-                    'reason' => 'Placement-only source does not persist article identity.',
+                    'reason' => $newsletterSchemaAvailable
+                        ? 'Placement-only source does not persist article identity.'
+                        : 'Newsletter source schema is unavailable.',
                 ],
                 'social_downstream_attribution' => [
-                    'status' => 'insufficient',
-                    'publication_ledger_available' => $socialLedger,
-                    'reason' => 'The publication ledger records delivery, not downstream visits or engagement.',
+                    'status' => $socialLedgerAvailable ? 'insufficient' : 'unavailable',
+                    'publication_ledger_available' => $socialLedgerAvailable,
+                    'reason' => $socialLedgerAvailable
+                        ? 'The publication ledger records delivery, not downstream visits or engagement.'
+                        : 'Social publication ledger schema is unavailable.',
                 ],
             ];
         } catch (Throwable) {
