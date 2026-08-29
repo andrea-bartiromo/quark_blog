@@ -165,7 +165,12 @@ class ContinuationAnalyticsService
      *
      * @return Collection<int, array{source_article_id:int,title:?string,slug:?string,impressions:int,second_reads:int,second_read_rate:float}>
      */
-    public function articleBreakdown(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null, int $limit = 50): Collection
+    public function articleBreakdown(
+        ?\DateTimeInterface $since = null,
+        ?\DateTimeInterface $until = null,
+        int $limit = 50,
+        ?callable $filter = null
+    ): Collection
     {
         $counts = ArticleContinuationEvent::query()
             ->selectRaw('source_article_id, event_type, COUNT(*) as total')
@@ -189,7 +194,13 @@ class ContinuationAnalyticsService
                     'second_reads' => $secondReads,
                     'second_read_rate' => $impressions > 0 ? round($secondReads / $impressions, 4) : 0.0,
                 ];
-            })
+            });
+
+        if ($filter !== null) {
+            $rows = $rows->filter($filter);
+        }
+
+        $rows = $rows
             ->sortByDesc('second_reads')
             ->take($limit)
             ->values();
