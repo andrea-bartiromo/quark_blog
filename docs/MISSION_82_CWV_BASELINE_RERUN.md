@@ -18,7 +18,8 @@ node scripts/cwv-baseline.mjs
 
 Observed blockers:
 
-- `php` is not installed, so the configured Playwright web server cannot start;
+- the standalone CWV runner does not load `playwright.config.js` and therefore does not start an application server;
+- a separate `php artisan serve --host=127.0.0.1 --port=8000` preflight failed because `php` is not installed in this checkout;
 - `node_modules/@playwright/test` is absent;
 - Node terminated with `ERR_MODULE_NOT_FOUND` for `@playwright/test` before any
   browser or page request was made.
@@ -46,7 +47,9 @@ Only same-fixture browser evidence may classify a resource as owned:
 ## Unblock procedure
 
 Install the locked Node dependencies and Playwright Chromium, provide PHP plus
-Composer dependencies, seed representative fixtures, then run the exact command
+Composer dependencies, seed representative fixtures, then start the application
+server separately with `php artisan serve --host=127.0.0.1 --port=8000` and verify
+`curl --fail http://127.0.0.1:8000/up` before running the exact standalone command
 from `docs/CWV_BASELINE_RUNNER.md`. Retain JSON and a failed/slow-request log,
 using identical paths, viewport and network conditions for any AFTER run.
 
