@@ -75,4 +75,15 @@ class FooterSocialLinksTest extends TestCase
             ->assertDontSee('not-a-url', false)
             ->assertDontSee('id="footer-social-title"', false);
     }
+
+    public function test_canonical_production_template_provisions_only_the_official_public_https_urls(): void
+    {
+        $template = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($template);
+        $this->assertStringContainsString('KAIRUS_LINKEDIN_URL="'.self::LINKEDIN.'"', $template);
+        $this->assertStringContainsString('KAIRUS_FACEBOOK_URL="'.self::FACEBOOK.'"', $template);
+        $this->assertStringNotContainsString('KAIRUS_SOCIAL_TOKEN', $template);
+        $this->assertStringNotContainsString('KAIRUS_SOCIAL_API_KEY', $template);
+    }
 }
