@@ -226,6 +226,35 @@ for (const width of viewportWidths) {
     });
 }
 
+test('continuation destination is unique and keyboard-visible at 390px', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const errors = watchPage(page);
+
+    await page.goto('/articolo/browser-path-last-article');
+
+    const continuationCard = page.locator('.continue-reading__card');
+    await expect(continuationCard).toBeVisible();
+    await expect(continuationCard).toHaveAttribute('href', /\/articolo\/browser-complete-path-article/);
+    await expect(page.locator('.related-premium-grid a[href*="/articolo/browser-complete-path-article"]')).toHaveCount(0);
+
+    await continuationCard.focus();
+    await expect(continuationCard).toBeFocused();
+    const focusStyle = await continuationCard.evaluate(element => {
+        const style = getComputedStyle(element);
+
+        return {
+            outlineStyle: style.outlineStyle,
+            outlineWidth: parseFloat(style.outlineWidth),
+            pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        };
+    });
+
+    expect(focusStyle.outlineStyle).not.toBe('none');
+    expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(focusStyle.pageFits).toBeTruthy();
+    expect(errors).toEqual([]);
+});
+
 test('homepage Percorsi discovery uses editorial-scale cover on desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const errors = watchPage(page);

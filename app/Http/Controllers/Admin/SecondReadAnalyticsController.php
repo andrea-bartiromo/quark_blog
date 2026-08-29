@@ -26,10 +26,12 @@ class SecondReadAnalyticsController extends Controller
         $range = $this->resolveRange($request);
 
         $breakdown = $this->analytics->articleBreakdown($range['since'], $range['until']);
+        $pathBreakdown = $this->analytics->pathBreakdown($range['since'], $range['until']);
         $totals = $this->analytics->siteWideTotals($range['since'], $range['until']);
 
         return view('admin.second-read-analytics.index', [
             'breakdown' => $breakdown,
+            'pathBreakdown' => $pathBreakdown,
             'totals' => $totals,
             'rangeOption' => $range['option'],
         ]);
@@ -45,6 +47,7 @@ class SecondReadAnalyticsController extends Controller
         return match ($option) {
             '7' => ['option' => '7', 'since' => Carbon::now()->subDays(7), 'until' => null],
             '30' => ['option' => '30', 'since' => Carbon::now()->subDays(30), 'until' => null],
+            '90' => ['option' => '90', 'since' => Carbon::now()->subDays(90), 'until' => null],
             default => ['option' => 'sempre', 'since' => null, 'until' => null],
         };
     }

@@ -146,6 +146,26 @@ class HomeCategoriesTest extends TestCase
         $this->assertStringNotContainsString(route('categoria', 'salute'), $grid);
     }
 
+    public function test_published_article_in_inactive_category_keeps_human_label_without_category_link(): void
+    {
+        $this->category('fisica-disattivata', [
+            'name' => 'Fisica delle particelle',
+            'is_active' => false,
+            'sort_order' => -10,
+        ]);
+        $this->article('fisica-disattivata', [
+            'title' => 'Articolo con categoria disattivata',
+            'featured' => true,
+        ]);
+
+        $response = $this->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('Fisica delle particelle');
+        $response->assertDontSee('>fisica-disattivata<', false);
+        $response->assertDontSee('href="'.route('categoria', 'fisica-disattivata').'"', false);
+    }
+
     // Regressione: una categoria il cui unico articolo e quello in evidenza
     // deve restare visibile (era la causa della sparizione dalla home).
     public function test_category_whose_only_article_is_the_featured_one_is_still_visible(): void

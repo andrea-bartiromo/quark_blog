@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Article;
 use App\Models\ArticleContinuationEvent;
+use App\Models\ContentCluster;
 use App\Models\User;
 use App\Services\ContinuationAnalyticsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,6 +129,75 @@ class SecondReadAnalyticsV2Test extends TestCase
         $this->assertLessThanOrEqual(2, $queryCount);
     }
 
+    // ── pathBreakdown() ──────────────────────────────────────────────
+
+    public function test_path_breakdown_aggregates_existing_events_by_source_article_membership(): void
+    {
+        $path = ContentCluster::factory()->create(['name' => 'Percorso Quantistico', 'slug' => 'percorso-quantistico']);
+        $first = $this->article('Sorgente percorso A');
+        $second = $this->article('Sorgente percorso B');
+        $target = $this->article('Destinazione percorso');
+        $path->articles()->attach($first->id, ['position' => 10, 'is_primary' => true]);
+        $path->articles()->attach($second->id, ['position' => 20, 'is_primary' => false]);
+
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $first, $target, 3);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $first, $target, 1);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $second, $target, 1);
+
+        $row = app(ContinuationAnalyticsService::class)->pathBreakdown()->sole();
+
+        $this->assertSame($path->id, $row['content_cluster_id']);
+        $this->assertSame('Percorso Quantistico', $row['name']);
+        $this->assertSame(4, $row['impressions']);
+        $this->assertSame(1, $row['second_reads']);
+        $this->assertSame(0.25, $row['second_read_rate']);
+        $this->assertSame(2, $row['source_articles_engaged']);
+    }
+
+    public function test_path_breakdown_respects_time_bounds_and_has_a_bounded_query_count(): void
+    {
+        $path = ContentCluster::factory()->create();
+        $source = $this->article('Sorgente percorso intervallo');
+        $target = $this->article('Destinazione percorso intervallo');
+        $path->articles()->attach($source->id, ['position' => 10, 'is_primary' => true]);
+
+        $old = ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+        ArticleContinuationEvent::whereKey($old->id)->update(['created_at' => now()->subDays(10)]);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $source, $target, 1);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $row = app(ContinuationAnalyticsService::class)->pathBreakdown(now()->subDays(5))->sole();
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(0, $row['impressions']);
+        $this->assertSame(1, $row['second_reads']);
+        $this->assertSame(0.0, $row['second_read_rate']);
+        $this->assertLessThanOrEqual(1, $queryCount);
+    }
+
+    public function test_multi_path_source_is_reported_in_each_path(): void
+    {
+        $firstPath = ContentCluster::factory()->create(['name' => 'Percorso Uno']);
+        $secondPath = ContentCluster::factory()->create(['name' => 'Percorso Due']);
+        $source = $this->article('Sorgente multi percorso');
+        $target = $this->article('Destinazione multi percorso');
+        $firstPath->articles()->attach($source->id, ['position' => 10, 'is_primary' => true]);
+        $secondPath->articles()->attach($source->id, ['position' => 10, 'is_primary' => false]);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $source, $target, 2);
+
+        $rows = app(ContinuationAnalyticsService::class)->pathBreakdown();
+
+        $this->assertCount(2, $rows);
+        $this->assertSame([2, 2], $rows->pluck('impressions')->all());
+        $this->assertSame([1, 1], $rows->pluck('source_articles_engaged')->all());
+    }
+
     // ── siteWideTotals() ─────────────────────────────────────────────
 
     /**
@@ -234,6 +304,23 @@ class SecondReadAnalyticsV2Test extends TestCase
         $response->assertSee('40.0%');
     }
 
+    public function test_the_admin_page_shows_second_read_by_path(): void
+    {
+        $path = ContentCluster::factory()->create(['name' => 'Percorso Admin Second Read']);
+        $source = $this->article('Sorgente admin percorso');
+        $target = $this->article('Destinazione admin percorso');
+        $path->articles()->attach($source->id, ['position' => 10, 'is_primary' => true]);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_IMPRESSION, $source, $target, 2);
+        $this->recordEvent(ArticleContinuationEvent::EVENT_SECOND_READ_START, $source, $target, 1);
+
+        $response = $this->actingAs($this->editor)->get(route('admin.second-read'));
+
+        $response->assertOk();
+        $response->assertSee('Second read per Percorso');
+        $response->assertSee('Percorso Admin Second Read');
+        $response->assertSee('Articoli sorgente');
+    }
+
     /**
      * Missione 52 (secondo batch autonomo KAIRUS, Fase F — Search
      * Intelligence): siteWideTotals()['source_articles_engaged'] era già
@@ -276,6 +363,27 @@ class SecondReadAnalyticsV2Test extends TestCase
 
         $response->assertOk();
         $response->assertSee('Nessun dato registrato ancora in questo periodo.');
+    }
+
+    public function test_the_admin_page_offers_a_90_day_window_and_applies_it_to_events(): void
+    {
+        $source = $this->article('Articolo finestra novanta giorni');
+        $target = $this->article('Destinazione novanta giorni');
+        $event = ArticleContinuationEvent::create([
+            'event_type' => ArticleContinuationEvent::EVENT_IMPRESSION,
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+        ]);
+        ArticleContinuationEvent::whereKey($event->id)->update(['created_at' => now()->subDays(60)]);
+
+        $thirtyDays = $this->actingAs($this->editor)->get(route('admin.second-read', ['periodo' => '30']));
+        $ninetyDays = $this->actingAs($this->editor)->get(route('admin.second-read', ['periodo' => '90']));
+
+        $thirtyDays->assertOk()->assertSee('Nessun dato registrato ancora in questo periodo.');
+        $ninetyDays->assertOk()
+            ->assertSee('Ultimi 90 giorni')
+            ->assertSee('value="90" selected', false)
+            ->assertSee($source->title);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

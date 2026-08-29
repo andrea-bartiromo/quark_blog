@@ -17,6 +17,7 @@
 
 @php
   $categories = $categoryOptions ?? config('laboratorio.categories');
+  $categoryLabels = $categoryLabelOptions ?? $categories;
   $categoryRecords = $categoryRecords ?? collect();
   $fallbackTrending = $trending->count() ? $trending : $latest->take(5);
   // La sezione "Esplora le categorie" rappresenta le categorie attive,
@@ -26,7 +27,7 @@
       ->map(fn($label, $slug) => (object) ['category' => $slug])
       ->values();
 
-  $categoryLabel = fn($article) => $categories[$article->category] ?? $article->category;
+  $categoryLabel = fn($article) => $categoryLabels[$article->category] ?? $article->category;
 
   $fallbackSvg = function ($label = 'Kairus', $tone = '#0f766e') {
       $safeLabel = e(Str::upper(Str::limit($label ?: 'Kairus', 34, '')));

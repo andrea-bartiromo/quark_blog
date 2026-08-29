@@ -112,7 +112,7 @@ class ResponsiveImageVariantService
         // import eseguiti su Windows possono contenere backslash. La
         // generazione li normalizza gia' tramite ImageService; la pulizia
         // deve applicare la stessa regola o lascerebbe varianti orfane.
-        $diskName = str_replace('\\', '/', $diskName);
+        $diskName = str_replace('\\\\', '/', $diskName);
 
         // Never change a stored media identity silently. Whitespace/control
         // characters are invalid here: reject them instead of trimming into
@@ -193,14 +193,15 @@ class ResponsiveImageVariantService
     public function existingVariantsFor(string $diskName): array
     {
         $widths = config('media.responsive_widths', []);
-        $primaryRoot = public_path('assets/img');
+        $servedRoot = $this->servedMediaRoot();
         $found = [];
 
         foreach ($widths as $width) {
             $variantDiskName = $this->imageService->responsiveVariantPath($diskName, $width);
-            $absolutePath = $primaryRoot.'/'.$variantDiskName;
+            $absolutePath = $servedRoot.'/'.$variantDiskName;
 
-            if (! is_file($absolutePath)) {
+            $info = is_file($absolutePath) ? @getimagesize($absolutePath) : false;
+            if ($info === false || $info[2] !== IMAGETYPE_WEBP || (int) $info[0] !== (int) $width) {
                 continue;
             }
 
@@ -230,7 +231,7 @@ class ResponsiveImageVariantService
     public function resolveForMarkup(string $diskName): array
     {
         $originalUrl = asset('assets/img/'.$diskName);
-        $absoluteOriginal = public_path('assets/img/'.$diskName);
+        $absoluteOriginal = $this->servedMediaRoot().'/'.$diskName;
 
         $info = is_file($absoluteOriginal) ? @getimagesize($absoluteOriginal) : false;
         $originalWidth = $info !== false ? $info[0] : null;
@@ -254,5 +255,16 @@ class ResponsiveImageVariantService
             'width' => $originalWidth,
             'height' => $originalHeight,
         ];
+    }
+
+    private function servedMediaRoot(): string
+    {
+        $configured = config('media.public_root');
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return rtrim(str_replace('\\', '/', trim($configured)), '/');
+        }
+
+        return rtrim(str_replace('\\', '/', public_path('assets/img')), '/');
     }
 }

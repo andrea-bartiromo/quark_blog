@@ -152,7 +152,7 @@ class ResponsiveImageVariantServiceTest extends TestCase
         $variant = public_path('assets/img/articles/covers/windows-480w.webp');
         $this->assertFileExists($variant);
 
-        $this->service()->deleteForDiskName('articles\\covers\\windows.webp');
+        $this->service()->deleteForDiskName('articles\\\\covers\\\\windows.webp');
 
         $this->assertFileDoesNotExist($variant);
         $this->assertFileExists($absolutePath);
@@ -266,6 +266,36 @@ class ResponsiveImageVariantServiceTest extends TestCase
         $this->service()->deleteForDiskName(' articles/covers/photo.webp');
 
         $this->assertFileExists($unrelatedVariant);
+    }
+
+    public function test_corrupt_or_wrong_width_variant_is_not_advertised(): void
+    {
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/validated.webp', 1600, 900);
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/validated.webp');
+
+        file_put_contents(public_path('assets/img/articles/covers/validated-480w.webp'), 'not-an-image');
+
+        $resolved = $this->service()->resolveForMarkup('articles/covers/validated.webp');
+
+        $this->assertStringNotContainsString('validated-480w.webp', $resolved['srcset']);
+        $this->assertStringContainsString('validated-960w.webp', $resolved['srcset']);
+    }
+
+    public function test_variant_missing_from_configured_served_root_is_not_advertised(): void
+    {
+        $this->setUpIsolatedMediaPublicRoot();
+        $absolutePath = $this->placeUploadedFileAt('articles/covers/served.webp', 1600, 900);
+        $servedOriginal = $this->isolatedMediaPublicRoot.'/articles/covers/served.webp';
+        @mkdir(dirname($servedOriginal), 0775, true);
+        copy($absolutePath, $servedOriginal);
+        $this->service()->generateForUpload($absolutePath, 'articles/covers/served.webp');
+
+        @unlink($this->isolatedMediaPublicRoot.'/articles/covers/served-480w.webp');
+
+        $resolved = $this->service()->resolveForMarkup('articles/covers/served.webp');
+
+        $this->assertStringNotContainsString('served-480w.webp', $resolved['srcset']);
+        $this->assertStringContainsString('served-960w.webp', $resolved['srcset']);
     }
 
 }

@@ -161,6 +161,27 @@ class CategoryPaginationV1RegressionTest extends TestCase
         $response->assertDontSee('pagination__item--arrow" href', false);
     }
 
+    public function test_draft_and_review_articles_never_count_or_appear_in_category_pages(): void
+    {
+        $published = $this->publishedArticle('energia', ['title' => 'Titolo pubblico']);
+        $draft = $this->publishedArticle('energia', [
+            'title' => 'Titolo bozza riservato',
+            'status' => Article::STATUS_DRAFT,
+        ]);
+        $review = $this->publishedArticle('energia', [
+            'title' => 'Titolo review riservato',
+            'status' => Article::STATUS_REVIEW,
+        ]);
+
+        $response = $this->get(route('categoria', 'energia'));
+
+        $response->assertOk();
+        $response->assertViewHas('articles', fn ($paginator) => $paginator->total() === 1);
+        $response->assertSee($published->title);
+        $response->assertDontSee($draft->title);
+        $response->assertDontSee($review->title);
+    }
+
     public function test_pagination_query_count_does_not_grow_between_page_one_and_a_later_page(): void
     {
         for ($i = 0; $i < 25; $i++) {
