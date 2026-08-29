@@ -35,4 +35,23 @@ class NewsletterSourcePersistenceTest extends TestCase
         Newsletter::subscribe('reader@example.test', 'article');
         $this->assertDatabaseHas('newsletter', ['email' => 'reader@example.test', 'source' => 'popup']);
     }
+
+    public function test_sidebar_form_submits_a_valid_semantic_source_and_persists_it(): void
+    {
+        $this->view('components.sidebar', [
+            'categoryOptions' => [],
+            'categoryLabelOptions' => [],
+        ])->assertSee('name="source" value="sidebar"', false);
+
+        $this->post(route('newsletter.subscribe'), [
+            'email' => 'sidebar-reader@example.test',
+            'source' => 'sidebar',
+            'website' => '',
+        ]);
+
+        $this->assertDatabaseHas('newsletter', [
+            'email' => 'sidebar-reader@example.test',
+            'source' => 'sidebar',
+        ]);
+    }
 }
