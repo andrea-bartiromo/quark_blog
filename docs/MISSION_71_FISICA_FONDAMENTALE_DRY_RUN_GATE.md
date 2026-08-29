@@ -1,6 +1,6 @@
 # Missione 71 — Fisica fondamentale dry-run builder
 
-Data audit: 2026-08-27  
+Data audit: 2026-08-27
 Base verificata: `main` a `e84249bf5dace3694404464301bb0fa870f576e6`
 
 ## Esito
