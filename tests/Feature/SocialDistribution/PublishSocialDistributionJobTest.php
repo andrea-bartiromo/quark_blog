@@ -12,7 +12,9 @@ use App\Services\SocialDistribution\FakeSocialProvider;
 use App\Services\SocialDistribution\SocialProviderException;
 use App\Services\SocialDistribution\SocialProviderRegistry;
 use App\Services\SocialDistribution\SocialArticlePayloadFactory;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
@@ -69,6 +71,33 @@ class PublishSocialDistributionJobTest extends TestCase
 
         $this->assertDatabaseCount('social_publications', 1);
         Queue::assertPushed(PublishSocialDistribution::class, 1);
+    }
+
+    public function test_after_commit_listener_is_fail_open_and_logs_only_sanitized_context(): void
+    {
+        config([
+            'social_distribution.enabled' => true,
+            'social_distribution.channels.facebook.enabled' => true,
+            'social_distribution.channels.instagram.enabled' => false,
+        ]);
+        $this->mock(Dispatcher::class)
+            ->shouldReceive('dispatch')
+            ->once()
+            ->andThrow(new RuntimeException('access_token=must-never-be-logged'));
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                $serialized = json_encode([$message, $context]);
+
+                return $context['error_code'] === 'social_enqueue_failed'
+                    && $context['error_class'] === 'RuntimeException'
+                    && ! str_contains((string) $serialized, 'must-never-be-logged')
+                    && ! array_key_exists('error_message', $context);
+            });
+
+        app(QueueSocialPublications::class)->handle(new ArticlePublished($this->article()));
+
+        $this->assertDatabaseCount('social_publications', 1);
     }
 
     public function test_reexecuted_job_does_not_publish_a_succeeded_delivery_twice(): void
