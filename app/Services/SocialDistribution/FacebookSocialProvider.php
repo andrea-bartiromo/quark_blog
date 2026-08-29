@@ -4,6 +4,7 @@ namespace App\Services\SocialDistribution;
 
 use App\Contracts\SocialProvider;
 use App\Models\Article;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -38,9 +39,13 @@ class FacebookSocialProvider implements SocialProvider
         }
 
         $version = trim((string) config('social_distribution.facebook.graph_version'), '/');
-        $response = Http::asForm()
-            ->timeout((int) config('social_distribution.facebook.timeout_seconds', 10))
-            ->post($base.'/'.$version.'/'.$pageId.'/feed', $body);
+        try {
+            $response = Http::asForm()
+                ->timeout((int) config('social_distribution.facebook.timeout_seconds', 10))
+                ->post($base.'/'.$version.'/'.$pageId.'/feed', $body);
+        } catch (ConnectionException) {
+            throw new SocialProviderException('facebook_transport_error', true);
+        }
 
         if (! $response->successful()) {
             throw $this->mappedException($response);
