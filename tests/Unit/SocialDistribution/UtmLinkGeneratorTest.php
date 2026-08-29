@@ -158,4 +158,26 @@ class UtmLinkGeneratorTest extends TestCase
 
         $this->assertStringContainsString('utm_campaign=lancio-fisica-2026', $link);
     }
+
+    public function test_long_slugs_generate_bounded_deterministic_and_collision_resistant_campaigns(): void
+    {
+        $first = $this->article();
+        $first->update(['slug' => str_repeat('segmento-lungo-', 15).'alpha']);
+        $second = $this->article();
+        $second->update(['slug' => str_repeat('segmento-lungo-', 15).'beta']);
+        $generator = app(UtmLinkGenerator::class);
+
+        $campaign = function (Article $article) use ($generator): string {
+            parse_str((string) parse_url($generator->forArticle($article, UtmLinkGenerator::CHANNEL_FACEBOOK), PHP_URL_QUERY), $query);
+
+            return (string) $query['utm_campaign'];
+        };
+
+        $firstCampaign = $campaign($first);
+
+        $this->assertLessThanOrEqual(100, mb_strlen($firstCampaign));
+        $this->assertSame($firstCampaign, $campaign($first));
+        $this->assertNotSame($firstCampaign, $campaign($second));
+        $this->assertMatchesRegularExpression('/^fb-[a-z0-9-]+-[a-f0-9]{12}-[0-9]{8}$/', $firstCampaign);
+    }
 }
