@@ -15,11 +15,19 @@
     .login-box { background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow-hover);padding:2.5rem;width:100%;max-width:420px; }
     .login-logo { font-family:var(--font-display);font-size:1.6rem;font-weight:900;text-align:center;margin-bottom:1.5rem; }
     .login-logo em { color:var(--color-accent);font-style:normal; }
+    .login-logo__symbol { display:block;margin:0 auto .5rem; }
   </style>
 </head>
 <body>
   <div class="login-box">
     <div class="login-logo">
+      <img
+        src="{{ asset('assets/icons/symbol.svg') }}"
+        width="48" height="48"
+        alt=""
+        class="login-logo__symbol"
+        decoding="async"
+      >
       Kairus.<br>
       <small style="font-family:var(--font-ui);font-size:.65rem;font-weight:400;text-transform:uppercase;letter-spacing:.12em;color:var(--color-ink-muted);">
         Pannello redazionale

@@ -4,6 +4,13 @@
 
     {{-- Logo --}}
     <a href="{{ route('home') }}" class="header-logo">
+      <img
+        src="{{ asset('assets/icons/symbol.svg') }}"
+        width="28" height="28"
+        alt=""
+        class="header-logo__symbol"
+        decoding="async"
+      >
       Kairus<span class="dot">.</span>
     </a>
 

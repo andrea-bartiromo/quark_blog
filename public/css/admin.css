@@ -155,12 +155,16 @@ body.admin-body textarea {
   color: #ffffff;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   margin-bottom: 2px;
 }
 
 .admin-sidebar__logo .dot {
   color: var(--admin-primary);
+}
+
+.admin-sidebar__logo-symbol {
+  flex-shrink: 0;
 }
 
 .admin-sidebar__sub {
@@ -378,8 +382,13 @@ body.admin-body textarea {
   /* Nascosto solo visivamente (mai display:none, stessa tecnica di
      .sr-only): resta annunciato dalle tecnologie assistive anche
      quando la sidebar mostra solo icone. */
+  .admin-sidebar-compact .admin-sidebar__logo {
+    justify-content: center;
+  }
+
   .admin-sidebar-compact .admin-nav__label,
   .admin-sidebar-compact .admin-sidebar__sub,
+  .admin-sidebar-compact .admin-sidebar__logo-word,
   .admin-sidebar-compact .admin-sidebar__user-name,
   .admin-sidebar-compact .admin-sidebar__user-role,
   .admin-sidebar-compact .admin-nav__section {

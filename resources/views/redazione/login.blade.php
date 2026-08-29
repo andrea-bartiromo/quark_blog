@@ -18,6 +18,13 @@
     {{-- Logo --}}
     <div style="text-align:center;margin-bottom:2rem;">
       <a href="{{ route('home') }}" style="text-decoration:none;">
+        <img
+          src="{{ asset('assets/icons/symbol.svg') }}"
+          width="48" height="48"
+          alt=""
+          style="display:block;margin:0 auto .5rem;"
+          decoding="async"
+        >
         <div style="font-family:'Fraunces',Georgia,serif;font-size:2.5rem;font-weight:900;
                     color:#0d9488;letter-spacing:-.02em;">Kairus.</div>
       </a>

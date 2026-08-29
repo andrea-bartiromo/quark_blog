@@ -23,11 +23,15 @@ class FooterSocialLinksTest extends TestCase
         $response = $this->get(route('home'));
 
         $response->assertOk()
-            ->assertSee('Seguici')
+            ->assertDontSee('Seguici')
+            ->assertSee('La curiosità continua')
+            ->assertSee('Nuove storie, idee e domande da esplorare insieme. Trova Kairus anche su Facebook e LinkedIn.')
             ->assertSee('href="'.self::LINKEDIN.'"', false)
             ->assertSee('href="'.self::FACEBOOK.'"', false)
             ->assertSee('target="_blank"', false)
             ->assertSee('rel="noopener noreferrer"', false)
+            ->assertSee('aria-label="Kairus su LinkedIn"', false)
+            ->assertSee('aria-label="Kairus su Facebook"', false)
             ->assertSee('LinkedIn')
             ->assertSee('Facebook')
             ->assertDontSee('access_token', false)
@@ -43,7 +47,8 @@ class FooterSocialLinksTest extends TestCase
 
         $this->get(route('home'))
             ->assertOk()
-            ->assertSee('Seguici')
+            ->assertDontSee('Seguici')
+            ->assertSee('La curiosità continua')
             ->assertSee('href="'.self::LINKEDIN.'"', false)
             ->assertDontSee('http://www.facebook.com/kairus', false)
             ->assertDontSee('>Facebook<', false);
