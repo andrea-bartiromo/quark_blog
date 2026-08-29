@@ -174,8 +174,27 @@ class GenerateResponsiveImages extends Command
                     continue;
                 }
 
+                $imageInfo = @getimagesize($absolutePath);
+                if ($imageInfo === false || ($imageInfo[0] ?? 0) <= 0) {
+                    $missingSourceCount++;
+                    $this->line("  #{$media->id} {$media->disk_name} -> dimensioni sorgente non leggibili, saltato.");
+
+                    continue;
+                }
+
+                // Lo stesso contratto applicato da ImageService: una
+                // larghezza uguale o superiore all'originale non e' una
+                // variante mancante, ma un target non applicabile. In
+                // particolare, un originale da 800px richiede 480w ma non
+                // 960w; il dry-run non deve suggerire un upscale che il
+                // generatore rifiutera' correttamente.
+                $applicableWidths = array_values(array_filter(
+                    $widths,
+                    fn (int $width) => $width > 0 && $width < (int) $imageInfo[0]
+                ));
+
                 $missingWidths = [];
-                foreach ($widths as $width) {
+                foreach ($applicableWidths as $width) {
                     $variantPath = $root.'/'.$imageService->responsiveVariantPath($media->disk_name, $width);
                     if (! is_file($variantPath)) {
                         $missingWidths[] = $width;
