@@ -232,7 +232,9 @@ class ResponsiveImageVariantServiceTest extends TestCase
     {
         $this->setUpIsolatedMediaPublicRoot();
         $absolutePath = $this->placeUploadedFileAt('articles/covers/served.webp', 1600, 900);
-        copy($absolutePath, $this->isolatedMediaPublicRoot.'/articles/covers/served.webp');
+        $servedOriginal = $this->isolatedMediaPublicRoot.'/articles/covers/served.webp';
+        @mkdir(dirname($servedOriginal), 0775, true);
+        copy($absolutePath, $servedOriginal);
         $this->service()->generateForUpload($absolutePath, 'articles/covers/served.webp');
 
         @unlink($this->isolatedMediaPublicRoot.'/articles/covers/served-480w.webp');
