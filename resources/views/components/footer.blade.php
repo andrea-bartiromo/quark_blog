@@ -10,14 +10,37 @@
           raccontati in modo semplice, curioso e senza filtri.
         </p>
 
-        @if(!empty(config('laboratorio.social')))
-        <div class="footer-social">
-          @foreach(config('laboratorio.social') as $net => $url)
-            <a href="{{ $url }}" target="_blank" rel="noopener" aria-label="{{ ucfirst($net) }}">
-              {{ strtoupper(substr($net, 0, 1)) }}
-            </a>
-          @endforeach
-        </div>
+        @php
+          $socialProfiles = collect(config('laboratorio.social', []))
+            ->filter(function ($profile) {
+              $url = is_array($profile) ? ($profile['url'] ?? null) : null;
+
+              return is_string($url)
+                && filter_var($url, FILTER_VALIDATE_URL) !== false
+                && strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https';
+            });
+        @endphp
+
+        @if($socialProfiles->isNotEmpty())
+          <div class="footer-social-section">
+            <div class="footer-col-title" id="footer-social-title">Seguici</div>
+            <nav class="footer-social" aria-labelledby="footer-social-title">
+              @foreach($socialProfiles as $network => $profile)
+                <a href="{{ $profile['url'] }}" target="_blank" rel="noopener noreferrer">
+                  @if($network === 'linkedin')
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M5.2 3.7A2.2 2.2 0 1 1 5.2 8a2.2 2.2 0 0 1 0-4.3ZM3.3 9.5h3.8V21H3.3V9.5Zm6.1 0H13v1.6h.1c.5-.9 1.7-2 3.6-2 3.9 0 4.6 2.5 4.6 5.8V21h-3.8v-5.4c0-1.3 0-3-1.9-3s-2.2 1.4-2.2 2.9V21H9.4V9.5Z"/>
+                    </svg>
+                  @elseif($network === 'facebook')
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M13.7 21v-8h2.7l.4-3h-3.1V8.1c0-.9.3-1.5 1.6-1.5H17V3.9c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3V10H7.5v3h2.8v8h3.4Z"/>
+                    </svg>
+                  @endif
+                  <span>{{ $profile['label'] }}</span>
+                </a>
+              @endforeach
+            </nav>
+          </div>
         @endif
       </div>
 

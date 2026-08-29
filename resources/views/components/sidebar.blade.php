@@ -26,6 +26,7 @@
     <form class="premium-newsletter-form" action="{{ route('newsletter.subscribe') }}" method="POST">
       @csrf
       <input type="hidden" name="_redirect" value="1">
+      <input type="hidden" name="source" value="sidebar">
 
       <label class="sr-only" for="sidebar-newsletter-email">La tua email</label>
       <input
