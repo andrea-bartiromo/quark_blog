@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\AdController;
 use App\Http\Controllers\Admin\AnalyticsExclusionController;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
+use App\Http\Controllers\Admin\ArticleDiscoveryAuditController;
 use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
@@ -273,6 +274,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Internal Link Audit — orphan article detection (Missione 42, batch KAIRUS)
     Route::get('/link-interni', [InternalLinkAuditController::class, 'index'])->name('internal-link-audit');
+
+    // Article Discovery Audit — standalone per non ricalcolare il corpus
+    // ad ogni apertura di Operazioni editoriali (Missione 72).
+    Route::get('/discovery-articoli', [ArticleDiscoveryAuditController::class, 'index'])->name('article-discovery-audit');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
