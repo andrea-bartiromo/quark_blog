@@ -8,7 +8,7 @@ Evidence:
 
 - route and admin form require an explicitly selected confirmed subscriber;
 - `CampaignTestSendService` uses frozen/preview content;
-- test sends persist in `communication_test_sends`, separate from bulk sends;
+- test sends persist in `comm_test_sends`, separate from bulk sends;
 - campaign state and recipient snapshot are not mutated;
 - `TestSendNeverAffectsBulkSendRegressionTest` proves repeated test sends do not alter the prepared bulk set;
 - `RecordingEmailProvider` is the fake provider used by tests;
