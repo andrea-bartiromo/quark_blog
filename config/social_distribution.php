@@ -12,6 +12,7 @@ return [
     ],
     'facebook' => [
         'graph_url' => env('SOCIAL_FACEBOOK_GRAPH_URL', 'https://graph.facebook.com'),
+        'allowed_hosts' => ['graph.facebook.com'],
         'graph_version' => env('SOCIAL_FACEBOOK_GRAPH_VERSION', 'v23.0'),
         'page_id' => env('SOCIAL_FACEBOOK_PAGE_ID'),
         'access_token' => env('SOCIAL_FACEBOOK_ACCESS_TOKEN'),

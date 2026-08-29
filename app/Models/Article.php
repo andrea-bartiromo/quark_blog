@@ -142,7 +142,8 @@ class Article extends Model
             } catch (\Throwable $exception) {
                 Log::warning('ArticlePublished non emesso; la pubblicazione del sito resta valida.', [
                     'article_id' => $article->id,
-                    'error' => $exception->getMessage(),
+                    'error' => 'event_dispatch_failed',
+                    'error_class' => class_basename($exception),
                 ]);
             }
         };
