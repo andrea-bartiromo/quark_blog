@@ -147,6 +147,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::delete('/articoli/{article}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
     Route::patch('/articoli/{article}/verifica', [AdminArticleController::class, 'updateVerification'])->name('articles.verify');
     Route::post('/articoli/{article}/duplica', [AdminArticleController::class, 'duplicate'])->name('articles.duplicate');
+    Route::post('/articoli/{article}/consegne-social/{publication}/riprova', [AdminArticleController::class, 'retrySocialPublication'])->name('articles.social-publications.retry');
     Route::get('/articoli/{article}/discover', [DiscoverReadinessController::class, 'show'])->name('articles.discover');
 
     Route::post('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'linkConcept'])->name('articles.concepts.link');

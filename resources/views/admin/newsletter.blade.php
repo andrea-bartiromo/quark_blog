@@ -15,6 +15,21 @@
   </div>
 </div>
 
+<section class="admin-card" style="margin-bottom:1.25rem;overflow-x:auto;" aria-labelledby="source-report-title">
+  <h2 id="source-report-title" style="font-size:1rem;margin-top:0;">Iscrizioni per superficie</h2>
+  <p style="font-size:.78rem;color:#6b7280;">Conteggi aggregati reali. Non vengono calcolate percentuali: manca un denominatore affidabile di impression.</p>
+  <table class="admin-table" style="min-width:420px;">
+    <thead><tr><th>Superficie</th><th>Iscrizioni</th><th>Confermate</th></tr></thead>
+    <tbody>
+    @forelse($sourceReport as $row)
+      <tr><td>{{ $row->source === 'unknown_legacy' ? 'Sconosciuta / legacy' : ucfirst($row->source) }}</td><td>{{ $row->signup_count }}</td><td>{{ $row->confirmed_count }}</td></tr>
+    @empty
+      <tr><td colspan="3">Nessun dato disponibile.</td></tr>
+    @endforelse
+    </tbody>
+  </table>
+</section>
+
 {{-- Info GDPR --}}
 <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;
             padding:.85rem 1.1rem;margin-bottom:1.25rem;font-size:.82rem;color:#0f766e;">

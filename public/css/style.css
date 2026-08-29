@@ -970,17 +970,42 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   margin-bottom: 1rem;
   opacity: 0.7;
 }
-.footer-social { display: flex; gap: 0.5rem; }
+.footer-social-section { margin-top: 1.25rem; }
+.footer-social-section .footer-col-title { margin-bottom: 0.6rem; }
+.footer-social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
 .footer-social a {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.15);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.6);
-  transition: all 0.15s;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.78);
+  text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 .footer-social a:hover { background: var(--primary); border-color: var(--primary); color: white; }
+.footer-social a:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 3px;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+.footer-social svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
 .footer-col-title {
   font-size: 0.68rem;
   font-weight: 700;
