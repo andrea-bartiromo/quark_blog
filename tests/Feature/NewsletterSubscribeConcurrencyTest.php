@@ -73,7 +73,7 @@ class NewsletterSubscribeConcurrencyTest extends TestCase
                         // intenzionalmente vuoto
                     }
 
-                    Newsletter::subscribe($email);
+                    Newsletter::subscribe($email, ['popup', 'sidebar'][$worker]);
                     $outcome = 'ok';
                 } catch (\Throwable $e) {
                     $outcome = 'error:'.$e::class.':'.$e->getMessage();
@@ -114,6 +114,11 @@ class NewsletterSubscribeConcurrencyTest extends TestCase
             1,
             Newsletter::where('email', $email)->count(),
             'Le due iscrizioni concorrenti per la stessa email devono produrre esattamente UNA riga, mai duplicati.'
+        );
+        $this->assertContains(
+            Newsletter::where('email', $email)->value('source'),
+            ['popup', 'sidebar'],
+            'La riga vincente deve conservare la prima sorgente valida, mai unknown_legacy.'
         );
     }
 }
