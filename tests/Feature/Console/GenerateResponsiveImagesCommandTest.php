@@ -78,6 +78,19 @@ class GenerateResponsiveImagesCommandTest extends TestCase
         $this->assertStringContainsString('mancano: 480w, 960w', Artisan::output());
     }
 
+    public function test_dry_run_classifies_widths_larger_than_the_original_as_not_applicable(): void
+    {
+        $media = $this->putMedia('quadrata-800.webp', 800, 800);
+
+        $exitCode = Artisan::call('media:generate-responsive');
+
+        $this->assertSame(Command::SUCCESS, $exitCode);
+        $this->assertFileDoesNotExist($this->variantPath($media->disk_name, 480));
+        $this->assertFileDoesNotExist($this->variantPath($media->disk_name, 960));
+        $this->assertStringContainsString('mancano: 480w', Artisan::output());
+        $this->assertStringNotContainsString('960w', Artisan::output());
+    }
+
     public function test_execute_generates_the_missing_variants(): void
     {
         $media = $this->putMedia('foto.webp');
