@@ -8,6 +8,7 @@ use App\Services\SocialDistribution\FacebookSocialProvider;
 use App\Services\SocialDistribution\SocialArticlePayload;
 use App\Services\SocialDistribution\SocialProviderException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -113,6 +114,21 @@ class FacebookSocialProviderTest extends TestCase
             } finally {
                 Http::assertNothingSent();
             }
+        }
+    }
+
+    public function test_transport_failures_are_retryable_and_never_expose_the_raw_message(): void
+    {
+        $rawMessage = 'timeout dns tls access_token=must-never-leak';
+        Http::fake(fn () => throw new ConnectionException($rawMessage));
+
+        try {
+            app(FacebookSocialProvider::class)->publishArticleDistribution($this->payload(), 'event-key');
+            $this->fail('Eccezione di trasporto attesa.');
+        } catch (SocialProviderException $exception) {
+            $this->assertSame('facebook_transport_error', $exception->getMessage());
+            $this->assertTrue($exception->retryable);
+            $this->assertStringNotContainsString($rawMessage, $exception->getMessage());
         }
     }
 }
