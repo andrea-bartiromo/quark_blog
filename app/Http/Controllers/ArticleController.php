@@ -106,6 +106,14 @@ class ArticleController extends Controller
         $continuation = app(ArticleContinuationService::class)->forArticle($article, $pathNavigation);
         $showContinuation = $continuation && (! $pathNavigation || ! $pathNavigation['next']);
 
+        // La destinazione della CTA forte non deve ricomparire subito dopo
+        // tra i correlati. Precedente/successivo erano gia esclusi sopra;
+        // il fallback di categoria di "Continua da qui" va escluso qui,
+        // dopo che il candidato effettivo e stato risolto.
+        if ($showContinuation) {
+            $excludeFromRelated[] = $continuation->id;
+        }
+
         $continuationTargetUrl = null;
 
         // Second Read Analytics (Growth S2): fail-open per design — un
