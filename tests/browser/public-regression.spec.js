@@ -295,3 +295,30 @@ test('newsletter modal traps keyboard focus and restores semantic closed state w
     await expect(email).not.toBeFocused();
     guards.assertClean();
 });
+
+for (const width of viewportWidths) {
+    test(`article lightbox is keyboard-safe and restores focus at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const guards = await gotoPublicPage(page, fixture.routes.article);
+        const trigger = page.getByRole('link', { name: 'Visualizza immagine completa' });
+        const dialog = page.getByRole('dialog', { name: fixture.title });
+        const close = dialog.getByRole('button', { name: 'Chiudi' });
+
+        await trigger.focus();
+        await page.keyboard.press('Enter');
+        await expect(dialog).toBeVisible();
+        await expect(close).toBeFocused();
+        await expect(dialog).toHaveAttribute('aria-modal', 'true');
+
+        await page.keyboard.press('Shift+Tab');
+        await expect(dialog.getByRole('button', { name: 'Ingrandisci' })).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(close).toBeFocused();
+
+        await page.keyboard.press('Escape');
+        await expect(dialog).toHaveAttribute('hidden', '');
+        await expect(dialog).not.toHaveClass(/is-open/);
+        await expect(trigger).toBeFocused();
+        guards.assertClean();
+    });
+}
