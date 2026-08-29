@@ -4,15 +4,25 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Newsletter;
+use Illuminate\Support\Facades\DB;
 
 class NewsletterController extends Controller
 {
     public function index()
     {
+        $sourceReport = Newsletter::query()
+            ->selectRaw("COALESCE(source, 'unknown_legacy') AS source")
+            ->selectRaw('COUNT(*) AS signup_count')
+            ->selectRaw('SUM(CASE WHEN confirmed = 1 THEN 1 ELSE 0 END) AS confirmed_count')
+            ->groupBy(DB::raw("COALESCE(source, 'unknown_legacy')"))
+            ->orderBy('source')
+            ->get();
+
         return view('admin.newsletter', [
             'subscribers' => Newsletter::latest()->paginate(50),
             'total' => Newsletter::count(),
             'confirmed' => Newsletter::where('confirmed', true)->count(),
+            'sourceReport' => $sourceReport,
         ]);
     }
 
