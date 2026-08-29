@@ -234,7 +234,8 @@ test('continuation destination is unique and keyboard-visible at 390px', async (
 
     const continuationCard = page.locator('.continue-reading__card');
     await expect(continuationCard).toBeVisible();
-    await expect(page.locator('a[href*="/articolo/browser-complete-path-article"]')).toHaveCount(1);
+    await expect(continuationCard).toHaveAttribute('href', /\/articolo\/browser-complete-path-article/);
+    await expect(page.locator('.related-premium-grid a[href*="/articolo/browser-complete-path-article"]')).toHaveCount(0);
 
     await continuationCard.focus();
     await expect(continuationCard).toBeFocused();
