@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Events\ArticlePublished;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleDiscoveryController;
 use App\Listeners\CheckApplicationHealth;
+use App\Listeners\QueueSocialPublications;
 use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Models\Category;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         // Estende /up (health check nativo, bootstrap/app.php) da liveness
         // a readiness reale — vedi il docblock di CheckApplicationHealth.
         Event::listen(DiagnosingHealth::class, CheckApplicationHealth::class);
+        Event::listen(ArticlePublished::class, QueueSocialPublications::class);
 
         Article::resolveRelationUsing('contentClusters', fn (Article $article) => $article
             ->belongsToMany(ContentCluster::class, 'article_content_cluster')
