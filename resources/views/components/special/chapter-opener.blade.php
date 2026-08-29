@@ -41,6 +41,7 @@
   };
 
   $media = $resolveMedia($image);
+  $mediaDimensions = \App\Support\PublicImageDimensions::forUrl($media);
 @endphp
 
 @if(filled($period) || filled($title) || filled($intro) || $media)
@@ -48,7 +49,9 @@
     <div class="container container--wide sp-chapter__inner">
       @if($media)
         <figure class="sp-chapter__media">
-          <img src="{{ $media }}" alt="{{ $alt }}" loading="lazy" decoding="async">
+          <img src="{{ $media }}" alt="{{ $alt }}"
+               @if($mediaDimensions) width="{{ $mediaDimensions[0] }}" height="{{ $mediaDimensions[1] }}" @endif
+               loading="lazy" decoding="async">
         </figure>
       @endif
 
