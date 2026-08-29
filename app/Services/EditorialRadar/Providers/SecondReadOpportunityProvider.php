@@ -20,10 +20,14 @@ class SecondReadOpportunityProvider
     public function opportunities(): Collection
     {
         try {
-            return $this->analytics->articleBreakdown(now()->subDays(30), now(), self::LIMIT)
-                ->filter(fn (array $row) => $row['impressions'] >= self::MIN_IMPRESSIONS)
-                ->filter(fn (array $row) => $row['second_read_rate'] < self::WEAK_RATE
-                    || ($row['second_reads'] >= self::MIN_STRONG_READS && $row['second_read_rate'] >= self::STRONG_RATE))
+            return $this->analytics->articleBreakdown(
+                now()->subDays(30),
+                now(),
+                self::LIMIT,
+                fn (array $row) => $row['impressions'] >= self::MIN_IMPRESSIONS
+                    && ($row['second_read_rate'] < self::WEAK_RATE
+                        || ($row['second_reads'] >= self::MIN_STRONG_READS && $row['second_read_rate'] >= self::STRONG_RATE))
+            )
                 ->map(function (array $row): array {
                     $weak = $row['second_read_rate'] < self::WEAK_RATE;
 
