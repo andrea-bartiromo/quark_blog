@@ -4,6 +4,7 @@
   <p>Una selezione ragionata di articoli, scoperte e analisi dalla redazione. Niente rumore, solo contenuti utili.</p>
   <form method="POST" action="{{ route('newsletter.subscribe') }}" style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1rem;">
     @csrf
+    <input type="hidden" name="source" value="article">
     <label class="sr-only" for="article-newsletter-email">La tua email</label>
     <input id="article-newsletter-email" type="email" name="email" placeholder="La tua email" required autocomplete="email" style="flex:1;min-width:220px;border:0;border-radius:14px;padding:.9rem 1rem;">
     <button type="submit" style="border:0;border-radius:14px;padding:.9rem 1.1rem;font-weight:900;background:#67e8f9;color:#001018;cursor:pointer;">Iscriviti</button>
