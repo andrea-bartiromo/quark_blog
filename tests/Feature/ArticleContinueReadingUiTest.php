@@ -45,13 +45,11 @@ class ArticleContinueReadingUiTest extends TestCase
         $response->assertOk();
         $response->assertSee('id="continue-reading-title"', false);
 
-        preg_match_all(
-            '/<a\b[^>]*href="[^"]*\/articolo\/'.preg_quote($candidate->slug, '/').'[^"]*"/i',
-            $response->getContent(),
-            $matches
+        $this->assertSame($candidate->id, $response->viewData('continuation')->id);
+        $this->assertFalse(
+            $response->viewData('related')->contains('id', $candidate->id),
+            'La destinazione della CTA non deve ricomparire nei correlati.'
         );
-
-        $this->assertCount(1, $matches[0], 'La destinazione della CTA non deve ricomparire nei correlati.');
     }
 
     public function test_does_not_render_when_there_is_no_candidate_at_all(): void
