@@ -3,9 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\SocialPublication;
+use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use App\Services\SocialDistribution\SocialProviderException;
 use App\Services\SocialDistribution\SocialProviderRegistry;
-use App\Services\SocialDistribution\SocialArticlePayloadFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -67,15 +67,18 @@ class PublishSocialDistribution implements ShouldQueue
                     'succeeded_at' => now(),
                 ]);
         } catch (Throwable $exception) {
-            $retryable = $exception instanceof SocialProviderException && $exception->retryable
+            $providerException = $exception instanceof SocialProviderException;
+            $retryable = $providerException && $exception->retryable
                 && $publication->attempt_count < (int) config('social_distribution.max_attempts', 3);
 
             SocialPublication::whereKey($publication->id)
                 ->where('status', SocialPublication::STATUS_PROCESSING)
                 ->update([
                     'status' => $retryable ? SocialPublication::STATUS_RETRYABLE : SocialPublication::STATUS_FAILED,
-                    'last_error_class' => class_basename($exception),
-                    'last_error_message' => mb_substr($exception->getMessage(), 0, 500),
+                    'last_error_class' => $providerException ? 'provider_error' : 'unexpected_error',
+                    'last_error_message' => $providerException
+                        ? mb_substr($exception->getMessage(), 0, 120)
+                        : 'unexpected_exception',
                 ]);
 
             if ($retryable) {
