@@ -9,19 +9,25 @@ class Newsletter extends Model
 {
     protected $table = 'newsletter';
 
-    protected $fillable = ['email', 'confirmed', 'token', 'unsubscribe_token'];
+    public const SOURCES = ['popup', 'homepage', 'article'];
+
+    protected $fillable = ['email', 'confirmed', 'token', 'unsubscribe_token', 'source'];
 
     protected $casts = ['confirmed' => 'boolean'];
 
-    public static function subscribe(string $email): static
+    public static function subscribe(string $email, ?string $source = null): static
     {
-        return static::updateOrCreate(
-            ['email' => $email],
-            [
-                'confirmed' => false,
-                'token' => Str::random(64),
-                'unsubscribe_token' => Str::random(32),
-            ]
-        );
+        $subscriber = static::firstOrNew(['email' => $email]);
+        $subscriber->confirmed = false;
+        $subscriber->token = Str::random(64);
+        $subscriber->unsubscribe_token = Str::random(32);
+
+        if (! $subscriber->exists) {
+            $subscriber->source = in_array($source, self::SOURCES, true) ? $source : null;
+        }
+
+        $subscriber->save();
+
+        return $subscriber;
     }
 }
