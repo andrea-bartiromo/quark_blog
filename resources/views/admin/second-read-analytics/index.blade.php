@@ -43,6 +43,45 @@
   </div>
 </dl>
 
+<section aria-labelledby="second-read-paths-title" style="margin-bottom:1.75rem;">
+  <h2 id="second-read-paths-title" style="font-size:1.05rem;margin-bottom:.35rem;">Second read per Percorso</h2>
+  <p style="color:var(--admin-muted);font-size:.8rem;margin-bottom:.85rem;">
+    Gli eventi sono attribuiti ai Percorsi correnti dell'articolo sorgente. Se un articolo appartiene a più Percorsi,
+    compare in ogni riga pertinente: i valori dei Percorsi non sono quindi additivi.
+  </p>
+
+  @if($pathBreakdown->isEmpty())
+    <div class="admin-card" style="margin:0;color:var(--admin-muted);">
+      Nessun evento del periodo è attribuibile a un Percorso.
+    </div>
+  @else
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th scope="col">Percorso</th>
+            <th scope="col">Impression</th>
+            <th scope="col">Second read</th>
+            <th scope="col">Second read rate</th>
+            <th scope="col">Articoli sorgente</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($pathBreakdown as $row)
+            <tr>
+              <td><a href="{{ route('admin.content-clusters.edit', $row['content_cluster_id']) }}">{{ $row['name'] }}</a></td>
+              <td>{{ number_format($row['impressions']) }}</td>
+              <td>{{ number_format($row['second_reads']) }}</td>
+              <td>{{ number_format($row['second_read_rate'] * 100, 1) }}%</td>
+              <td>{{ number_format($row['source_articles_engaged']) }}</td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+  @endif
+</section>
+
 @if($breakdown->isEmpty())
   <div class="articles-empty-state">
     <p class="articles-empty-state__icon" aria-hidden="true">📖</p>
