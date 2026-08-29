@@ -10,7 +10,7 @@
 | concurrent claim | guarded `pending/queued -> sending` transition |
 | retry after known failure | same row returns to pending; successful terminal rows are immutable |
 | crash after provider acceptance | row remains `sending`; it is not blindly resent |
-| sanitized failure | normalized bounded `failure_reason`; raw exception/provider body excluded |
+| failure privacy | NOT CERTIFIED: generic callback exceptions and arbitrary provider reasons can still persist unsanitized text; operators must not treat stored failure text as secret-safe |
 | batch completion | reports distinguish accepted, transient and permanent failures |
 | concurrency | dedicated SQLite behavior plus MariaDB concurrency suites |
 
