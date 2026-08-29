@@ -3,13 +3,14 @@
 namespace App\Services\SocialDistribution;
 
 use App\Contracts\SocialProvider;
+use Throwable;
 
 class FakeSocialProvider implements SocialProvider
 {
     /** @var array<string, SocialPublishResult> */
     private array $published = [];
 
-    public ?SocialProviderException $nextFailure = null;
+    public ?Throwable $nextFailure = null;
 
     public function publishArticleDistribution(SocialArticlePayload $payload, string $idempotencyKey): SocialPublishResult
     {

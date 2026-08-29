@@ -55,7 +55,7 @@ class SocialPublication extends Model
             return null;
         }
 
-        $message = preg_replace('/(?:access[_-]?token|token|secret|authorization|api[_-]?key)\s*[=:]\s*[^\s,;]+/i', '$1=[REDACTED]', $this->last_error_message);
+        $message = preg_replace('/(access[_-]?token|token|secret|authorization|api[_-]?key)\s*[=:]\s*[^\s,;]+/i', '$1=[REDACTED]', $this->last_error_message);
 
         return mb_substr((string) $message, 0, 280);
     }
