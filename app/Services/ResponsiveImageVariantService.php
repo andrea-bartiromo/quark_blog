@@ -171,14 +171,15 @@ class ResponsiveImageVariantService
     public function existingVariantsFor(string $diskName): array
     {
         $widths = config('media.responsive_widths', []);
-        $primaryRoot = public_path('assets/img');
+        $servedRoot = $this->servedMediaRoot();
         $found = [];
 
         foreach ($widths as $width) {
             $variantDiskName = $this->imageService->responsiveVariantPath($diskName, $width);
-            $absolutePath = $primaryRoot.'/'.$variantDiskName;
+            $absolutePath = $servedRoot.'/'.$variantDiskName;
 
-            if (! is_file($absolutePath)) {
+            $info = is_file($absolutePath) ? @getimagesize($absolutePath) : false;
+            if ($info === false || $info[2] !== IMAGETYPE_WEBP || (int) $info[0] !== (int) $width) {
                 continue;
             }
 
@@ -208,7 +209,7 @@ class ResponsiveImageVariantService
     public function resolveForMarkup(string $diskName): array
     {
         $originalUrl = asset('assets/img/'.$diskName);
-        $absoluteOriginal = public_path('assets/img/'.$diskName);
+        $absoluteOriginal = $this->servedMediaRoot().'/'.$diskName;
 
         $info = is_file($absoluteOriginal) ? @getimagesize($absoluteOriginal) : false;
         $originalWidth = $info !== false ? $info[0] : null;
@@ -232,5 +233,16 @@ class ResponsiveImageVariantService
             'width' => $originalWidth,
             'height' => $originalHeight,
         ];
+    }
+
+    private function servedMediaRoot(): string
+    {
+        $configured = config('media.public_root');
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return rtrim(str_replace('\\', '/', trim($configured)), '/');
+        }
+
+        return rtrim(str_replace('\\', '/', public_path('assets/img')), '/');
     }
 }
