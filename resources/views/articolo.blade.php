@@ -107,6 +107,11 @@
             <main>
                 @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')
+                {{-- EDITORIAL TRUST (Missione 28): subito dopo il corpo,
+                     prima di ogni modulo di navigazione — le fonti
+                     appartengono all'articolo, non ai suggerimenti di
+                     lettura. Non renderizza nulla se non ci sono fonti. --}}
+                @include('articles.partials.sources')
                 @include('articles.partials.path-continuation')
                 @include('articles.partials.continue-reading')
                 @include('articles.partials.newsletter-band')

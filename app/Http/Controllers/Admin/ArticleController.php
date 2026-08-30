@@ -556,6 +556,11 @@ class ArticleController extends Controller
             // esistente più sotto.
             'conceptSuggestions' => $this->conceptSuggestions->suggestForArticle($article),
             'socialPublications' => $socialPublications,
+            // EDITORIAL TRUST (Missione 27) — fonti strutturate mostrate
+            // nell'editor dedicato in fondo alla pagina. Caricate qui e non
+            // dalla Blade così la vista non esegue query proprie, coerente
+            // con come già arrivano conceptLinks e socialPublications.
+            'articleSources' => $article->sources()->get(),
         ]);
     }
 

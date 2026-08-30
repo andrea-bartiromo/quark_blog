@@ -63,7 +63,11 @@ class ArticleController extends Controller
         // era una query sprecata a ogni richiesta.
         $article = Article::published()
             ->where('slug', $slug)
-            ->with('author')
+            // 'sources' eager-loaded qui e non dalla Blade: la sezione fonti
+            // pubblica (Missione 28) è una sola query per articolo, e
+            // caricarla dalla vista la renderebbe invisibile a chiunque
+            // profili questo controller.
+            ->with(['author', 'sources'])
             ->first();
 
         if (! $article) {

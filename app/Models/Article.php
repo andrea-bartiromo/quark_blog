@@ -245,6 +245,23 @@ class Article extends Model
     }
 
     /**
+     * EDITORIAL TRUST (Missione 26) — fonti strutturate, nell'ordine
+     * editoriale deciso in redazione.
+     *
+     * Il tie-break su `id` non è decorativo: `position` non ha un vincolo
+     * di unicità (vedi la migrazione), quindi senza secondo criterio due
+     * fonti con la stessa posizione uscirebbero in un ordine deciso dal
+     * database — cioè potenzialmente diverso fra SQLite (test) e MariaDB
+     * (produzione), rendendo un test verde una garanzia falsa.
+     */
+    public function sources()
+    {
+        return $this->hasMany(ArticleSource::class)
+            ->orderBy('position')
+            ->orderBy('id');
+    }
+
+    /**
      * Suggerimenti di collegamento interno ancora da rivedere per questo
      * articolo, pronti per il pannello "Collegamenti interni suggeriti" —
      * stessa query condivisa da Admin e Redazione, per evitare che le due

@@ -361,6 +361,15 @@
   </div>
 </form>
 
+{{-- EDITORIAL TRUST (Missione 27) — editor delle fonti strutturate.
+     Deliberatamente FUORI dal form articolo qui sopra (che si chiude alla
+     riga precedente): è un form fratello con rotta propria, così un errore
+     di validazione sulle fonti non può far perdere il corpo appena scritto.
+     Solo su un articolo esistente: una fonte ha bisogno di un article_id. --}}
+@if($article)
+  @include('admin.partials.article-sources')
+@endif
+
 @if($article)
 <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
   <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Concetti collegati (Content Graph)</div>

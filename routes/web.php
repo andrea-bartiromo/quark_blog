@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AnalyticsExclusionController;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleDiscoveryAuditController;
 use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
+use App\Http\Controllers\Admin\ArticleSourceController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
@@ -171,6 +172,12 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');
     Route::get('/articoli/{article}/versioni/{revision}', [AdminArticleRevisionController::class, 'show'])->name('articles.revisions.show');
     Route::post('/articoli/{article}/versioni/{revision}/ripristina', [AdminArticleRevisionController::class, 'restore'])->name('articles.revisions.restore');
+
+    // EDITORIAL TRUST — fonti strutturate (vedi ArticleSourceService).
+    // Rotta e form separati dal salvataggio articolo: un errore di
+    // validazione sulle fonti non deve mai far perdere il corpo appena
+    // scritto nel form articolo.
+    Route::put('/articoli/{article}/fonti', [ArticleSourceController::class, 'update'])->name('articles.sources.update');
 
     Route::post('/articoli/{article}/collegamenti/analizza', [ArticleLinkSuggestionController::class, 'analyze'])->name('articles.link-suggestions.analyze');
     Route::post('/articoli/{article}/collegamenti/{suggestion}/inserisci', [ArticleLinkSuggestionController::class, 'insert'])->name('articles.link-suggestions.insert');
