@@ -92,7 +92,7 @@
       <span class="pagination__item pagination__item--arrow pagination__item--disabled" aria-disabled="true">{{ $previousText ?? '←' }}</span>
     @endif
   @else
-    <a class="pagination__item pagination__item--arrow" href="{{ $paginator->previousPageUrl() }}" aria-label="Pagina precedente">{{ $previousText ?? '←' }}</a>
+    <a class="pagination__item pagination__item--arrow" href="{{ isset($firstPageUrl) && $paginator->currentPage() === 2 ? $firstPageUrl : $paginator->previousPageUrl() }}" aria-label="Pagina precedente">{{ $previousText ?? '←' }}</a>
   @endif
 
   {{-- Numeri pagina --}}

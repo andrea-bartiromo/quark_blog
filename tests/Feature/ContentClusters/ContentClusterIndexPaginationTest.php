@@ -149,6 +149,8 @@ class ContentClusterIndexPaginationTest extends TestCase
         $second->assertSee('<link rel="prev" href="'.route('percorsi.index').'">', false);
         $second->assertDontSee('rel="next"', false);
         $second->assertSee('aria-current="page">2</span>', false);
+        $second->assertSee('href="'.route('percorsi.index').'" aria-label="Pagina precedente"', false);
+        $second->assertDontSee('href="'.route('percorsi.index', ['page' => 1]).'" aria-label="Pagina precedente"', false);
         $second->assertSee('Precedente');
         $second->assertDontSee('aria-disabled="true"', false);
     }

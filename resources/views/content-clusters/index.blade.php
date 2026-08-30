@@ -84,6 +84,7 @@
           'previousText' => 'Precedente',
           'nextText' => 'Successiva',
           'showDisabled' => false,
+          'firstPageUrl' => route('percorsi.index'),
       ]) }}
     </div>
   </div>
