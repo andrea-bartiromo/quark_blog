@@ -187,6 +187,46 @@ class Article extends Model
         return $this->verification_status === 'verified';
     }
 
+    /**
+     * EDITORIAL TRUST (Missione 25) — vero solo quando esiste una
+     * revisione editoriale REALMENTE registrata: verification_status è
+     * 'verified' (non 'in_progress'/'needs_update', stati intermedi che
+     * non rappresentano un controllo concluso) e verified_by è compilato.
+     *
+     * Deliberatamente un segnale SOLO POSITIVO: un articolo non ancora
+     * verificato, o un articolo legacy senza verified_by, non mostra
+     * nulla — mai un'etichetta "non verificato" pubblica che
+     * allarmerebbe il lettore per uno stato puramente amministrativo
+     * interno. Questo è anche il fallback retrocompatibile richiesto per
+     * gli articoli esistenti: nessuno dei due campi era popolato prima
+     * dell'introduzione della verifica editoriale, quindi restano
+     * silenziosamente non mostrati.
+     */
+    public function hasRecordedEditorialReview(): bool
+    {
+        return $this->isVerified() && filled(trim((string) $this->verified_by));
+    }
+
+    /**
+     * Vero quando chi ha verificato l'articolo è dichiarato con un nome
+     * diverso da quello dell'autore — cioè quando la distinzione fra i
+     * due ruoli editoriali (autore vs. revisore) ha davvero qualcosa da
+     * mostrare. Un self-check (stessa persona) resta un dato veritiero,
+     * ma non un secondo ruolo distinto da annunciare.
+     *
+     * NOTA: verified_by è una stringa libera (non una FK a users), quindi
+     * il confronto è testuale — coerente con come il campo viene già
+     * scritto altrove (Admin\ArticleController::updateVerification()).
+     */
+    public function hasDistinctEditorialReviewer(): bool
+    {
+        if (! $this->hasRecordedEditorialReview() || ! $this->author) {
+            return false;
+        }
+
+        return strcasecmp(trim((string) $this->verified_by), trim((string) $this->author->name)) !== 0;
+    }
+
     // ── Relazioni ─────────────────────────────────────────────
 
     public function author()

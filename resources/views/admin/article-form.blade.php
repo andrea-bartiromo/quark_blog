@@ -5,6 +5,20 @@
 <div class="admin-topbar">
   <h1 class="admin-page-title">{{ $article ? 'Modifica articolo' : 'Nuovo articolo' }}</h1>
   @if($article)
+    {{--
+        Missione 25 — responsabilità editoriale leggibile senza dover
+        aprire la schermata "Verifica" separata. Sola lettura: la modifica
+        resta unicamente in admin.verification (nessun secondo motore di
+        editing per lo stesso stato).
+    --}}
+    <span style="font-size:.78rem;color:var(--color-ink-muted,#6b7280);display:inline-flex;align-items:center;gap:.35rem;">
+      Verifica:
+      <strong style="color:{{ \App\Models\Article::$verificationColors[$article->verification_status] ?? 'inherit' }};">{{ $article->verification_label }}</strong>
+      @if($article->hasRecordedEditorialReview())
+        · {{ $article->hasDistinctEditorialReviewer() ? 'a cura di '.$article->verified_by : 'a cura dell\'autore' }}
+      @endif
+    </span>
+    <a href="{{ route('admin.verification') }}" class="btn btn--outline">Verifica editoriale</a>
     <a href="{{ route('admin.articles.revisions.index', $article) }}" class="btn btn--outline">🕘 Versioni salvate</a>
   @endif
   <a href="{{ route('admin.articles') }}" class="btn btn--outline">← Torna alla lista</a>
