@@ -51,8 +51,14 @@ jobs:
       - name: Run migrations
         run: php artisan migrate --force
 
-      - name: Verify footer Social code style with Pint
-        run: vendor/bin/pint --test config/laboratorio.php tests/Feature/FooterSocialLinksTest.php
+      - name: Verify changed PHP code style with Pint
+        run: >-
+          vendor/bin/pint --test
+          config/laboratorio.php
+          app/Services/EditorialOperations/EditorialOperationsDashboardService.php
+          tests/Feature/EditorialOperationsDashboardServiceTest.php
+          tests/Feature/EditorialOperationsScheduledWaitClassificationTest.php
+          tests/Feature/FooterSocialLinksTest.php
 
       - name: Clear Laravel caches
         run: php artisan optimize:clear
