@@ -55,7 +55,10 @@ jobs:
         run: >-
           vendor/bin/pint --test
           config/laboratorio.php
+          app/Http/Controllers/ContentClusterController.php
           app/Services/EditorialOperations/EditorialOperationsDashboardService.php
+          database/seeders/BrowserTestSeeder.php
+          tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
           tests/Feature/EditorialOperationsDashboardServiceTest.php
           tests/Feature/EditorialOperationsScheduledWaitClassificationTest.php
           tests/Feature/FooterSocialLinksTest.php
@@ -149,6 +152,7 @@ jobs:
           tests/Feature/Admin/AdminNavigationTest.php
           tests/Feature/AnalyticsHygieneTest.php
           tests/Feature/Admin/Communication/NewsletterModuleRegressionTest.php
+          tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
 
   windows-media-safety:
     runs-on: windows-latest

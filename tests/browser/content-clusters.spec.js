@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const viewportWidths = [390, 768, 1440];
+const viewportWidths = [390, 430, 1024, 1440];
 
 function watchPage(page) {
     const errors = [];
@@ -23,6 +23,8 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('link', { name: 'IA spiegata' }).first()).toBeVisible();
         await expect(page.getByText('2 articoli pubblicati')).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(page.locator('.path-card')).toHaveCount(6);
+        await expect(page.getByRole('navigation', { name: 'Paginazione Percorsi' })).toBeVisible();
 
         const indexLayout = await page.evaluate(() => {
             const index = document.querySelector('.paths-index');
@@ -38,10 +40,12 @@ for (const width of viewportWidths) {
                 background: indexStyle.backgroundColor,
                 gridColumns: gridStyle.gridTemplateColumns,
                 cardWidth: card.getBoundingClientRect().width,
+                cardHeight: card.getBoundingClientRect().height,
                 cardRadius: parseFloat(cardStyle.borderRadius),
                 cardBackground: cardStyle.backgroundColor,
                 mediaWidth: media.getBoundingClientRect().width,
                 mediaHeight: media.getBoundingClientRect().height,
+                mediaRatio: media.getBoundingClientRect().width / media.getBoundingClientRect().height,
                 pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
             };
         });
@@ -52,21 +56,35 @@ for (const width of viewportWidths) {
         expect(indexLayout.cardRadius).toBeGreaterThanOrEqual(width <= 760 ? 18 : 22);
         expect(indexLayout.pageFits).toBeTruthy();
 
-        if (width === 390) {
+        expect(indexLayout.mediaRatio).toBeGreaterThan(width <= 430 ? 1.95 : 2.35);
+        expect(indexLayout.mediaRatio).toBeLessThan(width <= 430 ? 2.05 : 2.45);
+
+        if (width <= 430) {
             expect(indexLayout.gridColumns.trim().split(' ').length).toBe(1);
             expect(indexLayout.cardWidth).toBeGreaterThan(300);
             expect(indexLayout.mediaWidth).toBeGreaterThan(300);
-            expect(indexLayout.mediaHeight).toBeGreaterThan(165);
-        } else if (width === 768) {
-            expect(indexLayout.gridColumns.trim().split(' ').length).toBe(2);
-            expect(indexLayout.cardWidth).toBeGreaterThan(320);
-            expect(indexLayout.mediaWidth).toBeGreaterThan(320);
-            expect(indexLayout.mediaHeight).toBeGreaterThan(175);
+            expect(indexLayout.mediaHeight).toBeGreaterThan(135);
         } else {
             expect(indexLayout.gridColumns.trim().split(' ').length).toBe(2);
-            expect(indexLayout.cardWidth).toBeGreaterThan(540);
-            expect(indexLayout.mediaWidth).toBeGreaterThan(540);
-            expect(indexLayout.mediaHeight).toBeGreaterThan(300);
+            expect(indexLayout.cardWidth).toBeGreaterThan(width === 1024 ? 430 : 540);
+            expect(indexLayout.mediaWidth).toBeGreaterThan(width === 1024 ? 430 : 540);
+            expect(indexLayout.cardHeight).toBeLessThan(620);
+        }
+
+        await expect(page.getByRole('link', { name: 'Esplora il percorso' }).first()).toBeVisible();
+
+        if (width === 1440) {
+            await page.getByRole('link', { name: 'Pagina successiva' }).click();
+            await expect(page).toHaveURL(/\/percorsi\?page=2$/);
+            await expect(page.locator('.path-card')).toHaveCount(1);
+            const longTitle = page.getByRole('link', { name: 'Un Percorso dal titolo volutamente molto lungo per verificare la robustezza della card' }).first();
+            await expect(longTitle).toBeVisible();
+            await longTitle.click();
+            await expect(page).toHaveURL(/\/percorsi\/percorso-paginazione-ci-5$/);
+            await expect(page.locator('main')).toBeVisible();
+            await page.goBack();
+            await page.getByRole('link', { name: 'Pagina precedente' }).click();
+            await expect(page).toHaveURL(/\/percorsi$/);
         }
 
         const indexPathLink = page.getByRole('link', { name: 'IA spiegata' }).first();

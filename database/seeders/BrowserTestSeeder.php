@@ -240,5 +240,20 @@ class BrowserTestSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        foreach (range(1, 5) as $index) {
+            DB::table('content_clusters')->insert([
+                'name' => $index === 5
+                    ? 'Un Percorso dal titolo volutamente molto lungo per verificare la robustezza della card'
+                    : 'Percorso paginazione CI '.$index,
+                'slug' => 'percorso-paginazione-ci-'.$index,
+                'short_description' => 'Fixture pubblica deterministica per la paginazione dei Percorsi.',
+                'is_active' => true,
+                'lifecycle_status' => 'updating',
+                'sort_order' => 100 + $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 }
