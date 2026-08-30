@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Newsletter;
+use App\Services\Telemetry\EditorialContinuityRecorder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -39,6 +40,18 @@ class NewsletterController extends Controller
         ]);
 
         $subscriber = Newsletter::subscribe($request->input('email'), $request->input('source'));
+
+        // Measurement Closeout (Missione 1): "iscrizione Newsletter" e
+        // "sorgente della sessione" figuravano nella matrice degli eventi da
+        // misurare, ma nessun producer li correlava — Newsletter::source
+        // registra solo IL PUNTO DELLA PAGINA da cui si è iscritto (popup,
+        // sidebar...), mai il canale di provenienza della visita. Questo
+        // evento aggiunge la seconda dimensione senza toccare la prima.
+        //
+        // Nessun dato dell'iscritto viene passato: né l'id, né l'email, né i
+        // token. Il fatto editoriale da misurare è "una sessione con questa
+        // sorgente ha convertito", non chi fosse.
+        app(EditorialContinuityRecorder::class)->recordNewsletterSubscription();
 
         // Invia email di conferma
         try {

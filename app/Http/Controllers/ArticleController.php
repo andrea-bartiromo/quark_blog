@@ -11,6 +11,8 @@ use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
+use App\Services\Telemetry\EditorialContinuityRecorder;
+use App\Services\Telemetry\EditorialEventContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -151,6 +153,62 @@ class ArticleController extends Controller
                 'article_id' => $article->id,
                 'exception' => $exception->getMessage(),
             ]);
+        }
+
+        // Measurement Closeout (Missioni 2-4): contratto canonico degli
+        // eventi editoriali. Affianca — non sostituisce — gli eventi Growth
+        // S2 registrati sopra: quelli restano la fonte di verità del funnel
+        // "Continua da qui" per articolo, questi aggiungono la dimensione di
+        // SESSIONE senza la quale second-read rate e path continuation rate
+        // non sono ricostruibili (vedi la migration).
+        //
+        // Nessun try/catch qui: EditorialContinuityRecorder è fail-safe per
+        // contratto (vedi il suo docblock), quindi riavvolgerlo darebbe una
+        // falsa impressione che senza il catch la pagina potrebbe rompersi.
+        $recorder = app(EditorialContinuityRecorder::class);
+        $recorder->recordArticleView(
+            $article,
+            $pathNavigation['cluster'] ?? null,
+            $pathNavigation['current_index'] ?? null,
+        );
+
+        // Un evento "transizione disponibile" per OGNI controllo davvero
+        // renderizzato — mai uno per pageview. È la differenza fra il
+        // denominatore corretto di Missione 4 ("view in cui la transizione
+        // era realmente disponibile") e quello sbagliato che la missione
+        // vieta esplicitamente ("tutte le pageview").
+        if ($pathNavigation && $pathNavigation['previous'] instanceof Article) {
+            $recorder->recordTransitionAvailable(
+                $article,
+                $pathNavigation['previous'],
+                EditorialEventContract::TRANSITION_PREVIOUS,
+                $pathNavigation['cluster'],
+                $pathNavigation['current_index'],
+            );
+        }
+
+        if ($pathNavigation && $pathNavigation['next'] instanceof Article) {
+            $recorder->recordTransitionAvailable(
+                $article,
+                $pathNavigation['next'],
+                EditorialEventContract::TRANSITION_NEXT,
+                $pathNavigation['cluster'],
+                $pathNavigation['current_index'],
+            );
+        }
+
+        // $showContinuation, non $continuation: quando il Percorso ha già un
+        // "successivo", il modulo "Continua da qui" NON viene renderizzato
+        // (vedi sopra) e contarlo come disponibile falserebbe il
+        // denominatore proprio nel modo che la missione vieta.
+        if ($showContinuation) {
+            $recorder->recordTransitionAvailable(
+                $article,
+                $continuation,
+                EditorialEventContract::TRANSITION_CONTINUA_DA_QUI,
+                $pathNavigation['cluster'] ?? null,
+                $pathNavigation['current_index'] ?? null,
+            );
         }
 
         return view('articolo', [
