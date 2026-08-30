@@ -2,7 +2,7 @@
 
 @section('title', 'Percorsi — '.config('laboratorio.name'))
 @section('description', 'Percorsi editoriali per esplorare i temi di Kairus in modo ordinato e progressivo.')
-@section('canonical', route('percorsi.index'))
+@section('canonical', $canonical)
 @section('og_title', 'Percorsi — '.config('laboratorio.name'))
 @section('og_description', 'Percorsi editoriali per esplorare i temi di Kairus in modo ordinato e progressivo.')
 @section('twitter_title', 'Percorsi — '.config('laboratorio.name'))
@@ -10,9 +10,11 @@
 
 @section('head')
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
+@if($previousPageUrl)<link rel="prev" href="{{ $previousPageUrl }}">@endif
+@if($nextPageUrl)<link rel="next" href="{{ $nextPageUrl }}">@endif
 
 @php
-    $percorsiIndexUrl = route('percorsi.index');
+    $percorsiIndexUrl = $canonical;
 
     $percorsiIndexStructuredData = [
         '@context' => 'https://schema.org',
@@ -51,7 +53,7 @@
 
     <div class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
-        <article class="path-card {{ \App\Support\PathVisualSignature::cssClass($cluster) }}">
+        <article class="path-card {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" data-percorso-id="{{ $cluster->id }}">
           <a class="path-card__media" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
             @if($cluster->cover_image)
               <x-responsive-image
@@ -74,6 +76,15 @@
       @empty
         <div class="paths-empty"><p class="eyebrow">In preparazione</p><h2>Nuovi percorsi stanno prendendo forma.</h2><p>Torna presto: qui raccoglieremo sequenze editoriali curate per orientarti nei temi di Kairus.</p></div>
       @endforelse
+    </div>
+
+    <div class="paths-pagination">
+      {{ $clusters->links('components.pagination', [
+          'ariaLabel' => 'Paginazione Percorsi',
+          'previousText' => 'Precedente',
+          'nextText' => 'Successiva',
+          'showDisabled' => false,
+      ]) }}
     </div>
   </div>
 </section>

@@ -84,13 +84,15 @@
   }
 </style>
 
-<nav class="pagination" aria-label="Paginazione articoli" role="navigation">
+<nav class="pagination" aria-label="{{ $ariaLabel ?? 'Paginazione articoli' }}" role="navigation">
 
   {{-- Precedente --}}
   @if ($paginator->onFirstPage())
-    <span class="pagination__item pagination__item--arrow pagination__item--disabled" aria-disabled="true">←</span>
+    @if($showDisabled ?? true)
+      <span class="pagination__item pagination__item--arrow pagination__item--disabled" aria-disabled="true">{{ $previousText ?? '←' }}</span>
+    @endif
   @else
-    <a class="pagination__item pagination__item--arrow" href="{{ $paginator->previousPageUrl() }}" aria-label="Pagina precedente">←</a>
+    <a class="pagination__item pagination__item--arrow" href="{{ $paginator->previousPageUrl() }}" aria-label="Pagina precedente">{{ $previousText ?? '←' }}</a>
   @endif
 
   {{-- Numeri pagina --}}
@@ -112,9 +114,11 @@
 
   {{-- Successiva --}}
   @if ($paginator->hasMorePages())
-    <a class="pagination__item pagination__item--arrow" href="{{ $paginator->nextPageUrl() }}" aria-label="Pagina successiva">→</a>
+    <a class="pagination__item pagination__item--arrow" href="{{ $paginator->nextPageUrl() }}" aria-label="Pagina successiva">{{ $nextText ?? '→' }}</a>
   @else
-    <span class="pagination__item pagination__item--arrow pagination__item--disabled" aria-disabled="true">→</span>
+    @if($showDisabled ?? true)
+      <span class="pagination__item pagination__item--arrow pagination__item--disabled" aria-disabled="true">{{ $nextText ?? '→' }}</span>
+    @endif
   @endif
 
 </nav>
