@@ -128,18 +128,22 @@ final class DashboardDataExportService
             ->orderBy('source')
             ->limit(config('dashboard_data_export.max_rows_per_dataset'))
             ->get()
-            ->map(fn ($row) => [
-                'period' => $window->from->toDateString().' / '.$window->to->toDateString(),
-                'source' => $row->source,
-                'new_signups' => (int) $row->new_signups,
-                'confirmed' => (int) $row->confirmed,
-                'unsubscribes' => null,
-                'recipients' => null,
-                'delivered' => null,
-                'failed' => null,
-                'clicks' => null,
-                'status' => 'available',
-            ])->all();
+            ->map(function ($row) use ($window): array {
+                $sufficient = (int) $row->new_signups >= config('dashboard_data_export.minimum_sample_size');
+
+                return [
+                    'period' => $window->from->toDateString().' / '.$window->to->toDateString(),
+                    'source' => $this->privacy->text($row->source),
+                    'new_signups' => $sufficient ? (int) $row->new_signups : null,
+                    'confirmed' => $sufficient ? (int) $row->confirmed : null,
+                    'unsubscribes' => null,
+                    'recipients' => null,
+                    'delivered' => null,
+                    'failed' => null,
+                    'clicks' => null,
+                    'status' => $sufficient ? 'available' : 'insufficient_data',
+                ];
+            })->all();
 
         return [
             'id' => 'newsletter-summary',
@@ -147,7 +151,7 @@ final class DashboardDataExportService
             'status' => 'available',
             'schema' => ['period', 'source', 'new_signups', 'confirmed', 'unsubscribes', 'recipients', 'delivered', 'failed', 'clicks', 'status'],
             'rows' => $rows,
-            'limitations' => ['Email e token esclusi. Delivery/click non dichiarati senza un evento provider affidabile.'],
+            'limitations' => ['Email e token esclusi. Segmenti sotto soglia soppressi. Delivery/click non dichiarati senza un evento provider affidabile.'],
         ];
     }
 }

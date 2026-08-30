@@ -137,10 +137,18 @@ final class DashboardExportPackageBuilder
 
     private function revision(): ?string
     {
-        foreach ([base_path('REVISION'), base_path('DEPLOY_INFO')] as $path) {
-            if (is_file($path)) {
-                return trim((string) file_get_contents($path)) ?: null;
-            }
+        $revisionPath = base_path('REVISION');
+        if (is_file($revisionPath)) {
+            $revision = trim((string) file_get_contents($revisionPath));
+
+            return preg_match('/^[0-9a-f]{40}$/', $revision) === 1 ? $revision : null;
+        }
+
+        $deployInfoPath = base_path('DEPLOY_INFO');
+        if (is_file($deployInfoPath)) {
+            $deployInfo = (string) file_get_contents($deployInfoPath);
+
+            return preg_match('/\b[0-9a-f]{40}\b/', $deployInfo, $matches) === 1 ? $matches[0] : null;
         }
 
         return null;

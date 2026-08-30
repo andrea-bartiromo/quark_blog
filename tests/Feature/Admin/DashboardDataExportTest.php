@@ -127,22 +127,44 @@ class DashboardDataExportTest extends TestCase
     public function test_newsletter_export_is_aggregate_and_never_contains_email_or_tokens(): void
     {
         $admin = $this->user('admin');
-        Newsletter::create([
-            'email' => 'private@example.test',
-            'confirmed' => true,
-            'token' => 'confirmation-secret',
-            'unsubscribe_token' => 'unsubscribe-secret',
-            'source' => 'article',
-        ]);
+        foreach (range(1, 5) as $index) {
+            Newsletter::create([
+                'email' => 'private'.$index.'@example.test',
+                'confirmed' => true,
+                'token' => 'confirmation-secret-'.$index,
+                'unsubscribe_token' => 'unsubscribe-secret-'.$index,
+                'source' => 'article',
+            ]);
+        }
 
         $json = $this->actingAs($admin)->post(route('admin.editorial-operations.export'), $this->payload([
             'sections' => ['newsletter-summary'],
         ]))->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('private@example.test', $json);
+        $this->assertStringNotContainsString('private1@example.test', $json);
         $this->assertStringNotContainsString('confirmation-secret', $json);
         $this->assertStringNotContainsString('unsubscribe-secret', $json);
-        $this->assertStringContainsString('"new_signups": 1', $json);
+        $this->assertStringContainsString('"new_signups": 5', $json);
+    }
+
+    public function test_small_newsletter_segments_are_explicitly_suppressed(): void
+    {
+        $admin = $this->user('admin');
+        Newsletter::create([
+            'email' => 'single-private@example.test',
+            'confirmed' => true,
+            'token' => 'single-secret',
+            'source' => 'sidebar',
+        ]);
+
+        $document = json_decode($this->actingAs($admin)->post(route('admin.editorial-operations.export'), $this->payload([
+            'sections' => ['newsletter-summary'],
+        ]))->assertOk()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $row = $document['datasets']['newsletter-summary']['rows'][0];
+
+        $this->assertSame('insufficient_data', $row['status']);
+        $this->assertNull($row['new_signups']);
+        $this->assertNull($row['confirmed']);
     }
 
     public function test_zip_contains_only_expected_files_with_valid_manifest_checksums_and_is_deleted_after_send(): void

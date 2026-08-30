@@ -30,7 +30,7 @@ L'azione **Esporta dati per analisi** appare nella dashboard Operazioni editoria
 - **CSV**: una singola sezione, UTF-8 con BOM compatibile Excel;
 - **JSON**: documento tecnico completo, versionato e machine-readable.
 
-Le date sono selezionate e rappresentate in `Europe/Rome`; il manifest conserva timestamp ISO 8601. Il limite è 366 giorni. I segmenti con meno di cinque osservazioni sono `insufficient_data`: lo zero del campione resta zero, la metrica non calcolabile resta `null`.
+Le date sono selezionate e rappresentate in `Europe/Rome`; il manifest conserva timestamp ISO 8601. Il limite è 366 giorni. I segmenti con meno di cinque osservazioni sono `insufficient_data`: lo zero del campione resta zero, la metrica non calcolabile resta `null`. Nei raggruppamenti Newsletter sotto soglia anche i conteggi vengono soppressi (`null`).
 
 Il pacchetto non include email, IP, cookie, session ID, token, credenziali, payload provider, stack trace, note private o corpi editoriali. Dopo averlo allegato allo strumento di analisi, eliminarlo dal computer locale quando non serve più. Verificare `schema_version` e, per ZIP, confrontare ogni file con `checksums_sha256` del manifest.
 
