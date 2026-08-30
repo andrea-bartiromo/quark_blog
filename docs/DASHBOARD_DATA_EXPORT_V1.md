@@ -12,7 +12,7 @@ Missione prioritaria immediatamente successiva a **September Measurement Closeou
 | Content Health | `ArticleContentHealthService`, via dashboard | finding e motivazioni operative | corpo e note non necessari | sì, allowlist | CSV/JSON |
 | Search Opportunities | Radar + Search Console | query, URL, evidenza | query potenzialmente personali | no, finché manca normalizzazione certificata | manifest `unavailable` |
 | Editorial Radar | `EditorialRadarProviderGraphService` | opportunità aggregate | motivazioni editoriali | solo totale nel summary | JSON |
-| Seconda lettura | `ContinuationAnalyticsService` | impression, second read, rate | eventi/sessioni individuali | sì, solo aggregato sitewide | CSV/JSON |
+| Seconda lettura | `ContinuationAnalyticsService` | conteggi evento `impressions`, `second_reads`, rate | eventi/sessioni individuali | sì, solo aggregato sitewide | CSV/JSON |
 | Continuation | eventi V1 | impression/second read | possibile granularità articolo | insufficiente per tutti i tipi richiesti | manifest `unavailable` |
 | Percorsi | servizi readiness/health | riepiloghi operativi | membership editoriale | solo conteggio nel summary | JSON |
 | Newsletter | tabella `newsletter` | iscrizioni e conferme per source | email e token | sì, solo aggregati | CSV/JSON |
@@ -43,7 +43,7 @@ Il pacchetto non include email, IP, cookie, session ID, token, credenziali, payl
 - Privacy: allowlist esplicite; nessun `Model::toArray()`, `SELECT *` o serializzazione Eloquent.
 - Limiti: 5.000 righe per dataset, 366 giorni, 6 richieste/minuto.
 - ZIP: directory `storage/app/tmp/dashboard-exports`, nome casuale, permesso `0600`, `deleteFileAfterSend(true)`, cleanup su eccezione e pruning opportunistico dei residui oltre 60 minuti. Nessun file permanente o deploy backup.
-- Audit: log strutturato minimale con admin id, intervallo, sezioni, formato, esito e conteggio; mai contenuti o path.
+- Audit: log strutturato minimale con admin id, intervallo, sezioni, formato, esito e conteggio; il successo viene registrato soltanto dopo la costruzione della response/pacchetto; mai contenuti o path.
 
 Per aggiungere un dataset, implementare una trasformazione con allowlist in `DashboardDataExportService`, dichiararne schema/versione/limitazioni, aggiungerlo alla validazione e coprire privacy, campione, CSV/JSON e manifest. Non dipendere dal markup Blade.
 

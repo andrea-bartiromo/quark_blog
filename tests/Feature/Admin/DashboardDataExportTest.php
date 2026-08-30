@@ -81,6 +81,10 @@ class DashboardDataExportTest extends TestCase
 
         $this->assertSame('1.0.0', $document['manifest']['schema_version']);
         $this->assertSame(0, $document['datasets']['second-read']['rows'][0]['sample_size']);
+        $this->assertArrayHasKey('impressions', $document['datasets']['second-read']['rows'][0]);
+        $this->assertArrayHasKey('second_reads', $document['datasets']['second-read']['rows'][0]);
+        $this->assertArrayNotHasKey('sessions_one_article', $document['datasets']['second-read']['rows'][0]);
+        $this->assertArrayNotHasKey('sessions_two_articles', $document['datasets']['second-read']['rows'][0]);
         $this->assertNull($document['datasets']['second-read']['rows'][0]['second_read_rate']);
         $this->assertSame('insufficient_data', $document['datasets']['second-read']['status']);
         $this->assertArrayHasKey('social-calendar', $document['manifest']['unavailable_sections']);

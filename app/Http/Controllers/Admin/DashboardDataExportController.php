@@ -25,6 +25,27 @@ final class DashboardDataExportController extends Controller
             $datasets = $exporter->build($window, $sections);
             $recordCount = collect($datasets)->sum(fn (array $dataset) => count($dataset['rows']));
 
+            if ($format === 'csv') {
+                $section = $sections[0];
+
+                $response = response($packages->csvExport($datasets[$section]), 200, $this->headers(
+                    'text/csv; charset=UTF-8',
+                    'kairus-'.$section.'-'.now()->format('Ymd-His').'.csv',
+                ));
+            } elseif ($format === 'json') {
+                $response = response($packages->jsonExport($datasets, $window, $sections), 200, $this->headers(
+                    'application/json; charset=UTF-8',
+                    'kairus-dashboard-export-'.now()->format('Ymd-His').'.json',
+                ));
+            } else {
+                $package = $packages->zip($datasets, $window, $sections);
+
+                $response = response()->download($package['path'], $package['filename'], [
+                    'Cache-Control' => 'private, no-store, max-age=0',
+                    'X-Content-Type-Options' => 'nosniff',
+                ])->deleteFileAfterSend(true);
+            }
+
             Log::info('dashboard_data_export', [
                 'admin_id' => $request->user()->id,
                 'interval' => $window->metadata(),
@@ -34,28 +55,7 @@ final class DashboardDataExportController extends Controller
                 'record_count' => $recordCount,
             ]);
 
-            if ($format === 'csv') {
-                $section = $sections[0];
-
-                return response($packages->csvExport($datasets[$section]), 200, $this->headers(
-                    'text/csv; charset=UTF-8',
-                    'kairus-'.$section.'-'.now()->format('Ymd-His').'.csv',
-                ));
-            }
-
-            if ($format === 'json') {
-                return response($packages->jsonExport($datasets, $window, $sections), 200, $this->headers(
-                    'application/json; charset=UTF-8',
-                    'kairus-dashboard-export-'.now()->format('Ymd-His').'.json',
-                ));
-            }
-
-            $package = $packages->zip($datasets, $window, $sections);
-
-            return response()->download($package['path'], $package['filename'], [
-                'Cache-Control' => 'private, no-store, max-age=0',
-                'X-Content-Type-Options' => 'nosniff',
-            ])->deleteFileAfterSend(true);
+            return $response;
         } catch (\Throwable $exception) {
             Log::warning('dashboard_data_export', [
                 'admin_id' => $request->user()->id,
