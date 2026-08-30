@@ -56,8 +56,17 @@ jobs:
           vendor/bin/pint --test
           config/laboratorio.php
           app/Http/Controllers/ContentClusterController.php
+          app/Http/Controllers/Admin/DashboardDataExportController.php
+          app/Http/Requests/Admin/DashboardDataExportRequest.php
+          app/Services/DataExport/CsvSerializer.php
+          app/Services/DataExport/DashboardDataExportService.php
+          app/Services/DataExport/DashboardExportPackageBuilder.php
+          app/Services/DataExport/ExportWindow.php
+          app/Services/DataExport/PrivacySanitizer.php
           app/Services/EditorialOperations/EditorialOperationsDashboardService.php
+          config/dashboard_data_export.php
           database/seeders/BrowserTestSeeder.php
+          tests/Feature/Admin/DashboardDataExportTest.php
           tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
           tests/Feature/EditorialOperationsDashboardServiceTest.php
           tests/Feature/EditorialOperationsScheduledWaitClassificationTest.php
@@ -152,6 +161,7 @@ jobs:
           tests/Feature/Admin/AdminNavigationTest.php
           tests/Feature/AnalyticsHygieneTest.php
           tests/Feature/Admin/Communication/NewsletterModuleRegressionTest.php
+          tests/Feature/Admin/DashboardDataExportTest.php
           tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
 
   windows-media-safety:

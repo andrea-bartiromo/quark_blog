@@ -1,6 +1,42 @@
 @extends('layouts.admin')
 @section('title', 'Operazioni editoriali')
 @section('content')
+@if(auth()->user()?->role === 'admin')
+<details style="margin-bottom:1.25rem;border:1px solid #cbd5e1;border-radius:12px;padding:1rem;background:#f8fafc;">
+  <summary style="cursor:pointer;font-weight:700;">Esporta dati per analisi</summary>
+  <form method="POST" action="{{ route('admin.editorial-operations.export') }}" style="display:grid;gap:1rem;margin-top:1rem;max-width:760px;">
+    @csrf
+    <p style="margin:0;color:#475569;font-size:.88rem;">Il pacchetto contiene soltanto dati aggregati e campi in allowlist. Non include email, token, session ID, IP, credenziali o note private.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;">
+      <label>Dal <input class="form-input" type="date" name="from" value="{{ old('from', now('Europe/Rome')->subDays(30)->toDateString()) }}" required></label>
+      <label>Al <input class="form-input" type="date" name="to" value="{{ old('to', now('Europe/Rome')->toDateString()) }}" required></label>
+      <label>Timezone <input class="form-input" type="text" name="timezone" value="Europe/Rome" readonly></label>
+      <label>Formato
+        <select class="form-input" name="format" required>
+          <option value="zip">Report completo ZIP</option>
+          <option value="json">JSON tecnico completo</option>
+          <option value="csv">CSV della sezione selezionata</option>
+        </select>
+      </label>
+    </div>
+    <fieldset style="border:0;padding:0;margin:0;">
+      <legend style="font-weight:700;margin-bottom:.45rem;">Sezioni</legend>
+      <div style="display:flex;flex-wrap:wrap;gap:.8rem 1.2rem;">
+        @foreach([
+          'dashboard-summary' => 'Riepilogo dashboard',
+          'content-health' => 'Content Health',
+          'second-read' => 'Seconda lettura',
+          'newsletter-summary' => 'Newsletter aggregata',
+        ] as $value => $label)
+          <label><input type="checkbox" name="sections[]" value="{{ $value }}" {{ $value === 'dashboard-summary' ? 'checked' : '' }}> {{ $label }}</label>
+        @endforeach
+      </div>
+    </fieldset>
+    <p style="margin:0;color:#64748b;font-size:.82rem;">Limite intervallo: {{ config('dashboard_data_export.max_range_days') }} giorni. Per CSV seleziona una sola sezione. Il riepilogo dei filtri e la timezone sono inclusi nel manifest.</p>
+    <div><button class="action-btn" type="submit">Esporta dati per analisi</button></div>
+  </form>
+</details>
+@endif
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Operazioni editoriali</h1>
