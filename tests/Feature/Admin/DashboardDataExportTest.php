@@ -111,7 +111,7 @@ class DashboardDataExportTest extends TestCase
         $this->assertStringStartsWith("\xEF\xBB\xBF", $csv);
         $this->assertStringContainsString("'=SOMMA", $csv);
         $this->assertStringContainsString('È Unicode HTML', $csv);
-        $this->assertStringContainsString("seconda riga", $csv);
+        $this->assertStringContainsString('seconda riga', $csv);
         $this->assertStringNotContainsString('user@example.test', $csv);
         $this->assertStringNotContainsString('abc123', $csv);
 
