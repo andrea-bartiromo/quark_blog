@@ -7,8 +7,8 @@ use App\Models\ContentCluster;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
 use App\Services\ContentClusters\PercorsoPublicationReadinessService;
 use App\Services\ContentGraph\ContentGraphCoverageService;
-use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentGraph\ContentGraphOperationalSummaryService;
+use App\Services\ContentGraph\ContentGraphOrphanAuditService;
 use App\Services\ContentGraph\PublicAnswerableQuestionCoverageService;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\ContinuationAnalyticsService;
@@ -239,6 +239,12 @@ class EditorialOperationsDashboardService
             ->pluck('cluster_id')
             ->all();
         $percorsiReadiness = $this->percorsiReadinessSummary($orderHealthFlaggedClusterIds);
+        $percorsiOperational = $this->percorsiOperationalClassification(
+            $percorsiReadiness,
+            $orderHealth,
+            $pillarIssues,
+            $nonPublishableMembers,
+        );
         $opportunities = $this->radar->opportunities();
 
         // Mission 37: PercorsoCoverageAuditService::articleSummary() non
@@ -383,14 +389,13 @@ class EditorialOperationsDashboardService
             + count($isolatedArticles)
             + count($articlesWithoutConcept)
             + count($unassignedScheduledArticles)
-            + count($percorsiReadiness)
-            + $orderHealthSummary['structural_error_count']
-            + $orderHealthSummary['publication_warning_count']
+            + $percorsiOperational['actionable_readiness_count']
+            + $percorsiOperational['actionable_order_count']
             + count($seoViolations)
             + $overdueCount
             + $collisionCount
             + count($staleContentCandidates)
-            + count($pillarIssues)
+            + $percorsiOperational['actionable_pillar_count']
             + count($nonPublishableMembers)
             + $contentGraphActionableTotal;
 
@@ -463,6 +468,7 @@ class EditorialOperationsDashboardService
             ],
             'percorsi_readiness' => $percorsiReadiness,
             'percorsi_order_health' => $orderHealthSummary,
+            'percorsi_operativi' => $percorsiOperational,
             'percorsi_pillar_issues' => $pillarIssues,
             'articles_in_multiple_paths' => $articlesInMultiplePaths,
             'percorsi_non_publishable_members' => $nonPublishableMembers,
@@ -645,6 +651,203 @@ class EditorialOperationsDashboardService
             $row['scheduled_out_of_order'] !== [] ? 'SCHEDULED_OUT_OF_ORDER' : null,
             $row['dangling_transition'] !== null ? 'DANGLING_TRANSITION' : null,
         ]));
+    }
+
+    /**
+     * Presentation-only classification for the command centre.
+     *
+     * The canonical readiness/order audits remain untouched and are still
+     * returned verbatim in percorsi_readiness and percorsi_order_health.
+     * This method only decides whether an already-existing diagnostic needs
+     * action now or describes an intentional wait for a future publication.
+     *
+     * @return array<string, mixed>
+     */
+    private function percorsiOperationalClassification(
+        array $percorsiReadiness,
+        array $orderHealth,
+        array $pillarIssues,
+        array $nonPublishableMembers,
+    ): array {
+        $readinessByCluster = collect($percorsiReadiness)->keyBy('cluster_id');
+        $orderByCluster = collect($orderHealth['clusters'])->keyBy('id');
+        $pillarByCluster = collect($pillarIssues)->keyBy('cluster_id');
+        $nonPublishableByCluster = collect($nonPublishableMembers)->keyBy('cluster_id');
+
+        $clusterIds = $readinessByCluster->keys()
+            ->merge($orderByCluster->keys())
+            ->merge($pillarByCluster->keys())
+            ->merge($nonPublishableByCluster->keys())
+            ->unique()
+            ->values();
+
+        $rows = ContentCluster::query()
+            ->whereIn('id', $clusterIds)
+            ->with(['articles', 'pillarArticle'])
+            ->get()
+            ->map(function (ContentCluster $cluster) use (
+                $readinessByCluster,
+                $orderByCluster,
+                $pillarByCluster,
+                $nonPublishableByCluster,
+            ): ?array {
+                $ordered = $cluster->articles
+                    ->sortBy(fn (Article $article) => [$article->pivot?->position ?? PHP_INT_MAX, $article->id])
+                    ->values();
+                $firstUnavailable = $ordered->first(fn (Article $article) => ! $this->isPublicNow($article));
+                $pillar = $cluster->pillarArticle;
+                $futureBlocker = $firstUnavailable !== null && $this->isFutureScheduled($firstUnavailable);
+                $futurePillar = $pillar !== null && $this->isFutureScheduled($pillar);
+                $orderRow = $orderByCluster->get($cluster->id);
+                $readinessRow = $readinessByCluster->get($cluster->id);
+
+                $readinessCodes = collect($readinessRow['codes'] ?? []);
+                $orderCodes = collect($orderRow !== null ? $this->orderHealthCodes($orderRow) : []);
+                $technicalCodes = $readinessCodes
+                    ->merge($orderCodes)
+                    ->when($pillarByCluster->has($cluster->id), fn (Collection $codes) => $codes->push('PILLAR_INTEGRITY'))
+                    ->when($nonPublishableByCluster->has($cluster->id), fn (Collection $codes) => $codes->push('NON_PUBLISHABLE_MEMBERS'))
+                    ->unique()
+                    ->values();
+
+                if ($technicalCodes->isEmpty()) {
+                    return null;
+                }
+
+                $structurallyCoherent = $orderRow !== null
+                    && $orderRow['missing_position'] === []
+                    && $orderRow['non_positive_position'] === []
+                    && $orderRow['duplicate_position'] === []
+                    && ! $technicalCodes->contains('TRANSITION_TEXT_GAPS')
+                    && ! $nonPublishableByCluster->has($cluster->id)
+                    && $ordered->every(fn (Article $article) => $article->published_at !== null
+                        && ($this->isPublicNow($article) || $this->isFutureScheduled($article)));
+
+                $futureGapOnly = $futureBlocker
+                    && $this->publishedBeyondGapIsExplainedByFutureMembers($ordered);
+
+                $informativeCodes = $technicalCodes
+                    ->filter(fn (string $code) => match ($code) {
+                        'PUBLIC_SEQUENCE_BLOCKED' => $futureBlocker,
+                        'PUBLISHED_BEYOND_GAP' => $futureGapOnly,
+                        'HEALTH_PILLAR_NOT_PUBLIC',
+                        'PILLAR_OUTSIDE_PUBLIC_PREFIX',
+                        'PILLAR_OUTSIDE_REACHABLE_PREFIX' => $futurePillar,
+                        'CHRONOLOGICAL_INVERSIONS' => $structurallyCoherent,
+                        default => false,
+                    })
+                    ->values();
+
+                $actionableCodes = $technicalCodes->diff($informativeCodes)->values();
+                $blockingArticle = $futurePillar
+                    && $informativeCodes->contains(fn (string $code) => str_contains($code, 'PILLAR'))
+                        ? $pillar
+                        : ($futureBlocker ? $firstUnavailable : null);
+
+                return [
+                    'cluster_id' => $cluster->id,
+                    'name' => $cluster->name,
+                    'slug' => $cluster->slug,
+                    'technical_status' => $readinessRow['status'] ?? null,
+                    'also_in_order_health' => $orderRow !== null && $orderCodes->isNotEmpty(),
+                    'technical_codes' => $technicalCodes->all(),
+                    'actionable_codes' => $actionableCodes->all(),
+                    'actionable_readiness_codes' => $readinessCodes->diff($informativeCodes)->values()->all(),
+                    'informative_codes' => $informativeCodes->all(),
+                    'blocking_article' => $blockingArticle === null ? null : [
+                        'id' => $blockingArticle->id,
+                        'title' => $blockingArticle->title,
+                        'slug' => $blockingArticle->slug,
+                    ],
+                    'expected_at' => $blockingArticle?->published_at?->toISOString(),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $informativeOrderCodes = [
+            'PUBLISHED_BEYOND_GAP',
+            'PILLAR_OUTSIDE_REACHABLE_PREFIX',
+        ];
+        $actionableOrderCount = collect($orderHealth['structural_error'])
+            ->sum(fn (array $category) => count($category));
+        foreach ($orderHealth['publication_warning'] as $category => $categoryRows) {
+            $code = match ($category) {
+                'published_beyond_gap' => 'PUBLISHED_BEYOND_GAP',
+                'pillar_outside_reachable_prefix' => 'PILLAR_OUTSIDE_REACHABLE_PREFIX',
+                'complete_with_hidden_remainder' => 'COMPLETE_WITH_HIDDEN_REMAINDER',
+                default => strtoupper($category),
+            };
+
+            $actionableOrderCount += collect($categoryRows)
+                ->reject(fn (array $row) => in_array($code, $informativeOrderCodes, true)
+                    && collect($rows)->firstWhere('cluster_id', $row['id']) !== null
+                    && in_array($code, collect($rows)->firstWhere('cluster_id', $row['id'])['informative_codes'], true))
+                ->count();
+        }
+
+        return [
+            'actionable' => $rows->filter(fn (array $row) => $row['actionable_codes'] !== [])->values()->all(),
+            'scheduled_waits' => $rows->filter(fn (array $row) => $row['informative_codes'] !== [])->values()->all(),
+            'actionable_readiness_count' => $rows
+                ->filter(fn (array $row) => $row['actionable_readiness_codes'] !== [])
+                ->count(),
+            'actionable_order_count' => $actionableOrderCount,
+            'actionable_pillar_count' => collect($pillarIssues)
+                ->reject(function (array $issue) use ($rows): bool {
+                    $row = $rows->firstWhere('cluster_id', $issue['cluster_id']);
+
+                    return $row !== null
+                        && collect($row['informative_codes'])->contains(
+                            fn (string $code) => in_array($code, [
+                                'HEALTH_PILLAR_NOT_PUBLIC',
+                                'PILLAR_OUTSIDE_PUBLIC_PREFIX',
+                                'PILLAR_OUTSIDE_REACHABLE_PREFIX',
+                            ], true)
+                        );
+                })
+                ->count(),
+        ];
+    }
+
+    private function isPublicNow(Article $article): bool
+    {
+        return $article->status === Article::STATUS_PUBLISHED
+            && $article->published_at !== null
+            && $article->published_at->lte(now());
+    }
+
+    private function isFutureScheduled(Article $article): bool
+    {
+        return $article->status === Article::STATUS_SCHEDULED
+            && $article->published_at !== null
+            && $article->published_at->gt(now());
+    }
+
+    /** @param Collection<int, Article> $ordered */
+    private function publishedBeyondGapIsExplainedByFutureMembers(Collection $ordered): bool
+    {
+        $gapSeen = false;
+        $publishedBeyondGapSeen = false;
+
+        foreach ($ordered as $article) {
+            if (! $gapSeen && $this->isPublicNow($article)) {
+                continue;
+            }
+
+            $gapSeen = true;
+            if ($this->isPublicNow($article)) {
+                $publishedBeyondGapSeen = true;
+
+                continue;
+            }
+
+            if (! $this->isFutureScheduled($article)) {
+                return false;
+            }
+        }
+
+        return $publishedBeyondGapSeen;
     }
 
     /**

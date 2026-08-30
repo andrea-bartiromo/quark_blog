@@ -699,14 +699,13 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['programmati_non_assegnati'])
-            + count($snapshot['percorsi_readiness'])
-            + $orderHealth['structural_error_count']
-            + $orderHealth['publication_warning_count']
+            + $snapshot['percorsi_operativi']['actionable_readiness_count']
+            + $snapshot['percorsi_operativi']['actionable_order_count']
             + count($snapshot['seo']['violations'])
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues'])
+            + $snapshot['percorsi_operativi']['actionable_pillar_count']
             + count($snapshot['percorsi_non_publishable_members'])
             + $snapshot['content_graph_actionable']['total'];
 
@@ -767,14 +766,13 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['programmati_non_assegnati'])
-            + count($snapshot['percorsi_readiness'])
-            + $orderHealth['structural_error_count']
-            + $orderHealth['publication_warning_count']
+            + $snapshot['percorsi_operativi']['actionable_readiness_count']
+            + $snapshot['percorsi_operativi']['actionable_order_count']
             + count($snapshot['seo']['violations'])
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues'])
+            + $snapshot['percorsi_operativi']['actionable_pillar_count']
             + count($snapshot['percorsi_non_publishable_members'])
             + $snapshot['content_graph_actionable']['total'];
 
@@ -898,14 +896,13 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['programmati_non_assegnati'])
-            + count($snapshot['percorsi_readiness'])
-            + $orderHealth['structural_error_count']
-            + $orderHealth['publication_warning_count']
+            + $snapshot['percorsi_operativi']['actionable_readiness_count']
+            + $snapshot['percorsi_operativi']['actionable_order_count']
             + count($snapshot['seo']['violations'])
             + collect($snapshot['da_pubblicare'])->where('overdue', true)->count()
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues'])
+            + $snapshot['percorsi_operativi']['actionable_pillar_count']
             + count($snapshot['percorsi_non_publishable_members'])
             + $snapshot['content_graph_actionable']['total'];
 
@@ -937,14 +934,13 @@ class EditorialOperationsDashboardServiceTest extends TestCase
             + count($snapshot['contenuti_isolati'])
             + count($snapshot['contenuti_senza_concept'])
             + count($snapshot['programmati_non_assegnati'])
-            + count($snapshot['percorsi_readiness'])
-            + $orderHealth['structural_error_count']
-            + $orderHealth['publication_warning_count']
+            + $snapshot['percorsi_operativi']['actionable_readiness_count']
+            + $snapshot['percorsi_operativi']['actionable_order_count']
             + count($snapshot['seo']['violations'])
             + $overdueCount
             + collect($snapshot['da_pubblicare'])->where('collision', true)->count()
             + count($snapshot['contenuti_da_aggiornare'])
-            + count($snapshot['percorsi_pillar_issues'])
+            + $snapshot['percorsi_operativi']['actionable_pillar_count']
             + count($snapshot['percorsi_non_publishable_members'])
             + $snapshot['content_graph_actionable']['total'];
 
@@ -1419,5 +1415,4 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         );
         $this->assertLessThan(100, $twentyConceptQueries);
     }
-
 }
