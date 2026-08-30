@@ -248,25 +248,42 @@ class CollaboratorController extends Controller
             ->orderByRaw("CASE WHEN role = 'editor' THEN 0 ELSE 1 END")
             ->first();
 
-        if ($editor) {
-            Article::where('user_id', $user->id)
-                ->update([
-                    'user_id' => $editor->id,
-                ]);
+        // EDITORIAL TRUST (Missione 23) — bug corretto: articles.user_id e
+        // media.user_id hanno entrambi un vincolo FK con onDelete('cascade')
+        // (vedi le rispettive migrazioni). Prima di questa correzione, se
+        // $editor risultava null (nessun editor/admin esistente al momento
+        // della cancellazione — scenario limite ma non impossibile, es. un
+        // account editor rimosso per altra via prima di questo), il codice
+        // saltava silenziosamente la riassegnazione qui sotto e procedeva
+        // comunque a $user->delete(): il vincolo cascade cancellava allora
+        // dal DB, senza alcun avviso, TUTTI gli articoli e i file Media di
+        // quel collaboratore — non un errore visibile, una perdita di dati
+        // irreversibile e silente. Ora l'operazione si interrompe PRIMA di
+        // toccare qualunque cosa quando non esiste una destinazione sicura
+        // per la riassegnazione.
+        abort_if(
+            ! $editor,
+            409,
+            'Impossibile rimuovere il collaboratore: nessun editor o amministratore a cui riassegnare i suoi contenuti. Crea prima un account editor.'
+        );
 
-            // S9 — media.user_id ha un vincolo FK con onDelete('cascade')
-            // (a differenza di articles.user_id, gia' riassegnato sopra):
-            // senza questa riassegnazione, eliminare il collaboratore
-            // cancellerebbe silenziosamente dal DB ogni riga Media che
-            // aveva caricato — non un file orfano, una vera perdita della
-            // voce di catalogo per file che restano sul disco e possono
-            // essere ancora attivamente in uso come copertina di un
-            // articolo pubblicato.
-            Media::where('user_id', $user->id)
-                ->update([
-                    'user_id' => $editor->id,
-                ]);
-        }
+        Article::where('user_id', $user->id)
+            ->update([
+                'user_id' => $editor->id,
+            ]);
+
+        // S9 — media.user_id ha un vincolo FK con onDelete('cascade')
+        // (a differenza di articles.user_id, gia' riassegnato sopra):
+        // senza questa riassegnazione, eliminare il collaboratore
+        // cancellerebbe silenziosamente dal DB ogni riga Media che
+        // aveva caricato — non un file orfano, una vera perdita della
+        // voce di catalogo per file che restano sul disco e possono
+        // essere ancora attivamente in uso come copertina di un
+        // articolo pubblicato.
+        Media::where('user_id', $user->id)
+            ->update([
+                'user_id' => $editor->id,
+            ]);
 
         $user->delete();
 

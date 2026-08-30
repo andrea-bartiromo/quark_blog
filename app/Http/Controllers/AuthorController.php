@@ -33,6 +33,20 @@ class AuthorController extends Controller
             // riconoscere anche una categoria creata dall'admin dopo il
             // deploy, non solo lo snapshot statico di config().
             'categoryOptions' => Category::options(false),
+
+            // EDITORIAL TRUST (Missione 24) — "NON pubblicare profili
+            // privi di contenuto sufficiente". Prima di questa modifica
+            // OGNI /autore/{user} era indicizzabile (robots di default
+            // ereditato dal layout), incluso un account editor/admin
+            // appena creato senza ancora un solo articolo pubblicato e
+            // senza bio: una pagina vuota, indicizzabile, con solo il
+            // titolo. "Sottile" richiede il fallimento SIA della
+            // dimensione "contenuti" (nessun articolo pubblicato) SIA
+            // della dimensione "profilo" (nessuna bio): un profilo con
+            // una bio reale ma senza ancora articoli propri (es. un
+            // editor il cui lavoro è la revisione, non la scrittura) ha
+            // comunque un contenuto genuino da indicizzare.
+            'isThinAuthorProfile' => $articles->total() === 0 && blank($user->bio),
         ]);
     }
 }
