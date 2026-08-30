@@ -26,6 +26,12 @@
       @endif
     </strong>
     <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">{{ $health['published_articles_total'] }} {{ $health['published_articles_total'] === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }} · {{ $health['active_percorsi_total'] }} {{ $health['active_percorsi_total'] === 1 ? 'Percorso attivo' : 'Percorsi attivi' }} ora.</div>
+    @if(count($snapshot['percorsi_operativi']['scheduled_waits']) > 0)
+      <div style="font-size:.78rem;color:#0369a1;margin-top:.15rem;">
+        {{ count($snapshot['percorsi_operativi']['scheduled_waits']) }}
+        {{ count($snapshot['percorsi_operativi']['scheduled_waits']) === 1 ? 'attesa programmata informativa' : 'attese programmate informative' }} — non contate come problemi.
+      </div>
+    @endif
   </div>
 </div>
 
@@ -62,9 +68,15 @@
   </div>
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
-    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Percorsi non pronti</div>
-    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['percorsi_readiness']) }}</div>
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Percorsi da rivedere</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;">{{ count($snapshot['percorsi_operativi']['actionable']) }}</div>
     <a href="{{ route('admin.content-clusters.index') }}" style="font-size:.78rem;color:#0d9488;">Percorsi →</a>
+  </div>
+
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
+    <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#0369a1;">Attese programmate</div>
+    <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;color:#075985;">{{ count($snapshot['percorsi_operativi']['scheduled_waits']) }}</div>
+    <span style="font-size:.78rem;color:#0369a1;">Informative, non actionable</span>
   </div>
 
   <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
@@ -277,26 +289,64 @@
 </section>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
-  <h2 style="font-size:1rem;margin:0 0 .75rem;">Percorsi non pronti</h2>
-  @if(empty($snapshot['percorsi_readiness']))
-    <p style="font-size:.82rem;color:#6b7280;margin:0;">Ogni Percorso valutato risulta READY.</p>
+  <h2 style="font-size:1rem;margin:0 0 .75rem;">Problemi Percorsi actionable</h2>
+  @if(empty($snapshot['percorsi_operativi']['actionable']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessun Percorso richiede una correzione immediata.</p>
   @else
     <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem;">
-      @foreach($snapshot['percorsi_readiness'] as $row)
+      @foreach($snapshot['percorsi_operativi']['actionable'] as $row)
         <li style="font-size:.85rem;">
           <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
-          <span style="color:#6b7280;"> — {{ $row['status'] }} ({{ $row['error_count'] }} errori, {{ $row['warning_count'] }} warning)</span>
-          @if(! empty($row['codes']))
-            <div style="font-size:.72rem;color:#9ca3af;margin-top:.15rem;">{{ implode(' · ', $row['codes']) }}</div>
-          @endif
-          @if($row['also_in_order_health'])
-            <div style="font-size:.72rem;color:#b45309;margin-top:.15rem;">Segnalato anche in Sequenza Percorsi qui sotto — probabilmente la stessa causa.</div>
+          @if(! empty($row['actionable_codes']))
+            <div style="font-size:.72rem;color:#b91c1c;margin-top:.15rem;">{{ implode(' · ', $row['actionable_codes']) }}</div>
           @endif
         </li>
       @endforeach
     </ul>
   @endif
 </section>
+
+<section style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:var(--radius);padding:1.25rem;margin-bottom:1.25rem;">
+  <h2 style="font-size:1rem;color:#075985;margin:0 0 .4rem;">Attese programmate dei Percorsi</h2>
+  <p style="font-size:.8rem;color:#0369a1;margin:0 0 .75rem;">
+    Diagnostica conservata integralmente: queste condizioni dipendono da date future valide o da un ordine narrativo intenzionale e non richiedono una correzione adesso.
+  </p>
+  @if(empty($snapshot['percorsi_operativi']['scheduled_waits']))
+    <p style="font-size:.82rem;color:#6b7280;margin:0;">Nessuna attesa programmata rilevata.</p>
+  @else
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.65rem;">
+      @foreach($snapshot['percorsi_operativi']['scheduled_waits'] as $row)
+        <li style="font-size:.85rem;">
+          <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+          <div style="font-size:.72rem;color:#0369a1;margin-top:.15rem;">{{ implode(' · ', $row['informative_codes']) }}</div>
+          @if($row['blocking_article'])
+            <div style="font-size:.78rem;color:#475569;margin-top:.15rem;">
+              Articolo bloccante: {{ $row['blocking_article']['title'] }}
+              @if($row['expected_at'])
+                · previsto il {{ \Illuminate\Support\Carbon::parse($row['expected_at'])->timezone('Europe/Rome')->translatedFormat('d M Y, H:i') }}
+              @endif
+            </div>
+          @endif
+        </li>
+      @endforeach
+    </ul>
+  @endif
+</section>
+
+<details style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:var(--radius);padding:1rem;margin-bottom:1.25rem;">
+  <summary style="cursor:pointer;font-size:.85rem;font-weight:600;">Diagnostica tecnica readiness completa ({{ count($snapshot['percorsi_readiness']) }})</summary>
+  <ul style="list-style:none;padding:0;margin:.75rem 0 0;display:flex;flex-direction:column;gap:.4rem;">
+    @foreach($snapshot['percorsi_readiness'] as $row)
+      <li style="font-size:.8rem;">
+        <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
+        <span style="color:#6b7280;"> — {{ $row['status'] }}</span>
+        @if(! empty($row['codes']))
+          <div style="font-size:.72rem;color:#9ca3af;">{{ implode(' · ', $row['codes']) }}</div>
+        @endif
+      </li>
+    @endforeach
+  </ul>
+</details>
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Pillar Percorsi</h2>
@@ -352,7 +402,8 @@
 @endif
 
 <section style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-bottom:1.25rem;">
-  <h2 style="font-size:1rem;margin:0 0 .75rem;">Sequenza Percorsi</h2>
+  <h2 style="font-size:1rem;margin:0 0 .25rem;">Diagnostica tecnica Sequenza Percorsi</h2>
+  <p style="font-size:.78rem;color:#6b7280;margin:0 0 .75rem;">I codici canonici restano visibili anche quando la dashboard li classifica come attese informative.</p>
   @php
     $gapArticleCount = $snapshot['percorsi_order_health']['published_beyond_gap_article_count'];
     $gapClusterCount = $snapshot['percorsi_order_health']['published_beyond_gap_cluster_count'];
