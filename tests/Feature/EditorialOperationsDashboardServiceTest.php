@@ -1415,5 +1415,4 @@ class EditorialOperationsDashboardServiceTest extends TestCase
         );
         $this->assertLessThan(100, $twentyConceptQueries);
     }
-
 }

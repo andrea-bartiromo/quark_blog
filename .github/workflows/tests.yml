@@ -53,15 +53,12 @@ jobs:
 
       - name: Verify changed PHP code style with Pint
         run: >-
-          vendor/bin/pint
+          vendor/bin/pint --test
           config/laboratorio.php
           app/Services/EditorialOperations/EditorialOperationsDashboardService.php
           tests/Feature/EditorialOperationsDashboardServiceTest.php
           tests/Feature/EditorialOperationsScheduledWaitClassificationTest.php
           tests/Feature/FooterSocialLinksTest.php
-          && git diff --exit-code --
-          app/Services/EditorialOperations/EditorialOperationsDashboardService.php
-          tests/Feature/EditorialOperationsDashboardServiceTest.php
 
       - name: Clear Laravel caches
         run: php artisan optimize:clear
