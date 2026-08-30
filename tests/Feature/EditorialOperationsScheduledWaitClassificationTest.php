@@ -141,7 +141,7 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
 
     public function test_fisica_fondamentale_pre_launch_is_the_seventh_informative_wait_with_no_actionable_path(): void
     {
-        $pillar = $this->article('Fisica fondamentale pillar', Article::STATUS_SCHEDULED, '2026-09-07 13:30:00 UTC');
+        $pillar = $this->article('Fisica fondamentale pillar', Article::STATUS_SCHEDULED, Carbon::parse('2026-09-07 13:30:00 UTC'));
         $published = $this->article('Fisica fondamentale approfondimento', Article::STATUS_PUBLISHED, now()->subDay());
         $productionCluster = $this->preLaunchCluster('Fisica fondamentale', $pillar, [$pillar, $published]);
 
@@ -175,8 +175,8 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
 
     public function test_fisica_fondamentale_after_the_pillar_deadline_is_actionable(): void
     {
-        $pillar = $this->article('pillar-scaduto-fisica', Article::STATUS_SCHEDULED, '2026-09-07 13:30:00 UTC');
-        $published = $this->article('approfondimento-fisica-scaduto', Article::STATUS_PUBLISHED, '2026-09-06 10:00:00 UTC');
+        $pillar = $this->article('pillar-scaduto-fisica', Article::STATUS_SCHEDULED, Carbon::parse('2026-09-07 13:30:00 UTC'));
+        $published = $this->article('approfondimento-fisica-scaduto', Article::STATUS_PUBLISHED, Carbon::parse('2026-09-06 10:00:00 UTC'));
         $cluster = $this->preLaunchCluster('Fisica fondamentale scaduta', $pillar, [$pillar, $published]);
         Carbon::setTestNow('2026-09-08 10:00:00 UTC');
 
