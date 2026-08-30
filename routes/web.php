@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\Communication\CommunicationTemplateController;
 use App\Http\Controllers\Admin\ConceptController;
 use App\Http\Controllers\Admin\ConceptQuestionController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DashboardDataExportController;
 use App\Http\Controllers\Admin\DiscoverReadinessController;
 use App\Http\Controllers\Admin\EditorialOperationsDashboardController;
 use App\Http\Controllers\Admin\EditorialQualityAuditController;
@@ -131,6 +132,13 @@ Route::post('/admin/logout', function (Request $r) {
 
     return redirect()->route('login');
 })->name('admin.logout');
+
+// Export amministrativo: resta collegato all'unico Command Center, ma usa
+// auth senza middleware editor per restituire un 403 esplicito a qualunque
+// ruolo autenticato non-admin tramite DashboardDataExportRequest::authorize().
+Route::post('/admin/operazioni-editoriali/esporta', DashboardDataExportController::class)
+    ->middleware(['auth', 'throttle:'.config('dashboard_data_export.rate_limit')])
+    ->name('admin.editorial-operations.export');
 
 // ── Admin protetto ──────────────────────────────────────────────
 Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(function () {

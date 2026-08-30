@@ -40,7 +40,7 @@ class BrowserTestSeeder extends Seeder
             'email' => 'browser-admin@example.test',
             'password' => Hash::make('browser-tests'),
             'bio' => 'Editor deterministico usato esclusivamente dai browser test admin.',
-            'role' => 'editor',
+            'role' => 'admin',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
