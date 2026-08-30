@@ -300,6 +300,9 @@
           @if(! empty($row['actionable_codes']))
             <div style="font-size:.72rem;color:#b91c1c;margin-top:.15rem;">{{ implode(' · ', $row['actionable_codes']) }}</div>
           @endif
+          @if($row['also_in_order_health'])
+            <div style="font-size:.72rem;color:#b45309;margin-top:.15rem;">Segnalato anche in Sequenza Percorsi qui sotto — probabilmente la stessa causa.</div>
+          @endif
         </li>
       @endforeach
     </ul>

@@ -63,7 +63,7 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
         $this->assertSame($pillar->id, $wait['blocking_article']['id']);
         $this->assertSame([], $snapshot['percorsi_operativi']['actionable']);
         $this->assertSame(0, $snapshot['percorsi_operativi']['actionable_pillar_count']);
-        $this->assertNotEmpty($snapshot['percorsi_pillar_issues']);
+        $this->assertNotEmpty($snapshot['percorsi_readiness']);
     }
 
     public function test_valid_narrative_inversion_is_informative_without_reordering_members(): void

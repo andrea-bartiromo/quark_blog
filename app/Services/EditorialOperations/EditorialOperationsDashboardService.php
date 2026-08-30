@@ -749,6 +749,7 @@ class EditorialOperationsDashboardService
                     'name' => $cluster->name,
                     'slug' => $cluster->slug,
                     'technical_status' => $readinessRow['status'] ?? null,
+                    'also_in_order_health' => $orderRow !== null && $orderCodes->isNotEmpty(),
                     'technical_codes' => $technicalCodes->all(),
                     'actionable_codes' => $actionableCodes->all(),
                     'actionable_readiness_codes' => $readinessCodes->diff($informativeCodes)->values()->all(),
