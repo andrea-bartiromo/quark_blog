@@ -723,6 +723,13 @@ class EditorialOperationsDashboardService
                     && $ordered->every(fn (Article $article) => $article->published_at !== null
                         && ($this->isPublicNow($article) || $this->isFutureScheduled($article)));
 
+                $futurePillarPreLaunch = $structurallyCoherent
+                    && $futurePillar
+                    && $ordered->first()?->id === $pillar?->id
+                    && $firstUnavailable?->id === $pillar?->id;
+                $uniformlySecondaryMembership = $ordered->isNotEmpty()
+                    && $ordered->every(fn (Article $article) => ! (bool) $article->pivot?->is_primary);
+
                 $futureGapOnly = $futureBlocker
                     && $this->publishedBeyondGapIsExplainedByFutureMembers($ordered);
 
@@ -733,6 +740,8 @@ class EditorialOperationsDashboardService
                         'HEALTH_PILLAR_NOT_PUBLIC',
                         'PILLAR_OUTSIDE_PUBLIC_PREFIX',
                         'PILLAR_OUTSIDE_REACHABLE_PREFIX' => $futurePillar,
+                        'NO_PUBLIC_CONTIGUOUS_PREFIX' => $futurePillarPreLaunch,
+                        'HEALTH_PRIMARY_GAPS' => $futurePillarPreLaunch && $uniformlySecondaryMembership,
                         'CHRONOLOGICAL_INVERSIONS' => $structurallyCoherent,
                         default => false,
                     })
@@ -740,7 +749,8 @@ class EditorialOperationsDashboardService
 
                 $actionableCodes = $technicalCodes->diff($informativeCodes)->values();
                 $blockingArticle = $futurePillar
-                    && $informativeCodes->contains(fn (string $code) => str_contains($code, 'PILLAR'))
+                    && ($futurePillarPreLaunch
+                        || $informativeCodes->contains(fn (string $code) => str_contains($code, 'PILLAR')))
                         ? $pillar
                         : ($futureBlocker ? $firstUnavailable : null);
 

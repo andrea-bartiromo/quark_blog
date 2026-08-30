@@ -300,6 +300,7 @@
           @if(! empty($row['actionable_codes']))
             <div style="font-size:.72rem;color:#b91c1c;margin-top:.15rem;">{{ implode(' · ', $row['actionable_codes']) }}</div>
           @endif
+          <div style="font-size:.72rem;color:#6b7280;margin-top:.15rem;">Audit tecnico: {{ $row['technical_status'] ?? 'segnalato' }} · Priorità operativa: ACTIONABLE</div>
           @if($row['also_in_order_health'])
             <div style="font-size:.72rem;color:#b45309;margin-top:.15rem;">Segnalato anche in Sequenza Percorsi qui sotto — probabilmente la stessa causa.</div>
           @endif
@@ -322,6 +323,7 @@
         <li style="font-size:.85rem;">
           <a href="{{ route('admin.content-clusters.edit', $row['cluster_id']) }}">{{ $row['name'] }}</a>
           <div style="font-size:.72rem;color:#0369a1;margin-top:.15rem;">{{ implode(' · ', $row['informative_codes']) }}</div>
+          <div style="font-size:.72rem;color:#475569;margin-top:.15rem;">Audit tecnico: {{ $row['technical_status'] ?? 'segnalato' }} · Priorità operativa: ATTESA PROGRAMMATA</div>
           @if($row['blocking_article'])
             <div style="font-size:.78rem;color:#475569;margin-top:.15rem;">
               Articolo bloccante: {{ $row['blocking_article']['title'] }}

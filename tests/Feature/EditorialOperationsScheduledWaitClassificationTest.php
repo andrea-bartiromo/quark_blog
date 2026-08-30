@@ -139,6 +139,105 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
         $this->assertSame($expectedHeadline, $snapshot['salute_operativa']['open_problems_total']);
     }
 
+    public function test_fisica_fondamentale_pre_launch_is_the_seventh_informative_wait_with_no_actionable_path(): void
+    {
+        $pillar = $this->article('Fisica fondamentale pillar', Article::STATUS_SCHEDULED, '2026-09-07 13:30:00 UTC');
+        $published = $this->article('Fisica fondamentale approfondimento', Article::STATUS_PUBLISHED, now()->subDay());
+        $productionCluster = $this->preLaunchCluster('Fisica fondamentale', $pillar, [$pillar, $published]);
+
+        for ($index = 1; $index <= 6; $index++) {
+            $first = $this->article("attesa-{$index}-pubblico", Article::STATUS_PUBLISHED, now()->subDays(2));
+            $future = $this->article("attesa-{$index}-futuro", Article::STATUS_SCHEDULED, now()->addDays($index));
+            $this->cluster("Attesa programmata {$index}", $first, [$first, $future]);
+        }
+
+        $snapshot = $this->snapshot();
+        $wait = $this->row($snapshot['percorsi_operativi']['scheduled_waits'], $productionCluster);
+
+        $this->assertSame([], $snapshot['percorsi_operativi']['actionable']);
+        $this->assertCount(7, $snapshot['percorsi_operativi']['scheduled_waits']);
+        $this->assertSame(0, $snapshot['percorsi_operativi']['actionable_readiness_count']);
+        $this->assertContains('NO_PUBLIC_CONTIGUOUS_PREFIX', $wait['informative_codes']);
+        $this->assertContains('HEALTH_PRIMARY_GAPS', $wait['informative_codes']);
+        $this->assertSame('NOT READY', $wait['technical_status']);
+        $this->assertSame($pillar->id, $wait['blocking_article']['id']);
+        $this->assertSame($pillar->published_at->toISOString(), $wait['expected_at']);
+
+        $this->actingAs($this->editor)
+            ->get(route('admin.editorial-operations'))
+            ->assertOk()
+            ->assertSee('7 attese programmate informative')
+            ->assertSee('Audit tecnico: NOT READY')
+            ->assertSee('Priorità operativa: ATTESA PROGRAMMATA')
+            ->assertSee('NO_PUBLIC_CONTIGUOUS_PREFIX')
+            ->assertSee('HEALTH_PRIMARY_GAPS');
+    }
+
+    public function test_fisica_fondamentale_after_the_pillar_deadline_is_actionable(): void
+    {
+        $pillar = $this->article('pillar-scaduto-fisica', Article::STATUS_SCHEDULED, '2026-09-07 13:30:00 UTC');
+        $published = $this->article('approfondimento-fisica-scaduto', Article::STATUS_PUBLISHED, '2026-09-06 10:00:00 UTC');
+        $cluster = $this->preLaunchCluster('Fisica fondamentale scaduta', $pillar, [$pillar, $published]);
+        Carbon::setTestNow('2026-09-08 10:00:00 UTC');
+
+        $snapshot = $this->snapshot();
+        $actionable = $this->row($snapshot['percorsi_operativi']['actionable'], $cluster);
+
+        $this->assertContains('NO_PUBLIC_CONTIGUOUS_PREFIX', $actionable['actionable_codes']);
+        $this->assertContains('HEALTH_PRIMARY_GAPS', $actionable['actionable_codes']);
+    }
+
+    public function test_future_pillar_with_missing_or_duplicate_position_remains_actionable(): void
+    {
+        $missingPillar = $this->article('pillar-posizione-mancante', Article::STATUS_SCHEDULED, now()->addDay());
+        $missingMember = $this->article('membro-posizione-mancante', Article::STATUS_PUBLISHED, now()->subDay());
+        $missingCluster = $this->preLaunchCluster('Posizione mancante', $missingPillar, [$missingPillar, $missingMember]);
+        $missingCluster->articles()->updateExistingPivot($missingPillar->id, ['position' => null]);
+
+        $duplicatePillar = $this->article('pillar-posizione-duplicata', Article::STATUS_SCHEDULED, now()->addDay());
+        $duplicateMember = $this->article('membro-posizione-duplicata', Article::STATUS_PUBLISHED, now()->subDay());
+        $duplicateCluster = $this->preLaunchCluster('Posizione duplicata', $duplicatePillar, [$duplicatePillar, $duplicateMember]);
+        $duplicateCluster->articles()->updateExistingPivot($duplicateMember->id, ['position' => 10]);
+
+        $snapshot = $this->snapshot();
+        $missing = $this->row($snapshot['percorsi_operativi']['actionable'], $missingCluster);
+        $duplicate = $this->row($snapshot['percorsi_operativi']['actionable'], $duplicateCluster);
+
+        $this->assertContains('MISSING_POSITION', $missing['actionable_codes']);
+        $this->assertContains('DUPLICATE_POSITION', $duplicate['actionable_codes']);
+        $this->assertContains('HEALTH_PRIMARY_GAPS', $missing['actionable_codes']);
+        $this->assertContains('HEALTH_PRIMARY_GAPS', $duplicate['actionable_codes']);
+    }
+
+    public function test_future_pillar_with_draft_or_review_member_remains_actionable(): void
+    {
+        foreach ([Article::STATUS_DRAFT, Article::STATUS_REVIEW] as $status) {
+            $pillar = $this->article("pillar-con-{$status}", Article::STATUS_SCHEDULED, now()->addDay());
+            $member = $this->article("membro-{$status}", $status);
+            $cluster = $this->preLaunchCluster("Percorso con {$status}", $pillar, [$pillar, $member]);
+
+            $actionable = $this->row($this->snapshot()['percorsi_operativi']['actionable'], $cluster);
+
+            $this->assertContains('NON_PUBLISHABLE_MEMBERS', $actionable['actionable_codes']);
+            $this->assertContains('HEALTH_PRIMARY_GAPS', $actionable['actionable_codes']);
+        }
+    }
+
+    public function test_primary_gap_independent_from_future_pillar_remains_actionable(): void
+    {
+        $pillar = $this->article('pillar-primary-misto', Article::STATUS_SCHEDULED, now()->addDay());
+        $member = $this->article('membro-primary-misto', Article::STATUS_PUBLISHED, now()->subDay());
+        $cluster = $this->cluster('Primary gap indipendente', $pillar, [$pillar, $member]);
+        $cluster->articles()->updateExistingPivot($member->id, ['is_primary' => false]);
+
+        $snapshot = $this->snapshot();
+        $actionable = $this->row($snapshot['percorsi_operativi']['actionable'], $cluster);
+
+        $this->assertContains('HEALTH_PRIMARY_GAPS', $actionable['actionable_codes']);
+        $this->assertNotContains('HEALTH_PRIMARY_GAPS', $actionable['informative_codes']);
+        $this->assertContains('NO_PUBLIC_CONTIGUOUS_PREFIX', $actionable['informative_codes']);
+    }
+
     public function test_dashboard_renders_actionable_and_informative_sections_separately(): void
     {
         $first = $this->article('render-pubblico', Article::STATUS_PUBLISHED, now()->subDay());
@@ -202,6 +301,18 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
                 'is_primary' => true,
                 'transition_text' => $index < count($articles) - 1 ? 'Prosegui con la tappa successiva.' : null,
             ]);
+        }
+
+        return $cluster;
+    }
+
+    /** @param list<Article> $articles */
+    private function preLaunchCluster(string $name, Article $pillar, array $articles): ContentCluster
+    {
+        $cluster = $this->cluster($name, $pillar, $articles);
+
+        foreach ($articles as $article) {
+            $cluster->articles()->updateExistingPivot($article->id, ['is_primary' => false]);
         }
 
         return $cluster;
