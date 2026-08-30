@@ -33,7 +33,14 @@
   <aside class="admin-sidebar">
     <div class="admin-sidebar__brand">
       <div class="admin-sidebar__logo">
-        Kairus<span style="color:#0d9488;">.</span>
+        <img
+          src="{{ asset('assets/icons/symbol.svg') }}"
+          width="28" height="28"
+          alt=""
+          class="admin-sidebar__logo-symbol"
+          decoding="async"
+        >
+        <span class="admin-sidebar__logo-word">Kairus<span style="color:#0d9488;">.</span></span>
       </div>
       <span class="admin-sidebar__sub">Area collaboratori</span>
     </div>

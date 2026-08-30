@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Kairus</title>
+  <desc id="desc">Quattro traiettorie interconnesse attorno a un nucleo arancione.</desc>
+  <defs>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#20d6df"/>
+      <stop offset="1" stop-color="#00aebc"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a4771"/>
+      <stop offset="1" stop-color="#062a4b"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a33"/>
+      <stop offset="1" stop-color="#ff5d18"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M251 251 C216 168 155 91 92 72 C117 129 169 208 251 251" stroke="url(#cyan)" stroke-width="29"/>
+    <path d="M261 251 C338 207 408 143 430 96 C370 117 300 177 261 251" stroke="url(#navy)" stroke-width="29"/>
+    <path d="M251 261 C215 342 158 421 92 440 C119 378 169 303 251 261" stroke="url(#cyan)" stroke-width="29"/>
+    <path d="M261 261 C337 304 405 373 430 424 C373 401 304 339 261 261" stroke="url(#navy)" stroke-width="29"/>
+  </g>
+  <g>
+    <circle cx="82" cy="68" r="34" fill="url(#cyan)"/>
+    <circle cx="438" cy="91" r="34" fill="url(#navy)"/>
+    <circle cx="82" cy="444" r="34" fill="url(#cyan)"/>
+    <circle cx="438" cy="429" r="34" fill="url(#navy)"/>
+    <circle cx="256" cy="256" r="30" fill="url(#orange)" stroke="#fff" stroke-opacity=".85" stroke-width="4"/>
+  </g>
+</svg>

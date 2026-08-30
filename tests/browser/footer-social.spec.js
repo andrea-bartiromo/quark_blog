@@ -10,13 +10,16 @@ for (const width of viewports) {
 
         await page.goto('/');
 
-        const socialNav = page.getByRole('navigation', { name: 'Seguici' });
-        const linkedin = socialNav.getByRole('link', { name: 'LinkedIn' });
-        const facebook = socialNav.getByRole('link', { name: 'Facebook' });
+        const socialNav = page.getByRole('navigation', { name: 'La curiosità continua' });
+        const linkedin = socialNav.getByRole('link', { name: 'Kairus su LinkedIn', exact: true });
+        const facebook = socialNav.getByRole('link', { name: 'Kairus su Facebook', exact: true });
 
         await expect(socialNav).toBeVisible();
         await expect(linkedin).toBeVisible();
         await expect(facebook).toBeVisible();
+        await expect(page.getByText('Nuove storie, idee e domande da esplorare insieme.')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Seguici', exact: true })).toHaveCount(0);
+        await expect(page.getByText('Seguici', { exact: true })).toHaveCount(0);
 
         await expect(linkedin).toHaveAttribute('href', 'https://www.linkedin.com/company/kairus-it/');
         await expect(facebook).toHaveAttribute('href', 'https://www.facebook.com/profile.php?id=61593323495927');
