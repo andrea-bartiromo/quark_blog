@@ -14,7 +14,7 @@ test('administrator can use the data export action from the only editorial comma
     await page.getByRole('button', { name: 'Accedi' }).click();
     await page.goto('/admin/operazioni-editoriali');
 
-    const exportPanel = page.getByText('Esporta dati per analisi', { exact: true });
+    const exportPanel = page.locator('summary').filter({ hasText: 'Esporta dati per analisi' });
     await expect(exportPanel).toBeVisible();
     await exportPanel.click();
     await expect(page.getByText('Non include email, token, session ID, IP, credenziali o note private.')).toBeVisible();
