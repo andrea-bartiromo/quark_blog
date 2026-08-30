@@ -166,7 +166,7 @@ class EditorialOperationsScheduledWaitClassificationTest extends TestCase
         $this->actingAs($this->editor)
             ->get(route('admin.editorial-operations'))
             ->assertOk()
-            ->assertSee('7 attese programmate informative')
+            ->assertSeeInOrder(['7', 'attese programmate informative'])
             ->assertSee('Audit tecnico: NOT READY')
             ->assertSee('Priorità operativa: ATTESA PROGRAMMATA')
             ->assertSee('NO_PUBLIC_CONTIGUOUS_PREFIX')
