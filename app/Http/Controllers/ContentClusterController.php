@@ -14,15 +14,33 @@ class ContentClusterController extends Controller
         $clusters = ContentCluster::query()
             ->publiclyVisible()
             ->ordered()
+            ->orderBy('id')
             ->withCount([
                 'articles as published_articles_count' => fn ($query) => $query->published(),
             ])
             ->with([
                 'pillarArticle' => fn ($query) => $query->published(),
             ])
-            ->get();
+            ->paginate(6);
 
-        return view('content-clusters.index', compact('clusters'));
+        if ($clusters->total() > 0 && $clusters->currentPage() > $clusters->lastPage()) {
+            abort(404);
+        }
+
+        $pageUrl = static fn (int $page): string => $page === 1
+            ? route('percorsi.index')
+            : route('percorsi.index', ['page' => $page]);
+
+        $canonical = $pageUrl($clusters->currentPage());
+        $previousPageUrl = $clusters->onFirstPage() ? null : $pageUrl($clusters->currentPage() - 1);
+        $nextPageUrl = $clusters->hasMorePages() ? $pageUrl($clusters->currentPage() + 1) : null;
+
+        return view('content-clusters.index', compact(
+            'clusters',
+            'canonical',
+            'previousPageUrl',
+            'nextPageUrl',
+        ));
     }
 
     public function show(string $slug, ContentClusterPublicSequence $publicSequence): View
