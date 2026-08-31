@@ -1,6 +1,6 @@
 # Anteprima narrativa delle card Percorsi
 
-La pagina `/percorsi` riusa `ContentClusterPublicSequence` anche per le prime tre tappe mostrate nelle card. Il controller non seleziona autonomamente articoli “pubblicati”: carica in una sola query tutte le membership dei soli sei Percorsi della pagina corrente e il resolver produce in una seconda query l’insieme degli ID conformi ad `Article::published()`. Ogni prefisso passa quindi da `resolveLoaded()` e conserva lo stop al primo gap.
+La pagina `/percorsi` riusa `ContentClusterPublicSequence` anche per le prime tre tappe mostrate nelle card. Il controller non seleziona autonomamente articoli “pubblicati”: carica in una sola query tutte le membership dei soli sei Percorsi della pagina corrente, nello stesso ordine posizione/titolo usato dalla relazione pubblica, e il resolver produce in una seconda query l’insieme degli ID conformi ad `Article::published()`. Ogni prefisso passa quindi da `resolveFromOrder()` e conserva lo stop al primo gap, compreso il tie-breaker canonico quando due membership hanno la stessa posizione.
 
 ## Budget query
 
