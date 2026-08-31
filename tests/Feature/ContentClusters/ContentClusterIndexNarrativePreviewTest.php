@@ -53,6 +53,22 @@ class ContentClusterIndexNarrativePreviewTest extends TestCase
         }
     }
 
+    public function test_preview_uses_the_detail_title_tie_breaker_for_duplicate_positions(): void
+    {
+        $published = $this->article('Zeta pubblicata');
+        $scheduled = $this->article('Alfa futura', Article::STATUS_SCHEDULED);
+        $cluster = $this->cluster('Posizioni duplicate', 10);
+
+        $cluster->articles()->attach($published->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->articles()->attach($scheduled->id, ['position' => 10, 'is_primary' => false]);
+
+        $html = $this->get(route('percorsi.index'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('path-preview-'.$cluster->id, $html);
+        $this->assertStringNotContainsString('Zeta pubblicata', $html);
+        $this->assertStringNotContainsString('Alfa futura', $html);
+    }
+
     public function test_preview_markup_is_progressive_accessible_and_keeps_article_and_path_links_distinct(): void
     {
         $article = $this->article('Tappa collegata');
