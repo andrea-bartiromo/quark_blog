@@ -7,6 +7,7 @@ use App\Models\Newsletter;
 use App\Models\User;
 use App\Services\DataExport\DashboardExportPackageBuilder;
 use App\Services\DataExport\ExportWindow;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -17,6 +18,22 @@ use ZipArchive;
 class DashboardDataExportTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow(Carbon::create(2026, 8, 15, 12, 0, 0, 'UTC'));
+    }
+
+    protected function tearDown(): void
+    {
+        try {
+            Carbon::setTestNow();
+        } finally {
+            parent::tearDown();
+        }
+    }
 
     private function user(string $role): User
     {

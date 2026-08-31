@@ -12,7 +12,9 @@ class ProjectCalendarController extends Controller
 {
     public function index(Request $request)
     {
-        $month = Carbon::createFromFormat('Y-m', $request->string('month')->value() ?: now()->format('Y-m'))->startOfMonth();
+        $requestedMonth = $request->string('month')->value()
+            ?: now()->timezone(Article::EDITORIAL_TIMEZONE)->format('Y-m');
+        $month = Carbon::createFromFormat('!Y-m', $requestedMonth, Article::EDITORIAL_TIMEZONE)->startOfMonth();
         $rangeStart = $month->clone()->startOfMonth()->toDateString();
         $rangeEnd = $month->clone()->endOfMonth()->toDateString();
 
