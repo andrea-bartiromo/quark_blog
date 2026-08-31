@@ -98,7 +98,7 @@ class ContentClusterIndexNarrativePreviewTest extends TestCase
         $second = $this->get(route('percorsi.index', ['page' => 2]))->assertOk();
         $seventh = $clusters->last();
 
-        $first->assertDontSee('Tappa pagina 07');
+        $first->assertDontSee('path-preview-'.$seventh->id, false);
         $second->assertSee('Tappa pagina 07');
         $second->assertSee('path-preview-'.$seventh->id, false);
     }
