@@ -14,6 +14,15 @@ class ProjectCalendarControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        try {
+            Carbon::setTestNow();
+        } finally {
+            parent::tearDown();
+        }
+    }
+
     private function editor(): User
     {
         return User::factory()->create(['role' => 'editor']);
@@ -83,13 +92,27 @@ class ProjectCalendarControllerTest extends TestCase
 
     public function test_calendar_defaults_to_current_month_when_none_given(): void
     {
-        Carbon::setTestNow('2026-08-06 10:00:00');
+        Carbon::setTestNow(Carbon::create(2026, 8, 6, 10, 0, 0, 'Europe/Rome'));
 
         $response = $this->actingAs($this->editor())->get(route('admin.progettazione.calendar'));
 
         $response->assertOk()->assertSeeText(Carbon::now()->translatedFormat('F Y'));
+    }
 
-        Carbon::setTestNow();
+    public function test_requested_month_does_not_inherit_the_current_day_at_a_shorter_month_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 8, 31, 10, 0, 0, 'Europe/Rome'));
+        $project = Project::factory()->create();
+        ProjectTask::factory()->for($project)->create([
+            'title' => 'Attività del primo settembre',
+            'due_date' => '2026-09-01',
+        ]);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-09']))
+            ->assertOk()
+            ->assertSeeText('Calendario — settembre 2026')
+            ->assertSeeText('Attività del primo settembre');
     }
 
     /**
@@ -152,6 +175,7 @@ class ProjectCalendarControllerTest extends TestCase
      */
     public function test_calendar_places_an_article_on_its_rome_local_date_across_a_month_boundary(): void
     {
+        Carbon::setTestNow(Carbon::create(2026, 8, 31, 10, 0, 0, 'Europe/Rome'));
         $project = Project::factory()->create();
         $article = Article::create([
             'user_id' => User::factory()->create()->id,
@@ -173,6 +197,84 @@ class ProjectCalendarControllerTest extends TestCase
             ->get(route('admin.progettazione.calendar', ['month' => '2026-08']))
             ->assertOk()
             ->assertDontSeeText('Articolo a cavallo di mezzanotte');
+    }
+
+    public function test_calendar_places_a_cet_article_on_its_rome_local_date_across_the_year_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 12, 31, 10, 0, 0, 'Europe/Rome'));
+        $project = Project::factory()->create();
+        $article = Article::create([
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Articolo nel nuovo anno editoriale',
+            'slug' => 'articolo-nel-nuovo-anno-editoriale',
+            'body' => 'Corpo.',
+            'category' => 'intelligenza-artificiale',
+            'status' => Article::STATUS_SCHEDULED,
+            // 23:30 UTC del 31/12 = 00:30 CET del 01/01 a Roma.
+            'published_at' => '2026-12-31 23:30:00',
+        ]);
+        $project->articles()->attach($article->id);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2027-01']))
+            ->assertOk()
+            ->assertSeeText('Articolo nel nuovo anno editoriale');
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-12']))
+            ->assertOk()
+            ->assertDontSeeText('Articolo nel nuovo anno editoriale');
+    }
+
+    public function test_calendar_preserves_the_rome_editorial_day_across_cet_and_cest_transitions(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 3, 29, 12, 0, 0, 'Europe/Rome'));
+        $project = Project::factory()->create();
+
+        foreach ([
+            ['Prima del salto CET CEST', 'prima-del-salto-cet-cest', '2026-03-28 23:30:00'],
+            ['Dopo il salto CET CEST', 'dopo-il-salto-cet-cest', '2026-03-29 01:30:00'],
+        ] as [$title, $slug, $publishedAt]) {
+            $article = Article::create([
+                'user_id' => User::factory()->create()->id,
+                'title' => $title,
+                'slug' => $slug,
+                'body' => 'Corpo.',
+                'category' => 'intelligenza-artificiale',
+                'status' => Article::STATUS_SCHEDULED,
+                'published_at' => $publishedAt,
+            ]);
+            $project->articles()->attach($article->id);
+        }
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-03']))
+            ->assertOk()
+            ->assertSeeText('Prima del salto CET CEST')
+            ->assertSeeText('Dopo il salto CET CEST');
+
+        Carbon::setTestNow(Carbon::create(2026, 10, 25, 12, 0, 0, 'Europe/Rome'));
+        foreach ([
+            ['Prima del ritorno CEST CET', 'prima-del-ritorno-cest-cet', '2026-10-25 00:30:00'],
+            ['Dopo il ritorno CEST CET', 'dopo-il-ritorno-cest-cet', '2026-10-25 01:30:00'],
+        ] as [$title, $slug, $publishedAt]) {
+            $article = Article::create([
+                'user_id' => User::factory()->create()->id,
+                'title' => $title,
+                'slug' => $slug,
+                'body' => 'Corpo.',
+                'category' => 'intelligenza-artificiale',
+                'status' => Article::STATUS_SCHEDULED,
+                'published_at' => $publishedAt,
+            ]);
+            $project->articles()->attach($article->id);
+        }
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.progettazione.calendar', ['month' => '2026-10']))
+            ->assertOk()
+            ->assertSeeText('Prima del ritorno CEST CET')
+            ->assertSeeText('Dopo il ritorno CEST CET');
     }
 
     public function test_calendar_does_not_show_a_draft_article_even_if_linked(): void
