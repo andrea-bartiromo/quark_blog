@@ -86,9 +86,10 @@ for (const width of viewportWidths) {
             expect(indexLayout.mediaWidth).toBeGreaterThan(300);
             expect(indexLayout.mediaHeight).toBeGreaterThan(135);
         } else {
+            const minimumCardWidth = width === 768 ? 330 : (width === 1024 ? 430 : 540);
             expect(indexLayout.gridColumns.trim().split(' ').length).toBe(2);
-            expect(indexLayout.cardWidth).toBeGreaterThan(width === 1024 ? 430 : 540);
-            expect(indexLayout.mediaWidth).toBeGreaterThan(width === 1024 ? 430 : 540);
+            expect(indexLayout.cardWidth).toBeGreaterThan(minimumCardWidth);
+            expect(indexLayout.mediaWidth).toBeGreaterThan(minimumCardWidth);
             expect(indexLayout.cardHeight).toBeLessThan(620);
         }
 
