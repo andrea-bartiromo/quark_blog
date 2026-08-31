@@ -1,9 +1,11 @@
 name: Deploy Safety
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
+      - main
       - fix/deployment-mariadb-safety
 
 permissions:
@@ -11,6 +13,10 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: deploy-safety-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   deploy-script-real-execution:

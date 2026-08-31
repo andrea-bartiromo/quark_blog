@@ -1,9 +1,11 @@
 name: Backup Restore
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
+      - main
       - feat/mariadb-backup-v2-core
 
 permissions:
@@ -11,6 +13,10 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: backup-restore-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   mariadb-dump-restore:
