@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const viewportWidths = [390, 430, 1024, 1440];
+const viewportWidths = [390, 430, 768, 1024, 1440];
 
 function watchPage(page) {
     const errors = [];
@@ -10,6 +10,27 @@ function watchPage(page) {
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     return errors;
 }
+
+test.describe('Percorsi narrative preview progressive enhancement', () => {
+    test.use({ javaScriptEnabled: false, viewport: { width: 390, height: 900 } });
+
+    test('keeps the server-rendered preview and article links usable without JavaScript', async ({ page }) => {
+        await page.goto('/percorsi');
+
+        await expect(page.locator('.path-card__preview').first()).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Anteprima delle tappe' }).first()).toBeHidden();
+        await expect(page.getByRole('link', { name: 'Turing e il browser regression harness' }).first()).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Esplora il percorso' }).first()).toBeVisible();
+    });
+});
+
+test('Percorsi narrative preview honors reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/percorsi');
+
+    const transition = await page.locator('.path-card__preview').first().evaluate((element) => getComputedStyle(element).transitionDuration);
+    expect(transition).toBe('0s');
+});
 
 for (const width of viewportWidths) {
     test(`Percorsi public surfaces are safe at ${width}px`, async ({ page }) => {
@@ -72,6 +93,29 @@ for (const width of viewportWidths) {
         }
 
         await expect(page.getByRole('link', { name: 'Esplora il percorso' }).first()).toBeVisible();
+
+        const iaCard = page.locator('.path-card').filter({ hasText: 'IA spiegata' });
+        const preview = iaCard.locator('.path-card__preview');
+        if (width <= 430) {
+            const toggle = page.getByRole('button', { name: 'Anteprima delle tappe' }).first();
+            await expect(toggle).toBeVisible();
+            await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+            await expect(preview).toBeHidden();
+            await toggle.focus();
+            await page.keyboard.press('Enter');
+            await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+            await expect(toggle).toBeFocused();
+            await expect(preview).toBeVisible();
+            await page.keyboard.press('Space');
+            await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+            await expect(preview).toBeHidden();
+        } else {
+            await expect(page.getByRole('button', { name: 'Anteprima delle tappe' }).first()).toBeHidden();
+            await expect(preview).toBeVisible();
+        }
+
+        await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(page.getByText('Dalle macchine ai modelli moderni')).toHaveCount(0);
 
         if (width === 1440) {
             await page.getByRole('link', { name: 'Pagina successiva' }).click();
