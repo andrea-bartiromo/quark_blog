@@ -72,15 +72,21 @@ class ContentClusterIndexNarrativePreviewTest extends TestCase
             ->assertSee('Tappa collegata');
     }
 
-    public function test_batch_resolution_is_constant_query_cost_for_one_or_six_paths(): void
+    public function test_batch_resolution_is_constant_query_cost_for_one_two_or_six_paths(): void
     {
         $one = $this->indexQueryCount(1);
 
         ContentCluster::query()->delete();
         Article::query()->delete();
 
+        $two = $this->indexQueryCount(2);
+
+        ContentCluster::query()->delete();
+        Article::query()->delete();
+
         $six = $this->indexQueryCount(6);
 
+        $this->assertSame($one, $two);
         $this->assertSame($one, $six);
     }
 
