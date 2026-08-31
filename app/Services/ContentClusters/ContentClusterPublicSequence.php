@@ -19,8 +19,10 @@ class ContentClusterPublicSequence
     /**
      * Resolve a bounded page of Percorsi with two aggregate queries: one for
      * every membership on the page and one for the corresponding public ids.
-     * The prefix itself still flows through resolveLoaded()/fromOrdered(), so
-     * index previews cannot diverge from the public detail contract.
+     * The eager-loaded relationship keeps the same position/title ordering
+     * used by resolve(). The prefix then flows through resolveFromOrder(), so
+     * index previews cannot diverge from the public detail contract even when
+     * two memberships have the same position.
      *
      * @param  Collection<int, ContentCluster>  $clusters
      * @return Collection<int, array{articles:Collection<int,Article>,has_hidden_remainder:bool}>
@@ -51,7 +53,7 @@ class ContentClusterPublicSequence
             : Article::query()->published()->whereIn('id', $memberIds)->pluck('id');
 
         return $clusters->mapWithKeys(fn (ContentCluster $cluster) => [
-            $cluster->id => $this->resolveLoaded($cluster, $publishedIds),
+            $cluster->id => $this->resolveFromOrder($cluster->articles->values(), $publishedIds),
         ]);
     }
 
