@@ -114,8 +114,8 @@ for (const width of viewportWidths) {
             await expect(preview).toBeVisible();
         }
 
-        await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
-        await expect(page.getByText('Dalle macchine ai modelli moderni')).toHaveCount(0);
+        await expect(preview.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
+        await expect(preview.getByText('Dalle macchine ai modelli moderni')).toHaveCount(0);
 
         if (width === 1440) {
             await page.getByRole('link', { name: 'Pagina successiva' }).click();
