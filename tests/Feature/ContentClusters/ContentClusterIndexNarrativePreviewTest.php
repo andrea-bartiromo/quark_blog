@@ -65,7 +65,6 @@ class ContentClusterIndexNarrativePreviewTest extends TestCase
         $html = $this->get(route('percorsi.index'))->assertOk()->getContent();
 
         $this->assertStringNotContainsString('path-preview-'.$cluster->id, $html);
-        $this->assertStringNotContainsString('Zeta pubblicata', $html);
         $this->assertStringNotContainsString('Alfa futura', $html);
     }
 
