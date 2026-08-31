@@ -9,7 +9,7 @@ use Illuminate\Contracts\View\View;
 
 class ContentClusterController extends Controller
 {
-    public function index(): View
+    public function index(ContentClusterPublicSequence $publicSequence): View
     {
         $clusters = ContentCluster::query()
             ->publiclyVisible()
@@ -22,6 +22,9 @@ class ContentClusterController extends Controller
                 'pillarArticle' => fn ($query) => $query->published(),
             ])
             ->paginate(6);
+
+        $publicPreviews = $publicSequence->resolvePage($clusters->getCollection())
+            ->map(fn (array $sequence) => $sequence['articles']->take(3)->values());
 
         if ($clusters->total() > 0 && $clusters->currentPage() > $clusters->lastPage()) {
             abort(404);
@@ -40,6 +43,7 @@ class ContentClusterController extends Controller
             'canonical',
             'previousPageUrl',
             'nextPageUrl',
+            'publicPreviews',
         ));
     }
 

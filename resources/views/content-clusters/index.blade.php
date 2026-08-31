@@ -70,6 +70,25 @@
             <h2><a href="{{ route('percorsi.show', $cluster->slug) }}">{{ $cluster->name }}</a></h2>
             @if($cluster->short_description)<p class="path-card__description">{{ $cluster->short_description }}</p>@endif
             @if($cluster->pillarArticle)<p class="path-card__start"><span>Da qui si parte</span>{{ $cluster->pillarArticle->title }}</p>@endif
+            @php($preview = $publicPreviews->get($cluster->id, collect()))
+            @if($preview->isNotEmpty())
+              @php($previewId = 'path-preview-'.$cluster->id)
+              <button class="path-card__preview-toggle" type="button" aria-expanded="false" aria-controls="{{ $previewId }}" hidden>
+                Anteprima delle tappe
+                <span aria-hidden="true">+</span>
+              </button>
+              <div class="path-card__preview" id="{{ $previewId }}" role="group" aria-label="Prime tappe pubbliche di {{ $cluster->name }}">
+                <p class="path-card__preview-label">Prime tappe</p>
+                <ol>
+                  @foreach($preview as $article)
+                    <li>
+                      <span class="path-card__preview-number" aria-hidden="true">{{ $loop->iteration }}</span>
+                      <a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a>
+                    </li>
+                  @endforeach
+                </ol>
+              </div>
+            @endif
             <a class="path-card__cta" href="{{ route('percorsi.show', $cluster->slug) }}">Esplora il percorso <span aria-hidden="true">→</span></a>
           </div>
         </article>
@@ -90,3 +109,36 @@
   </div>
 </section>
 @endsection
+
+@push('scripts')
+<script>
+(() => {
+  const mobile = window.matchMedia('(max-width: 760px)');
+
+  document.querySelectorAll('.path-card__preview-toggle').forEach((button) => {
+    const panel = document.getElementById(button.getAttribute('aria-controls'));
+    if (!panel) return;
+
+    const card = button.closest('.path-card');
+    card.dataset.previewEnhanced = 'true';
+
+    const setOpen = (open) => {
+      button.setAttribute('aria-expanded', String(open));
+      button.querySelector('[aria-hidden="true"]').textContent = open ? '−' : '+';
+      panel.hidden = !open;
+    };
+
+    const syncViewport = () => {
+      button.hidden = !mobile.matches;
+      setOpen(!mobile.matches);
+    };
+
+    button.addEventListener('click', () => {
+      setOpen(button.getAttribute('aria-expanded') !== 'true');
+    });
+    mobile.addEventListener('change', syncViewport);
+    syncViewport();
+  });
+})();
+</script>
+@endpush

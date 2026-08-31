@@ -64,10 +64,12 @@ jobs:
           app/Services/DataExport/ExportWindow.php
           app/Services/DataExport/PrivacySanitizer.php
           app/Services/EditorialOperations/EditorialOperationsDashboardService.php
+          app/Services/ContentClusters/ContentClusterPublicSequence.php
           config/dashboard_data_export.php
           database/seeders/BrowserTestSeeder.php
           tests/Feature/Admin/DashboardDataExportTest.php
           tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
+          tests/Feature/ContentClusters/ContentClusterIndexNarrativePreviewTest.php
           tests/Feature/EditorialOperationsDashboardServiceTest.php
           tests/Feature/EditorialOperationsScheduledWaitClassificationTest.php
           tests/Feature/FooterSocialLinksTest.php

@@ -17,6 +17,47 @@ use Illuminate\Support\Collection;
 class ContentClusterPublicSequence
 {
     /**
+     * Resolve a bounded page of Percorsi with two aggregate queries: one for
+     * every membership on the page and one for the corresponding public ids.
+     * The eager-loaded relationship keeps the same position/title ordering
+     * used by resolve(). The prefix then flows through resolveFromOrder(), so
+     * index previews cannot diverge from the public detail contract even when
+     * two memberships have the same position.
+     *
+     * @param  Collection<int, ContentCluster>  $clusters
+     * @return Collection<int, array{articles:Collection<int,Article>,has_hidden_remainder:bool}>
+     */
+    public function resolvePage(\Illuminate\Database\Eloquent\Collection $clusters): Collection
+    {
+        if ($clusters->isEmpty()) {
+            return collect();
+        }
+
+        $clusters->loadMissing([
+            'articles' => fn ($query) => $query->select([
+                'articles.id',
+                'articles.title',
+                'articles.slug',
+                'articles.status',
+                'articles.published_at',
+            ]),
+        ]);
+
+        $memberIds = $clusters
+            ->flatMap(fn (ContentCluster $cluster) => $cluster->articles->pluck('id'))
+            ->unique()
+            ->values();
+
+        $publishedIds = $memberIds->isEmpty()
+            ? collect()
+            : Article::query()->published()->whereIn('id', $memberIds)->pluck('id');
+
+        return $clusters->mapWithKeys(fn (ContentCluster $cluster) => [
+            $cluster->id => $this->resolveFromOrder($cluster->articles->values(), $publishedIds),
+        ]);
+    }
+
+    /**
      * Resolve one Percorso from the database. Public eligibility is delegated
      * to Article::published(), never reconstructed from status strings here.
      *
