@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "reviewed_at": "2026-09-01",
+  "k": 3,
+  "cases": [
+    {"id":"exact-category","kind":"exact","query":"Fisica quantistica","expected":["category:fisica-quantistica"],"expect_no_results":false},
+    {"id":"exact-concept-alias","kind":"synonym","query":"MQ","expected":["concept:meccanica-quantistica"],"expect_no_results":false},
+    {"id":"natural-question","kind":"question","query":"perché il cielo è blu","expected":["concept:scattering-rayleigh"],"expect_no_results":false},
+    {"id":"common-spelling-error","kind":"typo","query":"meccanica quantisctica","expected":["concept:meccanica-quantistica"],"expect_no_results":false},
+    {"id":"public-path","kind":"exact","query":"Spazio","expected":["percorso:spazio"],"expect_no_results":false},
+    {"id":"accent-folding","kind":"synonym","query":"societa e ambiente","expected":["category:societa-e-ambiente"],"expect_no_results":false},
+    {"id":"genuine-zero","kind":"zero_result","query":"materia oscura axionica ultraleggera","expected":[],"expect_no_results":true},
+    {"id":"noise-zero","kind":"noise","query":"asdfghjkl","expected":[],"expect_no_results":true}
+  ]
+}
