@@ -18,6 +18,7 @@ use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -350,10 +351,15 @@ class ArticleController extends Controller
             // body se un link non è più sicuro) devono avvenire insieme, non
             // in due update() indipendenti.
             DB::transaction(function () use ($article, $data, $request) {
+                $lockedArticle = Article::query()
+                    ->whereKey($article->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
                 // EDITORIAL SAFETY: snapshot dello stato ATTUALE prima di
                 // applicare la modifica — stesso motivo di
                 // Admin\ArticleController::update(), vedi ArticleRevisionService.
-                $this->revisionService->recordIfChanged($article, [
+                $this->revisionService->recordIfChanged($lockedArticle, [
                     'title' => $data['title'],
                     'excerpt' => $data['excerpt'] ?? null,
                     'body' => $data['body'],
@@ -361,13 +367,13 @@ class ArticleController extends Controller
                     'status' => 'review',
                 ], $request->user());
 
-                $article->update([
+                $lockedArticle->update([
                     'title' => $data['title'],
                     'excerpt' => $data['excerpt'] ?? null,
                     'body' => $data['body'],
                     'category' => $data['category'],
                     'cover_image' => $data['cover_image']
-                        ?? $article->cover_image,
+                        ?? $lockedArticle->cover_image,
                     'cover_alt' => $data['cover_alt'] ?? null,
                     'cover_caption' => $data['cover_caption'] ?? null,
                     'cover_credit' => $data['cover_credit'] ?? null,
@@ -389,7 +395,7 @@ class ArticleController extends Controller
                 ]);
 
                 $this->linkSuggestionService->markAccepted(
-                    $article,
+                    $lockedArticle,
                     (array) $request->input('applied_link_suggestions', []),
                     $request->user()->id
                 );
@@ -410,8 +416,20 @@ class ArticleController extends Controller
                 );
             }
 
-            throw $exception;
+            Log::error('Salvataggio articolo redazione annullato.', [
+                'article_id' => $article->getKey(),
+                'error_class' => $exception::class,
+                'error_code' => (string) $exception->getCode(),
+                'error_origin' => basename($exception->getFile()).':'.$exception->getLine(),
+                'incident_id' => (string) Str::uuid(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['save' => 'Non è stato possibile salvare l’articolo. Nessuna modifica è stata applicata: riprova.']);
         }
+
+        $article->refresh();
 
         $this->notifyEditor($article, true);
 

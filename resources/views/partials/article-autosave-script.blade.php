@@ -444,6 +444,25 @@
   form.addEventListener('input', scheduleAutosave);
   form.addEventListener('change', scheduleAutosave);
 
+  const excerpt = form.querySelector('[data-excerpt-limit]');
+  const excerptCounter = form.querySelector('[data-excerpt-counter]');
+
+  function updateExcerptCounter() {
+    if (! excerpt || ! excerptCounter) {
+      return;
+    }
+
+    const limit = Number(excerpt.dataset.excerptLimit);
+    const length = Array.from(excerpt.value).length;
+    excerptCounter.textContent = `${length} / ${limit} caratteri`;
+    excerpt.setCustomValidity(length > limit ? `Il sommario non può superare ${limit} caratteri.` : '');
+  }
+
+  if (excerpt && excerptCounter) {
+    excerpt.addEventListener('input', updateExcerptCounter);
+    updateExcerptCounter();
+  }
+
   // FASE 23 (bonus audit manual-save UX): il pulsante "Crea articolo"/
   // "Salva modifiche" non aveva alcuna protezione da doppio click — un
   // secondo click durante l'invio (rete lenta, TinyMCE che finisce di

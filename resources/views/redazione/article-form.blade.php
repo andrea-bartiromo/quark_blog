@@ -50,9 +50,11 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Sommario (max 300 caratteri)</label>
+        <label class="form-label" for="excerpt">Sommario (max 300 caratteri)</label>
         <textarea class="form-textarea" id="excerpt" name="excerpt"
-                  style="min-height:80px;" maxlength="300">{{ old('excerpt', $article->excerpt ?? '') }}</textarea>
+                  style="min-height:80px;" data-excerpt-limit="300"
+                  aria-describedby="excerpt-counter">{{ old('excerpt', $article->excerpt ?? '') }}</textarea>
+        <small id="excerpt-counter" data-excerpt-counter aria-live="polite"></small>
       </div>
 
       <div class="form-group">
