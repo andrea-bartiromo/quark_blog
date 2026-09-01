@@ -15,7 +15,7 @@ class TrovaBenchmarkFixtureTest extends TestCase
         $this->assertSame(1, $fixture['version']);
         $this->assertSame(3, $fixture['k']);
         $this->assertCount(count(array_unique(array_column($cases, 'id'))), $cases);
-        $this->assertSameCanonicalizing(
+        $this->assertEqualsCanonicalizing(
             ['exact', 'synonym', 'question', 'typo', 'zero_result', 'noise'],
             array_values(array_unique(array_column($cases, 'kind'))),
         );
