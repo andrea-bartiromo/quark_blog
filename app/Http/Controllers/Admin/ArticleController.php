@@ -15,13 +15,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreArticleRequest;
 use App\Http\Requests\Admin\UpdateArticleRequest;
+use App\Jobs\PublishSocialDistribution;
 use App\Models\ActivityLog;
 use App\Models\Article;
 use App\Models\ArticleConcept;
 use App\Models\Category;
 use App\Models\Concept;
 use App\Models\SocialPublication;
-use App\Jobs\PublishSocialDistribution;
 use App\Models\User;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
@@ -572,6 +572,7 @@ class ArticleController extends Controller
             }
 
             PublishSocialDistribution::dispatch($locked->id)->afterCommit();
+
             return true;
         });
 
