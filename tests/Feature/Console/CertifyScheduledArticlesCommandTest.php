@@ -40,7 +40,7 @@ class CertifyScheduledArticlesCommandTest extends TestCase
     public function test_it_reports_health_paths_concepts_sources_collisions_and_hidden_page_contract(): void
     {
         Carbon::setTestNow('2026-09-01 10:00:00 UTC');
-        $article = $this->article('Completo', now()->addDay(), ['primary_sources' => "https://example.test/source"]);
+        $article = $this->article('Completo', now()->addDay(), ['primary_sources' => 'https://example.test/source']);
         $other = $this->article('Collisione', now()->addDay());
         $cluster = ContentCluster::create(['name' => 'Percorso Test', 'slug' => 'percorso-test', 'is_active' => true]);
         $cluster->articles()->attach($article, ['position' => 10, 'is_primary' => true]);
