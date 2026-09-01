@@ -520,17 +520,24 @@ document.addEventListener('DOMContentLoaded', function () {
     relative_urls: false,
     remove_script_host: false,
     setup: function (editor) {
+      let pendingPlainTextPasteHandler = null;
+
       editor.ui.registry.addButton('pasteplaintext', {
         text: 'Incolla testo semplice',
         tooltip: 'Rimuove la formattazione esterna dal prossimo contenuto incollato',
         onAction: function () {
+          if (pendingPlainTextPasteHandler) {
+            editor.off('paste', pendingPlainTextPasteHandler);
+          }
+
           editor.notificationManager.open({
             text: 'Ora incolla il testo: saranno conservati i paragrafi, non la formattazione esterna.',
             type: 'info',
             timeout: 5000
           });
 
-          editor.once('paste', function (event) {
+          pendingPlainTextPasteHandler = function (event) {
+            pendingPlainTextPasteHandler = null;
             event.preventDefault();
             const clipboard = event.clipboardData || event.originalEvent?.clipboardData;
             const text = clipboard ? clipboard.getData('text/plain') : '';
@@ -543,7 +550,8 @@ document.addEventListener('DOMContentLoaded', function () {
               .map(function (paragraph) { return '<p>' + encode(paragraph).replace(/\r?\n/gu, '<br>') + '</p>'; })
               .join('');
             editor.insertContent(paragraphs);
-          });
+          };
+          editor.once('paste', pendingPlainTextPasteHandler);
         }
       });
 

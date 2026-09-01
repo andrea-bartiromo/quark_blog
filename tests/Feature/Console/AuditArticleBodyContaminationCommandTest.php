@@ -58,6 +58,19 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertFalse($definition->hasOption('execute'));
     }
 
+    public function test_dry_run_removes_only_the_foreign_source_and_preserves_the_raw_query_contract(): void
+    {
+        $body = '<p><a href="https://example.org/paper?tag=a&tag=b&utm_source=chatgpt.com&flag&q=a+b&q=a%20b#section">Fonte</a></p>';
+        $article = $this->article('Query ripetuta', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<p><a href="https://example.org/paper?tag=a&amp;tag=b&amp;flag&amp;q=a+b&amp;q=a%20b#section">Fonte</a></p>';
+
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);

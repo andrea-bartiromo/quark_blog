@@ -25,7 +25,8 @@ class PlainTextPasteEditorTest extends TestCase
                 ->assertSee('Incolla testo semplice')
                 ->assertSee("editor.ui.registry.addButton('pasteplaintext'", false)
                 ->assertSee("clipboard.getData('text/plain')", false)
-                ->assertSee("editor.once('paste'", false);
+                ->assertSee("editor.once('paste', pendingPlainTextPasteHandler)", false)
+                ->assertSee("editor.off('paste', pendingPlainTextPasteHandler)", false);
         }
     }
 }

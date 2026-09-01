@@ -59,10 +59,8 @@ class ArticleBodyContaminationService
         foreach ($this->links($html) as $link) {
             $href = html_entity_decode($link->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
-            parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
-            $source = strtolower((string) ($query['utm_source'] ?? ''));
 
-            if ($host !== '' && ! $this->isKairusHost($host) && in_array($source, ['chatgpt.com', 'chatgpt', 'openai'], true)) {
+            if ($host !== '' && ! $this->isKairusHost($host) && $this->hasForeignPlatformUtmSource($href)) {
                 return true;
             }
         }
@@ -86,24 +84,64 @@ class ArticleBodyContaminationService
 
             $href = html_entity_decode($link->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
-            parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
-            $source = strtolower((string) ($query['utm_source'] ?? ''));
 
-            if ($host === '' || $this->isKairusHost($host) || ! in_array($source, ['chatgpt.com', 'chatgpt', 'openai'], true)) {
+            if ($host === '' || $this->isKairusHost($host) || ! $this->hasForeignPlatformUtmSource($href)) {
                 continue;
             }
 
-            unset($query['utm_source']);
-            $parts = parse_url($href);
-            $rebuilt = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
-            $rebuilt .= isset($parts['port']) ? ':'.$parts['port'] : '';
-            $rebuilt .= $parts['path'] ?? '';
-            $rebuilt .= $query === [] ? '' : '?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-            $rebuilt .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
-            $link->setAttribute('href', $rebuilt);
+            $link->setAttribute('href', $this->withoutForeignPlatformUtmSource($href));
         }
 
         return $this->innerHtml($dom, $root);
+    }
+
+    private function hasForeignPlatformUtmSource(string $href): bool
+    {
+        foreach ($this->rawQueryPairs($href) as $pair) {
+            if ($this->isForeignPlatformUtmSourcePair($pair)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function withoutForeignPlatformUtmSource(string $href): string
+    {
+        $fragmentPosition = strpos($href, '#');
+        $beforeFragment = $fragmentPosition === false ? $href : substr($href, 0, $fragmentPosition);
+        $fragment = $fragmentPosition === false ? '' : substr($href, $fragmentPosition);
+        $queryPosition = strpos($beforeFragment, '?');
+
+        if ($queryPosition === false) {
+            return $href;
+        }
+
+        $base = substr($beforeFragment, 0, $queryPosition);
+        $pairs = array_values(array_filter(
+            explode('&', substr($beforeFragment, $queryPosition + 1)),
+            fn (string $pair): bool => ! $this->isForeignPlatformUtmSourcePair($pair),
+        ));
+
+        return $base.($pairs === [] ? '' : '?'.implode('&', $pairs)).$fragment;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function rawQueryPairs(string $href): array
+    {
+        $query = parse_url($href, PHP_URL_QUERY);
+
+        return is_string($query) && $query !== '' ? explode('&', $query) : [];
+    }
+
+    private function isForeignPlatformUtmSourcePair(string $pair): bool
+    {
+        [$rawKey, $rawValue] = array_pad(explode('=', $pair, 2), 2, '');
+
+        return strtolower(urldecode($rawKey)) === 'utm_source'
+            && in_array(strtolower(urldecode($rawValue)), ['chatgpt.com', 'chatgpt', 'openai'], true);
     }
 
     /**
