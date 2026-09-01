@@ -15,8 +15,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('article_revisions', function (Blueprint $table) {
-            $table->string('excerpt')->nullable()->change();
-        });
+        // Intenzionalmente non restringere di nuovo a VARCHAR(255): il
+        // contratto applicativo accetta sommari fino a 300 caratteri e, dopo
+        // l'uso della migration, possono esistere snapshot validi oltre 255.
+        // Un rollback distruttivo fallirebbe in strict mode o richiederebbe
+        // troncamento/perdita di dati. TEXT resta compatibile anche con il
+        // codice precedente e rende il rollback sicuro.
     }
 };

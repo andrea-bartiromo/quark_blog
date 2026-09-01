@@ -708,6 +708,9 @@ class ArticleController extends Controller
             Log::error('Salvataggio articolo admin annullato.', [
                 'article_id' => $article->getKey(),
                 'error_class' => $exception::class,
+                'error_code' => (string) $exception->getCode(),
+                'error_origin' => basename($exception->getFile()).':'.$exception->getLine(),
+                'incident_id' => (string) Str::uuid(),
             ]);
 
             return back()

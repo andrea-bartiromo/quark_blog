@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Article;
+use App\Models\ArticleRevision;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -66,6 +67,30 @@ class ArticleExcerptContractTest extends TestCase
             ->assertOk()
             ->assertSee('data-excerpt-limit="300"', false)
             ->assertSee('data-excerpt-counter', false);
+    }
+
+    public function test_rollback_preserves_valid_excerpts_longer_than_255_characters(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $article = $this->article($editor);
+        $excerpt = str_repeat('è', 300);
+
+        $revision = ArticleRevision::query()->create([
+            'article_id' => $article->id,
+            'user_id' => $editor->id,
+            'title' => $article->title,
+            'excerpt' => $excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => $article->status,
+            'created_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_09_01_100000_align_article_revision_excerpt_contract.php');
+        $migration->down();
+
+        $this->assertSame('text', Schema::getColumnType('article_revisions', 'excerpt'));
+        $this->assertSame($excerpt, $revision->fresh()->excerpt);
     }
 
     private function article(User $author): Article

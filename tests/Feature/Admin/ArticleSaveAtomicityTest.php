@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\ArticleRevisionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Mockery\MockInterface;
 use RuntimeException;
 use Tests\TestCase;
@@ -28,6 +29,8 @@ class ArticleSaveAtomicityTest extends TestCase
 
         $before = $article->fresh()->getRawOriginal();
         $beforeCategories = $article->belongsToMany(Category::class, 'article_category')->pluck('categories.id')->all();
+
+        Log::spy();
 
         $this->mock(ArticleRevisionService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('recordIfChanged')->once()->andThrow(new RuntimeException('sensitive database detail'));
@@ -52,6 +55,7 @@ class ArticleSaveAtomicityTest extends TestCase
             $article->belongsToMany(Category::class, 'article_category')->pluck('categories.id')->all(),
         );
         $this->assertDatabaseCount('article_revisions', 0);
+        $this->assertPrivacySafeFailureWasLogged('Salvataggio articolo admin annullato.', $article);
     }
 
     public function test_redazione_update_rolls_back_the_complete_article_when_revision_creation_fails(): void
@@ -59,6 +63,8 @@ class ArticleSaveAtomicityTest extends TestCase
         $author = User::factory()->create(['role' => 'author']);
         $article = $this->article($author, Article::STATUS_DRAFT);
         $before = $article->fresh()->getRawOriginal();
+
+        Log::spy();
 
         $this->mock(ArticleRevisionService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('recordIfChanged')->once()->andThrow(new RuntimeException('sensitive database detail'));
@@ -77,6 +83,24 @@ class ArticleSaveAtomicityTest extends TestCase
         $response->assertSessionHasErrors('save');
         $this->assertSame($before, $article->fresh()->getRawOriginal());
         $this->assertDatabaseCount('article_revisions', 0);
+        $this->assertPrivacySafeFailureWasLogged('Salvataggio articolo redazione annullato.', $article);
+    }
+
+    private function assertPrivacySafeFailureWasLogged(string $message, Article $article): void
+    {
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $loggedMessage, array $context) use ($message, $article): bool {
+                $serialized = $loggedMessage.' '.json_encode($context);
+
+                return $loggedMessage === $message
+                    && $context['article_id'] === $article->id
+                    && $context['error_class'] === RuntimeException::class
+                    && array_key_exists('error_code', $context)
+                    && str_contains($context['error_origin'], 'ArticleSaveAtomicityTest.php:')
+                    && preg_match('/^[0-9a-f-]{36}$/', $context['incident_id']) === 1
+                    && ! str_contains($serialized, 'sensitive database detail');
+            });
     }
 
     private function article(User $author, string $status): Article
