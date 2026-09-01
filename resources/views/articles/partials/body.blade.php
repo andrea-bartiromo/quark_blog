@@ -69,10 +69,4 @@
     @endforeach
   @endif
 
-  @if($sources)
-  <div class="article-premium__panel" style="margin-top:2rem;">
-    <h3>Fonti</h3>
-    <p style="margin:0;">{!! nl2br(e($sources)) !!}</p>
-  </div>
-  @endif
 </section>

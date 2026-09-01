@@ -92,6 +92,8 @@
     $bodyParts = explode('---', (string) $article->body);
     $mainBody = $bodyParts[0] ?? (string) $article->body;
     $sources = isset($bodyParts[1]) ? trim($bodyParts[1]) : null;
+    $publicSources = app(\App\Services\Articles\ArticleSourcePresenter::class)
+        ->present($article->primary_sources, $sources);
     $isHtml = strip_tags($mainBody) !== $mainBody;
     $relatedItems = collect($related ?? []);
     $toc = $isHtml ? app(\App\Services\TableOfContentsService::class)->build($mainBody) : ['html' => $mainBody, 'items' => []];
@@ -107,6 +109,7 @@
             <main>
                 @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')
+                @include('articles.partials.sources')
                 @include('articles.partials.path-continuation')
                 @include('articles.partials.continue-reading')
                 @include('articles.partials.newsletter-band')
