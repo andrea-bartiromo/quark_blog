@@ -27,6 +27,7 @@ class AuthorController extends Controller
         return view('autore', [
             'author' => $user,
             'articles' => $articles,
+            'isThinAuthorProfile' => $articles->total() === 0 && blank($user->bio),
 
             // DB-first (stessa fonte di Category::options() usata
             // altrove): il badge categoria sotto ogni articolo deve
