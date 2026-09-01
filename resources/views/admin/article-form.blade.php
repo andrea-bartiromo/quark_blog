@@ -52,7 +52,7 @@
         <textarea class="form-textarea" id="body" name="body"
                   style="min-height:400px;" required>{{ old('body', $article->body ?? '') }}</textarea>
         <small style="font-size:.72rem;color:#6b7280;">
-          Usa la barra degli strumenti per formattare il testo.
+          Usa la barra degli strumenti per formattare il testo. “Incolla testo semplice” conserva i paragrafi ma rimuove la formattazione esterna dal prossimo contenuto incollato.
         </small>
       </div>
 
@@ -513,13 +513,40 @@ document.addEventListener('DOMContentLoaded', function () {
     promotion: false,
     resize: true,
     plugins: 'advlist autolink lists link image media table code preview fullscreen searchreplace visualblocks wordcount charmap anchor codesample',
-    toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat | code preview fullscreen',
+    toolbar: 'undo redo | pasteplaintext | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat | code preview fullscreen',
     block_formats: 'Paragrafo=p; Titolo 1=h1; Titolo 2=h2; Titolo 3=h3; Citazione=blockquote',
     font_size_formats: '12px 14px 16px 18px 20px 24px 28px 32px',
     convert_urls: false,
     relative_urls: false,
     remove_script_host: false,
     setup: function (editor) {
+      editor.ui.registry.addButton('pasteplaintext', {
+        text: 'Incolla testo semplice',
+        tooltip: 'Rimuove la formattazione esterna dal prossimo contenuto incollato',
+        onAction: function () {
+          editor.notificationManager.open({
+            text: 'Ora incolla il testo: saranno conservati i paragrafi, non la formattazione esterna.',
+            type: 'info',
+            timeout: 5000
+          });
+
+          editor.once('paste', function (event) {
+            event.preventDefault();
+            const clipboard = event.clipboardData || event.originalEvent?.clipboardData;
+            const text = clipboard ? clipboard.getData('text/plain') : '';
+            const encode = function (value) {
+              const node = document.createElement('div');
+              node.textContent = value;
+              return node.innerHTML;
+            };
+            const paragraphs = text.split(/(?:\r?\n){2,}/u)
+              .map(function (paragraph) { return '<p>' + encode(paragraph).replace(/\r?\n/gu, '<br>') + '</p>'; })
+              .join('');
+            editor.insertContent(paragraphs);
+          });
+        }
+      });
+
       editor.on('change keyup', function () {
         editor.save();
         if (typeof window.kairusUpdateReadMinutesPreview === 'function') {

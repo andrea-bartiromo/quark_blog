@@ -1,0 +1,77 @@
+<?php
+
+namespace Tests\Feature\Console;
+
+use App\Models\Article;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Tests\TestCase;
+
+class AuditArticleBodyContaminationCommandTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_reports_known_signatures_without_exposing_the_body_or_modifying_it(): void
+    {
+        $body = '<div class="conversation-turn" data-message-id="secret"><p style="color:red">Testo riservato</p><script>alert(1)</script><iframe src="https://example.com"></iframe><a href="https://example.org/paper?utm_source=chatgpt.com&id=7">Fonte</a></div>';
+        $article = $this->article('Corpo contaminato', $body);
+
+        $exit = Artisan::call('articles:audit-body-contamination', ['--json' => true]);
+        $output = Artisan::output();
+        $decoded = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue($decoded['read_only']);
+        $this->assertSame([
+            'SCRIPT',
+            'IFRAME',
+            'INLINE_STYLE',
+            'CHATGPT_DATA_ATTRIBUTE',
+            'CHATGPT_CLASS',
+            'FOREIGN_PLATFORM_UTM_SOURCE',
+        ], $decoded['articles'][0]['findings']);
+        $this->assertStringNotContainsString('Testo riservato', $output);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_dry_run_returns_hashes_removed_nodes_and_a_limited_preview_without_writing(): void
+    {
+        $body = '<div data-turn="1"><p>Contenuto utile.</p><script>segreto()</script></div>';
+        $article = $this->article('Dry run', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $dryRun = $decoded['articles'][0]['dry_run'];
+
+        $this->assertSame(hash('sha256', $body), $dryRun['before_hash']);
+        $this->assertNotSame($dryRun['before_hash'], $dryRun['after_hash']);
+        $this->assertGreaterThan(0, $dryRun['removed_nodes']);
+        $this->assertSame('Contenuto utile.', $dryRun['preview']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_the_command_has_no_execute_option(): void
+    {
+        $definition = Artisan::all()['articles:audit-body-contamination']->getDefinition();
+
+        $this->assertFalse($definition->hasOption('execute'));
+    }
+
+    private function article(string $title, string $body): Article
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+
+        return Article::query()->create([
+            'user_id' => $author->id,
+            'title' => $title,
+            'slug' => str($title)->slug().'-'.uniqid(),
+            'excerpt' => 'Sommario',
+            'body' => $body,
+            'category' => 'energia',
+            'status' => Article::STATUS_DRAFT,
+            'read_minutes' => 2,
+            'verification_status' => 'unverified',
+        ]);
+    }
+}
