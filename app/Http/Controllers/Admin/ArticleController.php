@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use RuntimeException;
@@ -657,16 +658,21 @@ class ArticleController extends Controller
             // sicuro ancora nel testo, o un suggerimento già marcato
             // superato senza che il body sia stato ripulito.
             DB::transaction(function () use ($article, $data, $request) {
+                $lockedArticle = Article::query()
+                    ->whereKey($article->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
                 // EDITORIAL SAFETY: snapshot dello stato ATTUALE prima di
                 // applicare $data — vedi ArticleRevisionService per la
                 // policy pre-change e il perché è distinta dall'autosave
                 // locale.
-                $this->revisionService->recordIfChanged($article, $data, $request->user());
+                $this->revisionService->recordIfChanged($lockedArticle, $data, $request->user());
 
-                $article->update($data);
+                $lockedArticle->update($data);
 
                 $this->linkSuggestionService->markAccepted(
-                    $article,
+                    $lockedArticle,
                     (array) $request->input('applied_link_suggestions', []),
                     $request->user()->id
                 );
@@ -698,7 +704,14 @@ class ArticleController extends Controller
                 );
             }
 
-            throw $exception;
+            Log::error('Salvataggio articolo admin annullato.', [
+                'article_id' => $article->getKey(),
+                'error_class' => $exception::class,
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['save' => 'Non è stato possibile salvare l’articolo. Nessuna modifica è stata applicata: riprova.']);
         }
 
         return redirect()
