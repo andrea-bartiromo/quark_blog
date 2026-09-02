@@ -98,6 +98,18 @@ class ArticlePublicPrimarySourcesTest extends TestCase
         $response->assertDontSee('id="article-primary-sources-heading"', false);
     }
 
+    public function test_primary_sources_panel_renders_a_doi_as_a_doi_org_link(): void
+    {
+        $article = $this->publishedArticle([
+            'primary_sources' => '10.1038/s41586-026-00001-2',
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        $response->assertSee('href="https://doi.org/10.1038/s41586-026-00001-2"', false);
+    }
+
     public function test_legacy_body_sources_block_and_new_primary_sources_panel_coexist_without_collision(): void
     {
         $article = $this->publishedArticle([

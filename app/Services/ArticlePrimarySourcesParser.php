@@ -10,12 +10,19 @@ namespace App\Services;
  * al contratto di salvataggio (fuori scope di questo servizio).
  *
  * Riconosce come "link" solo una riga che, per intero, è un URL assoluto
- * http/https valido: qualunque altra riga (testo descrittivo, URL con
- * schema non sicuro, testo misto a URL, markup ostile) resta testo
- * semplice — mai perso, mai promosso a link per inferenza.
+ * http/https valido oppure un identificatore DOI: qualunque altra riga
+ * (testo descrittivo, URL con schema non sicuro, testo misto a URL/DOI,
+ * markup ostile) resta testo semplice — mai perso, mai promosso a link per
+ * inferenza. Deliberatamente NON estrae un URL/DOI incorporato dentro una
+ * riga di testo più lunga (es. "Fonte: https://...") — vedi
+ * docs/TRUST_LAYER_PUBLIC_SOURCES_V1.md, sezione sulla sintesi con la PR
+ * parallela #508: un'estrazione parziale via regex aumenta la superficie
+ * di link fuorvianti costruiti ad arte per un guadagno minimo.
  */
 class ArticlePrimarySourcesParser
 {
+    private const DOI_PATTERN = '~^(?:https?://(?:dx\.)?doi\.org/)?(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)$~';
+
     /**
      * @return array<int, array{type: string, text: string, url: ?string}>
      */
@@ -47,6 +54,16 @@ class ArticlePrimarySourcesParser
      */
     private function classify(string $line): array
     {
+        // Il pattern DOI va verificato prima del controllo URL generico:
+        // un https://dx.doi.org/... è già di per sé un URL assoluto valido,
+        // ma qui va normalizzato a doi.org (senza "dx.") invece di essere
+        // pubblicato con l'host legacy.
+        if (preg_match(self::DOI_PATTERN, $line, $match) === 1) {
+            $doi = rtrim($match[1], '.,;:)]');
+
+            return ['type' => 'link', 'text' => $line, 'url' => 'https://doi.org/'.$doi];
+        }
+
         if ($this->isSafeAbsoluteUrl($line)) {
             return ['type' => 'link', 'text' => $line, 'url' => $line];
         }

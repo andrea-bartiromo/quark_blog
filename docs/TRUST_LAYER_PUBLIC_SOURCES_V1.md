@@ -17,21 +17,47 @@ garantita. Ogni riga (separata da `\n`, `\r\n` o `\r`) viene classificata da
 
 - **Link**: la riga, per intero (dopo `trim()`), è un URL assoluto con
   schema `http` o `https` (`filter_var(..., FILTER_VALIDATE_URL)` +
-  controllo esplicito dello schema). Solo in questo caso diventa un
-  `<a href>`.
+  controllo esplicito dello schema) **oppure** un identificatore DOI (bare,
+  es. `10.1038/s41586-026-00001-2`, o come URL `doi.org`/`dx.doi.org`) —
+  normalizzato sempre a `https://doi.org/{doi}`. Solo in questi due casi
+  diventa un `<a href>`.
 - **Testo**: qualunque altra riga — testo descrittivo, URL con schema non
-  sicuro (`javascript:`, `data:`, `vbscript:`, ...), URL relativo, testo
-  misto a un URL, markup HTML — resta testo semplice, sempre escapato,
-  **mai perso**.
+  sicuro (`javascript:`, `data:`, `vbscript:`, ...), URL o DOI misto a
+  testo, markup HTML — resta testo semplice, sempre escapato, **mai
+  perso**.
 - Righe vuote/solo spazi: scartate silenziosamente.
 - `null` o stringa vuota/whitespace: nessun elemento, il pannello non
   viene renderizzato affatto (vedi sotto).
 
-Deliberatamente **non** viene tentata l'estrazione di un URL incorporato
-dentro una riga di testo più lunga (es. `"Fonte: https://..."` resta
-testo semplice per intero): un'estrazione parziale via regex
-aumenterebbe la superficie di attacco e la possibilità di link
-fuorvianti costruiti ad arte, per un guadagno minimo.
+Deliberatamente **non** viene tentata l'estrazione di un URL o DOI
+incorporato dentro una riga di testo più lunga (es. `"Fonte: https://..."`
+resta testo semplice per intero): un'estrazione parziale via regex
+aumenterebbe la superficie di link fuorvianti costruiti ad arte, per un
+guadagno minimo.
+
+## Sintesi con la PR parallela #508 (2026-09-02)
+
+Durante la review è emersa un'altra PR aperta sullo stesso problema
+(`feat/public-article-sources`, #508), con soluzione diversa e file in
+conflitto. Confronto e decisione:
+
+- **Riconoscimento DOI** (feature reale di #508, assente qui inizialmente):
+  adottato, ma solo per una riga che è **interamente** un DOI/URL DOI —
+  non con l'estrazione "un URL/DOI ovunque nella riga" di #508, che
+  avrebbe permesso a testo come `"Fonte sospetta, ignorare:
+  https://phishing.example"` di diventare comunque un link cliccabile.
+- **`rel` sui link esterni**: mantenuto `nofollow noopener noreferrer`
+  (non adottato il `rel="external noopener noreferrer"` di #508 — `nofollow`
+  è l'unico dei due che comunica ai motori di ricerca di non trasferire
+  fiducia SEO a un link non verificato editorialmente, coerente col
+  mandato Trust Layer).
+- **Unificazione col blocco "Fonti" legacy**: non adottata. #508 fonde
+  `primary_sources` e il testo legacy del `body` in un'unica lista
+  deduplicata, senza distinguere visivamente le due provenienze (una
+  verificata dalla redazione, l'altra mai verificata). Questa PR mantiene
+  i due blocchi separati e distinti (vedi sezione sotto) proprio per non
+  implicare lo stesso livello di affidabilità per dati di provenienza
+  diversa — decisione editoriale, non solo tecnica.
 
 ## Rendering
 

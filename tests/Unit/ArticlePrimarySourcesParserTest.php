@@ -106,4 +106,29 @@ class ArticlePrimarySourcesParserTest extends TestCase
         $this->assertSame('text', $this->parser()->parse('/percorso/relativo')[0]['type']);
         $this->assertSame('text', $this->parser()->parse('www.example.com')[0]['type']);
     }
+
+    public function test_a_bare_doi_line_becomes_a_doi_org_link(): void
+    {
+        $items = $this->parser()->parse('10.1038/s41586-026-00001-2');
+
+        $this->assertSame('link', $items[0]['type']);
+        $this->assertSame('https://doi.org/10.1038/s41586-026-00001-2', $items[0]['url']);
+        $this->assertSame('10.1038/s41586-026-00001-2', $items[0]['text']);
+    }
+
+    public function test_a_doi_org_url_line_becomes_a_normalized_doi_link(): void
+    {
+        $items = $this->parser()->parse('https://dx.doi.org/10.1038/s41586-026-00001-2');
+
+        $this->assertSame('link', $items[0]['type']);
+        $this->assertSame('https://doi.org/10.1038/s41586-026-00001-2', $items[0]['url']);
+    }
+
+    public function test_a_doi_embedded_in_descriptive_text_is_not_promoted_to_a_link(): void
+    {
+        $items = $this->parser()->parse('Studio principale — 10.1038/s41586-026-00001-2');
+
+        $this->assertSame('text', $items[0]['type']);
+        $this->assertNull($items[0]['url']);
+    }
 }
