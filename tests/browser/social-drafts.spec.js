@@ -56,7 +56,7 @@ test('creating a draft and moving it to reviewed works end to end with visible c
     await loginAsEditor(page);
     await page.goto(indexPath + '/crea');
 
-    await page.getByLabel('Articolo *').selectOption({ label: /Turing e il browser regression harness/ });
+    await page.getByLabel('Articolo *').selectOption({ label: 'Turing e il browser regression harness (published)' });
     await page.getByLabel('Canale *').selectOption('linkedin');
     await page.getByLabel('Copy (opzionale)').fill('Bozza creata dal test browser.');
     await page.getByRole('button', { name: 'Crea bozza' }).click();
@@ -94,7 +94,7 @@ test.describe('senza JavaScript', () => {
         await expect(page).toHaveURL(/\/admin\/?$/);
 
         await page.goto(indexPath + '/crea');
-        await page.getByLabel('Articolo *').selectOption({ label: /Turing e il browser regression harness/ });
+        await page.getByLabel('Articolo *').selectOption({ label: 'Turing e il browser regression harness (published)' });
         await page.getByLabel('Canale *').selectOption('facebook');
         await page.getByRole('button', { name: 'Crea bozza' }).click();
 
