@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\SocialDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -69,6 +70,30 @@ class SocialDraftHttpTest extends TestCase
         $this->actingAs($this->editor())
             ->get(route('admin.social-drafts.index'))
             ->assertOk();
+    }
+
+    /**
+     * "to" è una data di calendario Europe/Rome (colonna "Programmato
+     * (Europe/Rome)" in tabella), mentre scheduled_at è salvato in UTC: un
+     * confronto ingenuo tratterebbe "to" come mezzanotte UTC ed escluderebbe
+     * una bozza programmata più tardi lo stesso giorno editoriale.
+     */
+    public function test_to_filter_includes_a_draft_scheduled_later_the_same_editorial_day(): void
+    {
+        // 22:00 Europe/Rome del 2 settembre 2026 (CEST, UTC+2) = 20:00 UTC —
+        // dopo la mezzanotte UTC dello stesso giorno di calendario, il caso
+        // che un confronto ingenuo su stringa escluderebbe.
+        $lateInTheDay = Carbon::create(2026, 9, 2, 22, 0, 0, 'Europe/Rome');
+        $draft = $this->draft([
+            'status' => SocialDraft::STATUS_SCHEDULED,
+            'scheduled_at' => $lateInTheDay->clone()->utc(),
+        ]);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.social-drafts.index', ['to' => '2026-09-02']));
+
+        $response->assertOk();
+        $response->assertSee($draft->article->title);
     }
 
     public function test_unauthenticated_store_request_is_rejected_before_any_draft_is_created(): void
@@ -140,6 +165,36 @@ class SocialDraftHttpTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame('Copy aggiornato.', $draft->fresh()->copy);
+    }
+
+    /**
+     * Un checkbox HTML deselezionato non viene inviato dal browser: la vista
+     * include un hidden use_utm=0 prima del checkbox proprio per questo, in
+     * modo che disattivare gli UTM sia effettivamente rappresentabile nel
+     * payload (il checkbox, se spuntato, sovrascrive il valore hidden).
+     */
+    public function test_show_page_includes_a_hidden_fallback_so_unchecking_utm_is_representable(): void
+    {
+        $draft = $this->draft(['use_utm' => true]);
+
+        $this->actingAs($this->editor())
+            ->get(route('admin.social-drafts.show', $draft))
+            ->assertOk()
+            ->assertSee('<input type="hidden" name="use_utm" value="0">', false);
+    }
+
+    public function test_update_turns_off_utm_when_the_checkbox_is_unchecked(): void
+    {
+        $draft = $this->draft(['use_utm' => true]);
+
+        // Simula esattamente cosa invia il browser quando il checkbox è
+        // deselezionato: solo l'hidden use_utm=0, mai la chiave del
+        // checkbox stesso.
+        $this->actingAs($this->editor())->put(route('admin.social-drafts.update', $draft), [
+            'use_utm' => '0',
+        ])->assertRedirect();
+
+        $this->assertFalse($draft->fresh()->use_utm);
     }
 
     public function test_transition_endpoint_moves_status_forward(): void

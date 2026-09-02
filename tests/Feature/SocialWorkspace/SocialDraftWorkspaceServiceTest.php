@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\SocialWorkspace\SocialDraftValidationException;
 use App\Services\SocialWorkspace\SocialDraftWorkspaceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class SocialDraftWorkspaceServiceTest extends TestCase
@@ -366,6 +367,26 @@ class SocialDraftWorkspaceServiceTest extends TestCase
         $this->service()->update($draft, ['copy' => 'x']);
     }
 
+    /**
+     * Il form HTML invia comunque i campi "readonly" (a differenza di
+     * "disabled", che il browser omette dal payload): una bozza approvata
+     * che salva solo UTM/programmazione invia comunque copy/destination_url
+     * con il loro valore INVARIATO. Un controllo basato sulla sola presenza
+     * della chiave bloccherebbe anche questo salvataggio legittimo.
+     */
+    public function test_resubmitting_unchanged_readonly_fields_while_approved_does_not_block_other_updates(): void
+    {
+        $draft = $this->draft(['status' => SocialDraft::STATUS_APPROVED, 'destination_url' => null]);
+
+        $result = $this->service()->update($draft, [
+            'copy' => $draft->copy,
+            'destination_url' => null,
+            'utm_campaign' => 'campagna-aggiornata',
+        ]);
+
+        $this->assertSame('campagna-aggiornata', $result->utm_campaign);
+    }
+
     // ---- URL / destinazione ----
 
     public function test_unsafe_destination_url_is_rejected_on_update(): void
@@ -374,5 +395,46 @@ class SocialDraftWorkspaceServiceTest extends TestCase
 
         $this->expectException(SocialDraftValidationException::class);
         $this->service()->update($draft, ['destination_url' => 'javascript:alert(1)']);
+    }
+
+    // ---- input orario di programmazione ----
+
+    /**
+     * SocialDraftScheduleTimeResolver::toUtc() rifiuta un orario locale
+     * inesistente (cambio ora legale) con InvalidArgumentException: deve
+     * arrivare all'editor come messaggio di validazione leggibile, non
+     * come errore server generico.
+     */
+    public function test_nonexistent_local_time_on_update_is_a_friendly_validation_error(): void
+    {
+        $draft = $this->draft();
+
+        $this->expectException(SocialDraftValidationException::class);
+        $this->service()->update($draft, ['scheduled_date' => '2026-03-29', 'scheduled_time' => '02:30']);
+    }
+
+    // ---- concorrenza sulla programmazione ----
+
+    public function test_scheduling_while_another_process_holds_the_same_slot_lock_is_rejected(): void
+    {
+        $draft = $this->draft([
+            'status' => SocialDraft::STATUS_APPROVED,
+            'scheduled_at' => now()->addDays(3),
+        ]);
+
+        // Simula una seconda richiesta concorrente già in possesso del lock
+        // per lo stesso canale+istante — riproduce la finestra di gara che
+        // il lock deve chiudere senza doverla innescare con vera concorrenza
+        // multi-processo, non riproducibile in modo deterministico in PHPUnit.
+        $lockKey = 'social-draft:schedule:'.$draft->channel.':'.$draft->scheduled_at->timestamp;
+        $contendingLock = Cache::lock($lockKey, 10);
+        $this->assertTrue($contendingLock->get());
+
+        try {
+            $this->expectException(SocialDraftValidationException::class);
+            $this->service()->transition($draft, SocialDraft::STATUS_SCHEDULED, $this->editor());
+        } finally {
+            $contendingLock->release();
+        }
     }
 }

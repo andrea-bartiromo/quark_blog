@@ -69,6 +69,10 @@
 
         <div class="form-group">
           <label class="form-label" for="use_utm">
+            {{-- Un checkbox deselezionato non viene inviato dal browser:
+                 senza questo hidden, togliere la spunta lascerebbe
+                 use_utm invariato (mai spento) invece di passare a false. --}}
+            <input type="hidden" name="use_utm" value="0">
             <input type="checkbox" id="use_utm" name="use_utm" value="1" @checked(old('use_utm', $draft->use_utm)) @disabled($isLocked)>
             Aggiungi parametri UTM
           </label>

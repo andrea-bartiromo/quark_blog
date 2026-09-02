@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\SocialDraft;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Servizio applicativo del Workspace Social Admin V1 — coordina
@@ -54,8 +55,6 @@ class SocialDraftWorkspaceService
      */
     public function update(SocialDraft $draft, array $attributes): SocialDraft
     {
-        $this->assertEditable($draft, array_keys($attributes));
-
         $changes = [];
 
         if (array_key_exists('copy', $attributes)) {
@@ -84,14 +83,42 @@ class SocialDraftWorkspaceService
             $date = $attributes['scheduled_date'] ?? null;
             $time = $attributes['scheduled_time'] ?? null;
 
-            $changes['scheduled_at'] = (filled($date) && filled($time))
-                ? $this->scheduleTime->toUtc($date, $time)
-                : null;
+            try {
+                $changes['scheduled_at'] = (filled($date) && filled($time))
+                    ? $this->scheduleTime->toUtc($date, $time)
+                    : null;
+            } catch (\InvalidArgumentException $exception) {
+                throw new SocialDraftValidationException($exception->getMessage());
+            }
         }
+
+        // Un campo bloccato (copy/destination_url dopo l'approvazione) è
+        // sottoposto al controllo solo se il valore inviato differisce
+        // davvero da quello salvato: il form HTML invia comunque i campi
+        // "readonly" (a differenza di "disabled", il browser li include nel
+        // payload), quindi un controllo basato solo sulla presenza della
+        // chiave bloccherebbe anche un salvataggio che non tocca affatto
+        // copy/URL (es. solo UTM o programmazione) mentre approvata.
+        $actuallyChangedFields = array_keys(array_filter(
+            $changes,
+            fn ($value, $field) => ! $this->valueMatchesCurrent($draft, $field, $value),
+            ARRAY_FILTER_USE_BOTH
+        ));
+
+        $this->assertEditable($draft, $actuallyChangedFields);
 
         $draft->update($changes);
 
         return $draft->fresh();
+    }
+
+    private function valueMatchesCurrent(SocialDraft $draft, string $field, mixed $value): bool
+    {
+        if ($field === 'scheduled_at') {
+            return optional($draft->scheduled_at)->equalTo($value) ?? ($value === null);
+        }
+
+        return $draft->getAttribute($field) === $value;
     }
 
     public function transition(SocialDraft $draft, string $to, ?User $actor): SocialDraft
@@ -104,10 +131,6 @@ class SocialDraftWorkspaceService
 
         if ($to === SocialDraft::STATUS_APPROVED && blank($draft->copy)) {
             throw new SocialDraftValidationException('Il copy non può essere vuoto per approvare la bozza.');
-        }
-
-        if ($to === SocialDraft::STATUS_SCHEDULED) {
-            $this->assertReadyForScheduling($draft);
         }
 
         $updates = ['status' => $to];
@@ -139,7 +162,32 @@ class SocialDraftWorkspaceService
             $updates['scheduled_at'] = null;
         }
 
-        $draft->update($updates);
+        if ($to === SocialDraft::STATUS_SCHEDULED) {
+            // Il lock serializza il controllo collisione e la scrittura per
+            // lo stesso canale+istante: senza di esso due editor che
+            // programmano contemporaneamente lo stesso slot potrebbero
+            // superare entrambi assertReadyForScheduling() (nessuna riga
+            // "scheduled" esiste ancora per nessuno dei due) e scrivere
+            // entrambi, violando l'invariante "mai una collisione" — che
+            // altrimenti varrebbe solo in assenza di concorrenza. Non
+            // bloccante: un editor che perde la gara riceve subito un
+            // messaggio chiaro e può semplicemente riprovare, invece di
+            // restare in attesa dentro una richiesta HTTP.
+            $lock = Cache::lock('social-draft:schedule:'.$draft->channel.':'.$draft->scheduled_at?->timestamp, 10);
+
+            if (! $lock->get()) {
+                throw new SocialDraftValidationException('Un altro utente sta programmando una bozza per lo stesso canale e istante: riprova tra qualche secondo.');
+            }
+
+            try {
+                $this->assertReadyForScheduling($draft);
+                $draft->update($updates);
+            } finally {
+                $lock->release();
+            }
+        } else {
+            $draft->update($updates);
+        }
 
         ActivityLog::record("Bozza Social: {$from} → {$to}", 'social_draft', $draft->id, $draft->article?->title);
 

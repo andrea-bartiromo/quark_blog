@@ -14,6 +14,7 @@ use App\Services\SocialWorkspace\SocialDraftValidationException;
 use App\Services\SocialWorkspace\SocialDraftWorkspaceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -52,12 +53,28 @@ class SocialDraftController extends Controller
             $query->where('status', $status);
         }
 
+        // I filtri from/to sono date di calendario Europe/Rome (colonna
+        // "Programmato (Europe/Rome)" in tabella), mentre scheduled_at è
+        // salvato in UTC: un confronto diretto sulla stringa tratterebbe
+        // "to" come mezzanotte UTC, escludendo le bozze programmate più
+        // tardi lo stesso giorno editoriale. Converte entrambi i confini
+        // del giorno Europe/Rome in UTC prima del confronto; una data non
+        // valida (input manomesso) viene semplicemente ignorata, come già
+        // accadeva prima per una stringa non interpretabile dal driver DB.
         if ($from) {
-            $query->where('scheduled_at', '>=', $from);
+            try {
+                $query->where('scheduled_at', '>=', Carbon::createFromFormat('!Y-m-d', $from, Article::EDITORIAL_TIMEZONE)->utc());
+            } catch (\InvalidArgumentException) {
+                // ignora un filtro "from" non valido
+            }
         }
 
         if ($to) {
-            $query->where('scheduled_at', '<=', $to);
+            try {
+                $query->where('scheduled_at', '<=', Carbon::createFromFormat('!Y-m-d', $to, Article::EDITORIAL_TIMEZONE)->endOfDay()->utc());
+            } catch (\InvalidArgumentException) {
+                // ignora un filtro "to" non valido
+            }
         }
 
         if ($search) {
