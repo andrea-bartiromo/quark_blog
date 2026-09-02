@@ -16,7 +16,7 @@ class ArticleBodyContaminationService
     {
         $findings = [];
         $dom = $this->document($html);
-        $root = $dom->getElementById('__hygiene_root__');
+        $root = $dom->documentElement;
 
         if ($root === null) {
             return $findings;
@@ -301,7 +301,7 @@ class ArticleBodyContaminationService
     private function links(string $html): array
     {
         $dom = $this->document($html);
-        $root = $dom->getElementById('__hygiene_root__');
+        $root = $dom->documentElement;
 
         if ($root === null) {
             return [];
@@ -327,7 +327,7 @@ class ArticleBodyContaminationService
     private function nodeCount(string $html): int
     {
         $dom = $this->document($html);
-        $root = $dom->getElementById('__hygiene_root__');
+        $root = $dom->documentElement;
 
         if ($root === null) {
             return 0;

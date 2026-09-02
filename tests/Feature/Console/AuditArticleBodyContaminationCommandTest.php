@@ -111,7 +111,7 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
 
     public function test_malformed_closing_tags_cannot_escape_the_audit_fragment(): void
     {
-        $body = '</div><script>alert(1)</script><p>Contenuto successivo.</p>';
+        $body = '</body><script>alert(1)</script><p>Contenuto successivo.</p>';
         $article = $this->article('Frammento malformato', $body);
 
         Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
