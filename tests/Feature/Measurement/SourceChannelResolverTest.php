@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Measurement;
 
+use App\Services\Telemetry\EditorialEventContract;
 use App\Services\Telemetry\SourceChannelResolver;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -127,7 +128,7 @@ class SourceChannelResolverTest extends TestCase
             $this->request(referer: 'https://random.example/'),
         ];
 
-        $allowed = \App\Services\Telemetry\EditorialEventContract::SOURCE_CHANNELS;
+        $allowed = EditorialEventContract::SOURCE_CHANNELS;
 
         foreach ($cases as $request) {
             $this->assertContains($this->resolver()->resolve($request), $allowed);

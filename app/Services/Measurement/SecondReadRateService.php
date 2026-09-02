@@ -3,6 +3,7 @@
 namespace App\Services\Measurement;
 
 use App\Services\Telemetry\EditorialEventContract;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -208,6 +209,6 @@ class SecondReadRateService
     {
         $value = DB::table('editorial_continuity_events')->max('occurred_at');
 
-        return $value === null ? null : \Carbon\CarbonImmutable::parse($value)->utc()->toIso8601String();
+        return $value === null ? null : CarbonImmutable::parse($value)->utc()->toIso8601String();
     }
 }
