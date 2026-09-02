@@ -90,6 +90,12 @@ class BrowserTestSeeder extends Seeder
             'featured' => true,
             'read_minutes' => 2,
             'views' => 0,
+            // Trust Layer V1 — fixture deterministica per il pannello
+            // pubblico "Fonti primarie" (tests/browser/public-primary-sources.spec.js):
+            // una riga URL (diventa link) e una riga di testo libero, per
+            // coprire entrambi i casi nello stesso articolo già usato da
+            // public-regression.spec.js.
+            'primary_sources' => "https://example.org/turing-primary-source\nComunicato stampa di fixture, ottobre 2026",
             'published_at' => $now->copy()->subDays(2),
             'created_at' => $now,
             'updated_at' => $now,
