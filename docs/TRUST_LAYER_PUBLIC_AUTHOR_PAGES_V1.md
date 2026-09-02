@@ -25,16 +25,38 @@ del Trust Layer V1 (mai un'affermazione non dimostrabile dai dati).
 ## Cosa NON cambia
 
 - Nessuna migration, nessun campo nuovo su `users`.
-- Email resta visibile solo per `role === 'editor'` (comportamento
-  preesistente, invariato).
-- `linkedin` resta non renderizzato (comportamento preesistente,
-  invariato — nessuna decisione presa qui sul se mostrarlo).
-- Structured data `Person` invariato: già sostenibile (name/url sempre,
-  `description` solo se `bio` esiste, `sameAs` solo se `twitter`
-  valorizzato) — nessun `award`/`credentials`/`affiliation` inventato,
-  verificato da `AuthorStructuredDataTest` esistente (incluso un test
-  dedicato all'hex-encoding dei terminatori di script nel JSON-LD).
+- Structured data `Person`: `description` solo se `bio` esiste, nessun
+  `award`/`credentials`/`affiliation` inventato — verificato da
+  `AuthorStructuredDataTest` esistente (incluso un test dedicato
+  all'hex-encoding dei terminatori di script nel JSON-LD).
 - Nessuna modifica a profilo Admin/Redazione.
+
+## Sintesi con la PR parallela #509 (2026-09-02)
+
+Durante la review è emersa un'altra PR aperta sullo stesso problema
+(`feat/author-trust-layer-v1`, #509), con soluzione diversa e file in
+conflitto. Confronto e decisione: la eleggibilità 404 di questa PR resta
+— #509 usava solo `noindex,follow` senza mai bloccare l'accesso diretto,
+lasciando raggiungibile (200) qualunque utente con una semplice bio
+compilata anche senza articoli, cioè non chiudeva davvero il gap di
+esposizione trovato dall'audit. Le sue altre aggiunte erano però valide
+e sono state innestate qui sopra la eleggibilità reale:
+
+- **Etichetta di ruolo veritiera**: "Collaboratore Kairus" per `role
+  === 'author'`, "Redazione Kairus" per editor/admin — non più
+  "Redattore Kairus" fisso per chiunque (anche nel `<title>`).
+- **LinkedIn**: renderizzato solo se HTTP(S) valido (stessa validazione
+  già in uso per `cover_source_url`), incluso in `sameAs`.
+- **`jobTitle`** nello schema `Person`, coerente con l'etichetta di
+  ruolo mostrata in pagina.
+- **Email non pubblicata per nessun ruolo**: prima era visibile per
+  `role === 'editor'`; ora rimossa del tutto (scelta più conservativa,
+  nessun indirizzo email compare mai sulla pagina pubblica).
+
+Test aggiunti: `tests/Feature/AuthorPageRoleAndLinkedinTest.php` (6 test:
+etichetta collaboratore/redazione, LinkedIn valido renderizzato e incluso
+in `sameAs`, schema non sicuro mai renderizzato, email mai mostrata
+nemmeno per un editor, `jobTitle`+`sameAs` corretti nel JSON-LD).
 
 ## Rischio noto (non introdotto qui, solo esposto)
 
