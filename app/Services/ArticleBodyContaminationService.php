@@ -137,7 +137,7 @@ class ArticleBodyContaminationService
                 $cleanValue = $value;
 
                 if ($name === 'class') {
-                    $cleanValue = preg_replace('/\S*(?:chatgpt|conversation-turn)\S*/i', '', $value) ?? $value;
+                    $cleanValue = $this->withoutContaminatedClassTokens($value);
 
                     if (trim($cleanValue) === '') {
                         return '';
@@ -183,7 +183,7 @@ class ArticleBodyContaminationService
 
     private function withoutForeignPlatformUtmSourceFromAttribute(string $href): string
     {
-        $fragmentPosition = strpos($href, '#');
+        $fragmentPosition = $this->literalFragmentPosition($href);
         $beforeFragment = $fragmentPosition === false ? $href : substr($href, 0, $fragmentPosition);
         $fragment = $fragmentPosition === false ? '' : substr($href, $fragmentPosition);
         $queryPosition = strpos($beforeFragment, '?');
@@ -193,7 +193,7 @@ class ArticleBodyContaminationService
         }
 
         $base = substr($beforeFragment, 0, $queryPosition);
-        $tokens = preg_split('/(&(?:amp;)?)/i', substr($beforeFragment, $queryPosition + 1), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $tokens = preg_split('/(&(?:amp;|#(?:0*38|x0*26);)?)/i', substr($beforeFragment, $queryPosition + 1), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
         $kept = [];
 
         for ($index = 0; $index < count($tokens); $index += 2) {
@@ -219,6 +219,46 @@ class ArticleBodyContaminationService
         }
 
         return $base.'?'.$query.$fragment;
+    }
+
+    private function literalFragmentPosition(string $href): int|false
+    {
+        $offset = 0;
+
+        while (($position = strpos($href, '#', $offset)) !== false) {
+            if ($position === 0 || $href[$position - 1] !== '&') {
+                return $position;
+            }
+
+            $offset = $position + 1;
+        }
+
+        return false;
+    }
+
+    private function withoutContaminatedClassTokens(string $value): string
+    {
+        $separator = '(?:\s|&(?:#(?:0*(?:9|10|12|13|32)|x0*(?:9|a|c|d|20));|Tab;|NewLine;))+';
+        $tokens = preg_split('/('.$separator.')/i', $value, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $clean = '';
+        $pendingSeparator = '';
+
+        foreach ($tokens as $index => $token) {
+            if ($index % 2 === 1) {
+                $pendingSeparator = $token;
+
+                continue;
+            }
+
+            if ($token === '' || $this->isContaminatedClass(html_entity_decode($token, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) {
+                continue;
+            }
+
+            $clean .= ($clean === '' ? '' : $pendingSeparator).$token;
+            $pendingSeparator = '';
+        }
+
+        return $clean;
     }
 
     /**

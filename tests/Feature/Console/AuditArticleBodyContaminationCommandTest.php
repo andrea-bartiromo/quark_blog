@@ -163,6 +163,34 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_numeric_ampersand_entities_are_valid_query_separators(): void
+    {
+        $body = '<p><a href="https://example.org/paper?id=1&#38;utm_source=chatgpt.com">Decimale</a> <a href="https://example.org/paper?id=2&#x26;utm_source=openai">Esadecimale</a></p>';
+        $article = $this->article('Separatori numerici', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<p><a href="https://example.org/paper?id=1">Decimale</a> <a href="https://example.org/paper?id=2">Esadecimale</a></p>';
+
+        $this->assertSame(['FOREIGN_PLATFORM_UTM_SOURCE'], $decoded['articles'][0]['findings']);
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_encoded_class_whitespace_does_not_remove_unrelated_tokens(): void
+    {
+        $body = '<p class="important&#32;conversation-turn&#32;featured">Testo</p>';
+        $article = $this->article('Classi codificate', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<p class="important&#32;featured">Testo</p>';
+
+        $this->assertSame(['CHATGPT_CLASS'], $decoded['articles'][0]['findings']);
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);
