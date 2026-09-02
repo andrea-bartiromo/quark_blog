@@ -65,7 +65,7 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
 
         Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
         $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
-        $expected = '<p><a href="https://example.org/paper?tag=a&amp;tag=b&amp;flag&amp;q=a+b&amp;q=a%20b#section">Fonte</a></p>';
+        $expected = '<p><a href="https://example.org/paper?tag=a&tag=b&flag&q=a+b&q=a%20b#section">Fonte</a></p>';
 
         $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
         $this->assertSame($body, $article->fresh()->body);
@@ -120,6 +120,32 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
 
         $this->assertSame(['SCRIPT'], $decoded['articles'][0]['findings']);
         $this->assertSame('Contenuto successivo.', $dryRun['preview']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_dry_run_preserves_unrelated_markup_representation_byte_for_byte(): void
+    {
+        $body = '<p style="x">O&apos;Brien &copy; <BR/></p>';
+        $article = $this->article('Markup invariato', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<p>O&apos;Brien &copy; <BR/></p>';
+
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_an_unclosed_script_is_removed_with_its_inert_tail(): void
+    {
+        $body = '<p>Contenuto utile.</p><script>window.secret = "non pubblico";';
+        $article = $this->article('Script non chiuso', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(['SCRIPT'], $decoded['articles'][0]['findings']);
+        $this->assertSame('Contenuto utile.', $decoded['articles'][0]['dry_run']['preview']);
         $this->assertSame($body, $article->fresh()->body);
     }
 

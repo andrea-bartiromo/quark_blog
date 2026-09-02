@@ -82,55 +82,132 @@ class ArticleBodyContaminationService
 
     private function cleanContamination(string $html): string
     {
-        $dom = $this->document($html);
-        $root = $dom->getElementById('__hygiene_root__');
+        $comments = [];
+        $nonce = bin2hex(random_bytes(8));
+        $protected = preg_replace_callback('/<!--.*?-->/s', function (array $match) use (&$comments, $nonce): string {
+            $placeholder = '__KAIRUS_HYGIENE_COMMENT_'.$nonce.'_'.count($comments).'__';
+            $comments[$placeholder] = $match[0];
 
-        if ($root === null) {
-            return $html;
-        }
+            return $placeholder;
+        }, $html) ?? $html;
 
-        foreach ($this->elements($root) as $element) {
-            if (in_array(strtolower($element->tagName), ['script', 'iframe'], true)) {
-                $element->parentNode?->removeChild($element);
+        $withoutEmbeddedContent = preg_replace(
+            '~<(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*/\s*>|<(?P<tag>script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(?:.*?</\k<tag>\s*>|.*\z)|</(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is',
+            '',
+            $protected,
+        ) ?? $protected;
 
-                continue;
-            }
+        $clean = preg_replace_callback(
+            '~<(?P<name>[a-z][a-z0-9:-]*)(?P<attributes>(?:[^>"\']|"[^"]*"|\'[^\']*\')*)>~is',
+            fn (array $match): string => '<'.$match['name'].$this->cleanTagAttributes($match['name'], $match['attributes']).'>',
+            $withoutEmbeddedContent,
+        ) ?? $withoutEmbeddedContent;
 
-            foreach (['style', 'data-message-id', 'data-turn'] as $attribute) {
-                $element->removeAttribute($attribute);
-            }
+        return strtr($clean, $comments);
+    }
 
-            if ($element->hasAttribute('class')) {
-                $classes = preg_split('/\s+/u', trim($element->getAttribute('class'))) ?: [];
-                $classes = array_values(array_filter(
-                    $classes,
-                    fn (string $class): bool => ! $this->isContaminatedClass($class),
-                ));
+    private function cleanTagAttributes(string $tag, string $attributes): string
+    {
+        return preg_replace_callback(
+            '~(?P<leading>\s+)(?P<name>[^\s=/>]+)(?P<assignment>\s*=\s*(?:(?P<quote>["\'])(?P<quoted>.*?)\k<quote>|(?P<unquoted>[^\s>]+)))?~s',
+            function (array $match) use ($tag): string {
+                $name = strtolower($match['name']);
 
-                if ($classes === []) {
-                    $element->removeAttribute('class');
-                } else {
-                    $element->setAttribute('class', implode(' ', $classes));
+                if (in_array($name, ['style', 'data-message-id', 'data-turn'], true)) {
+                    return '';
                 }
-            }
+
+                if (($match['assignment'] ?? '') === '') {
+                    return $match[0];
+                }
+
+                $quote = $match['quote'] ?? '';
+                $value = $quote !== '' ? ($match['quoted'] ?? '') : ($match['unquoted'] ?? '');
+                $cleanValue = $value;
+
+                if ($name === 'class') {
+                    $cleanValue = preg_replace('/\S*(?:chatgpt|conversation-turn)\S*/i', '', $value) ?? $value;
+
+                    if (trim($cleanValue) === '') {
+                        return '';
+                    }
+                }
+
+                if (strtolower($tag) === 'a' && $name === 'href') {
+                    $decodedHref = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $host = strtolower((string) parse_url($decodedHref, PHP_URL_HOST));
+
+                    if ($host !== '' && ! $this->isKairusHost($host)) {
+                        $cleanValue = $this->withoutForeignPlatformUtmSourceFromAttribute($value);
+                    }
+                }
+
+                if ($cleanValue === $value) {
+                    return $match[0];
+                }
+
+                return $match['leading'].$match['name']
+                    .$this->replaceAssignmentValue($match['assignment'], $value, $cleanValue, $quote);
+            },
+            $attributes,
+        ) ?? $attributes;
+    }
+
+    private function replaceAssignmentValue(string $assignment, string $old, string $new, string $quote): string
+    {
+        if ($quote !== '') {
+            $start = strpos($assignment, $quote);
+
+            return $start === false
+                ? $assignment
+                : substr($assignment, 0, $start + 1).$new.substr($assignment, $start + 1 + strlen($old));
         }
 
-        foreach ((new DOMXPath($dom))->query('.//a[@href]', $root) ?: [] as $link) {
-            if (! $link instanceof DOMElement) {
+        $start = strrpos($assignment, $old);
+
+        return $start === false
+            ? $assignment
+            : substr($assignment, 0, $start).$new.substr($assignment, $start + strlen($old));
+    }
+
+    private function withoutForeignPlatformUtmSourceFromAttribute(string $href): string
+    {
+        $fragmentPosition = strpos($href, '#');
+        $beforeFragment = $fragmentPosition === false ? $href : substr($href, 0, $fragmentPosition);
+        $fragment = $fragmentPosition === false ? '' : substr($href, $fragmentPosition);
+        $queryPosition = strpos($beforeFragment, '?');
+
+        if ($queryPosition === false) {
+            return $href;
+        }
+
+        $base = substr($beforeFragment, 0, $queryPosition);
+        $tokens = preg_split('/(&(?:amp;)?)/i', substr($beforeFragment, $queryPosition + 1), -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $kept = [];
+
+        for ($index = 0; $index < count($tokens); $index += 2) {
+            $pair = $tokens[$index];
+
+            if ($this->isForeignPlatformUtmSourcePair($pair)) {
                 continue;
             }
 
-            $href = $link->getAttribute('href');
-            $host = strtolower((string) parse_url($href, PHP_URL_HOST));
-
-            if ($host === '' || $this->isKairusHost($host) || ! $this->hasForeignPlatformUtmSource($href)) {
-                continue;
-            }
-
-            $link->setAttribute('href', $this->withoutForeignPlatformUtmSource($href));
+            $kept[] = [
+                'delimiter' => $index === 0 ? '' : $tokens[$index - 1],
+                'pair' => $pair,
+            ];
         }
 
-        return $this->innerHtml($dom, $root);
+        if ($kept === []) {
+            return $base.$fragment;
+        }
+
+        $query = $kept[0]['pair'];
+        foreach (array_slice($kept, 1) as $pair) {
+            $query .= $pair['delimiter'].$pair['pair'];
+        }
+
+        return $base.'?'.$query.$fragment;
     }
 
     /**
@@ -198,26 +275,6 @@ class ArticleBodyContaminationService
         }
 
         return false;
-    }
-
-    private function withoutForeignPlatformUtmSource(string $href): string
-    {
-        $fragmentPosition = strpos($href, '#');
-        $beforeFragment = $fragmentPosition === false ? $href : substr($href, 0, $fragmentPosition);
-        $fragment = $fragmentPosition === false ? '' : substr($href, $fragmentPosition);
-        $queryPosition = strpos($beforeFragment, '?');
-
-        if ($queryPosition === false) {
-            return $href;
-        }
-
-        $base = substr($beforeFragment, 0, $queryPosition);
-        $pairs = array_values(array_filter(
-            explode('&', substr($beforeFragment, $queryPosition + 1)),
-            fn (string $pair): bool => ! $this->isForeignPlatformUtmSourcePair($pair),
-        ));
-
-        return $base.($pairs === [] ? '' : '?'.implode('&', $pairs)).$fragment;
     }
 
     /**
@@ -295,15 +352,5 @@ class ArticleBodyContaminationService
         libxml_clear_errors();
 
         return $dom;
-    }
-
-    private function innerHtml(DOMDocument $dom, DOMElement $root): string
-    {
-        $html = '';
-        foreach (iterator_to_array($root->childNodes) as $child) {
-            $html .= $dom->saveHTML($child);
-        }
-
-        return trim($html);
     }
 }
