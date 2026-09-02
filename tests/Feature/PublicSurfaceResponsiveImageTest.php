@@ -171,6 +171,7 @@ class PublicSurfaceResponsiveImageTest extends TestCase
     public function test_autore_avatar_has_srcset_and_coherent_sizes_when_variants_exist(): void
     {
         $author = $this->author();
+        $this->publishedArticle($author);
         $this->placeCoverWithVariantsAt('author-avatar.jpg', 800, 800);
         $author->update(['photo' => 'author-avatar.jpg']);
 
@@ -194,13 +195,21 @@ class PublicSurfaceResponsiveImageTest extends TestCase
     public function test_autore_avatar_is_loaded_eagerly_not_lazily(): void
     {
         $author = $this->author();
+        $this->publishedArticle($author);
         $author->update(['photo' => 'author-avatar.jpg']);
 
         $response = $this->get(route('autore', $author));
 
         $response->assertOk();
-        $response->assertDontSee('loading="lazy"', false);
-        $response->assertSee('loading="eager"', false);
+
+        // Scoped al blocco avatar, non all'intera pagina: la fixture ora
+        // richiede un articolo pubblicato, la cui card nell'elenco usa
+        // legittimamente loading="lazy" (non above the fold) —
+        // irrilevante per questo test, che riguarda solo l'avatar.
+        preg_match('/author-premium-hero__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar non trovato in pagina.');
+        $this->assertStringNotContainsString('loading="lazy"', $avatarBlock[0]);
+        $this->assertStringContainsString('loading="eager"', $avatarBlock[0]);
         $response->assertSee('alt="'.$author->name.'"', false);
     }
 
@@ -212,6 +221,7 @@ class PublicSurfaceResponsiveImageTest extends TestCase
         // da ResponsiveImageVariantServiceTest, mai un errore o una pagina
         // rotta.
         $author = $this->author();
+        $this->publishedArticle($author);
         $author->update(['photo' => 'author-che-non-esiste.jpg']);
 
         $response = $this->get(route('autore', $author));
@@ -231,11 +241,19 @@ class PublicSurfaceResponsiveImageTest extends TestCase
             'name' => 'Autrice Senza Foto',
             'photo' => null,
         ]);
+        $this->publishedArticle($author);
 
         $response = $this->get(route('autore', $author));
 
         $response->assertOk();
-        $response->assertDontSee('<img src=', false);
+
+        // Scoped al blocco avatar, non all'intera pagina: la fixture ora
+        // richiede un articolo pubblicato, che porta con sé una propria
+        // <img> di copertina nell'elenco — irrilevante per questo test.
+        preg_match('/author-premium-hero__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar non trovato in pagina.');
+        $this->assertStringNotContainsString('<img', $avatarBlock[0]);
+
         $response->assertSee('aria-hidden="true"', false);
         $response->assertSee('<span>A</span>', false);
     }

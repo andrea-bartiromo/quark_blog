@@ -104,8 +104,11 @@ class CategorySourceDbFirstTest extends TestCase
         $this->newCategory();
 
         // La sidebar è inclusa dalla pagina autore, tra le pagine
-        // pubbliche più semplici che la renderizzano.
+        // pubbliche più semplici che la renderizzano. Serve un articolo
+        // pubblicato: la pagina autore ora richiede eleggibilità
+        // pubblica (Trust Layer V1, vedi PublicAuthorPageEligibilityTest).
         $author = $this->author();
+        $this->publishedArticle($author, 'intelligenza-artificiale');
 
         $this->get(route('autore', $author))
             ->assertOk()
