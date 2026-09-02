@@ -289,8 +289,9 @@ class ArticleBodyContaminationService
     private function document(string $html): DOMDocument
     {
         $dom = new DOMDocument('1.0', 'UTF-8');
+        $wrapper = 'kairus-hygiene-'.bin2hex(random_bytes(8));
         libxml_use_internal_errors(true);
-        $dom->loadHTML('<?xml encoding="UTF-8"><div id="__hygiene_root__">'.$html.'</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
+        $dom->loadHTML('<?xml encoding="UTF-8"><'.$wrapper.' id="__hygiene_root__">'.$html.'</'.$wrapper.'>', LIBXML_NOERROR | LIBXML_NOWARNING);
         libxml_clear_errors();
 
         return $dom;

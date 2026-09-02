@@ -109,6 +109,20 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_malformed_closing_tags_cannot_escape_the_audit_fragment(): void
+    {
+        $body = '</div><script>alert(1)</script><p>Contenuto successivo.</p>';
+        $article = $this->article('Frammento malformato', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $dryRun = $decoded['articles'][0]['dry_run'];
+
+        $this->assertSame(['SCRIPT'], $decoded['articles'][0]['findings']);
+        $this->assertSame('Contenuto successivo.', $dryRun['preview']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);
