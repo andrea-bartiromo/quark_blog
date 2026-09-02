@@ -255,5 +255,20 @@ class BrowserTestSeeder extends Seeder
                 'updated_at' => $now,
             ]);
         }
+
+        // Workspace Social Admin V1 — fixture deterministica per
+        // tests/browser/social-drafts.spec.js: una bozza in stato draft
+        // collegata all'articolo pubblicato già usato da altri browser
+        // test, così l'indice e la pagina di dettaglio hanno sempre
+        // almeno una riga da mostrare.
+        DB::table('social_drafts')->insert([
+            'article_id' => $publishedArticleId,
+            'channel' => 'facebook',
+            'status' => 'draft',
+            'copy' => 'Copy di prova per la fixture browser.',
+            'use_utm' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

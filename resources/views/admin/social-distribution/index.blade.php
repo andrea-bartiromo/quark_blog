@@ -4,6 +4,7 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Distribuzione social</h1>
+  <a href="{{ route('admin.social-drafts.index') }}" class="btn btn--secondary">📋 Bozze Social (workspace)</a>
 </div>
 
 <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;

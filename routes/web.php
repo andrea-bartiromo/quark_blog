@@ -39,6 +39,7 @@ use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
 use App\Http\Controllers\Admin\SecondReadAnalyticsController;
 use App\Http\Controllers\Admin\SocialDistributionController;
+use App\Http\Controllers\Admin\SocialDraftController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TuringController;
@@ -217,6 +218,19 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // mai per la condivisione organica dei lettori — vedi
     // App\Services\SocialDistribution\UtmLinkGenerator)
     Route::get('/distribuzione-social', [SocialDistributionController::class, 'index'])->name('social-distribution');
+
+    // Workspace Social Admin V1 — bozze editoriali interne (draft → reviewed
+    // → approved → scheduled), ledger separato da social_publications e
+    // senza alcun invio esterno. Sotto lo stesso prefisso di
+    // /distribuzione-social invece di una dashboard parallela.
+    Route::prefix('distribuzione-social/bozze')->name('social-drafts.')->group(function () {
+        Route::get('/', [SocialDraftController::class, 'index'])->name('index');
+        Route::get('/crea', [SocialDraftController::class, 'create'])->name('create');
+        Route::post('/', [SocialDraftController::class, 'store'])->name('store');
+        Route::get('/{socialDraft}', [SocialDraftController::class, 'show'])->name('show');
+        Route::put('/{socialDraft}', [SocialDraftController::class, 'update'])->name('update');
+        Route::post('/{socialDraft}/transizione', [SocialDraftController::class, 'transition'])->name('transition');
+    });
 
     // Media
     Route::get('/media', [MediaController::class, 'index'])->name('media');
