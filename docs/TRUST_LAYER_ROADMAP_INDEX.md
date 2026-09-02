@@ -21,14 +21,16 @@ del cantiere) né dei documenti storici esistenti.
 | B-66–B-67 | `docs/TRUST_LAYER_NEWSLETTER_MONETIZATION_READINESS.md` | NO-GO monetizzazione | Merge Trust Layer V1, baseline CWV field, policy disclosure |
 | B-68 | `docs/TRUST_LAYER_ROLLBACK_RUNBOOK.md` | — | — |
 
-## PR aperte (branch pushati, nessuna PR creata su richiesta esplicita dell'utente)
+## PR aperte
 
-1. `feat/public-article-sources-v1`
-2. `feat/public-article-revision-transparency-v1`
-3. `feat/public-author-pages-v1`
-4. `feat/trust-policy-pages-v1`
-5. `docs/cosa-sappiamo-davvero-prototype`
-6. `docs/atlante-visuale-prototype`
+1. `feat/public-article-sources-v1` — [PR #516](https://github.com/andrea-bartiromo/quark_blog/pull/516)
+2. `feat/public-article-revision-transparency-v1` — [PR #517](https://github.com/andrea-bartiromo/quark_blog/pull/517)
+3. `feat/public-author-pages-v1` — [PR #518](https://github.com/andrea-bartiromo/quark_blog/pull/518)
+4. `feat/trust-policy-pages-v1` — [PR #519](https://github.com/andrea-bartiromo/quark_blog/pull/519)
+5. `docs/cosa-sappiamo-davvero-prototype` — [PR #520](https://github.com/andrea-bartiromo/quark_blog/pull/520)
+6. `docs/atlante-visuale-prototype` — [PR #521](https://github.com/andrea-bartiromo/quark_blog/pull/521)
+
+Nessuna PR mergiata: tutte in attesa di review umana.
 
 ## Owner richiesto per procedere oltre V1
 
