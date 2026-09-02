@@ -132,7 +132,13 @@ class PublicPageQueryBudgetTest extends TestCase
         // $categoryLabelOptions condivisi da header/category-bar/sidebar/
         // footer, al posto dello snapshot statico config('laboratorio.
         // categories'). Costo bounded, non per-articolo.
-        $this->assertLessThanOrEqual(15, $count);
+        //
+        // Budget +1 ulteriore (Trust Layer V1, trasparenza revisione
+        // pubblica): ArticleController::show() chiama
+        // ArticleRevisionTransparencyService::lastEditorialUpdate() per
+        // decidere se mostrare "Aggiornato il" / dateModified — 1 query
+        // bounded su article_revisions per pagina, mai per-revisione.
+        $this->assertLessThanOrEqual(16, $count);
     }
 
     /**
