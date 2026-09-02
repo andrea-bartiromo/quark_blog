@@ -32,6 +32,41 @@ del cantiere) né dei documenti storici esistenti.
 
 Nessuna PR mergiata: tutte in attesa di review umana.
 
+## Workstream parallelo scoperto e risolto (2026-09-02)
+
+Verificando lo stato del repository dopo l'apertura delle PR sopra, sono
+emerse **9 altre PR aperte** (#507–#515), di un agente/sessione diverso con
+una propria numerazione "Prompt 1–70" indipendente da questa. Includono
+anche `docs/KAIRUS_TECHNICAL_ROADMAP_V14.md` (PR #513) — la "roadmap v14"
+che questo cantiere aveva classificato INSUFFICIENT_DATA per tutta la sua
+durata: esiste, ma solo su un branch mai mergiato in `main`, quindi
+invisibile a un audit basato su `origin/main` (non un errore di questo
+cantiere — un vero gap di coordinamento tra agenti).
+
+Due sovrapposizioni dirette, stessi file, soluzioni diverse:
+
+- **#508** `feat/public-article-sources` vs **#516** (questo cantiere) —
+  confrontate, sintetizzato il meglio delle due in #516 (riconoscimento
+  DOI adottato da #508; `nofollow` e provenienza fonti separata mantenuti
+  da #516). Push del 2026-09-02, PR #516 aggiornata. **Raccomandato
+  chiudere #508 come superseded.**
+- **#509** `feat/author-trust-layer-v1` vs **#518** (questo cantiere) —
+  confrontate: #509 non chiudeva davvero il gap di esposizione (solo
+  `noindex`, mai un 404 reale). Sintetizzato in #518: gate 404 mantenuto,
+  innestate le aggiunte valide di #509 (LinkedIn, jobTitle, etichetta di
+  ruolo veritiera, email mai pubblica per nessun ruolo). Push del
+  2026-09-02, PR #518 aggiornata. **Raccomandato chiudere #509 come
+  superseded.**
+
+Le altre 7 PR del workstream parallelo (#507, #510–#513, #515) non hanno
+conflitti di file diretti con questo cantiere. **#510** ha già costruito
+il benchmark TROVA che B-57 (sotto) segnalava come "non ancora costruito,
+proponibile separatamente" — quella nota è superata, non serve rifarlo.
+
+Nessuna PR altrui è stata chiusa da questo agente: la decisione di
+chiudere #508/#509 resta a un umano, per rispetto del lavoro di un altro
+workstream che potrebbe essere ancora attivo.
+
 ## Owner richiesto per procedere oltre V1
 
 - **Review umana** delle 4 PR applicative sopra (codice) prima di merge.
@@ -44,25 +79,35 @@ Nessuna PR mergiata: tutte in attesa di review umana.
 
 ## Dati mancanti (INSUFFICIENT_DATA ricorrenti)
 
-- Roadmap v14 come documento (non trovata nel repository).
+- Roadmap v14 come documento (non in `main`; esiste su un branch di un
+  workstream parallelo, PR #513 — vedi sopra).
 - Dati CWV field/CrUX reali (solo lab, con limiti d'ambiente noti).
 - Query concetti-calendario ottobre–dicembre (B-55, dati production non
   letti per prudenza).
-- Benchmark TROVA query scientifiche italiane (non costruito, proponibile
-  separatamente).
+- ~~Benchmark TROVA query scientifiche italiane~~ — già costruito nel
+  workstream parallelo, PR #510 (`test/trova-human-reviewed-benchmark`).
 
 ## Ordine raccomandato per l'umano che riprende il lavoro
 
-1. Review + merge `feat/public-article-sources-v1` (valore alto, rischio
-   tecnico più delimitato).
-2. Review + merge `feat/public-article-revision-transparency-v1`.
-3. Review + merge `feat/public-author-pages-v1` (verificare in produzione
-   che l'editor citato in `/la-redazione` abbia già articoli pubblicati —
-   rischio noto documentato in `TRUST_LAYER_PUBLIC_AUTHOR_PAGES_V1.md`).
-4. Review contenuto redazionale + merge `feat/trust-policy-pages-v1`.
+0. Chiudere **#508** e **#509** come superseded (o confermare il
+   contrario, se si preferisce la loro versione — vedi confronto sopra),
+   prima di mergiare qualunque cosa: evita conflitti Git e un'esperienza
+   pubblica incoerente.
+1. Review + merge `feat/public-article-sources-v1` (#516, ora con
+   riconoscimento DOI — valore alto, rischio tecnico più delimitato).
+2. Review + merge `feat/public-article-revision-transparency-v1` (#517).
+3. Review + merge `feat/public-author-pages-v1` (#518, ora con
+   LinkedIn/jobTitle/etichetta ruolo) — verificare in produzione che
+   l'editor citato in `/la-redazione` abbia già articoli pubblicati,
+   rischio noto documentato in `TRUST_LAYER_PUBLIC_AUTHOR_PAGES_V1.md`.
+4. Review contenuto redazionale + merge `feat/trust-policy-pages-v1`
+   (#519).
 5. Decisione umana su owner/contenuto per il pilot "Cosa sappiamo
    davvero" prima di qualunque route pubblica.
 6. Stessa decisione per l'Atlante visuale.
 7. Comando artisan read-only `content-graph:audit-aliases` (unica
    miglioria P1 segnalata in B-60) come prossima PR separata, se
    approvato.
+8. Valutare le rimanenti PR del workstream parallelo (#507, #510–#513,
+   #515) con lo stesso criterio: nessun conflitto diretto rilevato con
+   questo cantiere, ma non riviste nel merito qui.
