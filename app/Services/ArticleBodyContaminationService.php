@@ -9,27 +9,39 @@ use Illuminate\Support\Str;
 
 class ArticleBodyContaminationService
 {
-    public function __construct(private readonly ArticleBodySanitizer $sanitizer) {}
-
     /**
      * @return array<int, string>
      */
     public function findings(string $html): array
     {
         $findings = [];
+        $dom = $this->document($html);
+        $root = $dom->getElementById('__hygiene_root__');
 
-        $patterns = [
-            'SCRIPT' => '/<script\b/i',
-            'IFRAME' => '/<iframe\b/i',
-            'INLINE_STYLE' => '/\sstyle\s*=/i',
-            'CHATGPT_DATA_ATTRIBUTE' => '/\sdata-(?:message-id|turn)\s*=/i',
-            'CHATGPT_CLASS' => '/\sclass\s*=\s*["\'][^"\']*(?:chatgpt|conversation-turn)[^"\']*["\']/i',
-        ];
+        if ($root === null) {
+            return $findings;
+        }
 
-        foreach ($patterns as $code => $pattern) {
-            if (preg_match($pattern, $html) === 1) {
-                $findings[] = $code;
-            }
+        $elements = $this->elements($root);
+
+        if ($this->containsTag($elements, 'script')) {
+            $findings[] = 'SCRIPT';
+        }
+
+        if ($this->containsTag($elements, 'iframe')) {
+            $findings[] = 'IFRAME';
+        }
+
+        if ($this->containsAttribute($elements, ['style'])) {
+            $findings[] = 'INLINE_STYLE';
+        }
+
+        if ($this->containsAttribute($elements, ['data-message-id', 'data-turn'])) {
+            $findings[] = 'CHATGPT_DATA_ATTRIBUTE';
+        }
+
+        if ($this->containsContaminatedClass($elements)) {
+            $findings[] = 'CHATGPT_CLASS';
         }
 
         if ($this->containsForeignPlatformUtm($html)) {
@@ -44,7 +56,7 @@ class ArticleBodyContaminationService
      */
     public function dryRun(string $html): array
     {
-        $clean = $this->stripForeignPlatformUtm($this->sanitizer->sanitize($html));
+        $clean = $this->cleanContamination($html);
 
         return [
             'before_hash' => hash('sha256', $html),
@@ -68,13 +80,39 @@ class ArticleBodyContaminationService
         return false;
     }
 
-    private function stripForeignPlatformUtm(string $html): string
+    private function cleanContamination(string $html): string
     {
         $dom = $this->document($html);
         $root = $dom->getElementById('__hygiene_root__');
 
         if ($root === null) {
             return $html;
+        }
+
+        foreach ($this->elements($root) as $element) {
+            if (in_array(strtolower($element->tagName), ['script', 'iframe'], true)) {
+                $element->parentNode?->removeChild($element);
+
+                continue;
+            }
+
+            foreach (['style', 'data-message-id', 'data-turn'] as $attribute) {
+                $element->removeAttribute($attribute);
+            }
+
+            if ($element->hasAttribute('class')) {
+                $classes = preg_split('/\s+/u', trim($element->getAttribute('class'))) ?: [];
+                $classes = array_values(array_filter(
+                    $classes,
+                    fn (string $class): bool => ! $this->isContaminatedClass($class),
+                ));
+
+                if ($classes === []) {
+                    $element->removeAttribute('class');
+                } else {
+                    $element->setAttribute('class', implode(' ', $classes));
+                }
+            }
         }
 
         foreach ((new DOMXPath($dom))->query('.//a[@href]', $root) ?: [] as $link) {
@@ -93,6 +131,62 @@ class ArticleBodyContaminationService
         }
 
         return $this->innerHtml($dom, $root);
+    }
+
+    /**
+     * @param  array<int, DOMElement>  $elements
+     */
+    private function containsTag(array $elements, string $tag): bool
+    {
+        foreach ($elements as $element) {
+            if (strtolower($element->tagName) === $tag) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, DOMElement>  $elements
+     * @param  array<int, string>  $attributes
+     */
+    private function containsAttribute(array $elements, array $attributes): bool
+    {
+        foreach ($elements as $element) {
+            foreach ($attributes as $attribute) {
+                if ($element->hasAttribute($attribute)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, DOMElement>  $elements
+     */
+    private function containsContaminatedClass(array $elements): bool
+    {
+        foreach ($elements as $element) {
+            $classes = preg_split('/\s+/u', trim($element->getAttribute('class'))) ?: [];
+
+            foreach ($classes as $class) {
+                if ($this->isContaminatedClass($class)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function isContaminatedClass(string $class): bool
+    {
+        $class = strtolower($class);
+
+        return str_contains($class, 'chatgpt') || str_contains($class, 'conversation-turn');
     }
 
     private function hasForeignPlatformUtmSource(string $href): bool
@@ -158,6 +252,17 @@ class ArticleBodyContaminationService
 
         return array_values(array_filter(
             iterator_to_array((new DOMXPath($dom))->query('.//a[@href]', $root) ?: []),
+            fn ($node) => $node instanceof DOMElement,
+        ));
+    }
+
+    /**
+     * @return array<int, DOMElement>
+     */
+    private function elements(DOMElement $root): array
+    {
+        return array_values(array_filter(
+            iterator_to_array($root->getElementsByTagName('*')),
             fn ($node) => $node instanceof DOMElement,
         ));
     }

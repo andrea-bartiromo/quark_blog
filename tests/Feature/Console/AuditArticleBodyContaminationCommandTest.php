@@ -71,6 +71,31 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_escaped_markup_and_html_comments_do_not_create_false_findings(): void
+    {
+        $body = '<p>Esempio: &lt;p style="color:red" data-turn="1" class="conversation-turn"&gt;</p><!-- <script>alert(1)</script><iframe></iframe> -->';
+        $article = $this->article('Markup documentato', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame([], $decoded['articles']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
+    public function test_dry_run_preserves_admin_supported_markup_while_removing_only_contamination(): void
+    {
+        $body = '<table class="editor-table"><tr><td style="color:red">Dato</td></tr></table><img src="/media/chart.png" alt="Grafico"><a href="https://example.org/paper?utm_source=openai&id=7">Fonte</a>';
+        $article = $this->article('Markup admin', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<table class="editor-table"><tr><td>Dato</td></tr></table><img src="/media/chart.png" alt="Grafico"><a href="https://example.org/paper?id=7">Fonte</a>';
+
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);
