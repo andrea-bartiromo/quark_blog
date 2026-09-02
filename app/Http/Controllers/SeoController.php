@@ -150,6 +150,7 @@ class SeoController extends Controller
             ['/percorsi', '0.8', 'weekly'],
             ['/la-redazione', '0.6', 'monthly'],
             ['/chi-siamo', '0.5', 'monthly'],
+            ['/metodologia', '0.5', 'monthly'],
             ['/pubblicita', '0.4', 'monthly'],
             ['/contatti', '0.4', 'monthly'],
             ['/turing', '0.8', 'monthly'],
