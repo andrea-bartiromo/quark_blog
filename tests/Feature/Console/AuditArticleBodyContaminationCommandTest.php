@@ -149,6 +149,20 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_rcdata_script_examples_remain_text_while_container_contamination_is_cleaned(): void
+    {
+        $body = '<textarea style="width:100%"><script>example</script></textarea>';
+        $article = $this->article('Esempio in textarea', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<textarea><script>example</script></textarea>';
+
+        $this->assertSame(['INLINE_STYLE'], $decoded['articles'][0]['findings']);
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);

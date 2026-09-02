@@ -82,14 +82,25 @@ class ArticleBodyContaminationService
 
     private function cleanContamination(string $html): string
     {
+        $rcdata = [];
         $comments = [];
         $nonce = bin2hex(random_bytes(8));
+        $protected = preg_replace_callback(
+            '~(?P<open><(?P<tag>textarea|title)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>)(?P<body>.*?)(?P<close></\k<tag>\s*>|\z)~is',
+            function (array $match) use (&$rcdata, $nonce): string {
+                $placeholder = '__KAIRUS_HYGIENE_RCDATA_'.$nonce.'_'.count($rcdata).'__';
+                $rcdata[$placeholder] = $match['body'];
+
+                return $match['open'].$placeholder.$match['close'];
+            },
+            $html,
+        ) ?? $html;
         $protected = preg_replace_callback('/<!--.*?-->/s', function (array $match) use (&$comments, $nonce): string {
             $placeholder = '__KAIRUS_HYGIENE_COMMENT_'.$nonce.'_'.count($comments).'__';
             $comments[$placeholder] = $match[0];
 
             return $placeholder;
-        }, $html) ?? $html;
+        }, $protected) ?? $protected;
 
         $withoutEmbeddedContent = preg_replace(
             '~<(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*/\s*>|<(?P<tag>script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(?:.*?</\k<tag>\s*>|.*\z)|</(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is',
@@ -103,7 +114,7 @@ class ArticleBodyContaminationService
             $withoutEmbeddedContent,
         ) ?? $withoutEmbeddedContent;
 
-        return strtr($clean, $comments);
+        return strtr(strtr($clean, $comments), $rcdata);
     }
 
     private function cleanTagAttributes(string $tag, string $attributes): string
@@ -345,6 +356,13 @@ class ArticleBodyContaminationService
 
     private function document(string $html): DOMDocument
     {
+        $html = preg_replace_callback(
+            '~(?P<open><(?P<tag>textarea|title)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>)(?P<body>.*?)(?P<close></\k<tag>\s*>|\z)~is',
+            fn (array $match): string => $match['open']
+                .str_replace(['<', '>'], ['&lt;', '&gt;'], $match['body'])
+                .$match['close'],
+            $html,
+        ) ?? $html;
         $dom = new DOMDocument('1.0', 'UTF-8');
         $wrapper = 'kairus-hygiene-'.bin2hex(random_bytes(8));
         libxml_use_internal_errors(true);
