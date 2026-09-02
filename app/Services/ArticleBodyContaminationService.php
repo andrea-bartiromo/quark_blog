@@ -103,7 +103,7 @@ class ArticleBodyContaminationService
         }, $protected) ?? $protected;
 
         $withoutEmbeddedContent = preg_replace(
-            '~<(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*/\s*>|<(?P<tag>script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(?:.*?</\k<tag>\s*>|.*\z)|</(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is',
+            '~<(?P<tag>script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>(?:.*?</\k<tag>\s*>|.*\z)|</(?:script|iframe)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is',
             '',
             $protected,
         ) ?? $protected;

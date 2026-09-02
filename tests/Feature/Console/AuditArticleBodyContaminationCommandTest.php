@@ -149,6 +149,19 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_a_slash_ended_script_still_consumes_its_inert_tail(): void
+    {
+        $body = '<script src="/external.js" />contenuto inerte';
+        $article = $this->article('Script con slash', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(['SCRIPT'], $decoded['articles'][0]['findings']);
+        $this->assertSame('', $decoded['articles'][0]['dry_run']['preview']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     public function test_rcdata_script_examples_remain_text_while_container_contamination_is_cleaned(): void
     {
         $body = '<textarea style="width:100%"><script>example</script></textarea>';
