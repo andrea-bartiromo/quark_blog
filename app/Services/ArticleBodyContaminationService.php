@@ -69,7 +69,7 @@ class ArticleBodyContaminationService
     private function containsForeignPlatformUtm(string $html): bool
     {
         foreach ($this->links($html) as $link) {
-            $href = html_entity_decode($link->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $href = $link->getAttribute('href');
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
 
             if ($host !== '' && ! $this->isKairusHost($host) && $this->hasForeignPlatformUtmSource($href)) {
@@ -120,7 +120,7 @@ class ArticleBodyContaminationService
                 continue;
             }
 
-            $href = html_entity_decode($link->getAttribute('href'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $href = $link->getAttribute('href');
             $host = strtolower((string) parse_url($href, PHP_URL_HOST));
 
             if ($host === '' || $this->isKairusHost($host) || ! $this->hasForeignPlatformUtmSource($href)) {

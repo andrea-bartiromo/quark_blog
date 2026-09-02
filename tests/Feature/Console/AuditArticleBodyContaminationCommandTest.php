@@ -96,6 +96,19 @@ class AuditArticleBodyContaminationCommandTest extends TestCase
         $this->assertSame($body, $article->fresh()->body);
     }
 
+    public function test_dry_run_does_not_decode_entity_like_text_inside_an_href_twice(): void
+    {
+        $body = '<p><a href="https://example.org/paper?q=rock&amp;amp;roll&amp;utm_source=chatgpt.com">Fonte</a></p>';
+        $article = $this->article('Entità nella query', $body);
+
+        Artisan::call('articles:audit-body-contamination', ['--article' => $article->id, '--dry-run' => true, '--json' => true]);
+        $decoded = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+        $expected = '<p><a href="https://example.org/paper?q=rock&amp;amp;roll">Fonte</a></p>';
+
+        $this->assertSame(hash('sha256', $expected), $decoded['articles'][0]['dry_run']['after_hash']);
+        $this->assertSame($body, $article->fresh()->body);
+    }
+
     private function article(string $title, string $body): Article
     {
         $author = User::factory()->create(['role' => 'editor']);
