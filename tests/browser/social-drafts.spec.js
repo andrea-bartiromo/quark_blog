@@ -44,19 +44,23 @@ test('keyboard: filters and the new-draft link are reachable in a natural tab or
     await loginAsEditor(page);
     await page.goto(indexPath);
 
-    const search = page.getByLabel('Cerca articolo');
+    const search = page.getByRole('searchbox', { name: 'Cerca per titolo articolo' });
     await search.focus();
     await expect(search).toBeFocused();
 
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Canale')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: 'Filtra per canale' })).toBeFocused();
 });
 
 test('creating a draft and moving it to reviewed works end to end with visible confirmation', async ({ page }) => {
     await loginAsEditor(page);
     await page.goto(indexPath + '/crea');
 
-    await page.getByLabel('Articolo *').selectOption({ label: 'Turing e il browser regression harness (published)' });
+    const articleSelect = page.getByLabel('Articolo *');
+    const articleValue = await articleSelect
+        .locator('option', { hasText: 'Turing e il browser regression harness (published)' })
+        .getAttribute('value');
+    await articleSelect.selectOption(articleValue);
     await page.getByLabel('Canale *').selectOption('linkedin');
     await page.getByLabel('Copy (opzionale)').fill('Bozza creata dal test browser.');
     await page.getByRole('button', { name: 'Crea bozza' }).click();
@@ -94,7 +98,11 @@ test.describe('senza JavaScript', () => {
         await expect(page).toHaveURL(/\/admin\/?$/);
 
         await page.goto(indexPath + '/crea');
-        await page.getByLabel('Articolo *').selectOption({ label: 'Turing e il browser regression harness (published)' });
+        const noJsArticleSelect = page.getByLabel('Articolo *');
+        const noJsArticleValue = await noJsArticleSelect
+            .locator('option', { hasText: 'Turing e il browser regression harness (published)' })
+            .getAttribute('value');
+        await noJsArticleSelect.selectOption(noJsArticleValue);
         await page.getByLabel('Canale *').selectOption('facebook');
         await page.getByRole('button', { name: 'Crea bozza' }).click();
 

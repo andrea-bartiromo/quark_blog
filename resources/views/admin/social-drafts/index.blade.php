@@ -90,7 +90,7 @@
         <th>Stato</th>
         <th>Programmato (Europe/Rome)</th>
         <th>Aggiornato</th>
-        <th class="sr-only">Azioni</th>
+        <th>Azioni</th>
       </tr>
     </thead>
     <tbody>
