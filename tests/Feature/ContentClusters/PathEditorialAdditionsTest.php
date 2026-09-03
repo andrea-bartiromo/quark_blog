@@ -71,7 +71,11 @@ class PathEditorialAdditionsTest extends TestCase
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertDontSee('class="path-step__category"', false);
+        // Cantiere D: la tappa è ora resa da x-kairus.path-step, classe
+        // "kairus-path-step__category" invece della legacy
+        // "path-step__category" — stesso dato/condizione, solo il
+        // namespace del componente.
+        $response->assertDontSee('class="kairus-path-step__category"', false);
     }
 
     public function test_category_tag_appears_on_every_step_once_the_path_shifts_category(): void
@@ -83,7 +87,7 @@ class PathEditorialAdditionsTest extends TestCase
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertSee('<span class="path-step__category">Spazio</span>', false);
-        $response->assertSee('<span class="path-step__category">Energia &amp; Clima</span>', false);
+        $response->assertSee('<span class="kairus-path-step__category">Spazio</span>', false);
+        $response->assertSee('<span class="kairus-path-step__category">Energia &amp; Clima</span>', false);
     }
 }

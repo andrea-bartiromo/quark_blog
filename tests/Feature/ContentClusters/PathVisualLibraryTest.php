@@ -150,7 +150,10 @@ class PathVisualLibraryTest extends TestCase
 
         $response->assertOk();
         // La cover dell'articolo nella timeline resta quella reale.
-        $response->assertSee('path-step__cover', false);
+        // Cantiere D: la tappa è ora resa da x-kairus.path-step, classe
+        // "kairus-path-step__media" invece della legacy "path-step__cover"
+        // — stesso elemento, stesso src.
+        $response->assertSee('kairus-path-step__media', false);
         $response->assertSee('copertina-articolo.jpg', false);
         // L'ingresso atmosferico è lo sfondo cinematografico dell'hero
         // stesso, mai una seconda composizione più in basso.
