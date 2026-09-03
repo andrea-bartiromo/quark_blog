@@ -166,4 +166,15 @@ gtag('config', '{{ config('analytics.measurement_id') }}', {
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/public-unified.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/premium-fixes.css') }}">
 
+{{--
+    Kairus Editorial Foundations V1 — fondamenta condivise (token + componenti
+    Blade in resources/views/components/kairus/), non ancora montate su
+    nessuna pagina pubblica. Caricato per ultimo, dopo tutti i CSS pubblici
+    sopra: solo classi/variabili prefissate .kairus-/--kairus-, nessun
+    selettore globale toccato, quindi nessun effetto sul rendering esistente
+    finché nessuna vista referenzia queste classi. Vedi
+    docs/KAIRUS_EDITORIAL_DESIGN_SYSTEM_V1.md.
+--}}
+<link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/editorial-system.css') }}">
+
 @yield('head')
