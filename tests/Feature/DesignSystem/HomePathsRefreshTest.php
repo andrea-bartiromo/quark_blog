@@ -195,4 +195,34 @@ class HomePathsRefreshTest extends TestCase
         $this->assertStringContainsString('kairus-empty-state', $html);
         $this->assertStringContainsString('Nessun articolo pubblicato ancora', $html);
     }
+
+    // ---- Percorsi home (Prompt 40-43) ----
+
+    public function test_home_paths_card_preserves_slug_title_description_and_count(): void
+    {
+        $this->seedHomeMinimum();
+
+        $pillar = $this->article(['title' => 'Pillar del percorso']);
+        $cluster = ContentCluster::create([
+            'name' => 'Fisica per tutti',
+            'slug' => 'fisica-per-tutti',
+            'short_description' => 'Dalla meccanica classica alla relatività.',
+            'is_active' => true,
+            'lifecycle_status' => 'updating',
+            'pillar_article_id' => $pillar->id,
+        ]);
+        $cluster->articles()->attach($pillar->id, ['position' => 10, 'is_primary' => true]);
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        preg_match('/<section class="home-paths.*?<\/section>/s', $html, $sectionMatch);
+        $section = $sectionMatch[0] ?? '';
+        $this->assertNotSame('', $section, 'Sezione Percorsi non trovata.');
+
+        $this->assertStringContainsString('href="'.route('percorsi.show', 'fisica-per-tutti').'"', $section);
+        $this->assertStringContainsString('Fisica per tutti', $section);
+        $this->assertStringContainsString('Dalla meccanica classica alla relatività.', $section);
+        $this->assertStringContainsString('kairus-path-card', $section);
+        $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
+    }
 }

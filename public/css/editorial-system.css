@@ -1096,6 +1096,10 @@
   }
 }
 
+.kairus-home-paths {
+  background: var(--kairus-surface-sage);
+}
+
 .kairus-home-paths__intro {
   max-width: var(--kairus-measure-lead);
 }
