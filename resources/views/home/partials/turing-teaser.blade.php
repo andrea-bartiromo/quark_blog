@@ -29,7 +29,3 @@
     </div>
   </section>
 </div>
-
-@if(($homePaths ?? collect())->isNotEmpty())
-  @include('home.partials.paths-discovery')
-@endif
