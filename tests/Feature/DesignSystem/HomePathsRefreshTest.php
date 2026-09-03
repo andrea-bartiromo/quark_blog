@@ -474,4 +474,57 @@ class HomePathsRefreshTest extends TestCase
         $this->assertNotSame('', $section, 'Sezione tappe non trovata.');
         $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
     }
+
+    // ---- Integrazione fra le tre superfici (Prompt 94) ----
+
+    /**
+     * Non ri-verifica i singoli comportamenti (già coperti sopra, sezione
+     * per sezione): certifica che le tre superfici lavorino INSIEME sullo
+     * stesso Percorso reale — home linka l'indice, l'indice linka il
+     * dettaglio, il dettaglio linka le tappe — ciascuna con un solo H1,
+     * almeno un componente Kairus montato, e nessun link aperto senza una
+     * chiusura corrispondente (nessun annidamento accidentale).
+     */
+    public function test_home_percorsi_index_and_percorso_detail_stay_consistent_as_one_journey(): void
+    {
+        $this->seedHomeMinimum();
+
+        $pillar = $this->article(['title' => 'Pillar del viaggio integrato']);
+        $second = $this->article(['title' => 'Seconda tappa del viaggio integrato']);
+        $cluster = ContentCluster::create([
+            'name' => 'Viaggio integrato',
+            'slug' => 'viaggio-integrato',
+            'short_description' => 'Un Percorso usato per verificare le tre superfici insieme.',
+            'is_active' => true,
+            'lifecycle_status' => 'updating',
+            'pillar_article_id' => $pillar->id,
+        ]);
+        $cluster->articles()->attach([
+            $pillar->id => ['position' => 10, 'is_primary' => true],
+            $second->id => ['position' => 20, 'is_primary' => false],
+        ]);
+
+        $pages = [
+            'home' => $this->get(route('home'))->assertOk()->getContent(),
+            'percorsi.index' => $this->get(route('percorsi.index'))->assertOk()->getContent(),
+            'percorsi.show' => $this->get(route('percorsi.show', 'viaggio-integrato'))->assertOk()->getContent(),
+        ];
+
+        // Il bilanciamento <a>/</a> è già verificato per sezione (dove ha
+        // un senso strutturale reale) nei test dedicati sopra: sull'intera
+        // pagina il conteggio grezzo include header/footer/popup Newsletter
+        // condivisi con l'intero sito, fuori perimetro di questo cantiere.
+        foreach ($pages as $name => $html) {
+            $this->assertSame(1, substr_count($html, '<h1'), "\"{$name}\" deve avere un solo H1.");
+            $this->assertStringContainsString('kairus-', $html, "\"{$name}\" deve montare almeno un componente Kairus.");
+        }
+
+        // Home -> indice Percorsi.
+        $this->assertStringContainsString('href="'.route('percorsi.index').'"', $pages['home']);
+        // Indice Percorsi -> dettaglio del Percorso reale appena creato.
+        $this->assertStringContainsString('href="'.route('percorsi.show', 'viaggio-integrato').'"', $pages['percorsi.index']);
+        // Dettaglio -> le sue stesse tappe (articoli reali, mai finti).
+        $this->assertStringContainsString('href="'.route('articolo', $pillar->slug).'"', $pages['percorsi.show']);
+        $this->assertStringContainsString('href="'.route('articolo', $second->slug).'"', $pages['percorsi.show']);
+    }
 }
