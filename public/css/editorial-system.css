@@ -1132,6 +1132,20 @@
   background-position: center;
 }
 
+/* Prompt 53 (contrasto AA): lo sfondo è dati controller ($turingHome['style'],
+   fuori perimetro di questo cantiere) — un'immagine scura reale o, quando
+   nessuna pagina speciale è configurata, un gradiente chiaro di fallback su
+   cui il testo bianco esistente perderebbe contrasto. Uno scrim scuro qui,
+   indipendente dal contenuto dello sfondo, garantisce AA in entrambi i casi
+   senza toccare app/Http/Controllers/HomeController.php. */
+.kairus-special-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(120deg, rgba(4, 10, 20, .62), rgba(4, 10, 20, .3));
+}
+
 .kairus-special-banner__grid {
   position: relative;
   z-index: 2;
