@@ -72,7 +72,7 @@
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
     <nav class="path-breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
+      <a class="kairus-focusable" href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><a class="kairus-focusable" href="{{ route('percorsi.index') }}">Percorsi</a><span aria-hidden="true">/</span><span aria-current="page">{{ $cluster->name }}</span>
     </nav>
 
     <header class="path-hero">
@@ -87,7 +87,7 @@
       <div class="path-hero__scrim" aria-hidden="true"></div>
       <div class="path-hero__copy">
         <p class="eyebrow">Percorso Kairus</p>
-        <h1 id="percorso-title">{{ $cluster->name }}</h1>
+        <h1 id="percorso-title" class="kairus-path-hero__title">{{ $cluster->name }}</h1>
         @if($cluster->description)
           <p>{{ $cluster->description }}</p>
         @elseif($cluster->short_description)
@@ -182,35 +182,57 @@
         </div>
         <p>Segui l'ordine proposto oppure entra direttamente nell'approfondimento che ti interessa.</p>
       </header>
+      {{--
+          Cantiere D — Home + Percorsi Visual Adoption (Prompt 81-93). Ogni
+          tappa reale diventa x-kairus.path-step: era già un solo href
+          ripetuto su tre link fratelli (cover/titolo/CTA), mai annidati —
+          consolidati nell'unico <a> del componente, il micro-testo "Leggi
+          l'articolo →" assorbito dall'affordance dell'intera card (stesso
+          pattern di latest-articles.blade.php). "label" e "state" sono
+          proprietà richieste dal componente: il pillar usa il testo
+          originale "Punto di partenza" con state="current" (lo stesso
+          risalto teal che aveva .path-step--pillar); le altre tappe usano
+          "Tappa N" con lo state di default "available" — nuova microcopy
+          minima imposta dal contratto fisso del componente condiviso, mai
+          un dato inventato. Il testo di transizione (dato reale,
+          pivot->transition_text) resta un paragrafo fratello DOPO il link,
+          mai al suo interno — coerente con come era già oggi (dentro
+          .path-step__body ma mai dentro un <a>). I marcatori decorativi
+          "In arrivo"/"Percorso concluso" (aria-hidden, senza href) non
+          hanno un href reale: restano CSS legacy invariato, non hanno un
+          contratto compatibile con path-step.
+      --}}
       <ol class="path-steps__list {{ $showContinuation ? 'path-steps__list--continues' : '' }}">
         @forelse($articles as $article)
           @php
             $stepCoverUrl = filled($article->cover_image) ? asset('assets/img/'.$article->cover_image) : null;
+            $isPillarStep = $pillar && $article->is($pillar);
           @endphp
-          <li class="path-step {{ $pillar && $article->is($pillar) ? 'path-step--pillar' : '' }} {{ $stepCoverUrl ? '' : 'path-step--no-cover' }}">
-            <div class="path-step__number" aria-hidden="true">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</div>
-            @if($stepCoverUrl)
-              <a class="path-step__cover" href="{{ route('articolo', $article->slug) }}" tabindex="-1" aria-hidden="true">
-                <x-responsive-image
-                    :diskName="$article->cover_image ?: null"
-                    :src="$stepCoverUrl"
-                    alt=""
-                    :sizes="'(max-width: 768px) 100vw, 480px'"
-                />
-              </a>
+          <li>
+            <x-kairus.path-step
+              :number="str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT)"
+              :label="$isPillarStep ? 'Punto di partenza' : 'Tappa '.$loop->iteration"
+              :category-label="$isMultiCategoryPath && $article->category && isset($categoryLabels[$article->category]) ? $categoryLabels[$article->category] : null"
+              :title="$article->title"
+              :description="$article->excerpt"
+              :href="route('articolo', $article->slug)"
+              :state="$isPillarStep ? 'current' : 'available'"
+            >
+              @if($stepCoverUrl)
+                <x-slot:image>
+                  <x-responsive-image
+                      :diskName="$article->cover_image ?: null"
+                      :src="$stepCoverUrl"
+                      alt=""
+                      :sizes="'(max-width: 768px) 100vw, 480px'"
+                  />
+                </x-slot:image>
+              @endif
+            </x-kairus.path-step>
+
+            @if($article->pivot?->transition_text && ! $loop->last)
+              <p class="path-step__transition"><span aria-hidden="true">↳</span> {{ $article->pivot->transition_text }}</p>
             @endif
-            <div class="path-step__body">
-              @if($pillar && $article->is($pillar))<span class="path-step__label">Punto di partenza</span>@endif
-              @if($isMultiCategoryPath && $article->category && isset($categoryLabels[$article->category]))
-                <span class="path-step__category">{{ $categoryLabels[$article->category] }}</span>
-              @endif
-              <h3><a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a></h3>
-              @if($article->excerpt)<p>{{ $article->excerpt }}</p>@endif
-              <a class="path-step__cta" href="{{ route('articolo', $article->slug) }}">Leggi l'articolo <span aria-hidden="true">→</span></a>
-              @if($article->pivot?->transition_text && ! $loop->last)
-                <p class="path-step__transition"><span aria-hidden="true">↳</span> {{ $article->pivot->transition_text }}</p>
-              @endif
-            </div>
           </li>
         @empty
           <li class="paths-empty">Nessun articolo pubblicato in questo percorso.</li>

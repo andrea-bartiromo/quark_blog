@@ -69,8 +69,10 @@ class PathVisualIntegrationTest extends TestCase
         $response->assertSee('src="'.PathVisualLibrary::url($expectedAtmosphere).'"', false);
         $response->assertSee('class="path-transition"', false);
         // Cover reali degli articoli nella timeline, mai spostate o
-        // sostituite dalla Visual Library.
-        $response->assertSee('path-step__cover', false);
+        // sostituite dalla Visual Library. Cantiere D: la tappa è ora resa
+        // da x-kairus.path-step, classe "kairus-path-step__media" invece
+        // della legacy "path-step__cover" — stesso elemento, stesso src.
+        $response->assertSee('kairus-path-step__media', false);
         $response->assertSee('copertina-0.jpg', false);
     }
 }

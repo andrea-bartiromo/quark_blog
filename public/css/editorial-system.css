@@ -1262,3 +1262,17 @@
 .kairus-category-heading {
   margin-bottom: var(--kairus-space-sm);
 }
+
+/* ---- Dettaglio Percorso (Prompt 81-93) -----------------------------------
+   Hero e pillar restano struttura/CSS legacy (content-clusters-detail.css):
+   ogni proprietà tipografica utile è già più specifica lì (".path-detail
+   .eyebrow"/".path-detail .path-hero__copy .eyebrow", 2-3 classi) di
+   qualunque singola classe .kairus-* aggiunta qui — un'aggiunta sarebbe
+   inerte, mai applicata. Solo due ritocchi realmente nuovi: bilanciamento
+   del titolo hero (nessuna regola legacy tocca text-wrap) e focus visibile
+   sui link del breadcrumb (nessuna regola :focus-visible esisteva lì —
+   ogni altro elemento interattivo della pagina, pillar/CTA/lightbox, ha
+   già il proprio :focus-visible dedicato in content-clusters-detail.css). */
+.kairus-path-hero__title {
+  text-wrap: balance;
+}
