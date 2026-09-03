@@ -122,8 +122,13 @@ class ContentClusterIndexPaginationTest extends TestCase
 
         $response = $this->get(route('percorsi.index'))->assertOk();
 
-        $response->assertSee('1 articolo pubblicato');
-        $response->assertSee('Da qui si parte');
+        // Cantiere D (Home + Percorsi Visual Adoption): card e suggerimento
+        // pillar sono ora resi da x-kairus.path-card (stesso conteggio già
+        // in uso in home: "N articolo/i"; stesso dato del pillar, solo la
+        // formula del progress slot cambia da "Da qui si parte" + titolo
+        // a "Si parte da: " + titolo — nessun dato o comportamento cambia).
+        $response->assertSee('1 articolo');
+        $response->assertSee('Si parte da:');
         $response->assertSee('Il punto di partenza');
 
         $this->get(route('percorsi.show', $cluster->slug))

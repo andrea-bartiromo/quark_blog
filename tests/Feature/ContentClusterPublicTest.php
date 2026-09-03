@@ -47,7 +47,13 @@ class ContentClusterPublicTest extends TestCase
         $this->get(route('percorsi.index'))
             ->assertOk()
             ->assertSee('IA spiegata')
-            ->assertSee('1 articolo pubblicato')
+            // Cantiere D (Home + Percorsi Visual Adoption): il conteggio è
+            // ora reso da x-kairus.path-card, la stessa formula già in uso
+            // (e già coperta da un test) sulle card Percorso in home —
+            // "N articolo/i", senza il suffisso "pubblicato". Il valore
+            // resta comunque count(articoli PUBBLICATI), invariato: solo
+            // la microcopy si allinea tra le due superfici.
+            ->assertSee('1 articolo')
             ->assertDontSee('Percorso segreto')
             ->assertDontSee('Futuro segreto')
             ->assertDontSee('Bozza segreta');
@@ -111,7 +117,11 @@ class ContentClusterPublicTest extends TestCase
 
         $this->get(route('percorsi.index'))
             ->assertOk()
-            ->assertSee('class="path-card__media"', false)
+            // Cantiere D: l'immagine card è ora resa da x-kairus.path-card,
+            // classe "kairus-path-card__media" invece della legacy
+            // "path-card__media" — stesso elemento, stesso src, solo il
+            // namespace del componente.
+            ->assertSee('class="kairus-path-card__media"', false)
             ->assertDontSee('article-card__thumb', false)
             ->assertSee('src="'.$expected.'"', false)
             ->assertDontSee('src="'.asset('articles/covers/percorso.webp').'"', false);

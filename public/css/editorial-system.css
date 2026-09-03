@@ -1049,6 +1049,38 @@
   padding-inline: var(--kairus-space-md);
 }
 
+/* ---- Indice Percorsi: card (Prompt 71-80) --------------------------------
+   .path-card resta sull'<li> ospite solo per JS/CSS legacy del toggle
+   "Anteprima" (vedi content-clusters/index.blade.php) — qui si neutralizza
+   il SUO riquadro (bordo/ombra/sfondo/hover), perché x-kairus.path-card
+   dentro fornisce già un riquadro completo e distinto: senza, i due si
+   sommerebbero in un doppio bordo/ombra. La classe è ripetuta
+   (.kairus-path-card-host.kairus-path-card-host) solo per elevare la
+   specificità sopra la regola legacy .path-card di content-clusters.css
+   (caricato dopo editorial-system.css nell'head di questa pagina) — ogni
+   token del selettore resta comunque prefissato kairus-, nessun selettore
+   .paths-index/.path-card legacy qui. */
+.kairus-path-card-host.kairus-path-card-host {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  transition: none;
+}
+
+.kairus-path-card-host.kairus-path-card-host:hover {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.kairus-path-card-host__toggle,
+.kairus-path-card-host__preview {
+  margin-left: var(--kairus-space-md);
+  margin-right: var(--kairus-space-md);
+}
+
 /* ---- Home: hero + "in evidenza" (Prompt 15-26) --------------------------
    Il layout a due colonne (.home-lead-story, CSS Grid) resta quello di
    home-fix.css, invariato: qui solo l'ordine di lettura (testo prima
