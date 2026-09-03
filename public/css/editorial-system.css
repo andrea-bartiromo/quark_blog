@@ -77,6 +77,12 @@
   --kairus-space-xl: 4rem;
   --kairus-space-2xl: 6rem;
 
+  /* ---- Larghezza di impaginazione -----------------------------------------
+     Coerente con --max-width:1200px di style.css e .container--wide:1180px
+     di home-fix.css (Cantiere D, Home + Percorsi Visual Adoption): non un
+     valore nuovo arbitrario, la stessa larghezza già in uso, ora tokenizzata. */
+  --kairus-shell-width: 1200px;
+
   /* ---- Raggi ---------------------------------------------------------------*/
   --kairus-radius-sm: 6px;
   --kairus-radius-md: 12px;
@@ -1026,4 +1032,104 @@
 
 .kairus-form-shell--error .kairus-form-shell__title {
   color: var(--kairus-amber);
+}
+
+/* =============================================================================
+   Cantiere D — Home + Percorsi Visual Adoption
+   ========================================================================== */
+
+/* Utility di impaginazione — non un componente Blade (nessuno dei 10
+   componenti delle fondamenta V1 si chiama "page-shell"): un wrapper
+   puramente strutturale, larghezza massima e padding tokenizzati, applicato
+   solo dove non spezzerebbe una sezione already a piena larghezza
+   (hero/Newsletter/Speciale in home restano full-bleed, invariati). */
+.kairus-page-shell {
+  max-width: var(--kairus-shell-width);
+  margin-inline: auto;
+  padding-inline: var(--kairus-space-md);
+}
+
+/* ---- Home: hero + "in evidenza" (Prompt 15-26) --------------------------
+   Il layout a due colonne (.home-lead-story, CSS Grid) resta quello di
+   home-fix.css, invariato: qui solo l'ordine di lettura (testo prima
+   dell'immagine nel DOM, Prompt 18) e la tipografia/spaziatura via token. */
+.kairus-hero-story__media {
+  /* Riporta l'immagine davanti al testo nella resa visiva a ogni
+     larghezza (desktop 2 colonne o mobile impilato a 1 colonna, vedi
+     home-fix.css @media max-width:1100px) — il DOM la elenca per seconda,
+     solo per l'ordine di lettura lineare/tastiera. */
+  order: -1;
+}
+
+.kairus-hero-story__title {
+  text-wrap: balance;
+}
+
+.kairus-hero-story__lead {
+  max-width: var(--kairus-measure-lead);
+}
+
+.kairus-trending-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--kairus-space-2xs);
+}
+
+/* ---- Home: Ultimi articoli, Percorsi, Newsletter, Speciale, Categorie
+   (Prompt 27-59) ------------------------------------------------------- */
+.kairus-latest-articles__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--kairus-space-md);
+}
+
+@media (max-width: 1024px) {
+  .kairus-latest-articles__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .kairus-latest-articles__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-home-paths__intro {
+  max-width: var(--kairus-measure-lead);
+}
+
+.kairus-home-paths__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kairus-space-md);
+}
+
+@media (max-width: 640px) {
+  .kairus-home-paths__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-newsletter-shell .kairus-form-shell {
+  background: var(--kairus-surface-sage);
+  border-color: var(--kairus-line-strong);
+}
+
+.kairus-special-banner {
+  border-radius: var(--kairus-radius-lg);
+}
+
+.kairus-special-banner__eyebrow {
+  color: #a5f3fc;
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--kairus-tracking-wide);
+  text-transform: uppercase;
+}
+
+.kairus-category-heading {
+  margin-bottom: var(--kairus-space-sm);
 }
