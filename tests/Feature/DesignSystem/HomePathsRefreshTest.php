@@ -225,4 +225,56 @@ class HomePathsRefreshTest extends TestCase
         $this->assertStringContainsString('kairus-path-card', $section);
         $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
     }
+
+    // ---- Newsletter (Prompt 50) ----
+
+    public function test_newsletter_form_action_method_csrf_and_field_names_are_unchanged(): void
+    {
+        $this->seedHomeMinimum();
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        preg_match('/<section class="home-newsletter-band.*?<\/section>/s', $html, $sectionMatch);
+        $section = $sectionMatch[0] ?? '';
+        $this->assertNotSame('', $section, 'Sezione Newsletter non trovata.');
+
+        $this->assertStringContainsString('action="'.route('newsletter.subscribe').'"', $section);
+        $this->assertStringContainsString('method="POST"', $section);
+        $this->assertStringContainsString('name="_token"', $section);
+        $this->assertStringContainsString('name="source" value="homepage"', $section);
+        $this->assertStringContainsString('name="email"', $section);
+        $this->assertSame(1, substr_count($section, '<form'), 'Deve esistere un solo <form>.');
+    }
+
+    // ---- Speciale Turing (Prompt 51-55) ----
+
+    public function test_special_banner_preserves_turing_url_and_content(): void
+    {
+        $this->seedHomeMinimum();
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('kairus-special-banner', $html);
+        $this->assertStringContainsString('href="'.route('turing').'"', $html);
+    }
+
+    // ---- Categorie (Prompt 56-58) ----
+
+    public function test_category_carousel_structure_and_data_attributes_are_unchanged(): void
+    {
+        $this->seedHomeMinimum();
+        $this->category('spazio');
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-category-carousel', $html);
+        $this->assertStringContainsString('data-category-track', $html);
+        $this->assertStringContainsString('data-category-prev', $html);
+        $this->assertStringContainsString('data-category-next', $html);
+
+        preg_match('/<section class="home-category-section".*?<\/section>/s', $html, $sectionMatch);
+        $section = $sectionMatch[0] ?? '';
+        $this->assertNotSame('', $section, 'Sezione categorie non trovata.');
+        $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
+    }
 }
