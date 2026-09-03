@@ -1122,16 +1122,95 @@
 }
 
 .kairus-special-banner {
+  margin: var(--kairus-space-md) 0 var(--kairus-space-xl);
   border-radius: var(--kairus-radius-lg);
+  overflow: hidden;
+  position: relative;
+  color: #fff;
+  box-shadow: var(--kairus-shadow-lg);
+  background-size: cover;
+  background-position: center;
+}
+
+.kairus-special-banner__grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--kairus-space-lg);
+  align-items: center;
+  padding: var(--kairus-space-lg);
+}
+
+@media (max-width: 900px) {
+  .kairus-special-banner__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-special-banner__content {
+  min-width: 0;
 }
 
 .kairus-special-banner__eyebrow {
+  display: inline-flex;
+  margin-bottom: var(--kairus-space-xs);
   color: #a5f3fc;
   font-family: var(--kairus-font-interface);
   font-size: var(--kairus-text-xs);
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: var(--kairus-tracking-wide);
   text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .7);
+}
+
+.kairus-special-banner__title {
+  font-family: var(--kairus-font-display);
+  font-size: clamp(2rem, 4.6vw, 4.2rem);
+  line-height: .98;
+  letter-spacing: -.03em;
+  margin: 0;
+  color: #fff;
+  text-wrap: balance;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, .85), 0 8px 28px rgba(0, 0, 0, .55);
+}
+
+.kairus-special-banner__lead {
+  margin-top: var(--kairus-space-sm);
+  max-width: var(--kairus-measure-lead);
+  color: #fff;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-base);
+  line-height: var(--kairus-leading-normal);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .8), 0 5px 18px rgba(0, 0, 0, .5);
+}
+
+.kairus-special-banner__cta {
+  display: inline-flex;
+  margin-top: var(--kairus-space-sm);
+  padding: var(--kairus-space-xs) var(--kairus-space-sm);
+  border-radius: var(--kairus-radius-md);
+  background: #67e8f9;
+  color: #001018;
+  text-decoration: none;
+  font-family: var(--kairus-font-interface);
+  font-weight: 900;
+}
+
+/* backdrop-filter preesistente (spostato da inline style, non introdotto
+   qui — vedi commento nella view) — Kairus Visual Language del terminale
+   Turing, invariato nell'effetto. */
+.kairus-special-banner__terminal {
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: var(--kairus-radius-lg);
+  background: rgba(15, 23, 42, .45);
+  backdrop-filter: blur(10px);
+  padding: var(--kairus-space-sm);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color: #a5f3fc;
+  line-height: var(--kairus-leading-normal);
+  font-size: var(--kairus-text-sm);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .25);
 }
 
 .kairus-category-heading {
