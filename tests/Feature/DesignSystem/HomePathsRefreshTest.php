@@ -277,4 +277,70 @@ class HomePathsRefreshTest extends TestCase
         $this->assertNotSame('', $section, 'Sezione categorie non trovata.');
         $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
     }
+
+    // ---- Indice Percorsi (Prompt 74-79) ----
+
+    public function test_percorsi_index_has_single_h1_and_mounts_kairus_path_cards(): void
+    {
+        $pillar = $this->article(['title' => 'Pillar del percorso indice']);
+        $cluster = ContentCluster::create([
+            'name' => 'Chimica quotidiana',
+            'slug' => 'chimica-quotidiana',
+            'short_description' => 'Reazioni che vediamo ogni giorno.',
+            'is_active' => true,
+            'lifecycle_status' => 'updating',
+            'pillar_article_id' => $pillar->id,
+        ]);
+        $cluster->articles()->attach($pillar->id, ['position' => 10, 'is_primary' => true]);
+
+        $html = $this->get(route('percorsi.index'))->assertOk()->getContent();
+
+        $this->assertSame(1, substr_count($html, '<h1'), 'L\'indice Percorsi deve avere un solo H1.');
+        $this->assertStringContainsString('<h1', $html);
+        $this->assertStringContainsString('Percorsi', $html);
+        $this->assertStringContainsString('kairus-path-card', $html);
+        $this->assertStringContainsString('href="'.route('percorsi.show', 'chimica-quotidiana').'"', $html);
+    }
+
+    /**
+     * Il toggle "Anteprima delle tappe" deve restare un fratello del link
+     * generato da x-kairus.path-card, mai annidato al suo interno — un
+     * <button> dentro un <a> non è HTML valido (Prompt 76).
+     */
+    public function test_percorsi_index_preview_toggle_is_a_sibling_of_the_path_card_link_not_nested(): void
+    {
+        $preview = $this->article(['title' => 'Tappa in anteprima']);
+        $second = $this->article(['title' => 'Seconda tappa']);
+        $cluster = ContentCluster::create([
+            'name' => 'Biologia in breve',
+            'slug' => 'biologia-in-breve',
+            'short_description' => 'Le basi della vita, spiegate bene.',
+            'is_active' => true,
+            'lifecycle_status' => 'updating',
+        ]);
+        $cluster->articles()->attach([
+            $preview->id => ['position' => 10, 'is_primary' => false],
+            $second->id => ['position' => 20, 'is_primary' => false],
+        ]);
+
+        $html = $this->get(route('percorsi.index'))->assertOk()->getContent();
+
+        preg_match('/<li class="path-card[^"]*" data-percorso-id="'.$cluster->id.'">.*?<\/li>/s', $html, $cardMatch);
+        $card = $cardMatch[0] ?? '';
+        $this->assertNotSame('', $card, 'Card del Percorso non trovata.');
+
+        preg_match('/<a[^>]*class="[^"]*kairus-path-card[^"]*"[^>]*>.*?<\/a>/s', $card, $linkMatch);
+        $link = $linkMatch[0] ?? '';
+        $this->assertNotSame('', $link, 'Link x-kairus.path-card non trovato nella card.');
+        $this->assertStringNotContainsString('path-card__preview-toggle', $link, 'Il toggle anteprima non deve essere annidato dentro il link della card.');
+        $this->assertStringContainsString('path-card__preview-toggle', $card, 'Il toggle anteprima deve comunque comparire come fratello nella card.');
+    }
+
+    public function test_percorsi_index_shows_empty_state_when_there_are_no_active_paths(): void
+    {
+        $html = $this->get(route('percorsi.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('kairus-empty-state', $html);
+        $this->assertStringContainsString('Nuovi percorsi stanno prendendo forma.', $html);
+    }
 }
