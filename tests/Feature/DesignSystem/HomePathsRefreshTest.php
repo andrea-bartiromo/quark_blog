@@ -167,4 +167,32 @@ class HomePathsRefreshTest extends TestCase
         $this->assertStringContainsString('Appena pubblicati', $html);
         $this->assertStringNotContainsString('Più lette nelle ultime 24 ore', $html);
     }
+
+    // ---- Ultimi articoli (Prompt 33, 35, 36) ----
+
+    public function test_latest_articles_section_has_heading_cards_and_no_nested_link(): void
+    {
+        $this->seedHomeMinimum();
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        preg_match('/<section class="home-editorial-section">.*?<\/section>/s', $html, $sectionMatch);
+        $section = $sectionMatch[0] ?? '';
+        $this->assertNotSame('', $section, 'Sezione Ultimi articoli non trovata.');
+
+        $this->assertStringContainsString('Ultimi articoli', $section);
+        $this->assertStringContainsString('kairus-article-card', $section);
+        $this->assertStringContainsString('<ul class="home-editorial-grid', $section);
+        $this->assertSame(substr_count($section, '<a '), substr_count($section, '</a>'), 'Numero di <a> aperti e chiusi non coincide: possibile link annidato.');
+    }
+
+    public function test_latest_articles_shows_empty_state_when_there_are_no_published_articles(): void
+    {
+        // Nessun articolo pubblicato affatto (nessuna chiamata a
+        // seedHomeMinimum): $latest e $featured sono entrambi vuoti.
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('kairus-empty-state', $html);
+        $this->assertStringContainsString('Nessun articolo pubblicato ancora', $html);
+    }
 }
