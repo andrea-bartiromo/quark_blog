@@ -176,3 +176,854 @@
     --kairus-measure-lead: 34ch;
   }
 }
+
+/* =============================================================================
+   Missione 04 — Componente: page-header
+   ========================================================================== */
+
+.kairus-page-header {
+  padding: var(--kairus-space-xl) var(--kairus-space-lg);
+  background: var(--kairus-surface-warm);
+  color: var(--kairus-ink);
+}
+
+.kairus-page-header--compact {
+  padding: var(--kairus-space-lg) var(--kairus-space-md);
+}
+
+.kairus-page-header__inner {
+  max-width: var(--kairus-measure-wide);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-xs);
+}
+
+.kairus-eyebrow {
+  margin: 0;
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--kairus-tracking-wide);
+  text-transform: uppercase;
+  color: var(--kairus-teal);
+}
+
+.kairus-page-header__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-style: italic;
+  font-size: var(--kairus-text-3xl);
+  line-height: var(--kairus-leading-tight);
+  text-wrap: balance;
+  color: inherit;
+}
+
+.kairus-page-header--compact .kairus-page-header__title {
+  font-size: var(--kairus-text-2xl);
+}
+
+.kairus-page-header__lead {
+  margin: 0;
+  max-width: var(--kairus-measure-lead);
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-md);
+  line-height: var(--kairus-leading-normal);
+  color: var(--kairus-ink-soft);
+}
+
+.kairus-page-header__meta {
+  margin-top: var(--kairus-space-2xs);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kairus-space-sm);
+}
+
+.kairus-tone-sage.kairus-page-header {
+  background: var(--kairus-surface-sage);
+}
+
+.kairus-tone-navy.kairus-page-header {
+  background: var(--kairus-surface-navy);
+  color: var(--kairus-ink-on-navy);
+}
+
+.kairus-tone-navy .kairus-eyebrow {
+  color: #8fd9c4;
+}
+
+.kairus-tone-navy .kairus-page-header__lead {
+  color: var(--kairus-ink-on-navy-soft);
+}
+
+/* =============================================================================
+   Missione 05 — Componente: section-heading
+   ========================================================================== */
+
+.kairus-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-sm);
+  margin-bottom: var(--kairus-space-md);
+}
+
+.kairus-section-heading--between {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--kairus-space-md);
+}
+
+.kairus-section-heading__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-3xs);
+  min-width: 0;
+}
+
+.kairus-section-heading__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-style: italic;
+  font-size: var(--kairus-text-xl);
+  line-height: var(--kairus-leading-tight);
+  color: var(--kairus-ink);
+  text-wrap: balance;
+}
+
+.kairus-section-heading__description {
+  margin: 0;
+  max-width: var(--kairus-measure-body);
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-base);
+  color: var(--kairus-ink-soft);
+  line-height: var(--kairus-leading-normal);
+}
+
+.kairus-section-heading__action {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .kairus-section-heading--between {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* =============================================================================
+   Missione 06 — Componente: article-meta
+   ========================================================================== */
+
+.kairus-article-meta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kairus-space-2xs) var(--kairus-space-sm);
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-faint);
+}
+
+.kairus-article-meta__item {
+  position: relative;
+  padding-left: var(--kairus-space-sm);
+}
+
+.kairus-article-meta__item:first-child {
+  padding-left: 0;
+}
+
+.kairus-article-meta__item:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 0.85em;
+  background: var(--kairus-line-strong);
+}
+
+.kairus-article-meta__item--author {
+  color: var(--kairus-ink-soft);
+  font-weight: 600;
+}
+
+.kairus-article-meta--compact {
+  font-size: var(--kairus-text-xs);
+  gap: var(--kairus-space-3xs) var(--kairus-space-xs);
+}
+
+/* =============================================================================
+   Missione 07 — Componente: image-frame
+   ========================================================================== */
+
+.kairus-image-frame {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-2xs);
+}
+
+.kairus-image-frame__media {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--kairus-radius-md);
+  background: var(--kairus-surface-sunk);
+}
+
+.kairus-image-frame__media > img,
+.kairus-image-frame__media > picture > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kairus-image-frame--hero .kairus-image-frame__media {
+  aspect-ratio: 12 / 5;
+}
+
+.kairus-image-frame--landscape .kairus-image-frame__media {
+  aspect-ratio: 16 / 9;
+}
+
+.kairus-image-frame--card .kairus-image-frame__media {
+  aspect-ratio: 4 / 3;
+}
+
+.kairus-image-frame--square .kairus-image-frame__media {
+  aspect-ratio: 1 / 1;
+}
+
+.kairus-image-frame__caption {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kairus-space-sm);
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  color: var(--kairus-ink-faint);
+}
+
+.kairus-image-frame__credit {
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+   Missione 08 — Componente: article-card
+   ========================================================================== */
+
+.kairus-article-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  background: var(--kairus-surface-raised);
+  border: 1px solid var(--kairus-line);
+  border-radius: var(--kairus-radius-md);
+  overflow: hidden;
+  box-shadow: var(--kairus-shadow-sm);
+  transition: box-shadow var(--kairus-transition-base), transform var(--kairus-transition-base);
+}
+
+.kairus-article-card:hover,
+.kairus-article-card:focus-visible {
+  box-shadow: var(--kairus-shadow-md);
+  transform: translateY(-2px);
+}
+
+.kairus-article-card__media {
+  aspect-ratio: 16 / 10;
+  background: var(--kairus-surface-sunk);
+  overflow: hidden;
+}
+
+.kairus-article-card__media > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kairus-article-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-2xs);
+  padding: var(--kairus-space-md);
+}
+
+.kairus-article-card__category {
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--kairus-tracking-wide);
+  text-transform: uppercase;
+  color: var(--kairus-teal);
+}
+
+.kairus-article-card__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-lg);
+  line-height: var(--kairus-leading-snug);
+  color: var(--kairus-ink);
+}
+
+.kairus-article-card__excerpt {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-soft);
+  line-height: var(--kairus-leading-normal);
+}
+
+.kairus-article-card__meta {
+  margin-top: var(--kairus-space-3xs);
+}
+
+.kairus-article-card--featured .kairus-article-card__title {
+  font-size: var(--kairus-text-xl);
+}
+
+@media (min-width: 769px) {
+  .kairus-article-card--featured {
+    flex-direction: row;
+  }
+
+  .kairus-article-card--featured .kairus-article-card__media {
+    flex: 1 1 55%;
+    aspect-ratio: auto;
+  }
+
+  .kairus-article-card--featured .kairus-article-card__body {
+    flex: 1 1 45%;
+    justify-content: center;
+  }
+}
+
+.kairus-article-card--compact .kairus-article-card__body {
+  padding: var(--kairus-space-sm);
+  gap: var(--kairus-space-3xs);
+}
+
+.kairus-article-card--compact .kairus-article-card__title {
+  font-size: var(--kairus-text-base);
+}
+
+.kairus-article-card--list {
+  flex-direction: row;
+  align-items: center;
+  box-shadow: none;
+  border-radius: var(--kairus-radius-sm);
+}
+
+.kairus-article-card--list .kairus-article-card__media {
+  flex: 0 0 96px;
+  aspect-ratio: 1 / 1;
+}
+
+.kairus-article-card--list .kairus-article-card__body {
+  padding: var(--kairus-space-sm);
+  gap: var(--kairus-space-3xs);
+}
+
+.kairus-article-card--list .kairus-article-card__title {
+  font-size: var(--kairus-text-base);
+}
+
+/* =============================================================================
+   Missione 09 — Componente: path-card
+   ========================================================================== */
+
+.kairus-path-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  background: var(--kairus-surface-raised);
+  border: 1px solid var(--kairus-line);
+  border-radius: var(--kairus-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--kairus-shadow-sm);
+  transition: box-shadow var(--kairus-transition-base), transform var(--kairus-transition-base);
+}
+
+.kairus-path-card:hover,
+.kairus-path-card:focus-visible {
+  box-shadow: var(--kairus-shadow-md);
+  transform: translateY(-2px);
+}
+
+.kairus-path-card__media {
+  aspect-ratio: 16 / 9;
+  background: var(--kairus-surface-sage);
+  overflow: hidden;
+}
+
+.kairus-path-card__media > img,
+.kairus-path-card__media > picture > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kairus-path-card__media-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--kairus-surface-sage), var(--kairus-surface-warm));
+}
+
+.kairus-path-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-2xs);
+  padding: var(--kairus-space-md);
+}
+
+.kairus-path-card__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-lg);
+  color: var(--kairus-ink);
+}
+
+.kairus-path-card__description {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-soft);
+  line-height: var(--kairus-leading-normal);
+}
+
+.kairus-path-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kairus-space-xs);
+  align-items: center;
+  margin-top: var(--kairus-space-2xs);
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  color: var(--kairus-ink-faint);
+}
+
+.kairus-path-card__progress {
+  color: var(--kairus-teal);
+  font-weight: 600;
+}
+
+.kairus-path-card__cta {
+  margin-top: var(--kairus-space-2xs);
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-sm);
+  font-weight: 700;
+  color: var(--kairus-teal);
+}
+
+.kairus-path-card--featured .kairus-path-card__title {
+  font-size: var(--kairus-text-xl);
+}
+
+.kairus-path-card--featured .kairus-path-card__media {
+  aspect-ratio: 21 / 9;
+}
+
+.kairus-path-card--compact .kairus-path-card__media {
+  aspect-ratio: 4 / 3;
+}
+
+.kairus-path-card--compact .kairus-path-card__body {
+  padding: var(--kairus-space-sm);
+}
+
+/* =============================================================================
+   Missione 10 — Componente: path-step
+   ========================================================================== */
+
+.kairus-path-step {
+  display: flex;
+  gap: var(--kairus-space-md);
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+  padding: var(--kairus-space-md);
+  border: 1px solid var(--kairus-line);
+  border-radius: var(--kairus-radius-md);
+  background: var(--kairus-surface-raised);
+  transition: border-color var(--kairus-transition-base), box-shadow var(--kairus-transition-base);
+}
+
+.kairus-path-step:hover,
+.kairus-path-step:focus-visible {
+  border-color: var(--kairus-teal);
+  box-shadow: var(--kairus-shadow-sm);
+}
+
+.kairus-path-step__number {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--kairus-radius-pill);
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-md);
+  background: var(--kairus-surface-sage);
+  color: var(--kairus-teal-deep);
+}
+
+.kairus-path-step__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-3xs);
+  min-width: 0;
+  flex: 1;
+}
+
+.kairus-path-step__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kairus-space-xs);
+  align-items: center;
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--kairus-tracking-wide);
+  color: var(--kairus-ink-faint);
+}
+
+.kairus-path-step__state {
+  padding: 2px 8px;
+  border-radius: var(--kairus-radius-pill);
+  border: 1px solid var(--kairus-line-strong);
+}
+
+.kairus-path-step__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-md);
+  color: var(--kairus-ink);
+}
+
+.kairus-path-step__description {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-soft);
+}
+
+.kairus-path-step__media {
+  flex-shrink: 0;
+  width: 88px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--kairus-radius-sm);
+  overflow: hidden;
+}
+
+.kairus-path-step__media > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kairus-path-step--current {
+  border-color: var(--kairus-teal);
+  background: var(--kairus-teal-soft);
+}
+
+.kairus-path-step--current .kairus-path-step__number {
+  background: var(--kairus-teal);
+  color: #fff;
+}
+
+.kairus-path-step--current .kairus-path-step__state {
+  border-color: var(--kairus-teal);
+  color: var(--kairus-teal-deep);
+}
+
+.kairus-path-step--upcoming {
+  opacity: .7;
+}
+
+.kairus-path-step--upcoming .kairus-path-step__number {
+  background: var(--kairus-surface-sunk);
+  color: var(--kairus-ink-faint);
+}
+
+@media (max-width: 480px) {
+  .kairus-path-step {
+    gap: var(--kairus-space-sm);
+  }
+
+  .kairus-path-step__media {
+    display: none;
+  }
+}
+
+/* =============================================================================
+   Missione 11 — Componente: trust-panel
+   ========================================================================== */
+
+.kairus-trust-panel {
+  background: var(--kairus-surface-sage);
+  border: 1px solid var(--kairus-line-strong);
+  border-radius: var(--kairus-radius-md);
+  padding: var(--kairus-space-md);
+}
+
+.kairus-trust-panel__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-sm);
+}
+
+.kairus-trust-panel__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-3xs);
+}
+
+.kairus-trust-panel__row dt {
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--kairus-tracking-wide);
+  color: var(--kairus-teal-deep);
+}
+
+.kairus-trust-panel__row dd {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-soft);
+  line-height: var(--kairus-leading-normal);
+}
+
+@media (min-width: 640px) {
+  .kairus-trust-panel__list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--kairus-space-md);
+  }
+}
+
+/* =============================================================================
+   Missione 12 — Componente: empty-state
+   ========================================================================== */
+
+.kairus-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--kairus-space-sm);
+  padding: var(--kairus-space-xl) var(--kairus-space-lg);
+  max-width: var(--kairus-measure-body);
+  margin: 0 auto;
+}
+
+.kairus-empty-state__icon {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--kairus-radius-pill);
+  background: var(--kairus-surface-sage);
+  position: relative;
+}
+
+.kairus-empty-state__icon::before,
+.kairus-empty-state__icon::after {
+  content: "";
+  position: absolute;
+  background: var(--kairus-teal);
+}
+
+.kairus-empty-state--notice .kairus-empty-state__icon::before {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.kairus-empty-state--notice .kairus-empty-state__icon::after {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.kairus-empty-state--search .kairus-empty-state__icon::before {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid var(--kairus-teal);
+  background: transparent;
+  top: 12px;
+  left: 12px;
+}
+
+.kairus-empty-state--search .kairus-empty-state__icon::after {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  bottom: 14px;
+  right: 12px;
+  transform: rotate(45deg);
+}
+
+.kairus-empty-state--path .kairus-empty-state__icon::before {
+  width: 3px;
+  height: 32px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 2px;
+}
+
+.kairus-empty-state--path .kairus-empty-state__icon::after {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.kairus-empty-state--error .kairus-empty-state__icon {
+  background: var(--kairus-amber-soft);
+}
+
+.kairus-empty-state--error .kairus-empty-state__icon::before,
+.kairus-empty-state--error .kairus-empty-state__icon::after {
+  background: var(--kairus-amber);
+}
+
+.kairus-empty-state--error .kairus-empty-state__icon::before {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.kairus-empty-state--error .kairus-empty-state__icon::after {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+}
+
+.kairus-empty-state__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-lg);
+  color: var(--kairus-ink);
+}
+
+.kairus-empty-state__message {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-base);
+  color: var(--kairus-ink-soft);
+}
+
+.kairus-empty-state__action {
+  margin-top: var(--kairus-space-2xs);
+}
+
+/* =============================================================================
+   Missione 13 — Componente: form-shell
+   ========================================================================== */
+
+.kairus-form-shell {
+  background: var(--kairus-surface-raised);
+  border: 1px solid var(--kairus-line);
+  border-radius: var(--kairus-radius-lg);
+  padding: var(--kairus-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-lg);
+}
+
+.kairus-form-shell__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kairus-space-2xs);
+  max-width: var(--kairus-measure-body);
+}
+
+.kairus-form-shell__title {
+  margin: 0;
+  font-family: var(--kairus-font-display);
+  font-weight: 700;
+  font-size: var(--kairus-text-xl);
+  color: var(--kairus-ink);
+}
+
+.kairus-form-shell__lead {
+  margin: 0;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-base);
+  color: var(--kairus-ink-soft);
+}
+
+.kairus-form-shell__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--kairus-space-lg);
+}
+
+.kairus-form-shell__aside {
+  background: var(--kairus-surface-sage);
+  border-radius: var(--kairus-radius-md);
+  padding: var(--kairus-space-md);
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-soft);
+}
+
+@media (min-width: 769px) {
+  .kairus-form-shell__layout--with-aside {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.kairus-form-shell--success {
+  border-color: var(--kairus-teal);
+}
+
+.kairus-form-shell--success .kairus-form-shell__title {
+  color: var(--kairus-teal-deep);
+}
+
+.kairus-form-shell--error {
+  border-color: var(--kairus-amber);
+}
+
+.kairus-form-shell--error .kairus-form-shell__title {
+  color: var(--kairus-amber);
+}
