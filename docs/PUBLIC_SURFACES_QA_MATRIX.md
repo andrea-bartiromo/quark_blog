@@ -95,10 +95,15 @@ nessun cambiamento visivo, nessuna modifica al componente condiviso
   componente esplicitamente fuori dal perimetro di questa sequenza di
   cantieri.
 
-## Prossimi controlli (proseguono in questo stesso cantiere)
+## Controlli successivi (stesso cantiere, commit successivi)
 
-Contrasto colore (token già certificati, spot-check mirato), ordine
-DOM vs ordine visivo, focus-visible su un campione di controlli
-interattivi per superficie, stress-test con testo ancora più lungo,
-modalità senza CSS, modalità senza JS, screenshot regression locale —
-vedi `docs/PUBLIC_A11Y_RESPONSIVE_HANDOFF.md` per l'esito finale.
+Focus-visible su ogni controllo interattivo, contrasto colore reale
+(non solo i token già "certificati" a parole — verificato con calcolo
+di luminanza WCAG), ordine DOM vs ordine visivo, stress-test con testo
+ancora più lungo, modalità senza CSS, modalità senza JS, screenshot
+regression locale, test di integrazione cross-superficie: hanno
+trovato altri due difetti reali (focus invisibile sul form newsletter
+della home, due scarti di contrasto AA nei token Kairus) e confermato
+puliti tutti gli altri controlli su tutte e 7 le superfici. Esito
+completo, con SHA e riepilogo di tutti i commit del cantiere, in
+`docs/PUBLIC_A11Y_RESPONSIVE_HANDOFF.md`.
