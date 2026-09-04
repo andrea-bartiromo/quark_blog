@@ -120,7 +120,7 @@
     <article class="article-premium">
         @include('articles.partials.breadcrumb')
         @include('articles.partials.hero')
-        <div class="article-premium__layout">
+        <div class="article-premium__layout kairus-sidebar-layout">
             <main>
                 @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')

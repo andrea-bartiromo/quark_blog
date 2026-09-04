@@ -36,7 +36,7 @@
       @endif
     </x-kairus.page-header>
 
-    <div class="public-premium-layout">
+    <div class="public-premium-layout kairus-sidebar-layout">
       <section>
         <x-kairus.form-shell title="Cerca nel sito">
           <x-slot:form>
