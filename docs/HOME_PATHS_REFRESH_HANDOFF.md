@@ -7,8 +7,8 @@ mai montati prima) su home, indice Percorsi e dettaglio Percorso.
 ## SHA
 
 - Base: `feat/kairus-editorial-foundations` @ `fb5ff3044a0eeec4345aaa8d0c79dac2cc44843a`
-- Finale: `feat/kairus-home-paths-refresh` @ `5d7da517f62c4aa259165b482df03af7dfc3fd06`
-- 8 commit, nessuna PR, nessun merge, nessun deploy.
+- Finale: `feat/kairus-home-paths-refresh` @ `cae1c97178e722b4a9dfc9222015dd83eeddcff8`
+- 11 commit, nessuna PR, nessun merge, nessun deploy.
 
 ## Commit (in ordine, ciascuno un rollback indipendente con `git revert <sha>`)
 
@@ -20,38 +20,57 @@ mai montati prima) su home, indice Percorsi e dettaglio Percorso.
 6. `a1907f5` — fix(home): correzione contrasto AA sul fallback dello Speciale (bug reale trovato via screenshot, non nel piano originale).
 7. `946c65e` — adozione sull'indice Percorsi (section-heading, path-card, empty-state).
 8. `5d7da51` — adozione sul dettaglio Percorso (path-step sulle tappe reali; rifiniture minime su hero/breadcrumb).
+9. `c9bfc2c` — test: integrazione cross-superficie (home + indice + dettaglio Percorsi come un solo viaggio).
+10. `1c6f31a` — docs: questo stesso documento di handoff.
+11. `cae1c97` — chore: `.gitignore` ignora `playwright.local.config.js` (config locale della sandbox, mai da versionare — vedi sotto).
 
 Ogni commit è isolato e singolarmente revertibile senza rompere i
 precedenti: nessuna dipendenza a catena tra un commit e il successivo che
 non sia già visibile nel diff.
 
-## File toccati (23 totali, nessuno fuori da questo elenco)
+## File toccati (25 totali, nessuno fuori da questo elenco — verificato
+con `git diff --name-status feat/kairus-editorial-foundations...HEAD`)
 
-**Documentazione (4, solo testo):** `docs/HOME_PATHS_REFRESH_{FILEMAP,INVARIANTS,VIEWPORTS,COMPONENTS}.md`.
+**Configurazione repository (1):** `.gitignore` — aggiunta una sola riga,
+`/playwright.local.config.js`. Quel file (config locale di Playwright,
+usato per la QA visiva di questo cantiere: punta all'eseguibile Chromium
+già presente in questa sandbox e al proxy locale dell'ambiente) è
+volutamente **escluso dal versionamento**: resta `??` (untracked) in
+`git status`, mai aggiunto né commesso in nessun commit di questo
+cantiere — solo la sua esclusione via `.gitignore` è tracciata.
 
-**CSS (1 solo file):** `public/css/editorial-system.css` — unico file CSS
-toccato in tutto il cantiere. Nessuna riga rimossa da alcun CSS legacy
-(`style.css`, `home-fix.css`, `home-premium.css`, `content-clusters*.css`
-invariati byte per byte). Ogni regola nuova usa solo classi `.kairus-*`
-e variabili `--kairus-*` (certificato da
+**Documentazione (5, solo testo):**
+`docs/HOME_PATHS_REFRESH_{FILEMAP,INVARIANTS,VIEWPORTS,COMPONENTS,HANDOFF}.md`
+(questo stesso file incluso — è parte del delta del branch).
+
+**CSS editoriale (1 solo file):** `public/css/editorial-system.css` — unico
+file CSS toccato in tutto il cantiere. Nessuna riga rimossa da alcun CSS
+legacy (`style.css`, `home-fix.css`, `home-premium.css`,
+`content-clusters*.css` invariati byte per byte). Ogni regola nuova usa
+solo classi `.kairus-*` e variabili `--kairus-*` (certificato da
 `KairusEditorialFoundationsIsolationTest::test_editorial_css_defines_only_kairus_prefixed_classes_and_variables`,
 825 assertion, verde).
 
-**Viste (8):**
+**Viste Blade (9):**
 `resources/views/home.blade.php` + le sue 6 partial
 (`hero-trending`, `latest-articles`, `paths-discovery`, `newsletter-band`,
 `turing-teaser`, `category-grid`), `content-clusters/index.blade.php`,
 `content-clusters/show.blade.php`.
 
-**Test (10, 8 aggiornati alla nuova microcopy/classe dei componenti + 2 file
-di test nuovi/ampliati):**
+**Test (9, 8 aggiornati alla nuova microcopy/classe dei componenti + 1 file
+di test nuovo):**
 `ContentClusterPublicTest`, `ContentClusterIndexNarrativePreviewTest`,
 `ContentClusterIndexPaginationTest`, `PathEditorialAdditionsTest`,
 `PathVisualIntegrationTest`, `PathVisualLibraryTest`, `PathVisualTimelineTest`,
-`HomePathsRefreshTest` (nuovo, 477 righe, 20 test), `KairusEditorialFoundationsIsolationTest`
-(aggiornata: `home.blade.php` e le directory `home`/`content-clusters` non
-sono più nell'elenco "non ancora montato", perché ora lo sono
-legittimamente — l'evoluzione attesa dal cantiere precedente).
+`KairusEditorialFoundationsIsolationTest` (questi 8, tutti modificati —
+l'ultimo perché `home.blade.php` e le directory `home`/`content-clusters`
+non sono più nell'elenco "non ancora montato", essendolo ora
+legittimamente, l'evoluzione attesa dal cantiere precedente), più
+`HomePathsRefreshTest` (nuovo, 530 righe, 20 test — comprende anche il
+test di integrazione cross-superficie del commit `c9bfc2c`).
+
+Somma di controllo: 1 (config) + 5 (doc) + 1 (CSS) + 9 (viste) + 9 (test)
+= 25, uguale al totale dichiarato in apertura.
 
 Nessun controller, route, model, migration, config, schema, tracking,
 consenso cookie, popup Newsletter, dati dei Percorsi/pillar/membership,
