@@ -16,11 +16,25 @@
 @endsection
 
 @section('content')
+{{--
+    Cantiere F — Archives Visual Adoption (Prompt 144-150). Due varianti
+    di hero mutuamente esclusive: con immagine di sfondo
+    (.category-premium-hero, stessa struttura overlay+testo sovrapposto
+    dell'hero articolo — x-kairus.page-header non ha slot per
+    un'immagine di sfondo, stessa motivazione già documentata nel
+    Cantiere E) e senza (.public-hero--light, superficie piatta, adottata
+    con x-kairus.page-header senza perdita di contenuto come in
+    notizie.blade.php). Per coerenza tra le due varianti (lo stesso slug
+    categoria può passare dall'una all'altra semplicemente aggiungendo/
+    rimuovendo un'immagine in redazione) si mantiene lo stesso trattamento
+    "solo token" su entrambe, invece di far dipendere la scelta del
+    componente da un dato mutevole.
+--}}
 <div class="public-shell">
   <div class="container container--wide">
 
     @if($categoryImage)
-    <section class="category-premium-hero">
+    <section class="category-premium-hero kairus-tone-navy">
       <x-responsive-image
           :diskName="'categories/'.$categoryImage"
           :alt="$categoryLabel"
@@ -33,7 +47,7 @@
       <div class="category-premium-hero__content">
         <span class="public-hero__kicker">Kairus Category</span>
 
-        <h1>{{ $categoryLabel }}</h1>
+        <h1 class="kairus-category-hero__title">{{ $categoryLabel }}</h1>
 
         @if($categoryDescription)
         <p>{{ $categoryDescription }}</p>
@@ -47,14 +61,23 @@
       </div>
     </section>
     @else
-    <section class="public-hero public-hero--light">
-      <span class="public-hero__kicker">Kairus Category</span>
-      <h1>{{ $categoryLabel }}</h1>
-      <p>Approfondimenti, analisi e storie dedicate al mondo {{ strtolower($categoryLabel) }}.</p>
-      <div class="public-hero__meta">
+    {{--
+        $categoryDescription non è usata in questo ramo (invariato:
+        anche nel markup legacy questa variante mostrava solo il testo
+        generico, mai la descrizione reale — quella compariva SOLO nel
+        ramo con immagine, sopra). Non è un'incoerenza introdotta qui:
+        per non alterare comportamenti esistenti fuori dal perimetro
+        "adozione visiva" di questo cantiere, il ramo resta quello che era.
+    --}}
+    <x-kairus.page-header
+        eyebrow="Kairus Category"
+        :title="$categoryLabel"
+        :lead="'Approfondimenti, analisi e storie dedicate al mondo '.strtolower($categoryLabel).'.'"
+    >
+      <x-slot:meta>
         <span>{{ $articles->total() }} articoli</span>
-      </div>
-    </section>
+      </x-slot:meta>
+    </x-kairus.page-header>
     @endif
 
     <section class="public-feature-band">
@@ -81,48 +104,43 @@
           </div>
         </div>
 
-        <div class="public-card-grid">
+        <ul class="public-card-grid kairus-archive-grid">
           @forelse($articles as $article)
-          <a href="{{ route('articolo', $article->slug) }}" class="public-card">
-
-            <div class="public-card__media">
-              <x-responsive-image
-                  :diskName="$article->cover_image ?: null"
-                  :src="asset('assets/img/placeholder-1.svg')"
-                  :onerrorSrc="asset('assets/img/placeholder-1.svg')"
-                  :alt="$article->title"
-                  :sizes="'(max-width: 900px) 100vw, 33vw'"
-              />
-
-              <span class="public-card__badge">
-                {{ $categoryLabel }}
-              </span>
-            </div>
-
-            <div class="public-card__body">
-              <h3>{{ $article->title }}</h3>
-
-              <p>
-                {{ Str::limit($article->excerpt, 118) }}
-              </p>
-
-              <div class="public-card__footer">
-                <span>{{ Str::before($article->author->name, ' ') }}</span>
-                <span>{{ $article->read_minutes }} min</span>
-              </div>
-            </div>
-
-          </a>
+          <li>
+            <x-kairus.article-card
+                :href="route('articolo', $article->slug)"
+                :title="$article->title"
+                :excerpt="Str::limit($article->excerpt, 118)"
+                :category-label="$categoryLabel"
+            >
+              <x-slot:image>
+                <x-responsive-image
+                    :diskName="$article->cover_image ?: null"
+                    :src="asset('assets/img/placeholder-1.svg')"
+                    :onerrorSrc="asset('assets/img/placeholder-1.svg')"
+                    :alt="$article->title"
+                    :sizes="'(max-width: 900px) 100vw, 33vw'"
+                />
+              </x-slot:image>
+              <x-slot:meta>
+                <x-kairus.article-meta
+                    :author="Str::before($article->author->name, ' ')"
+                    :read-minutes="$article->read_minutes"
+                    density="compact"
+                />
+              </x-slot:meta>
+            </x-kairus.article-card>
+          </li>
           @empty
           {{-- Nessuna categoria hardcoded qui: la stessa vista serve ogni
                slug, quindi il messaggio resta generico e onesto (nessun
                contenuto "in arrivo" inventato) per qualunque categoria con
                zero articoli pubblicati — non solo Fisica appena creata. --}}
-          <div class="public-empty-state">
-            <span>🔬</span>
-            <h3>Nessun articolo pubblicato ancora</h3>
-            <p>Kairus sta preparando i primi contenuti per {{ $categoryLabel }}. Torna presto per scoprirli.</p>
-          </div>
+          <x-kairus.empty-state
+              title="Nessun articolo pubblicato ancora"
+              :message="'Kairus sta preparando i primi contenuti per '.$categoryLabel.'. Torna presto per scoprirli.'"
+              icon="notice"
+          />
           @endforelse
         </div>
 
