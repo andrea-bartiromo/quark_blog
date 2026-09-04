@@ -96,7 +96,7 @@ class ArticleRefreshTest extends TestCase
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
 
         $this->assertSame(1, substr_count($html, '<h1'));
-        $this->assertStringContainsString('<h1>'.$article->title.'</h1>', $html);
+        $this->assertStringContainsString('<h1 class="kairus-article-hero__title">'.$article->title.'</h1>', $html);
     }
 
     public function test_legacy_sources_panel_renders_from_the_body_delimiter(): void
@@ -167,7 +167,7 @@ class ArticleRefreshTest extends TestCase
 
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
 
-        preg_match('/<header class="article-premium__hero">.*?<\/header>/s', $html, $heroMatch);
+        preg_match('/<header class="[^"]*\barticle-premium__hero\b[^"]*">.*?<\/header>/s', $html, $heroMatch);
         $hero = $heroMatch[0] ?? '';
         $this->assertNotSame('', $hero);
         // Il trigger del lightbox (components/media/image-viewer.blade.php)
