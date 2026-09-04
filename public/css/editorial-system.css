@@ -998,7 +998,14 @@
 
 .kairus-form-shell__layout {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0,1fr) invece di "1fr" nudo: stessa causa già documentata
+     più sotto (Cantiere I, Prompt 215) — un singolo grid item con "1fr"
+     eredita come minimo automatico il min-content del proprio contenuto,
+     non zero. Qui non c'è (ancora) un caso riprodotto, ma il costo di
+     questa forma è nullo (nessuna differenza visiva) mentre previene la
+     stessa classe di overflow se in futuro un aside/form con contenuto
+     non spezzabile venisse aggiunto. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--kairus-space-lg);
 }
 
@@ -1122,9 +1129,14 @@
   }
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" già root-causato per
+   .kairus-sidebar-layout/.kairus-archive-grid/.kairus-related-articles__grid
+   — qui però nel proprio CSS (non legacy), sulla griglia "Ultimi
+   articoli" della home. Trovato con lo stesso audit Playwright
+   trasversale (overflow reale 66px a 320px, home). */
 @media (max-width: 480px) {
   .kairus-latest-articles__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1142,9 +1154,12 @@
   gap: var(--kairus-space-md);
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" (vedi commento sopra
+   su .kairus-latest-articles__grid) — corretto per prevenzione, nessun
+   overflow riprodotto qui finora ma stesso rischio strutturale. */
 @media (max-width: 640px) {
   .kairus-home-paths__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1188,9 +1203,11 @@
   padding: var(--kairus-space-lg);
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" (vedi commento su
+   .kairus-latest-articles__grid) — corretto per prevenzione. */
 @media (max-width: 900px) {
   .kairus-special-banner__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
