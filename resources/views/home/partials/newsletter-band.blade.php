@@ -17,8 +17,8 @@
       @csrf
       <input type="hidden" name="source" value="homepage">
       <label class="sr-only" for="home-newsletter-email">La tua email</label>
-      <input id="home-newsletter-email" type="email" name="email" placeholder="La tua email" required autocomplete="email">
-      <button type="submit">Iscriviti gratis</button>
+      <input id="home-newsletter-email" type="email" name="email" placeholder="La tua email" required autocomplete="email" class="kairus-focusable">
+      <button type="submit" class="kairus-focusable">Iscriviti gratis</button>
     </form>
   </section>
 </div>
