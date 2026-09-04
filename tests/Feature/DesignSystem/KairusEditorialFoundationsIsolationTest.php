@@ -52,8 +52,17 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
         'components/footer.blade.php',
     ];
 
+    /**
+     * "admin" e "redazione" (Prompt 129, Cantiere E — isolamento): l'intera
+     * ristrutturazione editoriale di questa sequenza di cantieri (E-J) è
+     * dichiaratamente solo sulle superfici PUBBLICHE — form articolo,
+     * autosave, e ogni altra vista redazionale/amministrativa restano
+     * fuori perimetro per l'intera sequenza, non solo per questo cantiere.
+     */
     private const FORBIDDEN_DIRECTORIES = [
         'turing',
+        'admin',
+        'redazione',
     ];
 
     public function test_no_new_route_points_to_the_kairus_component_namespace(): void

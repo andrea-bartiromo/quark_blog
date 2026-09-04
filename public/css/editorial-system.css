@@ -1465,6 +1465,14 @@
   align-items: center;
 }
 
+/* Un nome autore lungo, senza questo, non va a capo: un elemento flex ha
+   min-width:auto implicito, che usa la larghezza del contenuto non
+   spezzato come minimo e spinge l'intera riga oltre il viewport a 320px
+   (overflow orizzontale reale, verificato con QA a 320px). */
+.kairus-author-card__info {
+  min-width: 0;
+}
+
 .kairus-author-card__photo {
   width: 100%;
   height: 100%;
