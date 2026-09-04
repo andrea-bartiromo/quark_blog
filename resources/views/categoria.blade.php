@@ -94,7 +94,7 @@
       @endif
     </section>
 
-    <div class="public-premium-layout">
+    <div class="public-premium-layout kairus-sidebar-layout">
       <section>
 
         <div class="public-section-head">

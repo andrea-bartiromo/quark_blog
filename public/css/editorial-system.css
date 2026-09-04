@@ -1578,3 +1578,60 @@
 .kairus-cover-info__fact + .kairus-cover-info__fact {
   margin-top: var(--kairus-space-3xs);
 }
+
+/* =============================================================================
+   Cantiere I — Accessibilità e responsive trasversali
+   ========================================================================== */
+
+/* ---- Overflow orizzontale a 320-375px nel layout a due colonne
+   (Prompt 215) --------------------------------------------------------------
+   Bug pre-esistente, trovato e documentato (non corretto) nei Cantieri
+   E (ARTICLE_REFRESH_VIEWPORTS.md) e G (SEARCH_REFRESH_VIEWPORTS.md):
+   a <900px la pagina risultava scorrevole in orizzontale sulle
+   superfici che montano .article-premium__layout / .public-premium-layout
+   insieme a components/sidebar.blade.php.
+
+   Causa radice identificata in public-premium.css, che alla stessa
+   media query usa "1fr" nudo (non "minmax(0,1fr)") su PIÙ selettori:
+     @media(max-width:900px){
+       .public-premium-layout,.article-premium__layout{grid-template-columns:1fr}
+       ...
+       .public-card-grid,.related-premium-grid{grid-template-columns:1fr}
+     }
+   Su un grid item il minimo automatico (min-width:auto) equivale alla
+   dimensione min-content del contenuto, non a zero: se il contenuto
+   (un widget di sidebar con testo/link non spezzabile, oppure una card
+   con titolo/testo non spezzabile) ha una min-content width maggiore
+   dello spazio disponibile, la colonna — e quindi l'intera pagina — si
+   allarga oltre il viewport. "1fr" da solo NON è equivalente a
+   "minmax(0,1fr)": non azzera quel minimo automatico. Verificato
+   empiricamente (Playwright, 320px): dopo la sola correzione del primo
+   selettore (.article-premium__layout/.public-premium-layout via
+   .kairus-sidebar-layout) l'overflow spariva su articolo/ricerca ma
+   persisteva su notizie/categoria (18px) — isolato con un'ispezione DOM
+   mirata alla griglia card (.public-card-grid), stesso bug, stessa causa,
+   selettore diverso nella stessa regola legacy.
+
+   Correzione minima e mirata: nessuna riga esistente di
+   public-premium.css viene toccata (foglio di stile legacy, fuori
+   perimetro prima dell'audit CSS dedicato). Nessuna nuova classe HTML
+   necessaria per la griglia card: .kairus-archive-grid (notizie/
+   categoria) e .kairus-related-articles__grid (articolo, correlati)
+   erano già presenti sui rispettivi contenitori dal Cantiere E/F per
+   il reset da lista — qui riusate anche come selettori di questa
+   correzione. Le 4 viste già in perimetro (articolo, notizie,
+   categoria, ricerca) aggiungono comunque una classe marcatore
+   .kairus-sidebar-layout accanto alla classe legacy sul contenitore
+   a due colonne; qui le regole, alla stessa media query, ripristinano
+   "minmax(0,1fr)" per ciascun contenitore. !important necessario per
+   vincere sia la regola legacy sia l'ordine di sorgente
+   (editorial-system.css è caricato prima dei CSS di pagina in molte
+   viste). Nessuna altra proprietà del layout (gap, colonne desktop,
+   ecc.) viene alterata. */
+@media (max-width: 900px) {
+  .kairus-sidebar-layout,
+  .kairus-archive-grid,
+  .kairus-related-articles__grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
