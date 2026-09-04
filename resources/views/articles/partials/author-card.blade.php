@@ -16,7 +16,7 @@
         {{ mb_substr($article->author->name, 0, 2) }}
       @endif
     </div>
-    <div>
+    <div class="kairus-author-card__info">
       <strong>{{ $article->author->name }}</strong><br>
       <a href="{{ route('autore', $article->author) }}" class="kairus-author-card__link kairus-focusable">Profilo autore</a>
     </div>
