@@ -105,7 +105,7 @@ class ArchivesRefreshTest extends TestCase
 
         $html = $this->get(route('notizie'))->assertOk()->getContent();
 
-        $cardCount = preg_match_all('/<a href="[^"]*" class="public-card">/', $html, $cards);
+        $cardCount = preg_match_all('/<a href="[^"]*" class="[^"]*\bkairus-article-card\b[^"]*"/', $html, $cards);
         $this->assertGreaterThanOrEqual(2, $cardCount, 'Attese almeno due card articolo.');
     }
 }

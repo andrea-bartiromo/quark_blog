@@ -26,19 +26,30 @@
 @endphp
 
 @section('content')
+{{--
+    Cantiere F — Archives Visual Adoption (Prompt 138-143). L'hero
+    "public-hero--light" era già una superficie piatta senza immagine di
+    sfondo — adatta, a differenza dell'hero articolo (Cantiere E), a
+    x-kairus.page-header senza perdere alcun contenuto. Nessuna "storia
+    guida": $articles non distingue mai un articolo principale (vedi
+    ARCHIVES_REFRESH_FILEMAP.md) — introdurla via $articles->first() in
+    Blade sarebbe una scelta editoriale non deducibile dai dati, vietata
+    esplicitamente dal Prompt 139 in assenza di quella distinzione.
+--}}
 <div class="public-shell">
   <div class="container container--wide">
 
-    <section class="public-hero public-hero--light">
-      <span class="public-hero__kicker">Kairus Archive</span>
-      <h1>Tutti gli articoli</h1>
-      <p>Il meglio della divulgazione scientifica di Kairus: IA, spazio, energia, ambiente, salute, tecnologia e società in un unico flusso editoriale.</p>
-      <div class="public-hero__meta">
+    <x-kairus.page-header
+        eyebrow="Kairus Archive"
+        title="Tutti gli articoli"
+        lead="Il meglio della divulgazione scientifica di Kairus: IA, spazio, energia, ambiente, salute, tecnologia e società in un unico flusso editoriale."
+    >
+      <x-slot:meta>
         <span>{{ $articles->total() }} articoli pubblicati</span>
         <span>·</span>
         <span>Archivio aggiornato in tempo reale</span>
-      </div>
-    </section>
+      </x-slot:meta>
+    </x-kairus.page-header>
 
     <div class="public-pill-row">
       <a href="{{ route('notizie') }}" class="active">Tutti</a>
@@ -56,33 +67,40 @@
           </div>
         </div>
 
-        <div class="public-card-grid">
-          @foreach($articles as $article)
-          <a href="{{ route('articolo', $article->slug) }}" class="public-card">
-            <div class="public-card__media">
-              <x-responsive-image
-                  disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
-                  alt="{{ $article->title }}"
-                  sizes="(max-width: 900px) 100vw, 290px"
-                  onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
-              />
-              <span class="public-card__badge">
-                {{ $categoryOptions[$article->category] ?? $article->category }}
-              </span>
-            </div>
-
-            <div class="public-card__body">
-              <h3>{{ $article->title }}</h3>
-              <p>{{ Str::limit($article->excerpt, 118) }}</p>
-
-              <div class="public-card__footer">
-                <span>{{ Str::before($article->author->name, ' ') }}</span>
-                <span>{{ $article->read_minutes }} min</span>
-              </div>
-            </div>
-          </a>
-          @endforeach
-        </div>
+        <ul class="public-card-grid kairus-archive-grid">
+          @forelse($articles as $article)
+          <li>
+            <x-kairus.article-card
+                :href="route('articolo', $article->slug)"
+                :title="$article->title"
+                :excerpt="Str::limit($article->excerpt, 118)"
+                :category-label="$categoryOptions[$article->category] ?? $article->category"
+            >
+              <x-slot:image>
+                <x-responsive-image
+                    disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
+                    alt="{{ $article->title }}"
+                    sizes="(max-width: 900px) 100vw, 290px"
+                    onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+                />
+              </x-slot:image>
+              <x-slot:meta>
+                <x-kairus.article-meta
+                    :author="Str::before($article->author->name, ' ')"
+                    :read-minutes="$article->read_minutes"
+                    density="compact"
+                />
+              </x-slot:meta>
+            </x-kairus.article-card>
+          </li>
+          @empty
+            <x-kairus.empty-state
+                title="Nessun articolo pubblicato ancora."
+                message="Kairus sta preparando i primi contenuti. Torna presto per scoprirli."
+                icon="notice"
+            />
+          @endforelse
+        </ul>
 
         @if($articles->hasPages())
           <div style="margin-top:2rem;">
