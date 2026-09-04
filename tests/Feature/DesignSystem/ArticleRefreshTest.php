@@ -107,7 +107,11 @@ class ArticleRefreshTest extends TestCase
 
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
 
-        $this->assertStringContainsString('<h3>Fonti</h3>', $html);
+        // Cantiere E: il pannello è ora x-kairus.trust-panel — <dt>Fonti</dt>
+        // dentro una <dl>, non più <h3>Fonti</h3>. Stesso dato, stesso
+        // testo delle fonti, solo il markup del pannello cambia.
+        $this->assertStringContainsString('kairus-trust-panel', $html);
+        $this->assertStringContainsString('<dt>Fonti</dt>', $html);
         $this->assertStringContainsString('Fonte uno: https://example.com/a', $html);
         $this->assertStringContainsString('Fonte due: https://example.com/b', $html);
     }
@@ -118,7 +122,7 @@ class ArticleRefreshTest extends TestCase
 
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('<h3>Fonti</h3>', $html);
+        $this->assertStringNotContainsString('kairus-trust-panel', $html);
     }
 
     public function test_newsletter_form_action_method_csrf_and_field_names_are_unchanged(): void
