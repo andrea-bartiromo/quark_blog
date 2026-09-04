@@ -1452,3 +1452,44 @@
 .kairus-article-body td {
   color: var(--kairus-ink-soft);
 }
+
+/* ---- Blocco autore in sidebar (Prompt 122) --------------------------------
+   Struttura e dati (nome/foto o iniziali/link profilo) invariati — solo i
+   valori inline (display:flex, object-fit, colore/peso del link) diventano
+   token, così la stessa scala cromatica/spaziatura del resto del sistema si
+   applica anche qui. Il trattamento più approfondito come superficie di
+   fiducia appartiene al Cantiere H dedicato. */
+.kairus-author-card__row {
+  display: flex;
+  gap: var(--kairus-space-xs);
+  align-items: center;
+}
+
+.kairus-author-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--kairus-radius-pill);
+}
+
+.kairus-author-card__link {
+  font-size: var(--kairus-text-xs);
+  color: var(--kairus-teal-deep);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.kairus-author-card__link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Articoli correlati (Prompt 124) --------------------------------------
+   .related-premium-grid resta invariata (display:grid, colonne, gap):
+   qui solo il reset da lista, perché il contenitore è passato da <div> a
+   <ul>/<li> (stesso pattern semantico già adottato per le griglie
+   card in home/Percorsi nel Cantiere D). */
+.kairus-related-articles__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

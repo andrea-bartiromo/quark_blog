@@ -1,5 +1,11 @@
+{{--
+    Cantiere E (Prompt 124). Algoritmo/quantità/ordinamento/destinazioni
+    di $relatedItems invariati (ArticleRelatedService, controller). Solo
+    il markup di ciascuna card diventa x-kairus.article-card — un solo
+    <a> per card, come già era qui (nessun link annidato prima o dopo).
+--}}
 @if($relatedItems->count())
-<section style="margin-top:2rem;">
+<section class="kairus-related-articles" style="margin-top:2rem;">
   <div class="public-section-head">
     <div>
       <span>Related stories</span>
@@ -7,24 +13,26 @@
     </div>
   </div>
 
-  <div class="related-premium-grid">
+  <ul class="related-premium-grid kairus-related-articles__grid">
     @foreach($relatedItems as $item)
-    <a href="{{ route('articolo', $item->slug) }}" class="public-card">
-      <div class="public-card__media">
-        <x-responsive-image
-            :diskName="$item->cover_image ?: null"
-            :src="asset('assets/img/placeholder-1.svg')"
-            :onerrorSrc="asset('assets/img/placeholder-1.svg')"
-            :alt="$item->title"
-            :sizes="'(max-width: 900px) 100vw, 33vw'"
-        />
-      </div>
-      <div class="public-card__body">
-        <h3>{{ $item->title }}</h3>
-        <p>{{ Str::limit($item->excerpt, 90) }}</p>
-      </div>
-    </a>
+    <li>
+      <x-kairus.article-card
+          :href="route('articolo', $item->slug)"
+          :title="$item->title"
+          :excerpt="Str::limit($item->excerpt, 90)"
+      >
+        <x-slot:image>
+          <x-responsive-image
+              :diskName="$item->cover_image ?: null"
+              :src="asset('assets/img/placeholder-1.svg')"
+              :onerrorSrc="asset('assets/img/placeholder-1.svg')"
+              :alt="$item->title"
+              :sizes="'(max-width: 900px) 100vw, 33vw'"
+          />
+        </x-slot:image>
+      </x-kairus.article-card>
+    </li>
     @endforeach
-  </div>
+  </ul>
 </section>
 @endif
