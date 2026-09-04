@@ -1,4 +1,4 @@
-<section class="article-premium__body">
+<section class="article-premium__body kairus-article-body">
   @if($article->cover_caption || $article->cover_credit || $article->cover_source || $article->cover_license)
   <details class="cover-info">
     <summary class="cover-info__summary">

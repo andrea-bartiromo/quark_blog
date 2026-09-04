@@ -1276,3 +1276,179 @@
 .kairus-path-hero__title {
   text-wrap: balance;
 }
+
+/* =============================================================================
+   Cantiere E — Article Visual Adoption
+   ========================================================================== */
+
+/* ---- Testata articolo (Prompt 108-113) -----------------------------------
+   x-kairus.page-header è una superficie piatta a colore pieno (nessuno
+   slot per un'immagine di sfondo) e x-kairus.image-frame inquadra
+   un'immagine con didascalia SOTTO, per contenuto in flusso — nessuno dei
+   due si adatta a un hero con testo sovrapposto a un'immagine a piena
+   larghezza senza eliminare la cover o capovolgere il layout (vedi
+   commento in articles/partials/hero.blade.php). Qui solo token: il
+   contesto .kairus-tone-navy (già usato da page-header/section-heading
+   per lo stesso scopo — testo chiaro su sfondo scuro) applicato all'hero,
+   bilanciamento del titolo, e la disposizione del gruppo
+   meta = x-kairus.article-meta + le visualizzazioni (dato reale che il
+   componente non copre, nessuno slot dedicato). */
+.kairus-article-hero__title {
+  text-wrap: balance;
+}
+
+.kairus-article-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kairus-space-2xs) var(--kairus-space-sm);
+  margin-top: var(--kairus-space-sm);
+}
+
+.kairus-tone-navy .kairus-article-meta {
+  color: var(--kairus-ink-on-navy-soft);
+}
+
+.kairus-tone-navy .kairus-article-meta__item--author {
+  color: var(--kairus-ink-on-navy);
+}
+
+.kairus-tone-navy .kairus-article-meta__item:not(:first-child)::before {
+  background: rgba(238, 243, 238, .35);
+}
+
+/* Le visualizzazioni sono un fratello del <ul> di x-kairus.article-meta
+   (il componente non ha uno slot per un dato che non copre): stesso
+   separatore verticale, applicato qui a mano perché ":not(:first-child)"
+   del componente non può vedere oltre il proprio <ul>. */
+.kairus-article-hero__views {
+  position: relative;
+  padding-left: var(--kairus-space-sm);
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-sm);
+  color: var(--kairus-ink-on-navy-soft);
+}
+
+.kairus-article-hero__views::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 0.85em;
+  background: rgba(238, 243, 238, .35);
+}
+
+/* ---- Colonna di lettura e tipografia del corpo (Prompt 114-119) ---------
+   .article-premium__body p/h2/blockquote/img/a hanno già CSS legacy
+   completo (public-premium.css) — non ridefiniti qui, resterebbero
+   comunque meno specifici di quello legacy. Mancavano del tutto h3,
+   liste, codice inline/blocco, tabelle e separatori: senza alcuna
+   regola, questi elementi (possibili nell'HTML reale dell'editor)
+   rendono con lo stile di default del browser dentro un pannello
+   altrimenti curato. Tutto scoperto solo dentro .kairus-article-body
+   (aggiunta in body.blade.php accanto alla classe legacy, mai un
+   selettore globale h3/ul/table che toccherebbe admin o altre
+   superfici) — mai stato rimosso o ridefinito nulla di già esistente. */
+.kairus-article-body p,
+.kairus-article-body ul,
+.kairus-article-body ol {
+  max-width: var(--kairus-measure-body);
+}
+
+.kairus-article-body h3 {
+  font-family: var(--kairus-font-display);
+  font-size: var(--kairus-text-xl);
+  line-height: var(--kairus-leading-tight);
+  letter-spacing: -0.02em;
+  color: var(--kairus-ink);
+  margin: var(--kairus-space-lg) 0 var(--kairus-space-xs);
+  scroll-margin-top: var(--kairus-space-lg);
+}
+
+.kairus-article-body h2 {
+  scroll-margin-top: var(--kairus-space-lg);
+}
+
+.kairus-article-body ul,
+.kairus-article-body ol {
+  margin: var(--kairus-space-md) 0;
+  padding-left: var(--kairus-space-md);
+  color: var(--kairus-ink-soft);
+  font-size: var(--kairus-text-base);
+  line-height: var(--kairus-leading-relaxed);
+}
+
+.kairus-article-body li {
+  margin: var(--kairus-space-3xs) 0;
+}
+
+.kairus-article-body li + li {
+  margin-top: var(--kairus-space-2xs);
+}
+
+.kairus-article-body code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--kairus-surface-sunk);
+  border-radius: var(--kairus-radius-sm);
+  padding: 0.15em 0.4em;
+}
+
+.kairus-article-body pre {
+  max-width: var(--kairus-measure-wide);
+  margin: var(--kairus-space-md) 0;
+  padding: var(--kairus-space-sm) var(--kairus-space-md);
+  background: var(--kairus-surface-sunk);
+  border-radius: var(--kairus-radius-md);
+  overflow-x: auto;
+}
+
+.kairus-article-body pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--kairus-text-sm);
+  line-height: var(--kairus-leading-normal);
+  color: var(--kairus-ink);
+}
+
+.kairus-article-body hr {
+  max-width: var(--kairus-measure-body);
+  margin: var(--kairus-space-lg) 0;
+  border: none;
+  border-top: 1px solid var(--kairus-line);
+}
+
+/* ---- Tabelle e contenuto ampio (Prompt 119) -------------------------------
+   Il wrapper scorre solo se stesso in orizzontale: mai l'intera pagina
+   diventata scorrevole, mai un dato nascosto — solo la tabella, quando è
+   più larga della colonna, guadagna una scrollbar propria. */
+.kairus-article-body .kairus-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: var(--kairus-space-md) 0;
+}
+
+.kairus-article-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--kairus-text-sm);
+}
+
+.kairus-article-body th,
+.kairus-article-body td {
+  padding: var(--kairus-space-2xs) var(--kairus-space-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--kairus-line);
+}
+
+.kairus-article-body th {
+  background: var(--kairus-surface-sunk);
+  color: var(--kairus-ink);
+  font-weight: 700;
+}
+
+.kairus-article-body td {
+  color: var(--kairus-ink-soft);
+}

@@ -97,6 +97,23 @@
     $toc = $isHtml ? app(\App\Services\TableOfContentsService::class)->build($mainBody) : ['html' => $mainBody, 'items' => []];
     $mainBodyWithTocIds = $isHtml ? app(\App\Services\ArticleBodyImageService::class)->applyLazyLoading($toc['html']) : $toc['html'];
     $tocItems = $toc['items'];
+
+    // Cantiere E (Prompt 119) — Tabelle responsive senza distruggerne la
+    // struttura: nessuna tabella <table> più larga della colonna deve
+    // rendere l'intera pagina scorrevole in orizzontale, né perdere dati.
+    // Un wrapper con overflow-x proprio (.kairus-table-scroll, in
+    // editorial-system.css) risolve senza toccare gli attributi/il
+    // contenuto della tabella stessa — semplice preg_replace, non una
+    // trasformazione DOM come ArticleBodyImageService (qui non serve
+    // leggere/scrivere attributi, solo avvolgere il tag) e senza alcun
+    // rischio dell'edge-case di parsing HTML già documentato lì.
+    if ($isHtml && str_contains($mainBodyWithTocIds, '<table')) {
+        $mainBodyWithTocIds = preg_replace(
+            '/(<table\b[^>]*>.*?<\/table>)/is',
+            '<div class="kairus-table-scroll">$1</div>',
+            $mainBodyWithTocIds
+        );
+    }
 @endphp
 
 <div class="public-shell">
