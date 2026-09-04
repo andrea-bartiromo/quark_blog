@@ -1491,6 +1491,22 @@
   text-decoration: underline;
 }
 
+/* Cantiere H — bio e link social dell'autore (Prompt 186-187), entrambi
+   condizionali: senza bio nessun margine/paragrafo vuoto, senza alcun
+   social nessun contenitore vuoto (guardia @if già nella vista). */
+.kairus-author-card__bio {
+  margin: var(--kairus-space-sm) 0 0;
+  font-size: var(--kairus-text-sm);
+  line-height: var(--kairus-leading-normal);
+  color: var(--kairus-ink-soft);
+}
+
+.kairus-author-card__social {
+  display: flex;
+  gap: var(--kairus-space-sm);
+  margin-top: var(--kairus-space-xs);
+}
+
 /* ---- Articoli correlati (Prompt 124) --------------------------------------
    .related-premium-grid resta invariata (display:grid, colonne, gap):
    qui solo il reset da lista, perché il contenitore è passato da <div> a
@@ -1539,4 +1555,26 @@
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* =============================================================================
+   Cantiere H — Public Trust Layer
+   ========================================================================== */
+
+/* ---- Crediti media della cover (Prompt 196) -------------------------------
+   <figure>+<figcaption> era già l'associazione semantica corretta con
+   l'immagine — qui solo gli stili inline (display/margin) diventano
+   token, condivisi da credito/fonte/licenza invece di ripetuti tre volte. */
+.kairus-cover-info {
+  margin: 0;
+}
+
+.kairus-cover-info__fact {
+  display: block;
+  margin-top: var(--kairus-space-2xs);
+  color: var(--kairus-ink-faint);
+}
+
+.kairus-cover-info__fact + .kairus-cover-info__fact {
+  margin-top: var(--kairus-space-3xs);
 }
