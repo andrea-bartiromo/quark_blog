@@ -159,4 +159,66 @@ class PublicTrustLayerTest extends TestCase
         $this->assertArrayNotHasKey('description', $person, 'La bio non deve entrare nel Person minimale.');
         $this->assertSame(['@type', 'name', 'url'], array_keys($person), 'Il Person deve restare minimale: solo @type/name/url.');
     }
+
+    // ---- Fallback completi e nessun blocco vuoto (Prompt 204-206) ----
+
+    /**
+     * Combinazione completa: autore con bio+social, cover con tutti i
+     * crediti, fonti presenti — tutto insieme sulla stessa pagina, senza
+     * che un blocco interferisca con un altro.
+     */
+    public function test_full_combination_of_trust_elements_renders_together(): void
+    {
+        $author = User::factory()->create([
+            'role' => 'editor',
+            'name' => 'Autrice Combinazione Completa',
+            'bio' => 'Bio completa di prova.',
+            'twitter' => '@combinazione',
+            'linkedin' => 'https://linkedin.com/in/combinazione',
+        ]);
+        $article = $this->article($author, [
+            'body' => "<p>Corpo.</p>\n---\nFonte combinata: https://example.com/combinata",
+            'cover_caption' => 'Didascalia combinata.',
+            'cover_credit' => 'Credito combinato',
+            'cover_source' => 'Fonte cover combinata',
+            'cover_license' => 'CC BY 4.0',
+        ]);
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Bio completa di prova.', $html);
+        $this->assertStringContainsString('href="https://twitter.com/combinazione"', $html);
+        $this->assertStringContainsString('href="https://linkedin.com/in/combinazione"', $html);
+        $this->assertStringContainsString('Didascalia combinata.', $html);
+        $this->assertStringContainsString('Credito combinato', $html);
+        $this->assertStringContainsString('CC BY 4.0', $html);
+        $this->assertStringContainsString('Fonte combinata: https://example.com/combinata', $html);
+        $this->assertSame(1, substr_count($html, '<h1'));
+    }
+
+    /**
+     * Nessun dato di fiducia disponibile: nessun pannello Fonti, nessuna
+     * bio, nessun social, nessun blocco crediti cover — e soprattutto
+     * nessuna intestazione o pannello orfano lasciato vuoto.
+     */
+    public function test_no_trust_blocks_are_orphaned_when_no_trust_data_exists(): void
+    {
+        $author = User::factory()->create(['role' => 'editor', 'name' => 'Autore Senza Fiducia Estesa', 'bio' => null, 'twitter' => null, 'linkedin' => null]);
+        $article = $this->article($author, [
+            'body' => '<p>Corpo senza delimitatore fonti.</p>',
+            'cover_caption' => null,
+            'cover_credit' => null,
+            'cover_source' => null,
+            'cover_license' => null,
+        ]);
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('kairus-trust-panel', $html);
+        $this->assertStringNotContainsString('kairus-author-card__bio', $html);
+        $this->assertStringNotContainsString('kairus-author-card__social', $html);
+        $this->assertStringNotContainsString('cover-info', $html);
+        // L'autore minimo resta comunque presente (nome + link profilo).
+        $this->assertStringContainsString('Autore Senza Fiducia Estesa', $html);
+    }
 }
