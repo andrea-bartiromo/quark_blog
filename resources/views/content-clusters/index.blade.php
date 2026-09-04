@@ -66,6 +66,18 @@
       <p>Non una raccolta da scorrere, ma traiettorie da seguire: scegli un tema, trova il punto di partenza e costruisci il quadro un passaggio alla volta.</p>
     </aside>
 
+    {{--
+        Cantiere I (Prompt 217-220) — audit gerarchia heading: h1 (sopra,
+        headingLevel=1 per scelta esplicita del Cantiere D) seguito
+        direttamente da h3 (titolo di ogni x-kairus.path-card, sempre h3
+        per costruzione del componente) senza alcun h2 intermedio — un
+        salto reale per chi naviga per heading con screen reader. Nessun
+        cambiamento visivo: solo un h2 nascosto (stessa utility
+        .kairus-visually-hidden già in editorial-system.css, Missione 14)
+        che nomina la sezione, senza toccare x-kairus.path-card (condiviso
+        anche con altre superfici) né la scelta di headingLevel=1 sopra. --}}
+    <h2 class="kairus-visually-hidden">Elenco dei Percorsi</h2>
+
     <ul class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
         {{--
