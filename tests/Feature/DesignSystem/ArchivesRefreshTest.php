@@ -108,4 +108,31 @@ class ArchivesRefreshTest extends TestCase
         $cardCount = preg_match_all('/<a href="[^"]*" class="[^"]*\bkairus-article-card\b[^"]*"/', $html, $cards);
         $this->assertGreaterThanOrEqual(2, $cardCount, 'Attese almeno due card articolo.');
     }
+
+    // ---- Integrazione cross-archivio (Prompt 154) ----
+
+    /**
+     * Non ri-verifica i singoli comportamenti (già coperti sopra):
+     * certifica che Notizie e una Categoria condividano coerentemente
+     * gli stessi componenti Kairus (page-header, article-card,
+     * article-meta) sullo stesso articolo reale, ciascuna con un solo
+     * H1 e senza link annidati.
+     */
+    public function test_notizie_and_categoria_stay_consistent_with_the_same_components(): void
+    {
+        $article = $this->article(['title' => 'Articolo del viaggio cross-archivio', 'category' => 'fisica']);
+
+        $pages = [
+            'notizie' => $this->get(route('notizie'))->assertOk()->getContent(),
+            'categoria' => $this->get(route('categoria', 'fisica'))->assertOk()->getContent(),
+        ];
+
+        foreach ($pages as $name => $html) {
+            $this->assertSame(1, substr_count($html, '<h1'), "\"{$name}\" deve avere un solo H1.");
+            $this->assertStringContainsString('kairus-page-header', $html, "\"{$name}\" deve montare kairus-page-header.");
+            $this->assertStringContainsString('kairus-article-card', $html, "\"{$name}\" deve montare kairus-article-card.");
+            $this->assertStringContainsString('kairus-article-meta', $html, "\"{$name}\" deve montare kairus-article-meta nella card.");
+            $this->assertStringContainsString('href="'.route('articolo', $article->slug).'"', $html, "\"{$name}\" deve linkare l'articolo reale.");
+        }
+    }
 }
