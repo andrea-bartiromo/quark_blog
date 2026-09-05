@@ -62,7 +62,7 @@
         <textarea class="form-textarea" id="body" name="body"
                   style="min-height:400px;" required>{{ old('body', $article->body ?? '') }}</textarea>
         <small style="font-size:.72rem;color:#6b7280;">
-          Usa la barra degli strumenti per formattare. Inserisci le fonti alla fine del testo dopo "---".
+          Usa la barra degli strumenti per formattare. “Incolla testo semplice” conserva i paragrafi ma rimuove la formattazione esterna dal prossimo contenuto incollato. Inserisci le fonti alla fine del testo dopo "---".
         </small>
       </div>
     </div>
@@ -323,7 +323,7 @@ tinymce.init({
   promotion: false,
   branding: false,
   plugins: ['anchor','autolink','lists','link','searchreplace','wordcount','fullscreen','preview'],
-  toolbar: 'undo redo | blocks | bold italic | bullist numlist | link | removeformat | fullscreen preview',
+  toolbar: 'undo redo | pasteplaintext | blocks | bold italic | bullist numlist | link | removeformat | fullscreen preview',
   block_formats: 'Paragrafo=p; Titolo 2=h2; Titolo 3=h3; Citazione=blockquote',
   content_style: `
     body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; font-size:16px;
@@ -337,6 +337,41 @@ tinymce.init({
     a:focus-visible { outline:2px solid #0f766e; outline-offset:1px; }
   `,
   setup: function(editor) {
+    let pendingPlainTextPasteHandler = null;
+
+    editor.ui.registry.addButton('pasteplaintext', {
+      text: 'Incolla testo semplice',
+      tooltip: 'Rimuove la formattazione esterna dal prossimo contenuto incollato',
+      onAction: function() {
+        if (pendingPlainTextPasteHandler) {
+          editor.off('paste', pendingPlainTextPasteHandler);
+        }
+
+        editor.notificationManager.open({
+          text: 'Ora incolla il testo: saranno conservati i paragrafi, non la formattazione esterna.',
+          type: 'info',
+          timeout: 5000
+        });
+
+        pendingPlainTextPasteHandler = function(event) {
+          pendingPlainTextPasteHandler = null;
+          event.preventDefault();
+          const clipboard = event.clipboardData || event.originalEvent?.clipboardData;
+          const text = clipboard ? clipboard.getData('text/plain') : '';
+          const encode = function(value) {
+            const node = document.createElement('div');
+            node.textContent = value;
+            return node.innerHTML;
+          };
+          const paragraphs = text.split(/(?:\r?\n){2,}/u)
+            .map(function(paragraph) { return '<p>' + encode(paragraph).replace(/\r?\n/gu, '<br>') + '</p>'; })
+            .join('');
+          editor.insertContent(paragraphs);
+        };
+        editor.once('paste', pendingPlainTextPasteHandler);
+      }
+    });
+
     editor.on('change input', function() {
       editor.save();
       if (typeof window.kairusRefreshSeoFallbackPreview === 'function') {
