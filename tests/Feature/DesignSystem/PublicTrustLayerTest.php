@@ -3,19 +3,23 @@
 namespace Tests\Feature\DesignSystem;
 
 use App\Models\Article;
+use App\Models\ArticleRevision;
 use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Cantiere H — Public Trust Layer (Prompt 185).
+ * Cantiere H — Public Trust Layer (Prompt 185), aggiornato dalla
+ * riconciliazione Kairus (#516/#517).
  *
  * Congela il comportamento per presenza/assenza/incompletezza di ogni
  * dato di fiducia realmente disponibile sulla pagina articolo oggi:
- * bio/social autore, crediti cover, e la conferma che nessun dato NON
- * disponibile (data di aggiornamento, revisioni, metodologia,
- * disclosure) venga mai mostrato o inventato.
+ * bio/social autore, crediti cover, la data di aggiornamento (mostrata
+ * SOLO quando ArticleRevisionTransparencyService trova una revisione
+ * post-pubblicazione qualificata — mai dedotta dal solo updated_at), e
+ * la conferma che nessun dato NON disponibile (revisioni strutturate,
+ * metodologia, disclosure) venga mai mostrato o inventato.
  */
 class PublicTrustLayerTest extends TestCase
 {
@@ -109,13 +113,65 @@ class PublicTrustLayerTest extends TestCase
         $this->assertStringContainsString('CC BY 4.0', $html);
     }
 
-    public function test_no_update_date_is_ever_shown(): void
+    // Le tre asserzioni sotto sostituiscono il vecchio divieto assoluto
+    // (Cantiere H, "nessuna data di aggiornamento mai") con la
+    // riconciliazione Kairus (#517): "Aggiornato il"/dateModified ORA
+    // possono comparire, ma SOLO quando
+    // ArticleRevisionTransparencyService trova una revisione
+    // post-pubblicazione con contenuto editoriale realmente diverso — mai
+    // dedotti dal solo updated_at.
+
+    public function test_no_update_date_without_a_qualified_revision(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $article = $this->article($author);
+        // Una revisione esiste, ma è una pura transizione di stato
+        // (stesso title/excerpt/body/category dell'articolo attuale):
+        // non qualifica come modifica editoriale reale.
+        ArticleRevision::create([
+            'article_id' => $article->id,
+            'title' => $article->title,
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => 'review',
+            'created_at' => $article->published_at->clone()->addHour(),
+        ]);
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Aggiornato il', $html);
+        $this->assertStringNotContainsString('dateModified', $html);
+    }
+
+    public function test_update_date_shown_when_a_qualified_revision_exists(): void
+    {
+        $author = User::factory()->create(['role' => 'editor']);
+        $article = $this->article($author);
+        ArticleRevision::create([
+            'article_id' => $article->id,
+            'title' => 'Titolo prima della correzione',
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => 'published',
+            'created_at' => $article->published_at->clone()->addDays(2),
+        ]);
+
+        $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Aggiornato il', $html);
+        $this->assertStringContainsString('dateModified', $html);
+    }
+
+    public function test_raw_updated_at_alone_is_not_sufficient(): void
     {
         $author = User::factory()->create(['role' => 'editor']);
         $article = $this->article($author);
         // updated_at diverso da published_at (com'è sempre nella pratica:
-        // ogni save successivo lo tocca) — non deve MAI apparire come
-        // "aggiornato il" da nessuna parte della pagina.
+        // ogni save successivo lo tocca) ma NESSUNA revisione qualificata
+        // — updated_at da solo non deve mai bastare a mostrare
+        // "aggiornato il".
         $article->forceFill(['updated_at' => now()])->saveQuietly();
 
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
