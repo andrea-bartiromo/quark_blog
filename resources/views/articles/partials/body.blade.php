@@ -14,20 +14,28 @@
     </summary>
     <div class="cover-info__body">
       <div class="cover-info__body-inner">
-        <figure class="article-premium__panel" style="margin:0;">
+        {{--
+            Cantiere H (Prompt 196). Struttura/dati invariati — <figure>
+            + <figcaption> era già l'associazione semantica corretta con
+            la cover; qui solo gli stili inline (display/margin) diventano
+            token, con una classe .kairus-cover-info__fact condivisa per
+            credito/fonte/licenza invece di ripeterne tre volte lo stesso
+            style="" inline.
+        --}}
+        <figure class="article-premium__panel kairus-cover-info">
           @if($article->cover_caption)
           <figcaption>{{ $article->cover_caption }}</figcaption>
           @endif
 
           @if($article->cover_credit)
-          <small style="display:block;margin-top:.5rem;">Credito: {{ $article->cover_credit }}</small>
+          <small class="kairus-cover-info__fact">Credito: {{ $article->cover_credit }}</small>
           @endif
 
           @if($article->cover_source)
-          <small style="display:block;margin-top:.25rem;">
+          <small class="kairus-cover-info__fact">
             Fonte:
             @if($article->cover_source_url && filter_var($article->cover_source_url, FILTER_VALIDATE_URL))
-              <a href="{{ $article->cover_source_url }}" target="_blank" rel="noopener noreferrer">{{ $article->cover_source }}</a>
+              <a href="{{ $article->cover_source_url }}" target="_blank" rel="noopener noreferrer" class="kairus-focusable">{{ $article->cover_source }}</a>
             @else
               {{ $article->cover_source }}
             @endif
@@ -35,7 +43,7 @@
           @endif
 
           @if($article->cover_license)
-          <small style="display:block;margin-top:.25rem;">Licenza: {{ $article->cover_license }}</small>
+          <small class="kairus-cover-info__fact">Licenza: {{ $article->cover_license }}</small>
           @endif
         </figure>
       </div>
