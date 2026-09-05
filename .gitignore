@@ -31,3 +31,4 @@ database/database.sqlite
 /DEPLOY_INFO
 /test-results
 /playwright-report
+/playwright.local.config.js
