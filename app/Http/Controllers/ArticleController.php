@@ -33,6 +33,23 @@ class ArticleController extends Controller
 
         abort_unless($categoryModel || array_key_exists($slug, $categories), 404);
 
+        $articles = Article::published()
+            ->where(function ($query) use ($slug) {
+                $query->where('category', $slug)
+                    ->orWhereHas('secondaryCategories', fn ($secondaryQuery) => $secondaryQuery->where('categories.slug', $slug));
+            })
+            ->orderByDesc('id')
+            ->with('author')
+            ->paginate(12);
+
+        if ($articles->total() > 0 && $articles->currentPage() > $articles->lastPage()) {
+            abort(404);
+        }
+
+        $pageUrl = static fn (int $page): string => $page === 1
+            ? route('categoria', $slug)
+            : route('categoria', ['slug' => $slug, 'page' => $page]);
+
         return view('categoria', [
             'slug' => $slug,
             'categoryModel' => $categoryModel,
@@ -45,13 +62,9 @@ class ArticleController extends Controller
             // hanno questa categoria come principale oppure come secondaria.
             // whereHas() usa EXISTS e quindi non duplica le righe anche se
             // un articolo soddisfacesse entrambe le condizioni.
-            'articles' => Article::published()
-                ->where(function ($query) use ($slug) {
-                    $query->where('category', $slug)
-                        ->orWhereHas('secondaryCategories', fn ($secondaryQuery) => $secondaryQuery->where('categories.slug', $slug));
-                })
-                ->with('author')
-                ->paginate(12),
+            'articles' => $articles,
+            'previousPageUrl' => $articles->onFirstPage() ? null : $pageUrl($articles->currentPage() - 1),
+            'nextPageUrl' => $articles->hasMorePages() ? $pageUrl($articles->currentPage() + 1) : null,
         ]);
     }
 
