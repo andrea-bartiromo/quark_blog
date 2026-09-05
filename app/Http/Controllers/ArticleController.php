@@ -9,6 +9,7 @@ use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticlePrimarySourcesParser;
 use App\Services\ArticleRelatedService;
+use App\Services\ArticleRevisionTransparencyService;
 use App\Services\ArticleViewTrackingService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
@@ -197,6 +198,13 @@ class ArticleController extends Controller
             // strutturato. Vedi App\Services\ArticlePrimarySourcesParser
             // e components/article/primary-sources.blade.php.
             'primarySources' => app(ArticlePrimarySourcesParser::class)->parse($article->primary_sources),
+
+            // Trust Layer — trasparenza revisioni: null a meno che
+            // esista una revisione post-pubblicazione con contenuto
+            // davvero diverso dallo stato attuale (mai una data
+            // "aggiornato" inventata). Vedi
+            // App\Services\ArticleRevisionTransparencyService.
+            'lastEditorialUpdate' => app(ArticleRevisionTransparencyService::class)->lastEditorialUpdate($article),
         ]);
     }
 }

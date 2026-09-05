@@ -16,6 +16,14 @@
     slot per le visualizzazioni (dato reale, da preservare integralmente):
     adottato per i tre campi che copre, con le visualizzazioni aggiunte
     come elemento fratello nello stesso stile.
+
+    Trust Layer — riconciliazione Kairus (#517). "Aggiornato il" usa il
+    prop updatedAt del componente, già previsto da Missione 06 ma mai
+    invocato da nessuna vista prima d'ora: $lastEditorialUpdate è null a
+    meno che ArticleRevisionTransparencyService trovi una revisione
+    post-pubblicazione con contenuto realmente diverso — il componente
+    omette l'intero <li> quando il valore è null, mai una data
+    indovinata. Mai il vecchio container .article-premium__meta.
 --}}
 <header class="article-premium__hero kairus-tone-navy">
   <x-responsive-image
@@ -56,6 +64,7 @@
       <x-kairus.article-meta
           :author="$article->author->name"
           :published-at="$article->published_at"
+          :updated-at="$lastEditorialUpdate"
           :read-minutes="$article->read_minutes"
       />
       <span class="kairus-article-meta__item kairus-article-hero__views">{{ number_format($article->views, 0, ',', '.') }} visualizzazioni</span>
