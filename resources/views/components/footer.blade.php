@@ -82,6 +82,7 @@
           <a href="{{ url('/la-redazione') }}">La redazione</a>
           <a href="{{ url('/contatti') }}">Contatti</a>
           <a href="{{ url('/pubblicita') }}">Pubblicità e collaborazioni</a>
+          <a href="{{ url('/metodologia') }}">Metodologia</a>
           <a href="{{ url('/rettifiche') }}">Rettifiche</a>
           <a href="{{ url('/feed.xml') }}">RSS Feed</a>
         </nav>

@@ -458,6 +458,7 @@ Route::get('/privacy', fn () => view('privacy'))->name('privacy');
 Route::get('/cookie', fn () => view('cookie'))->name('cookie');
 Route::get('/termini', fn () => view('termini'))->name('termini');
 Route::get('/rettifiche', fn () => view('rettifiche'))->name('rettifiche');
+Route::get('/metodologia', fn () => view('metodologia'))->name('metodologia');
 
 Route::post('/contatti', [ContactController::class, 'send'])
     ->middleware('throttle:3,1')
