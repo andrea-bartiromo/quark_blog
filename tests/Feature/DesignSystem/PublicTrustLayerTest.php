@@ -131,7 +131,12 @@ class PublicTrustLayerTest extends TestCase
 
         $html = $this->get(route('articolo', $article->slug))->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('/metodologia', $html);
+        // Il link '/metodologia' nel footer condiviso è reale (Trust Policy
+        // Pages, #519, mergiato prima di questa catena Kairus nell'ordine di
+        // integrazione effettivo) — non un claim inventato da questo
+        // cantiere sulla pagina articolo. Qui si verifica solo che NESSUN
+        // claim di revisione/metodologia/disclosure specifico dell'articolo
+        // venga fabbricato da questo cantiere.
         $this->assertStringNotContainsString('Revisionato', $html);
         $this->assertStringNotContainsString('Sponsorizzato', $html);
     }
