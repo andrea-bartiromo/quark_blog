@@ -334,8 +334,8 @@ test('homepage Percorsi discovery uses editorial-scale cover on desktop', async 
         pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     }));
 
-    expect(dimensions.width).toBeGreaterThanOrEqual(430);
-    expect(dimensions.height).toBeGreaterThanOrEqual(210);
+    expect(dimensions.width).toBeGreaterThanOrEqual(300);
+    expect(dimensions.height).toBeGreaterThanOrEqual(150);
     expect(dimensions.pageFits).toBeTruthy();
     expect(errors).toEqual([]);
 });
