@@ -112,6 +112,10 @@ class ScheduledArticleVisibilityTest extends TestCase
         // Difesa in profondità: anche se un articolo avesse status=published
         // con una data futura (stato oggi non raggiungibile dall'interfaccia,
         // dato l'invariante del model), la pagina autore non deve mostrarlo.
+        // Un secondo articolo regolarmente pubblicato mantiene l'autore
+        // eleggibile per la pagina pubblica (Trust Layer V1, vedi
+        // PublicAuthorPageEligibilityTest) — senza, la pagina risponderebbe
+        // 404 e non ci sarebbe nulla su cui verificare l'esclusione.
         $author = $this->author();
         Article::create([
             'user_id' => $author->id,
@@ -121,6 +125,15 @@ class ScheduledArticleVisibilityTest extends TestCase
             'category' => 'energia',
             'status' => Article::STATUS_PUBLISHED,
             'published_at' => now()->addDay(),
+        ]);
+        Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo regolarmente pubblicato',
+            'slug' => 'articolo-regolarmente-pubblicato',
+            'body' => 'Corpo.',
+            'category' => 'energia',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
         ]);
 
         $response = $this->get(route('autore', $author));

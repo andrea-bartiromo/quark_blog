@@ -1,6 +1,15 @@
 @extends('layouts.app')
 
-@section('title', $author->name.' — Redattore — '.config('laboratorio.name'))
+@php
+    // Sintesi con la PR parallela #509 (feat/author-trust-layer-v1):
+    // un'etichetta di ruolo veritiera invece del fisso "Redattore"/"Redattore
+    // Kairus" per chiunque — un collaboratore non è un redattore. Calcolata
+    // qui, prima di ogni @section, perché serve sia al <title> sia al blocco
+    // JSON-LD sia al kicker in pagina.
+    $authorRoleLabel = $author->role === 'author' ? 'Collaboratore Kairus' : 'Redazione Kairus';
+@endphp
+
+@section('title', $author->name.' — '.$authorRoleLabel.' — '.config('laboratorio.name'))
 @section('description', 'Articoli di '.$author->name.' su '.config('laboratorio.name').', rivista italiana di divulgazione scientifica.')
 @section('canonical', $articles->currentPage() > 1
     ? route('autore', ['user' => $author, 'page' => $articles->currentPage()])
@@ -13,14 +22,29 @@
         '@type' => 'Person',
         'name' => $author->name,
         'url' => route('autore', $author),
+        'jobTitle' => $authorRoleLabel,
     ];
 
     if ($author->bio) {
         $personSchema['description'] = $author->bio;
     }
 
-    if ($author->twitter) {
-        $personSchema['sameAs'] = ['https://twitter.com/'.ltrim($author->twitter, '@')];
+    // LinkedIn validato allo stesso modo di cover_source_url altrove nel
+    // progetto: solo HTTP(S), mai uno schema pericoloso (javascript:,
+    // data:, ...) promosso a link o a sameAs.
+    $authorLinkedin = $author->linkedin
+        && filter_var($author->linkedin, FILTER_VALIDATE_URL)
+        && in_array(parse_url($author->linkedin, PHP_URL_SCHEME), ['http', 'https'], true)
+            ? $author->linkedin
+            : null;
+
+    $authorSameAs = array_values(array_filter([
+        $author->twitter ? 'https://twitter.com/'.ltrim($author->twitter, '@') : null,
+        $authorLinkedin,
+    ]));
+
+    if ($authorSameAs !== []) {
+        $personSchema['sameAs'] = $authorSameAs;
     }
 @endphp
 <script type="application/ld+json">{!! json_encode($personSchema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
@@ -45,7 +69,7 @@
       </div>
 
       <div class="author-premium-hero__content">
-        <span class="public-hero__kicker">Redattore Kairus</span>
+        <span class="public-hero__kicker">{{ $authorRoleLabel }}</span>
         <h1>{{ $author->name }}</h1>
 
         @if($author->bio)
@@ -62,10 +86,10 @@
             </a>
           @endif
 
-          @if($author->email && $author->role === 'editor')
-            <a href="mailto:{{ $author->email }}">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
-              Contatta
+          @if($authorLinkedin)
+            <a href="{{ $authorLinkedin }}" target="_blank" rel="noopener">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.446-2.136 2.94v5.666H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124zM7.114 20.452H3.56V9h3.554v11.452z"/></svg>
+              LinkedIn
             </a>
           @endif
         </div>

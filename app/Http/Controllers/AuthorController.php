@@ -24,6 +24,15 @@ class AuthorController extends Controller
             ->published()
             ->paginate(12);
 
+        // Trust Layer V1 — eleggibilità pubblica: prima di questa modifica
+        // qualunque User esistente (incl. un account admin mai pensato per
+        // essere pubblico) era raggiungibile via /autore/{id}, confermando
+        // la sua esistenza anche senza alcun articolo pubblicato. L'unico
+        // segnale disponibile senza inventare un campo nuovo è "ha almeno
+        // un articolo pubblicato" — un utente senza articoli pubblici
+        // riceve un 404 comune, indistinguibile da uno slug inesistente.
+        abort_unless($articles->total() > 0, 404);
+
         return view('autore', [
             'author' => $user,
             'articles' => $articles,
