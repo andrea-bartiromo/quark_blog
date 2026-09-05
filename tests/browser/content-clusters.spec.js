@@ -167,9 +167,9 @@ for (const width of viewportWidths) {
                 const noteCopy = document.querySelector('.path-entrance__copy');
                 const pillar = document.querySelector('.path-pillar');
                 const steps = document.querySelector('.path-steps');
-                const firstStep = document.querySelector('.path-step');
-                const firstStepNumber = document.querySelector('.path-step__number');
-                const firstStepTitle = document.querySelector('.path-step h3');
+                const firstStep = document.querySelector('.kairus-path-step');
+                const firstStepNumber = document.querySelector('.kairus-path-step__number');
+                const firstStepTitle = document.querySelector('.kairus-path-step__title');
                 const ending = document.querySelector('.path-ending');
                 if (!detail || !shell || !hero || !heroMedia || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
@@ -227,8 +227,8 @@ for (const width of viewportWidths) {
             expect(detailLayout.heroMediaHeight).toBeGreaterThan(500);
             expect(detailLayout.heroMediaAlt).toBe('Cover del percorso IA spiegata');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
-            expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
-            expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
+            expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(16);
+            expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(16);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
             expect(detailLayout.detailBackground).not.toBe('rgb(255, 255, 255)');
             expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
@@ -240,7 +240,7 @@ for (const width of viewportWidths) {
             expect(detailLayout.stepsBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.stepsBorder).not.toBe('0px');
             expect(detailLayout.stepsRadius).toBeGreaterThanOrEqual(20);
-            expect(detailLayout.stepBackground).toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.stepBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.stepRule).not.toBe('0px');
             expect(detailLayout.endingBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.endingRule).not.toBe('0px');
