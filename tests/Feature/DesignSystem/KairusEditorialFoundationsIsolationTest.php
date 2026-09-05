@@ -36,15 +36,14 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
      */
     /**
      * "articolo.blade.php" e la directory "articles" sono usciti da questo
-     * elenco nel Cantiere E (Article Visual Adoption): montano
-     * legittimamente il sistema editoriale ora. Stessa evoluzione già
-     * documentata nel Cantiere D per home.blade.php e le directory
+     * elenco nel Cantiere E (Article Visual Adoption); "notizie.blade.php"
+     * e "categoria.blade.php" nel Cantiere F (Archives Visual Adoption):
+     * montano legittimamente il sistema editoriale ora. Stessa evoluzione
+     * già documentata nel Cantiere D per home.blade.php e le directory
      * home/content-clusters — non una svista, l'atteso avanzamento
      * dell'adozione superficie per superficie.
      */
     private const FORBIDDEN_VIEWS = [
-        'notizie.blade.php',
-        'categoria.blade.php',
         'ricerca.blade.php',
         'autore.blade.php',
         'turing.blade.php',

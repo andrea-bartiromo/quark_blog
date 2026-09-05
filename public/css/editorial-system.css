@@ -1501,3 +1501,28 @@
   margin: 0;
   padding: 0;
 }
+
+/* =============================================================================
+   Cantiere F — Archives Visual Adoption
+   ========================================================================== */
+
+/* ---- Griglie Notizie/Categoria (Prompt 138-150) ---------------------------
+   .public-card-grid resta invariata (display:grid, colonne, gap): qui
+   solo il reset da lista — stesso pattern già usato per i correlati
+   dell'articolo (Cantiere E) e le griglie card di home/Percorsi
+   (Cantiere D). */
+.kairus-archive-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hero categoria CON immagine di sfondo: stessa motivazione già
+   documentata per l'hero articolo (Cantiere E) — nessun componente
+   Kairus supporta testo sovrapposto a un'immagine a piena larghezza
+   senza perdere la cover. Solo bilanciamento titolo + contesto
+   .kairus-tone-navy (qui non serve un override dedicato per
+   .kairus-article-meta: questo hero non monta quel componente). */
+.kairus-category-hero__title {
+  text-wrap: balance;
+}
