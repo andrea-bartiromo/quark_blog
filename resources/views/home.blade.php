@@ -101,12 +101,30 @@ SVG;
   };
 @endphp
 
+{{--
+    Cantiere D — Home + Percorsi Visual Adoption. Ordine narrativo
+    approvato: Hero → Ultimi articoli → Percorsi → Newsletter → Speciale →
+    Categorie (Prompt 13). "Percorsi" era prima incluso da DENTRO
+    turing-teaser.blade.php (dopo il teaser Speciale): la stessa condizione
+    di attivazione ($homePaths non vuoto) è ora qui, non più nella partial,
+    cosi' la sezione può precedere Newsletter/Speciale senza toccare dati o
+    query — $homePaths resta la stessa variabile calcolata da
+    HomeController::index().
+--}}
 @include('home.partials.hero-trending')
+
+<div class="container container--wide kairus-page-shell">
+  @include('home.partials.latest-articles')
+</div>
+
+@if(($homePaths ?? collect())->isNotEmpty())
+  @include('home.partials.paths-discovery')
+@endif
+
 @include('home.partials.newsletter-band')
 @include('home.partials.turing-teaser')
 
-<div class="container container--wide">
-  @include('home.partials.latest-articles')
+<div class="container container--wide kairus-page-shell">
   @include('home.partials.category-grid')
 </div>
 

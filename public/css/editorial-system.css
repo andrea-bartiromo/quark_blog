@@ -77,6 +77,12 @@
   --kairus-space-xl: 4rem;
   --kairus-space-2xl: 6rem;
 
+  /* ---- Larghezza di impaginazione -----------------------------------------
+     Coerente con --max-width:1200px di style.css e .container--wide:1180px
+     di home-fix.css (Cantiere D, Home + Percorsi Visual Adoption): non un
+     valore nuovo arbitrario, la stessa larghezza già in uso, ora tokenizzata. */
+  --kairus-shell-width: 1200px;
+
   /* ---- Raggi ---------------------------------------------------------------*/
   --kairus-radius-sm: 6px;
   --kairus-radius-md: 12px;
@@ -1026,4 +1032,247 @@
 
 .kairus-form-shell--error .kairus-form-shell__title {
   color: var(--kairus-amber);
+}
+
+/* =============================================================================
+   Cantiere D — Home + Percorsi Visual Adoption
+   ========================================================================== */
+
+/* Utility di impaginazione — non un componente Blade (nessuno dei 10
+   componenti delle fondamenta V1 si chiama "page-shell"): un wrapper
+   puramente strutturale, larghezza massima e padding tokenizzati, applicato
+   solo dove non spezzerebbe una sezione already a piena larghezza
+   (hero/Newsletter/Speciale in home restano full-bleed, invariati). */
+.kairus-page-shell {
+  max-width: var(--kairus-shell-width);
+  margin-inline: auto;
+  padding-inline: var(--kairus-space-md);
+}
+
+/* ---- Indice Percorsi: card (Prompt 71-80) --------------------------------
+   .path-card resta sull'<li> ospite solo per JS/CSS legacy del toggle
+   "Anteprima" (vedi content-clusters/index.blade.php) — qui si neutralizza
+   il SUO riquadro (bordo/ombra/sfondo/hover), perché x-kairus.path-card
+   dentro fornisce già un riquadro completo e distinto: senza, i due si
+   sommerebbero in un doppio bordo/ombra. La classe è ripetuta
+   (.kairus-path-card-host.kairus-path-card-host) solo per elevare la
+   specificità sopra la regola legacy .path-card di content-clusters.css
+   (caricato dopo editorial-system.css nell'head di questa pagina) — ogni
+   token del selettore resta comunque prefissato kairus-, nessun selettore
+   .paths-index/.path-card legacy qui. */
+.kairus-path-card-host.kairus-path-card-host {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  transition: none;
+}
+
+.kairus-path-card-host.kairus-path-card-host:hover {
+  transform: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.kairus-path-card-host__toggle,
+.kairus-path-card-host__preview {
+  margin-left: var(--kairus-space-md);
+  margin-right: var(--kairus-space-md);
+}
+
+/* ---- Home: hero + "in evidenza" (Prompt 15-26) --------------------------
+   Il layout a due colonne (.home-lead-story, CSS Grid) resta quello di
+   home-fix.css, invariato: qui solo l'ordine di lettura (testo prima
+   dell'immagine nel DOM, Prompt 18) e la tipografia/spaziatura via token. */
+.kairus-hero-story__media {
+  /* Riporta l'immagine davanti al testo nella resa visiva a ogni
+     larghezza (desktop 2 colonne o mobile impilato a 1 colonna, vedi
+     home-fix.css @media max-width:1100px) — il DOM la elenca per seconda,
+     solo per l'ordine di lettura lineare/tastiera. */
+  order: -1;
+}
+
+.kairus-hero-story__title {
+  text-wrap: balance;
+}
+
+.kairus-hero-story__lead {
+  max-width: var(--kairus-measure-lead);
+}
+
+.kairus-trending-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--kairus-space-2xs);
+}
+
+/* ---- Home: Ultimi articoli, Percorsi, Newsletter, Speciale, Categorie
+   (Prompt 27-59) ------------------------------------------------------- */
+.kairus-latest-articles__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--kairus-space-md);
+}
+
+@media (max-width: 1024px) {
+  .kairus-latest-articles__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .kairus-latest-articles__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-home-paths {
+  background: var(--kairus-surface-sage);
+}
+
+.kairus-home-paths__intro {
+  max-width: var(--kairus-measure-lead);
+}
+
+.kairus-home-paths__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kairus-space-md);
+}
+
+@media (max-width: 640px) {
+  .kairus-home-paths__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-newsletter-shell .kairus-form-shell {
+  background: var(--kairus-surface-sage);
+  border-color: var(--kairus-line-strong);
+}
+
+.kairus-special-banner {
+  margin: var(--kairus-space-md) 0 var(--kairus-space-xl);
+  border-radius: var(--kairus-radius-lg);
+  overflow: hidden;
+  position: relative;
+  color: #fff;
+  box-shadow: var(--kairus-shadow-lg);
+  background-size: cover;
+  background-position: center;
+}
+
+/* Prompt 53 (contrasto AA): lo sfondo è dati controller ($turingHome['style'],
+   fuori perimetro di questo cantiere) — un'immagine scura reale o, quando
+   nessuna pagina speciale è configurata, un gradiente chiaro di fallback su
+   cui il testo bianco esistente perderebbe contrasto. Uno scrim scuro qui,
+   indipendente dal contenuto dello sfondo, garantisce AA in entrambi i casi
+   senza toccare app/Http/Controllers/HomeController.php. */
+.kairus-special-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(120deg, rgba(4, 10, 20, .62), rgba(4, 10, 20, .3));
+}
+
+.kairus-special-banner__grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--kairus-space-lg);
+  align-items: center;
+  padding: var(--kairus-space-lg);
+}
+
+@media (max-width: 900px) {
+  .kairus-special-banner__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kairus-special-banner__content {
+  min-width: 0;
+}
+
+.kairus-special-banner__eyebrow {
+  display: inline-flex;
+  margin-bottom: var(--kairus-space-xs);
+  color: #a5f3fc;
+  font-family: var(--kairus-font-interface);
+  font-size: var(--kairus-text-xs);
+  font-weight: 900;
+  letter-spacing: var(--kairus-tracking-wide);
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .7);
+}
+
+.kairus-special-banner__title {
+  font-family: var(--kairus-font-display);
+  font-size: clamp(2rem, 4.6vw, 4.2rem);
+  line-height: .98;
+  letter-spacing: -.03em;
+  margin: 0;
+  color: #fff;
+  text-wrap: balance;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, .85), 0 8px 28px rgba(0, 0, 0, .55);
+}
+
+.kairus-special-banner__lead {
+  margin-top: var(--kairus-space-sm);
+  max-width: var(--kairus-measure-lead);
+  color: #fff;
+  font-family: var(--kairus-font-body);
+  font-size: var(--kairus-text-base);
+  line-height: var(--kairus-leading-normal);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .8), 0 5px 18px rgba(0, 0, 0, .5);
+}
+
+.kairus-special-banner__cta {
+  display: inline-flex;
+  margin-top: var(--kairus-space-sm);
+  padding: var(--kairus-space-xs) var(--kairus-space-sm);
+  border-radius: var(--kairus-radius-md);
+  background: #67e8f9;
+  color: #001018;
+  text-decoration: none;
+  font-family: var(--kairus-font-interface);
+  font-weight: 900;
+}
+
+/* backdrop-filter preesistente (spostato da inline style, non introdotto
+   qui — vedi commento nella view) — Kairus Visual Language del terminale
+   Turing, invariato nell'effetto. */
+.kairus-special-banner__terminal {
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: var(--kairus-radius-lg);
+  background: rgba(15, 23, 42, .45);
+  backdrop-filter: blur(10px);
+  padding: var(--kairus-space-sm);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color: #a5f3fc;
+  line-height: var(--kairus-leading-normal);
+  font-size: var(--kairus-text-sm);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .25);
+}
+
+.kairus-category-heading {
+  margin-bottom: var(--kairus-space-sm);
+}
+
+/* ---- Dettaglio Percorso (Prompt 81-93) -----------------------------------
+   Hero e pillar restano struttura/CSS legacy (content-clusters-detail.css):
+   ogni proprietà tipografica utile è già più specifica lì (".path-detail
+   .eyebrow"/".path-detail .path-hero__copy .eyebrow", 2-3 classi) di
+   qualunque singola classe .kairus-* aggiunta qui — un'aggiunta sarebbe
+   inerte, mai applicata. Solo due ritocchi realmente nuovi: bilanciamento
+   del titolo hero (nessuna regola legacy tocca text-wrap) e focus visibile
+   sui link del breadcrumb (nessuna regola :focus-visible esisteva lì —
+   ogni altro elemento interattivo della pagina, pillar/CTA/lightbox, ha
+   già il proprio :focus-visible dedicato in content-clusters-detail.css). */
+.kairus-path-hero__title {
+  text-wrap: balance;
 }

@@ -46,7 +46,10 @@ class PathVisualTimelineTest extends TestCase
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertSee('path-step__cover', false);
+        // Cantiere D: la tappa è ora resa da x-kairus.path-step, classe
+        // "kairus-path-step__media" invece della legacy "path-step__cover"
+        // — stesso elemento, stesso src.
+        $response->assertSee('kairus-path-step__media', false);
         $response->assertSee('copertina-di-prova.jpg', false);
     }
 
@@ -59,7 +62,7 @@ class PathVisualTimelineTest extends TestCase
         $response = $this->get(route('percorsi.show', $cluster->slug));
 
         $response->assertOk();
-        $response->assertDontSee('path-step__cover', false);
+        $response->assertDontSee('kairus-path-step__media', false);
     }
 
     public function test_an_updating_path_with_published_articles_shows_an_open_dashed_terminal_node(): void

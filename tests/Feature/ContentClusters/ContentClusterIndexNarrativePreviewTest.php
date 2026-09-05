@@ -190,7 +190,11 @@ class ContentClusterIndexNarrativePreviewTest extends TestCase
 
     private function previewHtml(string $html, ContentCluster $cluster): string
     {
-        preg_match('/<div class="path-card__preview" id="path-preview-'.$cluster->id.'".*?<\/div>/s', $html, $matches);
+        // Cantiere D: il pannello porta anche una classe kairus- propria
+        // (solo margini, editorial-system.css) accanto a quella legacy —
+        // il selettore accetta classi aggiuntive nell'attributo invece di
+        // pretendere class="path-card__preview" esatto.
+        preg_match('/<div class="[^"]*\bpath-card__preview\b[^"]*" id="path-preview-'.$cluster->id.'".*?<\/div>/s', $html, $matches);
 
         return $matches[0] ?? '';
     }

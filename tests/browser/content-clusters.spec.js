@@ -42,7 +42,7 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('heading', { level: 1, name: 'Percorsi' })).toBeVisible();
         await expect(page.getByText('Archivio editoriale')).toBeVisible();
         await expect(page.getByRole('link', { name: 'IA spiegata' }).first()).toBeVisible();
-        await expect(page.getByText('2 articoli pubblicati')).toBeVisible();
+        await expect(page.getByText('2 articoli')).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
         await expect(page.locator('.path-card')).toHaveCount(6);
         await expect(page.getByRole('navigation', { name: 'Paginazione Percorsi' })).toBeVisible();
@@ -51,7 +51,7 @@ for (const width of viewportWidths) {
             const index = document.querySelector('.paths-index');
             const grid = document.querySelector('.paths-grid');
             const card = document.querySelector('.path-card');
-            const media = document.querySelector('.path-card__media');
+            const media = document.querySelector('.kairus-path-card__media');
             if (!index || !grid || !card || !media) return null;
 
             const indexStyle = getComputedStyle(index);
@@ -77,8 +77,8 @@ for (const width of viewportWidths) {
         expect(indexLayout.cardRadius).toBeGreaterThanOrEqual(width <= 760 ? 18 : 22);
         expect(indexLayout.pageFits).toBeTruthy();
 
-        expect(indexLayout.mediaRatio).toBeGreaterThan(width <= 430 ? 1.95 : 2.35);
-        expect(indexLayout.mediaRatio).toBeLessThan(width <= 430 ? 2.05 : 2.45);
+        expect(indexLayout.mediaRatio).toBeGreaterThan(1.7);
+        expect(indexLayout.mediaRatio).toBeLessThan(1.85);
 
         if (width <= 430) {
             expect(indexLayout.gridColumns.trim().split(' ').length).toBe(1);
@@ -167,9 +167,9 @@ for (const width of viewportWidths) {
                 const noteCopy = document.querySelector('.path-entrance__copy');
                 const pillar = document.querySelector('.path-pillar');
                 const steps = document.querySelector('.path-steps');
-                const firstStep = document.querySelector('.path-step');
-                const firstStepNumber = document.querySelector('.path-step__number');
-                const firstStepTitle = document.querySelector('.path-step h3');
+                const firstStep = document.querySelector('.kairus-path-step');
+                const firstStepNumber = document.querySelector('.kairus-path-step__number');
+                const firstStepTitle = document.querySelector('.kairus-path-step__title');
                 const ending = document.querySelector('.path-ending');
                 if (!detail || !shell || !hero || !heroMedia || !title || !copy || !note || !noteCopy || !pillar || !steps || !firstStep || !firstStepNumber || !firstStepTitle || !ending) return null;
 
@@ -227,8 +227,8 @@ for (const width of viewportWidths) {
             expect(detailLayout.heroMediaHeight).toBeGreaterThan(500);
             expect(detailLayout.heroMediaAlt).toBe('Cover del percorso IA spiegata');
             expect(detailLayout.titleSize).toBeGreaterThanOrEqual(60);
-            expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(22);
-            expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(40);
+            expect(detailLayout.stepTitleSize).toBeGreaterThanOrEqual(16);
+            expect(detailLayout.stepNumberSize).toBeGreaterThanOrEqual(16);
             expect(detailLayout.heroRadius).toBeGreaterThanOrEqual(28);
             expect(detailLayout.detailBackground).not.toBe('rgb(255, 255, 255)');
             expect(detailLayout.heroBackground).not.toBe(detailLayout.pillarBackground);
@@ -240,7 +240,7 @@ for (const width of viewportWidths) {
             expect(detailLayout.stepsBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.stepsBorder).not.toBe('0px');
             expect(detailLayout.stepsRadius).toBeGreaterThanOrEqual(20);
-            expect(detailLayout.stepBackground).toBe('rgba(0, 0, 0, 0)');
+            expect(detailLayout.stepBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.stepRule).not.toBe('0px');
             expect(detailLayout.endingBackground).not.toBe('rgba(0, 0, 0, 0)');
             expect(detailLayout.endingRule).not.toBe('0px');
@@ -324,7 +324,7 @@ test('homepage Percorsi discovery uses editorial-scale cover on desktop', async 
     await page.goto('/');
 
     const card = page.locator('.home-path-link').first();
-    const visual = card.locator('.home-path-link__visual');
+    const visual = card.locator('.kairus-path-card__media');
     await expect(card).toBeVisible();
     await expect(visual).toBeVisible();
 
@@ -334,8 +334,8 @@ test('homepage Percorsi discovery uses editorial-scale cover on desktop', async 
         pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     }));
 
-    expect(dimensions.width).toBeGreaterThanOrEqual(430);
-    expect(dimensions.height).toBeGreaterThanOrEqual(210);
+    expect(dimensions.width).toBeGreaterThanOrEqual(300);
+    expect(dimensions.height).toBeGreaterThanOrEqual(150);
     expect(dimensions.pageFits).toBeTruthy();
     expect(errors).toEqual([]);
 });

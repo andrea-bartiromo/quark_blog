@@ -37,65 +37,107 @@
 @endsection
 
 @section('content')
-<section class="section paths-index" aria-labelledby="percorsi-title">
+{{--
+    Cantiere D — Home + Percorsi Visual Adoption (Prompt 71-80). Stessi
+    $clusters/$publicPreviews, stesso filtro/paginazione — solo il markup
+    cambia. headingLevel="1" su section-heading per istruzione esplicita
+    del Prompt 73 (non page-header: qui l'intro resta il trattamento più
+    leggero già in uso, coerente con .paths-intro esistente).
+--}}
+{{--
+    aria-label letterale invece di aria-labelledby+id: il componente
+    section-heading applica un id passato solo al proprio div radice, mai
+    all'<h1> interno — un aria-labelledby puntato lì non troverebbe
+    l'elemento giusto. "Percorsi" è il titolo reale della pagina (uguale
+    a @section('title')), non testo di identità inventato.
+--}}
+<section class="section paths-index kairus-page-shell" aria-label="Percorsi">
   <div class="container">
-    <header class="paths-intro">
-      <p class="eyebrow">Percorsi Kairus · Archivio editoriale</p>
-      <h1 id="percorsi-title">Percorsi</h1>
-      <p>Esplora un tema dall'inizio, seguendo un ordine di lettura curato: ogni Percorso raccoglie gli approfondimenti essenziali e indica da dove cominciare.</p>
-      <span class="paths-intro__rule" aria-hidden="true"></span>
-    </header>
+    <x-kairus.section-heading
+      eyebrow="Percorsi Kairus · Archivio editoriale"
+      title="Percorsi"
+      description="Esplora un tema dall'inizio, seguendo un ordine di lettura curato: ogni Percorso raccoglie gli approfondimenti essenziali e indica da dove cominciare."
+      :heading-level="1"
+      class="paths-intro"
+    />
 
     <aside class="paths-brand-statement" aria-label="Mappa di lettura">
       <p class="eyebrow">Mappa di lettura</p>
       <p>Non una raccolta da scorrere, ma traiettorie da seguire: scegli un tema, trova il punto di partenza e costruisci il quadro un passaggio alla volta.</p>
     </aside>
 
-    <div class="paths-grid" data-percorsi-grid>
+    <ul class="paths-grid" data-percorsi-grid>
       @forelse($clusters as $cluster)
-        <article class="path-card {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" data-percorso-id="{{ $cluster->id }}">
-          <a class="path-card__media" href="{{ route('percorsi.show', $cluster->slug) }}" tabindex="-1" aria-hidden="true">
+        {{--
+            Il toggle "Anteprima delle tappe" resta un FRATELLO di
+            x-kairus.path-card dentro lo stesso <li class="path-card">,
+            mai annidato nell'unico <a> del componente — un <button>
+            dentro un <a> non è valido HTML. .path-card resta sull'<li>
+            solo per il JS (button.closest('.path-card')) e per il CSS
+            legacy che governa la visibilità del pannello
+            (.path-card:hover/:focus-within .path-card__preview, un
+            combinatore discendente — resta identico); .kairus-path-card-host
+            neutralizza lo stile di riquadro di .path-card (bordo/ombra/
+            sfondo), altrimenti sommato a quello, distinto e completo, già
+            fornito da x-kairus.path-card — mai un doppio riquadro. Toggle e
+            pannello portano anche una classe kairus- propria
+            (.kairus-path-card-host__toggle/__preview, solo margini) accanto
+            a quella legacy: editorial-system.css può così restare
+            interamente .kairus-*, come richiesto, senza referenziare
+            .path-card__preview-toggle/-preview nel proprio selettore.
+        --}}
+        <li class="path-card kairus-path-card-host {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" data-percorso-id="{{ $cluster->id }}">
+          <x-kairus.path-card
+            :href="route('percorsi.show', $cluster->slug)"
+            :title="$cluster->name"
+            :description="$cluster->short_description"
+            :article-count="$cluster->published_articles_count"
+            :progress="$cluster->pillarArticle ? 'Si parte da: '.$cluster->pillarArticle->title : null"
+            cta="Esplora il percorso"
+          >
             @if($cluster->cover_image)
-              <x-responsive-image
-                  :diskName="ltrim($cluster->cover_image, '/')"
-                  alt=""
-                  :sizes="'(max-width: 768px) 100vw, 50vw'"
-              />
+              <x-slot:image>
+                <x-responsive-image
+                    :diskName="ltrim($cluster->cover_image, '/')"
+                    alt=""
+                    :sizes="'(max-width: 768px) 100vw, 50vw'"
+                />
+              </x-slot:image>
             @else
-              <span class="path-card__fallback" aria-hidden="true"><span>Kairus</span><strong>{{ $cluster->name }}</strong></span>
+              <x-slot:fallback>
+                <span class="path-card__fallback" aria-hidden="true"><span>Kairus</span><strong>{{ $cluster->name }}</strong></span>
+              </x-slot:fallback>
             @endif
-          </a>
-          <div class="path-card__body">
-            <div class="path-card__meta"><span>Percorso Kairus</span><span>{{ $cluster->published_articles_count }} {{ $cluster->published_articles_count === 1 ? 'articolo pubblicato' : 'articoli pubblicati' }}</span></div>
-            <h2><a href="{{ route('percorsi.show', $cluster->slug) }}">{{ $cluster->name }}</a></h2>
-            @if($cluster->short_description)<p class="path-card__description">{{ $cluster->short_description }}</p>@endif
-            @if($cluster->pillarArticle)<p class="path-card__start"><span>Da qui si parte</span>{{ $cluster->pillarArticle->title }}</p>@endif
-            @php($preview = $publicPreviews->get($cluster->id, collect()))
-            @if($preview->isNotEmpty())
-              @php($previewId = 'path-preview-'.$cluster->id)
-              <button class="path-card__preview-toggle" type="button" aria-expanded="false" aria-controls="{{ $previewId }}" hidden>
-                Anteprima delle tappe
-                <span aria-hidden="true">+</span>
-              </button>
-              <div class="path-card__preview" id="{{ $previewId }}" role="group" aria-label="Prime tappe pubbliche di {{ $cluster->name }}">
-                <p class="path-card__preview-label">Prime tappe</p>
-                <ol>
-                  @foreach($preview as $article)
-                    <li>
-                      <span class="path-card__preview-number" aria-hidden="true">{{ $loop->iteration }}</span>
-                      <a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a>
-                    </li>
-                  @endforeach
-                </ol>
-              </div>
-            @endif
-            <a class="path-card__cta" href="{{ route('percorsi.show', $cluster->slug) }}">Esplora il percorso <span aria-hidden="true">→</span></a>
-          </div>
-        </article>
+          </x-kairus.path-card>
+
+          @php($preview = $publicPreviews->get($cluster->id, collect()))
+          @if($preview->isNotEmpty())
+            @php($previewId = 'path-preview-'.$cluster->id)
+            <button class="path-card__preview-toggle kairus-path-card-host__toggle" type="button" aria-expanded="false" aria-controls="{{ $previewId }}" hidden>
+              Anteprima delle tappe
+              <span aria-hidden="true">+</span>
+            </button>
+            <div class="path-card__preview kairus-path-card-host__preview" id="{{ $previewId }}" role="group" aria-label="Prime tappe pubbliche di {{ $cluster->name }}">
+              <p class="path-card__preview-label">Prime tappe</p>
+              <ol>
+                @foreach($preview as $article)
+                  <li>
+                    <span class="path-card__preview-number" aria-hidden="true">{{ $loop->iteration }}</span>
+                    <a href="{{ route('articolo', $article->slug) }}">{{ $article->title }}</a>
+                  </li>
+                @endforeach
+              </ol>
+            </div>
+          @endif
+        </li>
       @empty
-        <div class="paths-empty"><p class="eyebrow">In preparazione</p><h2>Nuovi percorsi stanno prendendo forma.</h2><p>Torna presto: qui raccoglieremo sequenze editoriali curate per orientarti nei temi di Kairus.</p></div>
+        <x-kairus.empty-state
+          title="Nuovi percorsi stanno prendendo forma."
+          message="Torna presto: qui raccoglieremo sequenze editoriali curate per orientarti nei temi di Kairus."
+          icon="path"
+        />
       @endforelse
-    </div>
+    </ul>
 
     <div class="paths-pagination">
       {{ $clusters->links('components.pagination', [

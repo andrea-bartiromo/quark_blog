@@ -22,13 +22,19 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Le viste vietate elencate nel cantiere ("NON TOCCARE"): se nessuna di
-     * queste referenzia il nuovo sistema, i componenti Kairus non sono
-     * stati montati da nessuna parte — l'invariante centrale del cantiere
-     * ("fondamenta condivise, non ancora migrazione di alcuna pagina").
+     * Le viste vietate al cantiere che le tocca per ultimo. Aggiornato dal
+     * Cantiere D (Home + Percorsi Visual Adoption, branch
+     * feat/kairus-home-paths-refresh): quel cantiere adotta esplicitamente
+     * i componenti Kairus su home.blade.php, resources/views/home/ e
+     * resources/views/content-clusters/ — rimossi da qui, perché
+     * referenziare "kairus" lì è ora il lavoro autorizzato, non
+     * un'infiltrazione. Il resto della lista resta l'invariante originale
+     * di Kairus Editorial Foundations V1 ("fondamenta condivise, nessuna
+     * pagina pubblica migrata"): superfici Trust Layer/P0 (articolo,
+     * autore, fonti, revisioni) e superfici non ancora adottate da nessun
+     * cantiere (notizie, categoria, ricerca, turing, header, footer).
      */
     private const FORBIDDEN_VIEWS = [
-        'home.blade.php',
         'articolo.blade.php',
         'notizie.blade.php',
         'categoria.blade.php',
@@ -40,9 +46,7 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
     ];
 
     private const FORBIDDEN_DIRECTORIES = [
-        'home',
         'articles',
-        'content-clusters',
         'turing',
     ];
 
