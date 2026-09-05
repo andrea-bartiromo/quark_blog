@@ -1,4 +1,4 @@
-<section class="article-premium__body">
+<section class="article-premium__body kairus-article-body">
   @if($article->cover_caption || $article->cover_credit || $article->cover_source || $article->cover_license)
   <details class="cover-info">
     <summary class="cover-info__summary">
@@ -69,10 +69,20 @@
     @endforeach
   @endif
 
+  {{--
+      Cantiere E (Prompt 120-121). x-kairus.trust-panel copre solo ciò che
+      è realmente disponibile qui: le fonti testuali legacy (vedi
+      ARTICLE_REFRESH_FILEMAP.md — primary_sources strutturato non è
+      renderizzato pubblicamente in questa catena di branch). Gli altri
+      slot del componente (updated/corrections/author) restano non
+      impostati: nessun dato di aggiornamento/rettifica/autore-esteso
+      esiste oggi su questa vista da poterci passare — il componente
+      stesso non renderizza nulla per uno slot mai impostato ($hasAny
+      controlla isset() per slot, mai un default fittizio).
+  --}}
   @if($sources)
-  <div class="article-premium__panel" style="margin-top:2rem;">
-    <h3>Fonti</h3>
-    <p style="margin:0;">{!! nl2br(e($sources)) !!}</p>
-  </div>
+  <x-kairus.trust-panel style="margin-top:2rem;">
+    <x-slot:sources>{!! nl2br(e($sources)) !!}</x-slot:sources>
+  </x-kairus.trust-panel>
   @endif
 </section>

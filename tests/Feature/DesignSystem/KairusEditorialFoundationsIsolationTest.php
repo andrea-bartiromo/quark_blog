@@ -34,8 +34,15 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
      * autore, fonti, revisioni) e superfici non ancora adottate da nessun
      * cantiere (notizie, categoria, ricerca, turing, header, footer).
      */
+    /**
+     * "articolo.blade.php" e la directory "articles" sono usciti da questo
+     * elenco nel Cantiere E (Article Visual Adoption): montano
+     * legittimamente il sistema editoriale ora. Stessa evoluzione già
+     * documentata nel Cantiere D per home.blade.php e le directory
+     * home/content-clusters — non una svista, l'atteso avanzamento
+     * dell'adozione superficie per superficie.
+     */
     private const FORBIDDEN_VIEWS = [
-        'articolo.blade.php',
         'notizie.blade.php',
         'categoria.blade.php',
         'ricerca.blade.php',
@@ -45,9 +52,17 @@ class KairusEditorialFoundationsIsolationTest extends TestCase
         'components/footer.blade.php',
     ];
 
+    /**
+     * "admin" e "redazione" (Prompt 129, Cantiere E — isolamento): l'intera
+     * ristrutturazione editoriale di questa sequenza di cantieri (E-J) è
+     * dichiaratamente solo sulle superfici PUBBLICHE — form articolo,
+     * autosave, e ogni altra vista redazionale/amministrativa restano
+     * fuori perimetro per l'intera sequenza, non solo per questo cantiere.
+     */
     private const FORBIDDEN_DIRECTORIES = [
-        'articles',
         'turing',
+        'admin',
+        'redazione',
     ];
 
     public function test_no_new_route_points_to_the_kairus_component_namespace(): void

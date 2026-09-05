@@ -51,7 +51,12 @@ class ArticleCoverImageViewerTest extends TestCase
         // La <img> ritagliata dell'hero e la <img> del dialog puntano
         // esattamente alla stessa risorsa: nessuna seconda immagine pesante
         // caricata apposta per il lightbox.
-        preg_match('/<header class="article-premium__hero">\s*<img src="([^"]+)"/', $html, $heroImg);
+        // Cantiere E: l'hero porta anche "kairus-tone-navy" (contesto
+        // tipografico chiaro-su-scuro per x-kairus.article-meta) accanto
+        // alla classe legacy — il selettore accetta classi aggiuntive
+        // nell'attributo invece di pretendere class="article-premium__hero"
+        // esatto.
+        preg_match('/<header class="[^"]*\barticle-premium__hero\b[^"]*">\s*<img src="([^"]+)"/', $html, $heroImg);
         preg_match('/<img\b[^>]*src="([^"]+)"[^>]*data-media-viewer-image/s', $html, $dialogImg);
 
         $this->assertNotEmpty($heroImg, 'La <img> della hero non e\' stata trovata.');
