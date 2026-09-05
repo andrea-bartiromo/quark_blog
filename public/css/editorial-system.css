@@ -26,7 +26,17 @@
   /* ---- Inchiostro / testo ------------------------------------------------ */
   --kairus-ink: #1b241f;              /* testo primario su superfici chiare */
   --kairus-ink-soft: #4b5a52;         /* testo secondario su superfici chiare */
-  --kairus-ink-faint: #7c8c82;        /* meta, didascalie, testo terziario */
+  --kairus-ink-faint: #657469;        /* meta, didascalie, testo terziario */
+  /* Cantiere I (Prompt 221-226): il valore precedente (#7c8c82) dava
+     3.54:1 su sfondo bianco/warm — sotto la soglia AA 4.5:1 richiesta
+     per testo non "large" (nessuno degli usi di questo token, tutti
+     meta/didascalie/testo terziario, raggiunge la soglia dimensionale
+     "large text" del WCAG). Il valore qui dà 4.93:1 su bianco, con
+     margine, restando comunque più chiaro di --kairus-ink-soft
+     (7.28:1) per non perdere la gerarchia visiva testo secondario/
+     terziario. Nessun uso di questo token è su sfondo scuro/navy (verificato,
+     6 occorrenze, tutte su superfici chiare) — solo un miglioramento,
+     nessuna regressione di contrasto altrove. */
   --kairus-ink-on-navy: #eef3ee;      /* testo primario su --kairus-surface-navy */
   --kairus-ink-on-navy-soft: #b7c7bd; /* testo secondario su --kairus-surface-navy */
 
@@ -998,7 +1008,14 @@
 
 .kairus-form-shell__layout {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0,1fr) invece di "1fr" nudo: stessa causa già documentata
+     più sotto (Cantiere I, Prompt 215) — un singolo grid item con "1fr"
+     eredita come minimo automatico il min-content del proprio contenuto,
+     non zero. Qui non c'è (ancora) un caso riprodotto, ma il costo di
+     questa forma è nullo (nessuna differenza visiva) mentre previene la
+     stessa classe di overflow se in futuro un aside/form con contenuto
+     non spezzabile venisse aggiunto. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--kairus-space-lg);
 }
 
@@ -1122,14 +1139,30 @@
   }
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" già root-causato per
+   .kairus-sidebar-layout/.kairus-archive-grid/.kairus-related-articles__grid
+   — qui però nel proprio CSS (non legacy), sulla griglia "Ultimi
+   articoli" della home. Trovato con lo stesso audit Playwright
+   trasversale (overflow reale 66px a 320px, home). */
 @media (max-width: 480px) {
   .kairus-latest-articles__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .kairus-home-paths {
   background: var(--kairus-surface-sage);
+}
+
+/* Cantiere I (Prompt 221-226): .kairus-eyebrow usa --kairus-teal di
+   default (4.42:1 su bianco/warm, dove passa) — su questo sfondo sage
+   specifico scende a 4.42:1 anche qui per un pelo, sotto la soglia
+   AA 4.5:1 per testo non "large". --kairus-teal-deep (già esistente,
+   usato altrove per lo stesso scopo) dà 6.65:1 sullo stesso sfondo.
+   Scoped a questo solo contesto: nessun altro uso di .kairus-eyebrow
+   è su sfondo sage. */
+.kairus-home-paths .kairus-eyebrow {
+  color: var(--kairus-teal-deep);
 }
 
 .kairus-home-paths__intro {
@@ -1142,9 +1175,12 @@
   gap: var(--kairus-space-md);
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" (vedi commento sopra
+   su .kairus-latest-articles__grid) — corretto per prevenzione, nessun
+   overflow riprodotto qui finora ma stesso rischio strutturale. */
 @media (max-width: 640px) {
   .kairus-home-paths__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1188,9 +1224,11 @@
   padding: var(--kairus-space-lg);
 }
 
+/* Cantiere I (Prompt 215): stesso bug "1fr nudo" (vedi commento su
+   .kairus-latest-articles__grid) — corretto per prevenzione. */
 @media (max-width: 900px) {
   .kairus-special-banner__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1577,4 +1615,61 @@
 
 .kairus-cover-info__fact + .kairus-cover-info__fact {
   margin-top: var(--kairus-space-3xs);
+}
+
+/* =============================================================================
+   Cantiere I — Accessibilità e responsive trasversali
+   ========================================================================== */
+
+/* ---- Overflow orizzontale a 320-375px nel layout a due colonne
+   (Prompt 215) --------------------------------------------------------------
+   Bug pre-esistente, trovato e documentato (non corretto) nei Cantieri
+   E (ARTICLE_REFRESH_VIEWPORTS.md) e G (SEARCH_REFRESH_VIEWPORTS.md):
+   a <900px la pagina risultava scorrevole in orizzontale sulle
+   superfici che montano .article-premium__layout / .public-premium-layout
+   insieme a components/sidebar.blade.php.
+
+   Causa radice identificata in public-premium.css, che alla stessa
+   media query usa "1fr" nudo (non "minmax(0,1fr)") su PIÙ selettori:
+     @media(max-width:900px){
+       .public-premium-layout,.article-premium__layout{grid-template-columns:1fr}
+       ...
+       .public-card-grid,.related-premium-grid{grid-template-columns:1fr}
+     }
+   Su un grid item il minimo automatico (min-width:auto) equivale alla
+   dimensione min-content del contenuto, non a zero: se il contenuto
+   (un widget di sidebar con testo/link non spezzabile, oppure una card
+   con titolo/testo non spezzabile) ha una min-content width maggiore
+   dello spazio disponibile, la colonna — e quindi l'intera pagina — si
+   allarga oltre il viewport. "1fr" da solo NON è equivalente a
+   "minmax(0,1fr)": non azzera quel minimo automatico. Verificato
+   empiricamente (Playwright, 320px): dopo la sola correzione del primo
+   selettore (.article-premium__layout/.public-premium-layout via
+   .kairus-sidebar-layout) l'overflow spariva su articolo/ricerca ma
+   persisteva su notizie/categoria (18px) — isolato con un'ispezione DOM
+   mirata alla griglia card (.public-card-grid), stesso bug, stessa causa,
+   selettore diverso nella stessa regola legacy.
+
+   Correzione minima e mirata: nessuna riga esistente di
+   public-premium.css viene toccata (foglio di stile legacy, fuori
+   perimetro prima dell'audit CSS dedicato). Nessuna nuova classe HTML
+   necessaria per la griglia card: .kairus-archive-grid (notizie/
+   categoria) e .kairus-related-articles__grid (articolo, correlati)
+   erano già presenti sui rispettivi contenitori dal Cantiere E/F per
+   il reset da lista — qui riusate anche come selettori di questa
+   correzione. Le 4 viste già in perimetro (articolo, notizie,
+   categoria, ricerca) aggiungono comunque una classe marcatore
+   .kairus-sidebar-layout accanto alla classe legacy sul contenitore
+   a due colonne; qui le regole, alla stessa media query, ripristinano
+   "minmax(0,1fr)" per ciascun contenitore. !important necessario per
+   vincere sia la regola legacy sia l'ordine di sorgente
+   (editorial-system.css è caricato prima dei CSS di pagina in molte
+   viste). Nessuna altra proprietà del layout (gap, colonne desktop,
+   ecc.) viene alterata. */
+@media (max-width: 900px) {
+  .kairus-sidebar-layout,
+  .kairus-archive-grid,
+  .kairus-related-articles__grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
