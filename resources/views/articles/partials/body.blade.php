@@ -69,6 +69,14 @@
     @endforeach
   @endif
 
+  {{--
+      "Fonti" qui sotto è testo libero incorporato nel corpo dopo un
+      delimitatore "---" (legacy, vedi articolo.blade.php) — un concetto
+      distinto da Article::primary_sources, renderizzato separatamente
+      subito dopo questo partial come componente <x-article.primary-sources>.
+      Deliberatamente non unificati in questo commit: dati diversi, non
+      garantito che coincidano per lo stesso articolo.
+  --}}
   @if($sources)
   <div class="article-premium__panel" style="margin-top:2rem;">
     <h3>Fonti</h3>

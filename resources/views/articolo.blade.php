@@ -107,6 +107,7 @@
             <main>
                 @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')
+                <x-article.primary-sources :sources="$primarySources" />
                 @include('articles.partials.path-continuation')
                 @include('articles.partials.continue-reading')
                 @include('articles.partials.newsletter-band')

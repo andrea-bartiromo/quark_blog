@@ -7,6 +7,7 @@ use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
 use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
+use App\Services\ArticlePrimarySourcesParser;
 use App\Services\ArticleRelatedService;
 use App\Services\ArticleViewTrackingService;
 use App\Services\ContentGraph\ContentGraphService;
@@ -188,6 +189,14 @@ class ArticleController extends Controller
             // ContentGraphPublicSafetyContractTest: mai un concetto
             // draft/inattivo può comparire qui.
             'discoverableConcepts' => app(ContentGraphService::class)->discoverableConceptsForArticle($article),
+
+            // Trust Layer V1 — fonti primarie pubbliche: presentation-only,
+            // legge Article::primary_sources così come salvato dal
+            // flusso di verifica editoriale esistente (fuori scope di
+            // questa modifica), senza reinterpretarlo come dato
+            // strutturato. Vedi App\Services\ArticlePrimarySourcesParser
+            // e components/article/primary-sources.blade.php.
+            'primarySources' => app(ArticlePrimarySourcesParser::class)->parse($article->primary_sources),
         ]);
     }
 }
