@@ -5,117 +5,128 @@
 @section('robots', 'noindex,follow')
 
 @section('content')
+{{--
+    Cantiere G — Search Visual Adoption (Prompt 162-174). Testata:
+    "public-hero--compact" era già una superficie piatta senza immagine
+    di sfondo — adottata con x-kairus.page-header (prop compact) senza
+    perdere alcun contenuto, stesso caso di Notizie/Categoria (Cantiere
+    F). Form: x-kairus.form-shell avvolge il <form> reale INVARIATO
+    (method/action/nomi campi/validazione/progressive enhancement, il
+    componente non renderizza mai un proprio <form>) — solo
+    kairus-focusable aggiunto agli elementi interattivi che non avevano
+    ancora un :focus-visible dedicato (input/select/pulsanti/reset:
+    verificato in premium-search-panel*/premium-field*/
+    premium-filter-panel__actions in public-unified.css, nessuna regola
+    trovata). Risultati Percorso/Concetto: non applicabile —
+    ArticleSearchService restituisce solo articoli (vedi
+    SEARCH_REFRESH_FILEMAP.md), backend non esteso per crearne.
+--}}
 <div class="public-page public-page--search">
   <div class="container">
-    <section class="public-hero public-hero--light public-hero--compact">
-      <span class="public-hero__kicker">Esplora l’archivio</span>
-      <h1>
-        @if($query)
-          Risultati per “{{ $query }}”
-        @else
-          Ricerca avanzata
-        @endif
-      </h1>
-      <p>Cerca articoli, autori, categorie e finestre temporali nell’archivio editoriale di {{ config('laboratorio.name') }}.</p>
-
+    <x-kairus.page-header
+        eyebrow="Esplora l’archivio"
+        :title="$query ? 'Risultati per “'.$query.'”' : 'Ricerca avanzata'"
+        lead="Cerca articoli, autori, categorie e finestre temporali nell’archivio editoriale di {{ config('laboratorio.name') }}."
+        :compact="true"
+    >
       @if($results instanceof \Illuminate\Pagination\LengthAwarePaginator)
-        <div class="public-hero__meta">
+        <x-slot:meta>
           <span>{{ $results->total() }} articoli trovati</span>
-        </div>
+        </x-slot:meta>
       @endif
-    </section>
+    </x-kairus.page-header>
 
     <div class="public-premium-layout">
       <section>
-        <form method="GET" action="{{ route('ricerca') }}" class="premium-search-panel">
-          <div class="premium-search-panel__main">
-            <label class="sr-only" for="premium-search-input">Cerca nel sito</label>
-            <input id="premium-search-input" type="text" name="q" value="{{ $query }}" placeholder="Cerca scoperte, tecnologie, spazio…" autocomplete="off">
-            <button type="submit">Cerca</button>
-          </div>
-
-          <details class="premium-filter-panel" {{ ($category || $authorId || $from || $to) ? 'open' : '' }}>
-            <summary>
-              <span>Filtri avanzati</span>
-              @if($category || $authorId || $from || $to)
-                <strong>attivi</strong>
-              @endif
-            </summary>
-
-            <div class="premium-filter-panel__grid">
-              <div class="premium-field">
-                <label for="search-category">Categoria</label>
-                <select id="search-category" name="categoria">
-                  <option value="">Tutte</option>
-                  @foreach($categories as $val => $label)
-                    <option value="{{ $val }}" {{ $category === $val ? 'selected' : '' }}>{{ $label }}</option>
-                  @endforeach
-                </select>
+        <x-kairus.form-shell title="Cerca nel sito">
+          <x-slot:form>
+            <form method="GET" action="{{ route('ricerca') }}" class="premium-search-panel">
+              <div class="premium-search-panel__main">
+                <label class="sr-only" for="premium-search-input">Cerca nel sito</label>
+                <input id="premium-search-input" type="text" name="q" value="{{ $query }}" placeholder="Cerca scoperte, tecnologie, spazio…" autocomplete="off" class="kairus-focusable">
+                <button type="submit" class="kairus-focusable">Cerca</button>
               </div>
 
-              <div class="premium-field">
-                <label for="search-author">Autore</label>
-                <select id="search-author" name="autore">
-                  <option value="">Tutti</option>
-                  @foreach($authors as $au)
-                    <option value="{{ $au->id }}" {{ (string)$authorId === (string)$au->id ? 'selected' : '' }}>{{ $au->name }}</option>
-                  @endforeach
-                </select>
-              </div>
+              <details class="premium-filter-panel" {{ ($category || $authorId || $from || $to) ? 'open' : '' }}>
+                <summary class="kairus-focusable">
+                  <span>Filtri avanzati</span>
+                  @if($category || $authorId || $from || $to)
+                    <strong>attivi</strong>
+                  @endif
+                </summary>
 
-              <div class="premium-field">
-                <label for="search-from">Dal</label>
-                <input id="search-from" type="date" name="da" value="{{ $from }}">
-              </div>
+                <div class="premium-filter-panel__grid">
+                  <div class="premium-field">
+                    <label for="search-category">Categoria</label>
+                    <select id="search-category" name="categoria" class="kairus-focusable">
+                      <option value="">Tutte</option>
+                      @foreach($categories as $val => $label)
+                        <option value="{{ $val }}" {{ $category === $val ? 'selected' : '' }}>{{ $label }}</option>
+                      @endforeach
+                    </select>
+                  </div>
 
-              <div class="premium-field">
-                <label for="search-to">Al</label>
-                <input id="search-to" type="date" name="a" value="{{ $to }}">
-              </div>
+                  <div class="premium-field">
+                    <label for="search-author">Autore</label>
+                    <select id="search-author" name="autore" class="kairus-focusable">
+                      <option value="">Tutti</option>
+                      @foreach($authors as $au)
+                        <option value="{{ $au->id }}" {{ (string)$authorId === (string)$au->id ? 'selected' : '' }}>{{ $au->name }}</option>
+                      @endforeach
+                    </select>
+                  </div>
 
-              <div class="premium-filter-panel__actions">
-                <button type="submit">Applica</button>
-                <a href="{{ route('ricerca') }}">Reset</a>
-              </div>
-            </div>
-          </details>
-        </form>
+                  <div class="premium-field">
+                    <label for="search-from">Dal</label>
+                    <input id="search-from" type="date" name="da" value="{{ $from }}" class="kairus-focusable">
+                  </div>
+
+                  <div class="premium-field">
+                    <label for="search-to">Al</label>
+                    <input id="search-to" type="date" name="a" value="{{ $to }}" class="kairus-focusable">
+                  </div>
+
+                  <div class="premium-filter-panel__actions">
+                    <button type="submit" class="kairus-focusable">Applica</button>
+                    <a href="{{ route('ricerca') }}" class="kairus-focusable">Reset</a>
+                  </div>
+                </div>
+              </details>
+            </form>
+          </x-slot:form>
+        </x-kairus.form-shell>
 
         @if($results instanceof \Illuminate\Contracts\Pagination\Paginator && $results->count() > 0)
           <h2 class="sr-only">Risultati di ricerca</h2>
-          <div class="public-list-stack">
+          <ul class="public-list-stack kairus-search-results">
             @foreach($results as $article)
-              <a href="{{ route('articolo', $article->slug) }}" class="public-result-card">
-                <figure class="public-result-card__media">
-                  <x-responsive-image
-                      disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
-                      alt="{{ $article->title }}"
-                      sizes="180px"
-                      onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
-                  />
-                </figure>
-
-                <div class="public-result-card__body">
-                  <div class="public-result-card__meta">
-                    <span class="badge badge--{{ $article->category }}">{{ $categories[$article->category] ?? $article->category }}</span>
-                    <span>{{ $article->author->name }}</span>
-                  </div>
-
-                  <h3>{{ $article->title }}</h3>
-
-                  @if($article->excerpt)
-                    <p>{{ Str::limit($article->excerpt, 140) }}</p>
-                  @endif
-
-                  <div class="public-result-card__footer">
-                    <time datetime="{{ $article->published_at->toDateString() }}">{{ $article->published_at->locale('it')->isoFormat('D MMM YYYY') }}</time>
-                    <span class="dot">·</span>
-                    <span>{{ $article->read_minutes }} min</span>
-                  </div>
-                </div>
-              </a>
+              <li>
+                <x-kairus.article-card
+                    :href="route('articolo', $article->slug)"
+                    :title="$article->title"
+                    :excerpt="$article->excerpt ? Str::limit($article->excerpt, 140) : null"
+                    :category-label="$categories[$article->category] ?? $article->category"
+                >
+                  <x-slot:image>
+                    <x-responsive-image
+                        disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
+                        alt="{{ $article->title }}"
+                        sizes="180px"
+                        onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+                    />
+                  </x-slot:image>
+                  <x-slot:meta>
+                    <x-kairus.article-meta
+                        :author="$article->author->name"
+                        :published-at="$article->published_at"
+                        :read-minutes="$article->read_minutes"
+                        density="compact"
+                    />
+                  </x-slot:meta>
+                </x-kairus.article-card>
+              </li>
             @endforeach
-          </div>
+          </ul>
 
           @if($results->hasPages())
             <div class="public-pagination-wrap">
@@ -123,18 +134,21 @@
             </div>
           @endif
         @elseif(request()->hasAny(['q','categoria','autore','da','a']))
-          <div class="public-empty-state">
-            <span>🔍</span>
-            <h2>Nessun risultato trovato</h2>
-            <p>Prova a rimuovere qualche filtro o cerca una parola chiave più ampia.</p>
-            <a href="{{ route('ricerca') }}">Rimuovi i filtri</a>
-          </div>
+          <x-kairus.empty-state
+              title="Nessun risultato trovato"
+              message="Prova a rimuovere qualche filtro o cerca una parola chiave più ampia."
+              icon="search"
+          >
+            <x-slot:action>
+              <a href="{{ route('ricerca') }}" class="kairus-focusable">Rimuovi i filtri</a>
+            </x-slot:action>
+          </x-kairus.empty-state>
         @else
-          <div class="public-empty-state public-empty-state--soft">
-            <span>⌕</span>
-            <h2>Inizia una ricerca</h2>
-            <p>Usa la barra in alto per esplorare l’archivio Kairus.</p>
-          </div>
+          <x-kairus.empty-state
+              title="Inizia una ricerca"
+              message="Usa la barra in alto per esplorare l’archivio Kairus."
+              icon="search"
+          />
         @endif
       </section>
 

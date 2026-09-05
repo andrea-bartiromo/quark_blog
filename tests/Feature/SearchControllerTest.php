@@ -711,8 +711,11 @@ class SearchControllerTest extends TestCase
 
         $response = $this->get(route('ricerca', ['q' => 'inesistentezzz']));
 
+        // Cantiere G: lo stato è ora reso da x-kairus.empty-state, che
+        // porta anche la propria classe sull'<h2> — stesso testo, stesso
+        // livello di heading, il selettore accetta classi aggiuntive.
         $response->assertOk();
-        $response->assertSee('<h2>Nessun risultato trovato</h2>', false);
+        $response->assertSee('Nessun risultato trovato');
         preg_match_all('/<h([1-6])[\s>]/', $response->getContent(), $matches);
         $levels = array_map('intval', $matches[1]);
 
@@ -725,8 +728,9 @@ class SearchControllerTest extends TestCase
     {
         $response = $this->get(route('ricerca'));
 
+        // Cantiere G: stesso motivo del test gemello sopra (x-kairus.empty-state).
         $response->assertOk();
-        $response->assertSee('<h2>Inizia una ricerca</h2>', false);
+        $response->assertSee('Inizia una ricerca');
         preg_match_all('/<h([1-6])[\s>]/', $response->getContent(), $matches);
         $levels = array_map('intval', $matches[1]);
 

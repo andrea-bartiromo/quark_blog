@@ -1526,3 +1526,17 @@
 .kairus-category-hero__title {
   text-wrap: balance;
 }
+
+/* =============================================================================
+   Cantiere G — Search Visual Adoption
+   ========================================================================== */
+
+/* .public-list-stack resta invariata (display:grid, gap): qui solo il
+   reset da lista, perché il contenitore è passato da <div> a <ul>/<li>
+   (stesso pattern già usato per le griglie card di articolo/home/
+   Percorsi/archivi). */
+.kairus-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
