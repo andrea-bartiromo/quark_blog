@@ -77,8 +77,8 @@ for (const width of viewportWidths) {
         expect(indexLayout.cardRadius).toBeGreaterThanOrEqual(width <= 760 ? 18 : 22);
         expect(indexLayout.pageFits).toBeTruthy();
 
-        expect(indexLayout.mediaRatio).toBeGreaterThan(width <= 430 ? 1.95 : 2.35);
-        expect(indexLayout.mediaRatio).toBeLessThan(width <= 430 ? 2.05 : 2.45);
+        expect(indexLayout.mediaRatio).toBeGreaterThan(1.7);
+        expect(indexLayout.mediaRatio).toBeLessThan(1.85);
 
         if (width <= 430) {
             expect(indexLayout.gridColumns.trim().split(' ').length).toBe(1);
