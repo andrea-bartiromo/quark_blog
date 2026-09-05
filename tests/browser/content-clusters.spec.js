@@ -42,7 +42,7 @@ for (const width of viewportWidths) {
         await expect(page.getByRole('heading', { level: 1, name: 'Percorsi' })).toBeVisible();
         await expect(page.getByText('Archivio editoriale')).toBeVisible();
         await expect(page.getByRole('link', { name: 'IA spiegata' }).first()).toBeVisible();
-        await expect(page.getByText('2 articoli pubblicati')).toBeVisible();
+        await expect(page.getByText('2 articoli')).toBeVisible();
         await expect(page.getByText('Articolo programmato da non mostrare')).toHaveCount(0);
         await expect(page.locator('.path-card')).toHaveCount(6);
         await expect(page.getByRole('navigation', { name: 'Paginazione Percorsi' })).toBeVisible();
@@ -51,7 +51,7 @@ for (const width of viewportWidths) {
             const index = document.querySelector('.paths-index');
             const grid = document.querySelector('.paths-grid');
             const card = document.querySelector('.path-card');
-            const media = document.querySelector('.path-card__media');
+            const media = document.querySelector('.kairus-path-card__media');
             if (!index || !grid || !card || !media) return null;
 
             const indexStyle = getComputedStyle(index);
@@ -324,7 +324,7 @@ test('homepage Percorsi discovery uses editorial-scale cover on desktop', async 
     await page.goto('/');
 
     const card = page.locator('.home-path-link').first();
-    const visual = card.locator('.home-path-link__visual');
+    const visual = card.locator('.kairus-path-card__media');
     await expect(card).toBeVisible();
     await expect(visual).toBeVisible();
 
