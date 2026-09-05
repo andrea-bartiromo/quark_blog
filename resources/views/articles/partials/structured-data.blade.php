@@ -10,16 +10,16 @@
     news-sitemap.xml attiva che tratta gli articoli pubblicati come
     contenuto per Google News.
 
-    dateModified volutamente assente: updated_at NON rappresenta in modo
-    affidabile l'ultima modifica editoriale del contenuto — viene toccato
-    anche da $article->increment('views') (ogni singola visualizzazione,
-    Builder::increment() aggiunge updated_at alle colonne scritte) e dal
-    salvataggio del flusso di verifica editoriale in
-    Admin\ArticleController (verification_status/verified_at/verified_by),
-    che può avvenire senza alcuna modifica al contenuto. Va introdotto un
-    campo dedicato (es. content_updated_at, toccato solo dai percorsi che
-    modificano titolo/corpo/categoria/cover) prima di poter pubblicare
-    dateModified in modo corretto — commit separato.
+    dateModified: mai da updated_at (continua a non essere affidabile —
+    viene toccato anche da $article->increment('views') e dal salvataggio
+    del flusso di verifica editoriale in Admin\ArticleController, nessuno
+    dei due un cambiamento di contenuto). Trust Layer — riconciliazione
+    Kairus (#517): $lastEditorialUpdate (passato da
+    ArticleController::show(), calcolato da
+    ArticleRevisionTransparencyService) è null a meno che esista una
+    revisione post-pubblicazione con contenuto editoriale davvero diverso
+    dallo stato attuale. La chiave resta del tutto assente quando è
+    null — mai una data indovinata.
 
     BreadcrumbList: percorso Home → Categoria → Articolo quando la categoria
     dell'articolo risolve realmente a /categoria/{slug} (stessa logica di
@@ -151,6 +151,7 @@
                     'height' => $articleStructuredDataImageSize ? $articleStructuredDataImageSize[1] : null,
                 ]),
                 'datePublished' => $article->published_at->toIso8601String(),
+                ...($lastEditorialUpdate ? ['dateModified' => $lastEditorialUpdate->toIso8601String()] : []),
                 'articleSection' => $articleCategoryOptions[$article->category] ?? $article->category,
                 'author' => [
                     '@type' => 'Person',
