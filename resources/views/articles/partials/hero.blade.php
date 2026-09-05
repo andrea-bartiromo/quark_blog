@@ -39,6 +39,13 @@
       <time datetime="{{ $article->published_at->toDateString() }}">
         {{ $article->published_at->locale('it')->isoFormat('D MMMM YYYY') }}
       </time>
+      @if($lastEditorialUpdate)
+      <span>·</span>
+      <span>
+        Aggiornato il
+        <time datetime="{{ $lastEditorialUpdate->toDateString() }}">{{ $lastEditorialUpdate->clone()->timezone(\App\Models\Article::EDITORIAL_TIMEZONE)->locale('it')->isoFormat('D MMMM YYYY') }}</time>
+      </span>
+      @endif
       <span>·</span>
       <span>{{ $article->read_minutes }} min di lettura</span>
       <span>·</span>

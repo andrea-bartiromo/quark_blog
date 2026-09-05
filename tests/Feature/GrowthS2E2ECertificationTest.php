@@ -280,13 +280,16 @@ class GrowthS2E2ECertificationTest extends TestCase
         // ≤13 storico, poi ≤15 (+2 query bounded, Mission 24/25 — Content
         // Graph Public Consumer, discoverableConceptsForArticle() per il
         // JSON-LD `about` — vedi SecondReadAnalyticsTest::
-        // test_impression_write_adds_exactly_one_bounded_query), ora ≤16
+        // test_impression_write_adds_exactly_one_bounded_query), poi ≤16
         // (+1 ulteriore, Mission 43 — category source-debt #258: il
         // composer DB-first in AppServiceProvider aggiunge una singola
         // query bounded per-request per header/category-bar/sidebar/
-        // footer). Un solo numero qui, sull'integrazione reale dei
-        // componenti.
-        $this->assertLessThanOrEqual(16, $withAnalytics);
+        // footer), ora ≤17 (+1 ulteriore, Trust Layer V1 — trasparenza
+        // revisione pubblica: ArticleRevisionTransparencyService::
+        // lastEditorialUpdate() aggiunge 1 query bounded su
+        // article_revisions per decidere "Aggiornato il"/dateModified).
+        // Un solo numero qui, sull'integrazione reale dei componenti.
+        $this->assertLessThanOrEqual(17, $withAnalytics);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

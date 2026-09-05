@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Services\ArticleContinuationService;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticleRelatedService;
+use App\Services\ArticleRevisionTransparencyService;
 use App\Services\ArticleViewTrackingService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
@@ -188,6 +189,13 @@ class ArticleController extends Controller
             // ContentGraphPublicSafetyContractTest: mai un concetto
             // draft/inattivo può comparire qui.
             'discoverableConcepts' => app(ContentGraphService::class)->discoverableConceptsForArticle($article),
+
+            // Trust Layer V1 — trasparenza revisioni: null a meno che
+            // esista una revisione post-pubblicazione con contenuto
+            // davvero diverso dallo stato attuale (mai una data
+            // "aggiornato" inventata). Vedi
+            // App\Services\ArticleRevisionTransparencyService.
+            'lastEditorialUpdate' => app(ArticleRevisionTransparencyService::class)->lastEditorialUpdate($article),
         ]);
     }
 }
