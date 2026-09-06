@@ -24,7 +24,7 @@
 
 @if(!empty($sources))
 <section class="article-premium__panel kairus-primary-sources article-primary-sources" aria-labelledby="article-primary-sources-heading">
-  <h3 id="article-primary-sources-heading">Fonti primarie</h3>
+  <h2 id="article-primary-sources-heading">Fonti primarie</h2>
   <ul class="article-primary-sources__list">
     @foreach($sources as $source)
       <li>

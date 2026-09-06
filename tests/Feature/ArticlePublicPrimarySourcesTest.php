@@ -78,6 +78,31 @@ class ArticlePublicPrimarySourcesTest extends TestCase
         $response->assertSee('&lt;script&gt;', false);
     }
 
+    /**
+     * Measurement Closeout (Prompt 041-060, 150-prompt program): questo
+     * pannello e' un fratello diretto — stesso livello di annidamento nel
+     * DOM, dentro <main> — di path-continuation/continue-reading/
+     * newsletter-band/related-articles, che usano tutti <h2>. Prima di
+     * questa missione usava <h3>, l'unico tra questi a farlo: su un
+     * articolo il cui corpo non genera alcun <h2> proprio (dipende dal
+     * contenuto — vedi articles/partials/body.blade.php), il primo
+     * heading dopo l'<h1> dell'hero sarebbe stato un <h3>, un salto di
+     * livello reale rilevabile solo verificando il tag effettivo, non
+     * solo il testo "Fonti primarie".
+     */
+    public function test_primary_sources_heading_is_an_h2_matching_its_sibling_sections(): void
+    {
+        $article = $this->publishedArticle([
+            'primary_sources' => 'https://www.nature.com/articles/12345',
+        ]);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        $response->assertSee('<h2 id="article-primary-sources-heading">Fonti primarie</h2>', false);
+        $response->assertDontSee('<h3 id="article-primary-sources-heading">', false);
+    }
+
     public function test_no_panel_is_rendered_when_primary_sources_is_null(): void
     {
         $article = $this->publishedArticle(['primary_sources' => null]);

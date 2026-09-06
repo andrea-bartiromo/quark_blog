@@ -11,7 +11,14 @@
     ? route('categoria', ['slug' => $slug, 'page' => $articles->currentPage()])
     : route('categoria', $slug))
 
+{{--
+    Measurement Closeout (Prompt 041-060, 150-prompt program): stessa
+    aggiunta di notizie.blade.php — rel=prev/next mancava qui pur essendo
+    paginata come percorsi/index, che gia' lo emette.
+--}}
 @section('head')
+@if(!$articles->onFirstPage())<link rel="prev" href="{{ $articles->currentPage() - 1 > 1 ? route('categoria', ['slug' => $slug, 'page' => $articles->currentPage() - 1]) : route('categoria', $slug) }}">@endif
+@if($articles->hasMorePages())<link rel="next" href="{{ route('categoria', ['slug' => $slug, 'page' => $articles->currentPage() + 1]) }}">@endif
 @include('collections.partials.structured-data', ['collectionName' => $categoryLabel])
 @endsection
 

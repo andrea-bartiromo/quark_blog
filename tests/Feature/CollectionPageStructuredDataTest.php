@@ -163,6 +163,41 @@ class CollectionPageStructuredDataTest extends TestCase
         $this->assertNotSame($pageOneNode['@id'], $pageTwoNode['@id']);
     }
 
+    /**
+     * Measurement Closeout (Prompt 041-060, 150-prompt program): percorsi/index
+     * (ContentClusterController::index()) gia' emetteva rel=prev/next per
+     * pagina; notizie/categoria, paginate allo stesso modo, non lo
+     * facevano affatto — trovato durante l'audit SEO trasversale sulle 7
+     * superfici pubbliche, corretto qui. Pagina 1 non ha mai rel=prev;
+     * rel=next punta sempre alla pagina successiva reale con ?page=N,
+     * mai a page=1 esplicito quando si torna indietro.
+     */
+    public function test_notizie_and_categoria_expose_rel_prev_next_across_pages(): void
+    {
+        for ($i = 0; $i < 13; $i++) {
+            $this->publishedArticle();
+        }
+
+        $pageOne = $this->get(route('notizie'))->getContent();
+        $this->assertStringNotContainsString('rel="prev"', $pageOne);
+        $this->assertStringContainsString('rel="next" href="'.route('notizie', ['page' => 2]).'"', $pageOne);
+
+        $pageTwo = $this->get(route('notizie', ['page' => 2]))->getContent();
+        $this->assertStringContainsString('rel="prev" href="'.route('notizie').'"', $pageTwo);
+        $this->assertStringNotContainsString('rel="next"', $pageTwo);
+
+        $categoryPageOne = $this->get(route('categoria', 'intelligenza-artificiale'))->getContent();
+        $this->assertStringNotContainsString('rel="prev"', $categoryPageOne);
+        $this->assertStringContainsString(
+            'rel="next" href="'.route('categoria', ['slug' => 'intelligenza-artificiale', 'page' => 2]).'"',
+            $categoryPageOne
+        );
+
+        $categoryPageTwo = $this->get(route('categoria', ['slug' => 'intelligenza-artificiale', 'page' => 2]))->getContent();
+        $this->assertStringContainsString('rel="prev" href="'.route('categoria', 'intelligenza-artificiale').'"', $categoryPageTwo);
+        $this->assertStringNotContainsString('rel="next"', $categoryPageTwo);
+    }
+
     public function test_no_item_list_or_news_article_node_is_published_on_archive_pages(): void
     {
         $this->publishedArticle();

@@ -13,7 +13,15 @@
     ? route('notizie', ['page' => $articles->currentPage()])
     : route('notizie'))
 
+{{--
+    Measurement Closeout (Prompt 041-060, 150-prompt program): rel=prev/next
+    esisteva gia' su percorsi/index (content-clusters/index.blade.php) ma
+    non qui, pur essendo paginata allo stesso modo — stessa logica: mai
+    ?page=1 esplicito, next assente sull'ultima pagina.
+--}}
 @section('head')
+@if(!$articles->onFirstPage())<link rel="prev" href="{{ $articles->currentPage() - 1 > 1 ? route('notizie', ['page' => $articles->currentPage() - 1]) : route('notizie') }}">@endif
+@if($articles->hasMorePages())<link rel="next" href="{{ route('notizie', ['page' => $articles->currentPage() + 1]) }}">@endif
 @include('collections.partials.structured-data', ['collectionName' => 'Tutti gli articoli'])
 @endsection
 
