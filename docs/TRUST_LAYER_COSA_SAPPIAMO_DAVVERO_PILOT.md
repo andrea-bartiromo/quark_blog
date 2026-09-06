@@ -57,11 +57,17 @@ automatica:
 instradato, `@section('robots', 'noindex,nofollow')` come ulteriore
 difesa in profondità nel caso venisse per errore collegato in futuro,
 contenuto interamente segnaposto (`[Esempio]`/`[Testo di esempio]`),
-nessuna affermazione scientifica reale. Riproduce staticamente l'output
-atteso di `<x-article.primary-sources>` (componente che vive su
-`feat/public-article-sources-v1`, non ancora mergiata su questo branch) —
-da sostituire con il componente reale al merge, non duplicare oltre il
-prototipo.
+nessuna affermazione scientifica reale.
+
+**Aggiornamento (Prompt 121, 150-prompt program)**: la dipendenza
+originale (`feat/public-article-sources-v1`) è stata riconciliata su
+`main` (PR #532) da quando questo documento è stato scritto. Il
+prototipo ora usa il componente reale `<x-article.primary-sources>`
+invece di riprodurne staticamente l'output — verificato con un test
+dedicato che renderizza davvero la view
+(`CosaSappiamoDavveroPrototypeNotRoutedTest::test_the_prototype_renders_using_the_real_primary_sources_component`),
+non solo affermato. Nessun'altra dipendenza tecnica nota rimane aperta
+per questo prototipo.
 
 ## B-43 — Audit prestazionale del prototipo
 
@@ -100,15 +106,19 @@ denominatore, finestra e condizione INSUFFICIENT_DATA esplicita:
 **Pronto per prototipo**: sì — completato in questo commit (B-42), zero
 rischio (non instradato, non pubblico, `noindex`).
 
-**Pronto per pilot manuale**: **NO-GO** in questo momento. Condizioni
-mancanti, tutte non colmabili da questo cantiere:
+**Pronto per pilot manuale**: **NO-GO**, invariato. Riesaminato al
+Prompt 121 (150-prompt program): delle tre condizioni originali, una è
+ora soddisfatta (vedi B-42 sopra); le altre due restano aperte e non
+colmabili da alcun cantiere tecnico:
+- ~~**Gate Trust Layer**: dipendeva dal merge di `feat/public-article-sources-v1`~~
+  — **risolto**: mergiato su `main` (PR #532), il prototipo usa ora il
+  componente reale.
 - **Owner editoriale**: nessuna persona assegnata nel repository/processo
   visibile a questo audit — richiede decisione umana.
 - **Contenuto sorgente**: nessuna domanda reale con fonti verificate è
   stata approvata editorialmente — il prototipo usa solo segnaposto.
-- **Gate Trust Layer**: dipende dal merge delle PR fonti pubbliche
-  (`feat/public-article-sources-v1`) per riusare il componente reale
-  invece di una riproduzione statica.
 
 Nessuna route pubblica o migration verrà aperta finché queste condizioni
-non sono soddisfatte da una decisione editoriale umana esplicita.
+non sono soddisfatte da una decisione editoriale umana esplicita. Risolvere
+la dipendenza tecnica non cambia l'esito GO/NO-GO: le due condizioni
+rimanenti sono entrambe decisioni editoriali, non tecniche.

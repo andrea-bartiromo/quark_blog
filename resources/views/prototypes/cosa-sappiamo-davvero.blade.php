@@ -6,12 +6,14 @@
     in docs/TRUST_LAYER_COSA_SAPPIAMO_DAVVERO_PILOT.md (missioni B-40/B-41)
     prima di qualunque decisione di pilot reale (B-45).
 
-    Dipendenze non ancora disponibili su questo branch (vivono su
-    feat/public-article-sources-v1, non ancora mergiata): il blocco Fonti
-    qui sotto riproduce solo staticamente l'output atteso del componente
-    <x-article.primary-sources> — quando quel branch sarà mergiata, questo
-    blocco andrà sostituito con il componente reale invece di essere
-    duplicato.
+    Prompt 121 (150-prompt program, riesame gate): la dipendenza originale
+    (feat/public-article-sources-v1) è stata riconciliata su main da allora
+    (PR #532) — il componente reale <x-article.primary-sources> esiste ora
+    ed è quello effettivamente usato qui sotto, non più una riproduzione
+    statica duplicata. $protoSources sotto ha la stessa forma che
+    ArticlePrimarySourcesParser::parse() produce davvero (vedi
+    app/Services/ArticlePrimarySourcesParser.php), cosi' questo prototipo
+    non può silenziosamente divergere dal contratto reale del componente.
 
     Contenuto di esempio, non editoriale definitivo: nessuna affermazione
     scientifica qui è verificata, è solo segnaposto per il layout.
@@ -45,14 +47,16 @@
       <p>[Dichiarazione esplicita dei limiti — mai omessa.]</p>
     </section>
 
-    {{-- Riproduzione statica dell'output atteso di <x-article.primary-sources> --}}
-    <section class="article-premium__panel article-primary-sources" aria-labelledby="proto-sources-heading">
-      <h3 id="proto-sources-heading">Fonti primarie</h3>
-      <ul class="article-primary-sources__list">
-        <li><a href="#" rel="nofollow noopener noreferrer">[URL fonte di esempio]</a></li>
-        <li>[Fonte testuale di esempio]</li>
-      </ul>
-    </section>
+    @php
+        // Stessa forma prodotta da ArticlePrimarySourcesParser::parse() —
+        // vedi la nota in cima al file: mai duplicare il contratto del
+        // componente reale in un formato diverso qui.
+        $protoSources = [
+            ['type' => 'link', 'text' => '[URL fonte di esempio]', 'url' => '#'],
+            ['type' => 'text', 'text' => '[Fonte testuale di esempio]', 'url' => null],
+        ];
+    @endphp
+    <x-article.primary-sources :sources="$protoSources" />
 
     <section class="premium-static-section">
       <p><strong>Ultimo controllo:</strong> [data di esempio, mai updated_at tecnico]</p>

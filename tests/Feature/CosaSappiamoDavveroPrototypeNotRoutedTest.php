@@ -35,4 +35,31 @@ class CosaSappiamoDavveroPrototypeNotRoutedTest extends TestCase
             $this->get($path)->assertNotFound();
         }
     }
+
+    /**
+     * Prompt 121 (150-prompt program, riesame gate): questo prototipo
+     * riproduceva staticamente l'output atteso di
+     * <x-article.primary-sources> perché quel componente non esisteva
+     * ancora su questo branch. Ora esiste su main (PR #532) e questo file
+     * usa quello reale — un test di solo routing (sopra) non
+     * renderizzerebbe mai la view, quindi non avrebbe rilevato un uso
+     * scorretto del componente (prop mancante, tipo sbagliato). Questo
+     * lo fa, direttamente.
+     */
+    public function test_the_prototype_renders_using_the_real_primary_sources_component(): void
+    {
+        $html = view('prototypes.cosa-sappiamo-davvero')->render();
+
+        // Il livello esatto dell'heading (h2 vs h3) è tracciato e corretto
+        // separatamente sul branch docs/measurement-closeout — non
+        // duplicato qui: questo test verifica solo che il componente
+        // REALE sia davvero quello a renderizzare (id, contenuto, lista),
+        // qualunque sia il suo tag di heading su questo branch.
+        $this->assertMatchesRegularExpression(
+            '/<h[23] id="article-primary-sources-heading">Fonti primarie<\/h[23]>/',
+            $html
+        );
+        $this->assertStringContainsString('[URL fonte di esempio]', $html);
+        $this->assertStringContainsString('[Fonte testuale di esempio]', $html);
+    }
 }
