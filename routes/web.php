@@ -87,6 +87,12 @@ Route::get('/newsletter/conferma', [NewsletterController::class, 'confirm'])
 Route::get('/newsletter/disiscrivi', [NewsletterController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe');
 
+// Recupero prudente iscritti pendenti: consuma un token di riconferma
+// inviato manualmente da un editor (mai un'attivazione automatica).
+Route::get('/newsletter/riconferma', [NewsletterController::class, 'reconfirm'])
+    ->middleware('throttle:20,1')
+    ->name('newsletter.reconfirm');
+
 Route::get('/newsletter/click/{subscriber}/{article}', [NewsletterTrackingController::class, 'click'])
     ->name('newsletter.click');
 
@@ -201,6 +207,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/newsletter/anteprima', [NewsletterPreviewController::class, 'preview'])->name('newsletter.preview');
     Route::post('/newsletter/invia-ora', [NewsletterPreviewController::class, 'send'])->name('newsletter.send-now');
     Route::delete('/newsletter/{newsletter}', [AdminNewsletterController::class, 'destroy'])->name('newsletter.destroy');
+    Route::post('/newsletter/{newsletter}/riconferma', [AdminNewsletterController::class, 'sendReconfirmation'])
+        ->middleware('throttle:10,1')
+        ->name('newsletter.reconfirmation.send');
+    Route::post('/newsletter/pendenti/pulisci-scaduti', [AdminNewsletterController::class, 'cleanupExpiredPending'])
+        ->name('newsletter.reconfirmation.cleanup');
 
     // Suggerimenti AI
     Route::get('/suggerimenti', [SuggestionController::class, 'index'])->name('suggestions');

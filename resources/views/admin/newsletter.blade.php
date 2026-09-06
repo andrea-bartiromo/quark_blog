@@ -12,6 +12,13 @@
        class="btn btn--secondary" style="font-size:.78rem;">
       ⬇ Esporta CSV
     </a>
+    <form method="POST" action="{{ route('admin.newsletter.reconfirmation.cleanup') }}"
+          onsubmit="return confirm('Rimuovere i pendenti a cui è già stato inviato un sollecito di riconferma scaduto senza risposta?')">
+      @csrf
+      <button type="submit" class="btn btn--secondary" style="font-size:.78rem;">
+        🧹 Pulisci pendenti scaduti
+      </button>
+    </form>
   </div>
 </div>
 
@@ -46,6 +53,13 @@
 </div>
 @endif
 
+@if(session('error'))
+<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;
+            padding:.85rem 1.1rem;margin-bottom:1rem;color:#991b1b;font-size:.875rem;">
+  ⚠️ {{ session('error') }}
+</div>
+@endif
+
 <div style="background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
   <table class="admin-table">
     <thead>
@@ -64,11 +78,25 @@
           <span class="status status--{{ $sub->confirmed ? 'published' : 'draft' }}">
             {{ $sub->confirmed ? '✓ Confermato' : '⏳ In attesa' }}
           </span>
+          @if(! $sub->confirmed && $sub->reconfirmations->isNotEmpty())
+            <div style="font-size:.72rem;color:#6b7280;margin-top:.25rem;">
+              {{ $sub->reconfirmations->count() }}/{{ $maxReconfirmationAttempts }} solleciti inviati
+            </div>
+          @endif
         </td>
         <td style="font-size:.82rem;color:#6b7280;">
           {{ $sub->created_at->format('d/m/Y H:i') }}
         </td>
-        <td>
+        <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+          @if(! $sub->confirmed)
+            <form method="POST" action="{{ route('admin.newsletter.reconfirmation.send', $sub) }}">
+              @csrf
+              <button type="submit" class="btn btn--secondary btn--sm"
+                      @if($sub->reconfirmations->count() >= $maxReconfirmationAttempts) disabled title="Numero massimo di solleciti raggiunto" @endif>
+                ✉️ Invia riconferma
+              </button>
+            </form>
+          @endif
           <form method="POST" action="{{ route('admin.newsletter.destroy', $sub) }}"
                 onsubmit="return confirm('Eliminare {{ $sub->email }} dalla newsletter?')">
             @csrf @method('DELETE')
