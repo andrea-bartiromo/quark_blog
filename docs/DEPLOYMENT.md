@@ -88,6 +88,16 @@ The drift detector above originally compared only content (SHA-256) and presence
 
 **Where a restrictive permission could reach the served root:** `scripts/selective-deploy-backup.sh`'s rollback used `cp -a` unconditionally, which preserves the exact mode of the backed-up copy. For `public`-scoped manifest entries specifically — the files that land on the real served root — rollback now copies content only and normalizes the mode explicitly to `644` (or `755` if the source was executable) instead. `app`-scoped entries are untouched (still `cp -a`): a restrictive mode there can be intentional (e.g. a config-like file not meant to be world-readable), and an existing regression test locks in that this distinction is deliberate, not a gap.
 
+## Staging rollback drill
+
+`scripts/staging-rollback-drill.sh` exercises the real `php artisan deploy:asset-drift` gate against a temporary, throwaway "served root" — never production, never this checkout's own `public/` content, no database required. It mirrors every path in `config('deploy.asset_drift_scan_paths')` into a temp directory, confirms the gate passes clean, injects a real fault (a restrictive `600` permission on one release-managed file — the exact class of risk Prompt 011-014 closed), confirms the same gate now fails closed with that specific file named as `unsafe_mode`, then remediates and confirms the gate passes again. Run it locally at any time:
+
+```bash
+bash scripts/staging-rollback-drill.sh
+```
+
+**What this drill does *not* claim:** it verifies the filesystem-level gate logic in isolation. It does not exercise `deploy.sh`'s database-dependent gates (migration status, `DB_CONNECTION`) against a real MariaDB/MySQL server — that verification already exists and runs for real against an ephemeral MariaDB service in `.github/workflows/deploy-safety.yml` (wrong SHA, pending migration, diverged served root, valid state, idempotent second run). Neither this drill nor that CI workflow constitutes a real production or staging **host** verification — no code in this repository has ever connected to the actual production server. **This repository's tooling is not, by itself, evidence that a release is production-ready**; an authorized human verification against the real host remains a separate, required step before any production deploy.
+
 ## Deterministic release manifests
 
 `scripts/git-release-manifest.sh --from <sha> --to <sha> --repo <dir>` generates the exact TSV manifest format `scripts/selective-deploy-backup.sh` consumes (`app`/`public`-scoped relative paths), from a real `git diff --no-renames --name-status` between two known commits. `--no-renames` is deliberate: without it, a rename can collapse an old-path-removed + new-path-added pair into a single `R` line, silently dropping the old path from the generated manifest (and from backup coverage — a rollback could never restore what used to be there). Any change class other than `A`/`M`/`D` (copies, type changes, unmerged paths) is refused rather than guessed at.
