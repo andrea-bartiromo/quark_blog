@@ -193,6 +193,145 @@ class PublicAssetDriftDetectorTest extends TestCase
         }
     }
 
+    public function test_a_file_with_matching_content_but_an_unsafe_mode_on_the_served_root_is_flagged(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:red}');
+        chmod($servedRoot.'/'.$probe, 0600);
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(PublicAssetDriftDetector::STATUS_UNSAFE_MODE, $entry['status']);
+            $this->assertSame($entry['app_hash'], $entry['served_hash'], 'Content still matches — only the mode is unsafe.');
+            $this->assertSame(1, $report['totals'][PublicAssetDriftDetector::STATUS_UNSAFE_MODE]);
+            $this->assertSame(0, $report['totals'][PublicAssetDriftDetector::STATUS_OK]);
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
+    public function test_a_file_with_matching_content_but_an_unsafe_mode_on_the_app_root_is_flagged(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        chmod(public_path($probe), 0640);
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:red}');
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(PublicAssetDriftDetector::STATUS_UNSAFE_MODE, $entry['status']);
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            chmod(public_path($probe), 0644);
+            @unlink(public_path($probe));
+        }
+    }
+
+    public function test_a_file_with_a_safe_but_more_permissive_mode_stays_ok(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:red}');
+        chmod($servedRoot.'/'.$probe, 0664);
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(PublicAssetDriftDetector::STATUS_OK, $entry['status']);
+            $this->assertTrue($this->detector()->isClean());
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
+    public function test_a_mismatch_is_reported_as_mismatch_even_when_its_mode_is_also_unsafe(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:blue}');
+        chmod($servedRoot.'/'.$probe, 0600);
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_MISMATCH,
+                $entry['status'],
+                'A real content mismatch must never be masked by an also-unsafe mode.'
+            );
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
+    public function test_a_scanned_directory_with_an_unsafe_mode_is_flagged_as_a_synthetic_entry(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($probeDir), 0775, true);
+        file_put_contents(public_path($probeDir.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$probeDir, 0700, true);
+        file_put_contents($servedRoot.'/'.$probeDir.'/one.js', 'console.log(1)');
+
+        try {
+            $report = $this->detector()->report();
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertSame(PublicAssetDriftDetector::STATUS_UNSAFE_MODE, $byPath[$probeDir]['status']);
+            $this->assertNull($byPath[$probeDir]['app_hash']);
+            $this->assertSame(PublicAssetDriftDetector::STATUS_OK, $byPath[$probeDir.'/one.js']['status'], 'The file itself is still readable and content-identical — only the directory entry is flagged.');
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            chmod($servedRoot.'/'.$probeDir, 0775);
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
+    public function test_a_scanned_directory_with_a_safe_mode_is_not_reported_at_all(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($probeDir), 0775, true);
+        file_put_contents(public_path($probeDir.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$probeDir, 0775, true);
+        file_put_contents($servedRoot.'/'.$probeDir.'/one.js', 'console.log(1)');
+
+        try {
+            $report = $this->detector()->report();
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertArrayNotHasKey($probeDir, $byPath, 'A safely-permissioned directory must not itself appear as an entry.');
+            $this->assertSame(0, $report['totals'][PublicAssetDriftDetector::STATUS_UNSAFE_MODE]);
+            $this->assertTrue($this->detector()->isClean());
+        } finally {
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
     public function test_the_report_never_writes_to_either_root(): void
     {
         $servedRoot = $this->makeServedRoot();

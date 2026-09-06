@@ -32,10 +32,26 @@ class PublicAssetDriftDetector
     public const STATUS_MISSING_ON_APP = 'missing_on_app';
 
     /**
+     * Contenuto identico su entrambe le radici ma con permessi troppo
+     * restrittivi per essere serviti in modo affidabile (es. un file 600
+     * copiato con `cp -a` da un backup che aveva preservato quel permesso,
+     * o una directory 700 non piu' attraversabile da Apache). Il detector
+     * confronta da sempre solo hash/presenza: questo status copre il gap
+     * — un asset "corretto" nel contenuto ma potenzialmente illeggibile.
+     */
+    public const STATUS_UNSAFE_MODE = 'unsafe_mode';
+
+    /** Permesso minimo per un file di release: rw-r--r--. */
+    private const MIN_FILE_MODE = 0644;
+
+    /** Permesso minimo per una directory di release: rwxr-xr-x. */
+    private const MIN_DIR_MODE = 0755;
+
+    /**
      * @return array{
      *     enabled: bool,
      *     entries?: list<array{path:string,status:string,app_hash:?string,served_hash:?string}>,
-     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int}
+     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int,unsafe_mode:int}
      * }
      */
     public function report(): array
@@ -56,6 +72,7 @@ class PublicAssetDriftDetector
             self::STATUS_MISMATCH => 0,
             self::STATUS_MISSING_ON_WEBROOT => 0,
             self::STATUS_MISSING_ON_APP => 0,
+            self::STATUS_UNSAFE_MODE => 0,
         ];
         $entries = [];
 
@@ -70,6 +87,7 @@ class PublicAssetDriftDetector
                 $appHash === null => self::STATUS_MISSING_ON_APP,
                 $servedHash === null => self::STATUS_MISSING_ON_WEBROOT,
                 $appHash !== $servedHash => self::STATUS_MISMATCH,
+                ! $this->hasSafeFileMode($appPath) || ! $this->hasSafeFileMode($servedPath) => self::STATUS_UNSAFE_MODE,
                 default => self::STATUS_OK,
             };
 
@@ -80,6 +98,17 @@ class PublicAssetDriftDetector
                 'status' => $status,
                 'app_hash' => $appHash,
                 'served_hash' => $servedHash,
+            ];
+        }
+
+        foreach ($this->unsafeScannedDirectories($appRoot, $servedRoot, $scanPaths) as $unsafeDir) {
+            $totals[self::STATUS_UNSAFE_MODE]++;
+
+            $entries[] = [
+                'path' => $unsafeDir,
+                'status' => self::STATUS_UNSAFE_MODE,
+                'app_hash' => null,
+                'served_hash' => null,
             ];
         }
 
@@ -110,7 +139,82 @@ class PublicAssetDriftDetector
 
         return $report['totals'][self::STATUS_MISMATCH] === 0
             && $report['totals'][self::STATUS_MISSING_ON_WEBROOT] === 0
-            && $report['totals'][self::STATUS_MISSING_ON_APP] === 0;
+            && $report['totals'][self::STATUS_MISSING_ON_APP] === 0
+            && $report['totals'][self::STATUS_UNSAFE_MODE] === 0;
+    }
+
+    private function hasSafeFileMode(string $path): bool
+    {
+        if (! is_file($path)) {
+            return true;
+        }
+
+        $mode = @fileperms($path);
+
+        if ($mode === false) {
+            return false;
+        }
+
+        return ($mode & self::MIN_FILE_MODE) === self::MIN_FILE_MODE;
+    }
+
+    private function hasSafeDirMode(string $path): bool
+    {
+        if (! is_dir($path)) {
+            return true;
+        }
+
+        $mode = @fileperms($path);
+
+        if ($mode === false) {
+            return false;
+        }
+
+        return ($mode & self::MIN_DIR_MODE) === self::MIN_DIR_MODE;
+    }
+
+    /**
+     * Verifica il permesso delle directory nominate direttamente in
+     * asset_drift_scan_paths (non ogni sottodirectory attraversata da
+     * scanDirectory() — quelle sono gia' coperte indirettamente: se non
+     * sono attraversabili, scanDirectory() semplicemente non trova i file
+     * al loro interno, che risultano "missing"). Restituisce solo i
+     * percorsi realmente non sicuri: una directory sicura non genera
+     * rumore nel report, coerentemente con come i file OK non lo fanno.
+     *
+     * @param  list<string>  $scanPaths
+     * @return list<string>
+     */
+    private function unsafeScannedDirectories(string $appRoot, string $servedRoot, array $scanPaths): array
+    {
+        $unsafe = [];
+
+        foreach ($scanPaths as $target) {
+            $target = trim(str_replace('\\', '/', $target), '/');
+
+            if ($target === '') {
+                continue;
+            }
+
+            $appTarget = $appRoot.'/'.$target;
+            $servedTarget = $servedRoot.'/'.$target;
+
+            $appIsDir = is_dir($appTarget);
+            $servedIsDir = is_dir($servedTarget);
+
+            if (! $appIsDir && ! $servedIsDir) {
+                continue;
+            }
+
+            $safe = (! $appIsDir || $this->hasSafeDirMode($appTarget))
+                && (! $servedIsDir || $this->hasSafeDirMode($servedTarget));
+
+            if (! $safe) {
+                $unsafe[] = $target;
+            }
+        }
+
+        return array_values(array_unique($unsafe));
     }
 
     private function servedRoot(): ?string

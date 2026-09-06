@@ -48,10 +48,11 @@ class DeployAssetDriftReport extends Command
         }
 
         $this->error(sprintf(
-            'Divergenza rilevata tra le due document root: %d mismatch, %d mancanti sulla radice servita, %d mancanti sulla radice applicativa (su %d file confrontati).',
+            'Divergenza rilevata tra le due document root: %d mismatch, %d mancanti sulla radice servita, %d mancanti sulla radice applicativa, %d con permessi non sicuri (su %d file confrontati).',
             $report['totals'][PublicAssetDriftDetector::STATUS_MISMATCH],
             $report['totals'][PublicAssetDriftDetector::STATUS_MISSING_ON_WEBROOT],
             $report['totals'][PublicAssetDriftDetector::STATUS_MISSING_ON_APP],
+            $report['totals'][PublicAssetDriftDetector::STATUS_UNSAFE_MODE],
             $report['totals']['scanned'],
         ));
 

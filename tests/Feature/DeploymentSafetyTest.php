@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class DeploymentSafetyTest extends TestCase
@@ -161,6 +162,39 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringContainsString("printf 'revision=%s\\n' \"\$ACTUAL_SHA\"", $script);
         $this->assertStringContainsString("printf 'deployed_at_utc=%s\\n' \"\$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"", $script);
         $this->assertStringContainsString("printf 'database_driver=%s\\n' \"\$DB_CONNECTION_VALUE\"", $script);
+    }
+
+    /**
+     * Prompt 004 (150-prompt deploy-hardening program): #534 rimosse le
+     * cache Laravel generate che erano finite tracciate in
+     * bootstrap/cache/*.php; bootstrap/cache/.gitignore le esclude ora,
+     * ma nessun test provava che non possano ritornare tracciate in
+     * futuro (es. un `git add -f` distratto). Usa il vero repository di
+     * questo checkout — se `.git` non esiste (es. un archivio sorgente
+     * senza storia Git) il test si salta, non fallisce.
+     */
+    public function test_bootstrap_cache_php_files_are_never_tracked_by_git(): void
+    {
+        if (! is_dir(base_path('.git'))) {
+            $this->markTestSkipped('No .git directory in this checkout — nothing to inspect.');
+        }
+
+        $process = new Process(
+            ['git', 'ls-files', 'bootstrap/cache'],
+            base_path()
+        );
+        $process->run();
+
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+
+        $tracked = array_values(array_filter(explode("\n", trim($process->getOutput()))));
+        $trackedPhp = array_filter($tracked, fn (string $path) => str_ends_with($path, '.php'));
+
+        $this->assertSame(
+            [],
+            array_values($trackedPhp),
+            'bootstrap/cache must never contain tracked generated PHP caches — see PR #534.'
+        );
     }
 
     private function deployScript(): string

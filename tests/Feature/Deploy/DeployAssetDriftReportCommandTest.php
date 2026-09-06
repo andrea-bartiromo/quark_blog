@@ -116,6 +116,25 @@ class DeployAssetDriftReportCommandTest extends TestCase
         }
     }
 
+    public function test_the_command_fails_when_content_matches_but_the_served_file_has_an_unsafe_mode(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, 'body{color:red}');
+        chmod($servedRoot.'/'.$probe, 0600);
+
+        try {
+            $exitCode = Artisan::call('deploy:asset-drift');
+            $this->assertNotSame(0, $exitCode);
+            $this->assertStringContainsString('permessi non sicuri', Artisan::output());
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
     /**
      * Vedi PublicAssetDriftDetectorTest::probeFile() — stesso motivo: un
      * nome univoco per test elimina l'unico rischio residuo di collisione
