@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Newsletter;
+use App\Services\NewsletterReconfirmationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -124,6 +125,26 @@ class NewsletterController extends Controller
         ]);
 
         return view('newsletter-confirmed');
+    }
+
+    /**
+     * Consuma un token di riconferma inviato manualmente da un editor
+     * (NewsletterReconfirmationService::send()) — flusso completamente
+     * distinto da confirm() sopra: token/tabella diversi, mai un
+     * ripristino della colonna newsletter.token del double opt-in
+     * originale.
+     */
+    public function reconfirm(Request $request, NewsletterReconfirmationService $service)
+    {
+        $token = $request->query('token');
+
+        if (! is_string($token) || trim($token) === '') {
+            return view('newsletter-reconfirmed', ['confirmed' => false]);
+        }
+
+        $subscriber = $service->confirm(trim($token));
+
+        return view('newsletter-reconfirmed', ['confirmed' => $subscriber !== null]);
     }
 
     public function unsubscribe(Request $request)

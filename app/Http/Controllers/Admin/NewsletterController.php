@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\NewsletterReconfirmationIneligibleException;
 use App\Http\Controllers\Controller;
 use App\Models\Newsletter;
+use App\Services\NewsletterReconfirmationService;
 use Illuminate\Support\Facades\DB;
 
 class NewsletterController extends Controller
@@ -19,11 +21,51 @@ class NewsletterController extends Controller
             ->get();
 
         return view('admin.newsletter', [
-            'subscribers' => Newsletter::latest()->paginate(50),
+            'subscribers' => Newsletter::with('reconfirmations')->latest()->paginate(50),
             'total' => Newsletter::count(),
             'confirmed' => Newsletter::where('confirmed', true)->count(),
             'sourceReport' => $sourceReport,
+            'maxReconfirmationAttempts' => (int) config('newsletter.reconfirmation.max_attempts'),
         ]);
+    }
+
+    /**
+     * Invia manualmente UN sollecito di riconferma a UN iscritto
+     * pendente — mai un invio massivo, mai automatico. L'eleggibilità
+     * (già confermato / tentativi esauriti / troppo presto dall'ultimo
+     * invio) è decisa interamente da NewsletterReconfirmationService:
+     * qui si traduce solo l'esito in un messaggio onesto per l'editor.
+     */
+    public function sendReconfirmation(Newsletter $newsletter, NewsletterReconfirmationService $service)
+    {
+        try {
+            $service->send($newsletter);
+        } catch (NewsletterReconfirmationIneligibleException $e) {
+            return back()->with('error', match ($e->reason) {
+                NewsletterReconfirmationIneligibleException::ALREADY_CONFIRMED => 'Questo iscritto ha già confermato: nessun sollecito necessario.',
+                NewsletterReconfirmationIneligibleException::MAX_ATTEMPTS_REACHED => 'Raggiunto il numero massimo di solleciti per questo iscritto.',
+                NewsletterReconfirmationIneligibleException::COOLDOWN_ACTIVE => 'È stato inviato un sollecito di recente: attendi prima di reinviarlo.',
+                default => 'Impossibile inviare il sollecito di riconferma.',
+            });
+        }
+
+        return back()->with('success', 'Email di riconferma inviata a '.$newsletter->email.'.');
+    }
+
+    /**
+     * Rimuove i pendenti a cui è già stato dato almeno un sollecito di
+     * riconferma e che non hanno risposto entro la scadenza — la stessa
+     * regola applicata dal comando di pulizia schedulato
+     * (newsletter:reconfirmation-cleanup), qui disponibile anche su
+     * richiesta manuale dell'editor.
+     */
+    public function cleanupExpiredPending(NewsletterReconfirmationService $service)
+    {
+        $deleted = $service->deleteExpiredPending();
+
+        return back()->with('success', $deleted === 0
+            ? 'Nessun pendente scaduto da rimuovere.'
+            : $deleted.' '.($deleted === 1 ? 'iscritto pendente scaduto rimosso.' : 'iscritti pendenti scaduti rimossi.'));
     }
 
     public function export()
