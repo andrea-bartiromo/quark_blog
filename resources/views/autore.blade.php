@@ -15,7 +15,17 @@
     ? route('autore', ['user' => $author, 'page' => $articles->currentPage()])
     : route('autore', $author))
 
+{{--
+    Trust Layer editorial audit (Prompt 071-080, 150-prompt program):
+    stessa lacuna gia' trovata e corretta su notizie/categoria (Measurement
+    Closeout, Prompt 041-060) — questa pagina pagina allo stesso modo
+    (Article::paginate(12) in AuthorController::show()) ma non emetteva
+    rel=prev/next. Stessa convenzione di canonical gia' in uso sopra: mai
+    ?page=1 esplicito.
+--}}
 @section('head')
+@if($articles->currentPage() > 1)<link rel="prev" href="{{ $articles->currentPage() - 1 > 1 ? route('autore', ['user' => $author, 'page' => $articles->currentPage() - 1]) : route('autore', $author) }}">@endif
+@if($articles->hasMorePages())<link rel="next" href="{{ route('autore', ['user' => $author, 'page' => $articles->currentPage() + 1]) }}">@endif
 @php
     $personSchema = [
         '@context' => 'https://schema.org',

@@ -132,4 +132,27 @@ class PublicAuthorPageEligibilityTest extends TestCase
         $authorResponse = $this->get(route('autore', $article->author));
         $authorResponse->assertOk();
     }
+
+    /**
+     * Trust Layer editorial audit (Prompt 071-080, 150-prompt program):
+     * stessa lacuna gia' corretta su notizie/categoria (Measurement
+     * Closeout, Prompt 041-060) — /autore/{user} pagina allo stesso modo
+     * (paginate(12)) ma non emetteva rel=prev/next.
+     */
+    public function test_author_page_exposes_rel_prev_next_across_pages(): void
+    {
+        $user = User::factory()->create(['role' => 'author']);
+
+        for ($i = 0; $i < 13; $i++) {
+            $this->articleFor($user, ['slug' => 'articolo-'.$i.'-'.uniqid()]);
+        }
+
+        $pageOne = $this->get(route('autore', $user))->getContent();
+        $this->assertStringNotContainsString('rel="prev"', $pageOne);
+        $this->assertStringContainsString('rel="next" href="'.route('autore', ['user' => $user, 'page' => 2]).'"', $pageOne);
+
+        $pageTwo = $this->get(route('autore', ['user' => $user, 'page' => 2]))->getContent();
+        $this->assertStringContainsString('rel="prev" href="'.route('autore', $user).'"', $pageTwo);
+        $this->assertStringNotContainsString('rel="next"', $pageTwo);
+    }
 }
