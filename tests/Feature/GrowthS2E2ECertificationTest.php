@@ -284,9 +284,13 @@ class GrowthS2E2ECertificationTest extends TestCase
         // (+1 ulteriore, Mission 43 — category source-debt #258: il
         // composer DB-first in AppServiceProvider aggiunge una singola
         // query bounded per-request per header/category-bar/sidebar/
-        // footer). Un solo numero qui, sull'integrazione reale dei
-        // componenti.
-        $this->assertLessThanOrEqual(16, $withAnalytics);
+        // footer), ora ≤17 (+1 ulteriore, Trust Layer — riconciliazione
+        // Kairus, trasparenza revisione pubblica:
+        // ArticleRevisionTransparencyService::lastEditorialUpdate()
+        // aggiunge 1 query bounded su article_revisions per decidere
+        // "Aggiornato il"/dateModified). Un solo numero qui,
+        // sull'integrazione reale dei componenti.
+        $this->assertLessThanOrEqual(17, $withAnalytics);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

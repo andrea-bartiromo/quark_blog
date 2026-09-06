@@ -124,6 +124,16 @@
             <main>
                 @include('articles.partials.toc', ['tocVariant' => 'toc-panel--mobile'])
                 @include('articles.partials.body')
+                {{--
+                    Trust Layer — riconciliazione Kairus (#516). Fonti
+                    primarie strutturate (Article::primary_sources), un
+                    concetto distinto dal blocco "Fonti" legacy dentro
+                    body.blade.php (testo libero dopo "---" nel corpo, via
+                    x-kairus.trust-panel) — dati diversi, non garantito
+                    coincidere per lo stesso articolo, quindi non
+                    unificati in un solo pannello.
+                --}}
+                <x-article.primary-sources :sources="$primarySources" />
                 @include('articles.partials.path-continuation')
                 @include('articles.partials.continue-reading')
                 @include('articles.partials.newsletter-band')
