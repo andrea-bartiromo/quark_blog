@@ -67,6 +67,54 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringNotContainsString('php artisan migrate --force', $script);
     }
 
+    /**
+     * Prompt 015 (150-prompt deploy-hardening program): questo script
+     * presuppone di essere invocato da una directory di release GIA'
+     * estratta/clonata (verifica solo `git rev-parse HEAD`) — non ha mai
+     * estratto archivi ne' cambiato directory da solo. Blocca ogni
+     * regressione futura che introducesse un simile passo implicito.
+     */
+    public function test_production_deploy_never_extracts_an_archive_or_changes_directory_itself(): void
+    {
+        $script = $this->deployScript();
+
+        foreach (['tar -x', 'tar x', 'unzip ', 'cd ..', 'cd ../', 'cd /'] as $needle) {
+            $this->assertStringNotContainsString($needle, $script, "deploy.sh must never itself extract an archive or leave its working directory (found: {$needle}).");
+        }
+    }
+
+    /**
+     * Prompt 016: rifiuta una directory di release incompleta (manca
+     * artisan/composer.json/.git) PRIMA di qualunque altro controllo —
+     * cosi' l'operatore vede subito il motivo reale invece di un errore
+     * PHP o git confuso più avanti nello script.
+     */
+    public function test_production_deploy_rejects_an_incomplete_release_directory_before_anything_else(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('[ -f artisan ] ||', $script);
+        $this->assertStringContainsString('[ -f composer.json ] ||', $script);
+        $this->assertStringContainsString('[ -d .git ] ||', $script);
+
+        $artisanCheckPosition = strpos($script, '[ -f artisan ] ||');
+        $composerCheckPosition = strpos($script, '[ -f composer.json ] ||');
+        $gitCheckPosition = strpos($script, '[ -d .git ] ||');
+        $envCheckPosition = strpos($script, '[ -f .env ] ||');
+        $revisionComparePosition = strpos($script, 'ACTUAL_SHA="$(git rev-parse HEAD)"');
+
+        $this->assertNotFalse($artisanCheckPosition);
+        $this->assertNotFalse($composerCheckPosition);
+        $this->assertNotFalse($gitCheckPosition);
+        $this->assertNotFalse($envCheckPosition);
+        $this->assertNotFalse($revisionComparePosition);
+
+        foreach ([$artisanCheckPosition, $composerCheckPosition, $gitCheckPosition] as $position) {
+            $this->assertLessThan($envCheckPosition, $position, 'Release-completeness guards must run before the .env check.');
+            $this->assertLessThan($revisionComparePosition, $position, 'Release-completeness guards must run before the revision is even read.');
+        }
+    }
+
     public function test_production_deploy_never_generates_a_new_app_key(): void
     {
         $script = $this->deployScript();

@@ -135,6 +135,24 @@ class DeployAssetDriftReportCommandTest extends TestCase
         }
     }
 
+    public function test_the_command_fails_when_a_release_managed_file_is_empty_on_both_roots(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), '');
+        file_put_contents($servedRoot.'/'.$probe, '');
+
+        try {
+            $exitCode = Artisan::call('deploy:asset-drift');
+            $this->assertNotSame(0, $exitCode);
+            $this->assertStringContainsString('vuoti', Artisan::output());
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
     /**
      * Vedi PublicAssetDriftDetectorTest::probeFile() — stesso motivo: un
      * nome univoco per test elimina l'unico rischio residuo di collisione

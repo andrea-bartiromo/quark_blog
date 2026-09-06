@@ -332,6 +332,51 @@ class PublicAssetDriftDetectorTest extends TestCase
         }
     }
 
+    public function test_a_file_empty_on_both_roots_is_flagged_as_empty_rather_than_ok(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), '');
+        file_put_contents($servedRoot.'/'.$probe, '');
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(PublicAssetDriftDetector::STATUS_EMPTY_FILE, $entry['status']);
+            $this->assertSame(1, $report['totals'][PublicAssetDriftDetector::STATUS_EMPTY_FILE]);
+            $this->assertSame(0, $report['totals'][PublicAssetDriftDetector::STATUS_OK]);
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
+    public function test_a_file_empty_on_only_one_root_is_reported_as_a_mismatch_not_empty(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probe = $this->probeFile();
+        config(['deploy.asset_drift_scan_paths' => [$probe]]);
+
+        file_put_contents(public_path($probe), 'body{color:red}');
+        file_put_contents($servedRoot.'/'.$probe, '');
+
+        try {
+            $report = $this->detector()->report();
+
+            $entry = collect($report['entries'])->firstWhere('path', $probe);
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_MISMATCH,
+                $entry['status'],
+                'Different content (one side truncated to empty, the other not) is a mismatch, not the "empty on both sides" case.'
+            );
+        } finally {
+            @unlink(public_path($probe));
+        }
+    }
+
     public function test_the_report_never_writes_to_either_root(): void
     {
         $servedRoot = $this->makeServedRoot();

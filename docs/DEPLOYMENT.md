@@ -14,12 +14,15 @@ bash deploy.sh <expected-40-character-git-sha>
 
 The wrapper fails unless:
 
+- the current directory looks like a complete Laravel release (`artisan`, `composer.json` and `.git` are all present — checked before anything else runs, so an incomplete copy or the wrong working directory fails with a clear reason instead of a confusing PHP or git error later);
 - the checked-out Git revision exactly matches the expected SHA;
 - `APP_ENV` resolves to `production`;
 - `APP_DEBUG` resolves to `false`;
 - `APP_KEY` is already configured (the deploy never generates or rotates it);
 - the configured database connection is `mysql` or `mariadb`;
 - there are no pending migrations.
+
+`deploy.sh` assumes it runs from an already-checked-out release directory (it only ever runs `git rev-parse HEAD` to verify the revision) — it never extracts an archive or changes its own working directory, and a regression test locks this in.
 
 After successful checks and cache refresh, the wrapper writes `REVISION` and `DEPLOY_INFO` in the release directory. `DEPLOY_INFO` records only revision, UTC deployment time and database driver; it must never contain credentials.
 
@@ -72,6 +75,19 @@ Run it directly at any time:
 php artisan deploy:asset-drift
 ```
 
-Exits `0` when disabled or clean, non-zero the moment any file differs, is missing on the served root, or is missing on the application root — with a table listing every problem path and its SHA-256 on each side.
+Exits `0` when disabled or clean, non-zero the moment any file differs, is missing on the served root, is missing on the application root, has an unsafe permission, or is empty on both roots — with a table listing every problem path and its SHA-256 on each side.
 
-`deploy.sh` calls this command automatically, right after the cache-refresh step and **before** `REVISION`/`DEPLOY_INFO` are ever written — the same fail-closed placement as the pending-migrations check. When `DEPLOY_SERVED_PUBLIC_ROOT` is configured and a mismatch exists, the release stops there: no revision gets recorded for a release whose static assets never actually reached the served root. When unset, the check is a no-op and never blocks a deploy — matching every environment (local, CI, staging) that has not configured a second root.
+`deploy.sh` calls this command automatically, right after the cache-refresh step and **before** `REVISION`/`DEPLOY_INFO` are ever written — the same fail-closed placement as the pending-migrations check. When `DEPLOY_SERVED_PUBLIC_ROOT` is configured and a problem exists, the release stops there: no revision gets recorded for a release whose static assets never actually, safely reached the served root. When unset, the check is a no-op and never blocks a deploy — matching every environment (local, CI, staging) that has not configured a second root.
+
+## Public asset permission contract (Prompt 011-019, deploy-hardening program)
+
+The drift detector above originally compared only content (SHA-256) and presence. Content-only comparison has a gap: a release-managed file can be byte-identical on both roots yet unreadable by Apache if its permission mode is too restrictive (e.g. `600`), or empty on both sides if a copy step was interrupted mid-write. Two more statuses close that gap, both wired into the same `isClean()` / `deploy:asset-drift` exit-code contract as `mismatch`/`missing_on_*`:
+
+- **`unsafe_mode`** — a file mode more restrictive than `644`, or a directory named directly in `asset_drift_scan_paths` more restrictive than `755`, on either root, while content still matches. A directory is only reported once, as its own synthetic entry (`app_hash`/`served_hash` both `null`) — not once per file inside it.
+- **`empty_file`** — a file that is `0` bytes on both roots (content still "matches" in the SHA-256 sense — both hashes are the empty-string hash — but no static asset managed by this release is legitimately empty). A file that is empty on only one side is still `mismatch`, not `empty_file`.
+
+**Where a restrictive permission could reach the served root:** `scripts/selective-deploy-backup.sh`'s rollback used `cp -a` unconditionally, which preserves the exact mode of the backed-up copy. For `public`-scoped manifest entries specifically — the files that land on the real served root — rollback now copies content only and normalizes the mode explicitly to `644` (or `755` if the source was executable) instead. `app`-scoped entries are untouched (still `cp -a`): a restrictive mode there can be intentional (e.g. a config-like file not meant to be world-readable), and an existing regression test locks in that this distinction is deliberate, not a gap.
+
+## Deterministic release manifests
+
+`scripts/git-release-manifest.sh --from <sha> --to <sha> --repo <dir>` generates the exact TSV manifest format `scripts/selective-deploy-backup.sh` consumes (`app`/`public`-scoped relative paths), from a real `git diff --no-renames --name-status` between two known commits. `--no-renames` is deliberate: without it, a rename can collapse an old-path-removed + new-path-added pair into a single `R` line, silently dropping the old path from the generated manifest (and from backup coverage — a rollback could never restore what used to be there). Any change class other than `A`/`M`/`D` (copies, type changes, unmerged paths) is refused rather than guessed at.

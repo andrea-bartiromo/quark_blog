@@ -144,6 +144,7 @@ class AssetSplitDeploymentSimulationTest extends TestCase
             PublicAssetDriftDetector::STATUS_MISSING_ON_WEBROOT => 2,
             PublicAssetDriftDetector::STATUS_MISSING_ON_APP => 0,
             PublicAssetDriftDetector::STATUS_UNSAFE_MODE => 0,
+            PublicAssetDriftDetector::STATUS_EMPTY_FILE => 0,
         ], $report['totals']);
 
         $byPath = collect($report['entries'])->keyBy('path');

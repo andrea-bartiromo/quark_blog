@@ -41,6 +41,17 @@ class PublicAssetDriftDetector
      */
     public const STATUS_UNSAFE_MODE = 'unsafe_mode';
 
+    /**
+     * Prompt 019 (150-prompt deploy-hardening program): un file troncato a
+     * 0 byte durante la copia post-release ha hash identico su entrambe le
+     * radici SOLO se e' vuoto su entrambe (altrimenti sarebbe gia' un
+     * mismatch) — un caso che il solo confronto hash non distingue mai da
+     * "file vuoto per design". Nessun asset gestito da questa release e'
+     * legittimamente vuoto: un CSS/JS/icona a 0 byte e' sempre un segnale
+     * di copia interrotta, mai un contenuto valido.
+     */
+    public const STATUS_EMPTY_FILE = 'empty_file';
+
     /** Permesso minimo per un file di release: rw-r--r--. */
     private const MIN_FILE_MODE = 0644;
 
@@ -51,7 +62,7 @@ class PublicAssetDriftDetector
      * @return array{
      *     enabled: bool,
      *     entries?: list<array{path:string,status:string,app_hash:?string,served_hash:?string}>,
-     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int,unsafe_mode:int}
+     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int,unsafe_mode:int,empty_file:int}
      * }
      */
     public function report(): array
@@ -73,6 +84,7 @@ class PublicAssetDriftDetector
             self::STATUS_MISSING_ON_WEBROOT => 0,
             self::STATUS_MISSING_ON_APP => 0,
             self::STATUS_UNSAFE_MODE => 0,
+            self::STATUS_EMPTY_FILE => 0,
         ];
         $entries = [];
 
@@ -87,6 +99,7 @@ class PublicAssetDriftDetector
                 $appHash === null => self::STATUS_MISSING_ON_APP,
                 $servedHash === null => self::STATUS_MISSING_ON_WEBROOT,
                 $appHash !== $servedHash => self::STATUS_MISMATCH,
+                filesize($appPath) === 0 => self::STATUS_EMPTY_FILE,
                 ! $this->hasSafeFileMode($appPath) || ! $this->hasSafeFileMode($servedPath) => self::STATUS_UNSAFE_MODE,
                 default => self::STATUS_OK,
             };
@@ -140,7 +153,8 @@ class PublicAssetDriftDetector
         return $report['totals'][self::STATUS_MISMATCH] === 0
             && $report['totals'][self::STATUS_MISSING_ON_WEBROOT] === 0
             && $report['totals'][self::STATUS_MISSING_ON_APP] === 0
-            && $report['totals'][self::STATUS_UNSAFE_MODE] === 0;
+            && $report['totals'][self::STATUS_UNSAFE_MODE] === 0
+            && $report['totals'][self::STATUS_EMPTY_FILE] === 0;
     }
 
     private function hasSafeFileMode(string $path): bool
