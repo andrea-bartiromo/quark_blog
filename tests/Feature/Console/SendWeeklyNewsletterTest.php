@@ -132,6 +132,34 @@ class SendWeeklyNewsletterTest extends TestCase
         );
     }
 
+    /**
+     * Prompt 116-120 (150-prompt program, readiness operativa): prima di
+     * questo interruttore, fermare l'invio settimanale già in produzione
+     * richiedeva commentare la riga Schedule::command('newsletter:send')
+     * e fare un deploy — troppo lento per un incidente in corso.
+     * NEWSLETTER_SEND_ENABLED=false deve fermare il comando PRIMA di
+     * leggere qualunque articolo o iscritto (nessuna query, nessun job).
+     */
+    public function test_the_kill_switch_stops_the_command_before_reading_anything(): void
+    {
+        config(['newsletter.send_enabled' => false]);
+        $this->confirmedSubscriber('kill-switch@example.com');
+        $this->publishedArticle();
+
+        Bus::fake();
+
+        $tester = $this->commandTester();
+        $exitCode = $tester->execute([]);
+
+        $this->assertSame(SymfonyCommand::INVALID, $exitCode);
+        Bus::assertNotDispatched(SendNewsletterJob::class);
+    }
+
+    public function test_the_command_still_sends_normally_when_the_switch_is_left_at_its_default(): void
+    {
+        $this->assertTrue(config('newsletter.send_enabled'), 'send_enabled must default to true so existing behavior is unchanged.');
+    }
+
     private function confirmedSubscriber(string $email): Newsletter
     {
         return Newsletter::create([

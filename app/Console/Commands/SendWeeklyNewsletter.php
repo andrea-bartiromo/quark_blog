@@ -15,6 +15,18 @@ class SendWeeklyNewsletter extends Command
 
     public function handle(): int
     {
+        // Prompt 116-120 (150-prompt program): controllato per primo,
+        // prima di leggere qualunque articolo/iscritto — sia l'invio
+        // schedulato (routes/console.php) sia il pulsante "Invia ora"
+        // (Admin\NewsletterPreviewController::send()) passano da questo
+        // stesso comando, quindi disattivarlo qui li ferma entrambi
+        // senza un secondo punto di controllo che potrebbe disallinearsi.
+        if (! config('newsletter.send_enabled')) {
+            $this->warn('Invio newsletter disattivato (NEWSLETTER_SEND_ENABLED=false). Nessun articolo o iscritto è stato letto.');
+
+            return self::INVALID;
+        }
+
         $dryRun = $this->option('dry-run');
 
         // Top articoli più letti ultimi 7 giorni

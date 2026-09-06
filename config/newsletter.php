@@ -3,6 +3,26 @@
 return [
     /*
     |--------------------------------------------------------------------
+    | Interruttore di emergenza — invio newsletter settimanale
+    |--------------------------------------------------------------------
+    |
+    | Prompt 116-120 (150-prompt program, readiness operativa): prima di
+    | questa opzione, l'unico modo di fermare l'invio schedulato del
+    | giovedì (routes/console.php, già in produzione) era commentare la
+    | riga Schedule::command('newsletter:send') e fare un deploy — piu'
+    | lento di quanto un vero incidente in corso richieda. Impostare
+    | NEWSLETTER_SEND_ENABLED=false ferma sia l'invio schedulato sia il
+    | pulsante "Invia ora" in /admin/newsletter (stesso comando
+    | sottostante per entrambi) senza toccare codice. Default true:
+    | nessun cambiamento al comportamento esistente finché non viene
+    | esplicitamente disattivato.
+    |
+    */
+
+    'send_enabled' => (bool) env('NEWSLETTER_SEND_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------
     | Recupero prudente degli iscritti pendenti
     |--------------------------------------------------------------------
     |

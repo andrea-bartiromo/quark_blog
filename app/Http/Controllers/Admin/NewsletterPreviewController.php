@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
+use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 
@@ -31,8 +32,18 @@ class NewsletterPreviewController extends Controller
     public function send(Request $request)
     {
         // Invoca il comando newsletter:send
-        Artisan::call('newsletter:send');
+        $exitCode = Artisan::call('newsletter:send');
         $output = Artisan::output();
+
+        // Prompt 116-120 (150-prompt program): prima di questo controllo,
+        // un invio disattivato (NEWSLETTER_SEND_ENABLED=false) o qualunque
+        // altro esito diverso da successo mostrava comunque "Newsletter
+        // inviata!" all'editor — un falso segnale di successo su
+        // un'azione che in realtà non ha inviato nulla.
+        if ($exitCode !== Command::SUCCESS) {
+            return redirect()->route('admin.newsletter')
+                ->with('warning', 'Newsletter NON inviata. '.trim($output));
+        }
 
         return redirect()->route('admin.newsletter')
             ->with('success', 'Newsletter inviata! '.trim($output));
