@@ -6,6 +6,7 @@ use App\Models\Newsletter;
 use App\Models\NewsletterReconfirmation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -73,6 +74,66 @@ class CleanupExpiredNewsletterPendingTest extends TestCase
         $this->artisan('newsletter:reconfirmation-cleanup')->assertExitCode(0);
 
         $this->assertDatabaseHas('newsletter', ['id' => $subscriber->id, 'confirmed' => true]);
+    }
+
+    /**
+     * Prompt 101-105 (150-prompt program, revisione critica della PR
+     * #533 di questa stessa sessione): questo comando gira ogni giorno
+     * senza supervisione contro una tabella senza soft-delete —
+     * --dry-run deve riusare la STESSA query di eleggibilita' della
+     * cancellazione reale (non una copia che potrebbe divergere) e non
+     * deve mai modificare nulla.
+     */
+    public function test_dry_run_reports_eligible_subscribers_without_deleting_anything(): void
+    {
+        $expired = Newsletter::subscribe('dry-run-expired@example.com');
+        NewsletterReconfirmation::create([
+            'newsletter_id' => $expired->id,
+            'token' => Str::random(64),
+            'sent_at' => now()->subDays(10),
+            'expires_at' => now()->subDays(3),
+        ]);
+        $neverSollicited = Newsletter::subscribe('dry-run-never-sollicited@example.com');
+
+        $this->artisan('newsletter:reconfirmation-cleanup', ['--dry-run' => true])
+            ->expectsOutputToContain((string) $expired->id)
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('newsletter', ['id' => $expired->id]);
+        $this->assertDatabaseHas('newsletter', ['id' => $neverSollicited->id]);
+    }
+
+    public function test_dry_run_reports_nothing_to_remove_when_no_one_is_eligible(): void
+    {
+        Newsletter::subscribe('dry-run-nobody-eligible@example.com');
+
+        $this->artisan('newsletter:reconfirmation-cleanup', ['--dry-run' => true])
+            ->expectsOutputToContain('nessun pendente scaduto da rimuovere')
+            ->assertExitCode(0);
+    }
+
+    public function test_a_real_deletion_run_logs_the_removed_subscriber_ids_but_never_the_email(): void
+    {
+        Log::spy();
+
+        $subscriber = Newsletter::subscribe('logged-deletion@example.com');
+        NewsletterReconfirmation::create([
+            'newsletter_id' => $subscriber->id,
+            'token' => Str::random(64),
+            'sent_at' => now()->subDays(10),
+            'expires_at' => now()->subDays(3),
+        ]);
+
+        $this->artisan('newsletter:reconfirmation-cleanup')->assertExitCode(0);
+
+        Log::shouldHaveReceived('info')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($subscriber) {
+                return str_contains($message, 'Rimozione iscritti newsletter pendenti scaduti')
+                    && $context['subscriber_ids'] === [$subscriber->id]
+                    && $context['count'] === 1
+                    && ! str_contains(json_encode($context), 'logged-deletion@example.com');
+            });
     }
 
     public function test_admin_can_trigger_the_same_cleanup_manually(): void

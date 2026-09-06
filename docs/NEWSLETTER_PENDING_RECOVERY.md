@@ -39,6 +39,38 @@ Questa funzionalità non lo presume mai valido:
 | `NewsletterController::reconfirm()` | Consumo pubblico del token (route separata da `newsletter.confirm`). |
 | `newsletter:reconfirmation-cleanup` (comando) | Stessa pulizia, schedulata ogni giorno alle 4:30 (`routes/console.php`). |
 
+## Revisione critica (Prompt 101-105, 150-prompt program): dry-run e audit
+
+Questa pulizia è una `DELETE` reale e **irreversibile** (nessun
+soft-delete su `newsletter`), eseguita ogni giorno **senza supervisione
+umana**. Prima di questa revisione non esisteva alcun modo di vedere chi
+sarebbe stato rimosso senza eseguire davvero la cancellazione, né alcuna
+traccia di quali righe specifiche un run avesse rimosso oltre a un
+conteggio.
+
+Aggiunto in questa revisione, senza cambiare chi è eleggibile o quando
+gira lo scheduler:
+
+- **`php artisan newsletter:reconfirmation-cleanup --dry-run`** — mostra
+  quanti iscritti e quali ID interni verrebbero rimossi, senza eliminare
+  nulla. Riusa la stessa identica query di eleggibilità della
+  cancellazione reale
+  (`NewsletterReconfirmationService::eligibleForExpiredCleanup()`), così
+  l'anteprima non può mai divergere da cosa accadrebbe davvero.
+- **Log strutturato prima di ogni cancellazione reale**: gli ID interni
+  (mai l'indirizzo email — stessa convenzione già in uso per gli altri
+  fallimenti di invio newsletter di questo repository) delle righe che
+  stanno per essere rimosse vengono scritti nel log applicativo. Non
+  rende la cancellazione reversibile, ma è l'unico modo per un operatore
+  di sapere in seguito quali righe uno specifico run ha effettivamente
+  rimosso.
+
+**Cosa resta invariato, deliberatamente**: nessuna soft-delete aggiunta
+(cambierebbe lo schema e il contratto dei dati, fuori perimetro di una
+revisione read-only/di auditing), nessuna finestra di conferma
+interattiva aggiunta allo scheduler (che gira senza supervisione per
+design), nessun cambiamento a chi è eleggibile per la rimozione.
+
 ## Chi viene eliminato dalla pulizia
 
 Solo i pendenti a cui è stato **già inviato almeno un sollecito** e il

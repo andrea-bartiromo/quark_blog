@@ -6,6 +6,7 @@ use App\Exceptions\NewsletterReconfirmationIneligibleException;
 use App\Mail\NewsletterReconfirmationMail;
 use App\Models\Newsletter;
 use App\Models\NewsletterReconfirmation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -120,6 +121,26 @@ class NewsletterReconfirmationService
     }
 
     /**
+     * Prompt 101-105 (150-prompt program, revisione critica della PR
+     * #533 di questa stessa sessione): identica interrogazione di
+     * eleggibilità di deleteExpiredPending(), estratta qui per essere
+     * l'UNICA fonte di verità condivisa da un'anteprima read-only
+     * (--dry-run) e dalla cancellazione reale — cosi' un'anteprima non
+     * puo' mai divergere silenziosamente da cio' che verrebbe davvero
+     * eliminato. Nessuna scrittura, nessun side effect.
+     */
+    public function eligibleForExpiredCleanup(): Collection
+    {
+        return Newsletter::query()
+            ->pending()
+            ->whereHas('reconfirmations')
+            ->whereDoesntHave('reconfirmations', function ($query) {
+                $query->unconfirmed()->where('expires_at', '>=', now());
+            })
+            ->pluck('id');
+    }
+
+    /**
      * Elimina gli iscritti pendenti a cui è stato dato almeno un
      * sollecito di riconferma e che non hanno mai risposto in tempo — mai
      * un pendente che non è mai stato sollecitato (a quello va prima
@@ -127,17 +148,24 @@ class NewsletterReconfirmationService
      */
     public function deleteExpiredPending(): int
     {
-        $eligibleIds = Newsletter::query()
-            ->pending()
-            ->whereHas('reconfirmations')
-            ->whereDoesntHave('reconfirmations', function ($query) {
-                $query->unconfirmed()->where('expires_at', '>=', now());
-            })
-            ->pluck('id');
+        $eligibleIds = $this->eligibleForExpiredCleanup();
 
         if ($eligibleIds->isEmpty()) {
             return 0;
         }
+
+        // Traccia SOLO gli id interni (mai l'email — vedi
+        // docs/NEWSLETTER_FAILURE_PRIVACY_AUDIT.md, stessa convenzione
+        // gia' in uso per gli altri fallimenti di invio newsletter di
+        // questo repository): una cancellazione reale resta
+        // irreversibile per design (nessun soft-delete su questa
+        // tabella), quindi questo e' l'unico modo per un operatore di
+        // sapere in seguito QUALI righe un run ha realmente rimosso,
+        // senza mai scrivere un indirizzo email in un log.
+        Log::info('Rimozione iscritti newsletter pendenti scaduti.', [
+            'subscriber_ids' => $eligibleIds->all(),
+            'count' => $eligibleIds->count(),
+        ]);
 
         return Newsletter::whereIn('id', $eligibleIds)->delete();
     }
