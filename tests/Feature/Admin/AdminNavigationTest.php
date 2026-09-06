@@ -157,6 +157,12 @@ class AdminNavigationTest extends TestCase
             'Newsletter', 'Pubblicità',
             'Turing', 'Assistente AI', 'Statistiche', 'Attività', 'Anteprima newsletter',
             'Profilo', 'Vedi sito', 'Esci',
+
+            // Command Center / Content Graph adoption review (Prompt
+            // 091-100, 150-prompt program): questa lista risaliva a prima
+            // della loro adozione — nessun test qui garantiva che
+            // restassero nella sidebar.
+            'Concetti', 'Operazioni editoriali',
         ];
 
         foreach ($labels as $label) {
@@ -194,6 +200,7 @@ class AdminNavigationTest extends TestCase
             'admin.newsletter', 'admin.ads',
             'admin.turing', 'admin.suggestions', 'admin.stats', 'admin.activity', 'admin.newsletter.preview',
             'admin.profile', 'admin.logout', 'home',
+            'admin.concepts.index', 'admin.editorial-operations',
         ];
 
         foreach ($expectedRoutes as $routeName) {
@@ -260,6 +267,31 @@ class AdminNavigationTest extends TestCase
         $editor = $this->editor();
 
         $this->assertNavLinkActive($this->actingAs($editor)->get(route('admin.turing')), 'admin.turing');
+    }
+
+    /**
+     * Command Center / Content Graph adoption review (Prompt 091-100,
+     * 150-prompt program): "Concetti" e "Operazioni editoriali" sono in
+     * sidebar (resources/views/layouts/admin.blade.php) da prima di
+     * questo cantiere, ma nessun test verificava il loro stato attivo —
+     * a differenza di quasi ogni altra voce della sidebar. $isConcepts
+     * usa routeIs('admin.concepts.*'), quindi verificato sia su
+     * admin.concepts.index sia su admin.concepts.create, non solo il
+     * primo.
+     */
+    public function test_the_concepts_link_is_active_for_all_concept_routes(): void
+    {
+        $editor = $this->editor();
+
+        $this->assertNavLinkActive($this->actingAs($editor)->get(route('admin.concepts.index')), 'admin.concepts.index');
+        $this->assertNavLinkActive($this->actingAs($editor)->get(route('admin.concepts.create')), 'admin.concepts.index');
+    }
+
+    public function test_the_editorial_operations_link_is_active_on_the_command_center_page(): void
+    {
+        $editor = $this->editor();
+
+        $this->assertNavLinkActive($this->actingAs($editor)->get(route('admin.editorial-operations')), 'admin.editorial-operations');
     }
 
     public function test_the_statistics_link_is_active_on_the_statistics_page(): void
