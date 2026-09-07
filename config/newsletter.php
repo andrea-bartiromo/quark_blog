@@ -24,5 +24,17 @@ return [
         // Ore minime tra un invio e il successivo per lo stesso iscritto,
         // indipendentemente dal limite sopra.
         'cooldown_hours' => 24,
+
+        // Interruttore di emergenza per la SOLA pulizia automatica
+        // schedulata (newsletter:reconfirmation-cleanup, giornaliera
+        // 04:30 — routes/console.php). Analogo a NEWSLETTER_SEND_ENABLED
+        // per newsletter:send: disattivandolo, il comando esce senza
+        // cancellare nulla, ma resta true di default (nessun comportamento
+        // esistente cambia finché non viene impostato esplicitamente a
+        // false). Non copre l'azione manuale equivalente dell'editor da
+        // /admin/newsletter (NewsletterController::cleanupExpiredPending):
+        // quella resta sempre disponibile perché è già una decisione umana
+        // deliberata, non un'attivazione automatica non presidiata.
+        'cleanup_enabled' => (bool) env('NEWSLETTER_RECONFIRMATION_CLEANUP_ENABLED', true),
     ],
 ];

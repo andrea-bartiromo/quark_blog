@@ -6,6 +6,7 @@ use App\Exceptions\NewsletterReconfirmationIneligibleException;
 use App\Mail\NewsletterReconfirmationMail;
 use App\Models\Newsletter;
 use App\Models\NewsletterReconfirmation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -120,25 +121,54 @@ class NewsletterReconfirmationService
     }
 
     /**
-     * Elimina gli iscritti pendenti a cui è stato dato almeno un
-     * sollecito di riconferma e che non hanno mai risposto in tempo — mai
-     * un pendente che non è mai stato sollecitato (a quello va prima
-     * offerta la possibilità di riconfermare, non cancellato a priori).
+     * ID degli iscritti pendenti eleggibili per la pulizia: a cui è stato
+     * dato almeno un sollecito di riconferma e che non hanno mai risposto
+     * in tempo — mai un pendente che non è mai stato sollecitato (a quello
+     * va prima offerta la possibilità di riconfermare, non cancellato a
+     * priori). Nessun effetto collaterale: sola lettura, condivisa da
+     * deleteExpiredPending() e da qualunque anteprima/dry-run che debba
+     * mostrare lo stesso insieme senza cancellare nulla.
      */
-    public function deleteExpiredPending(): int
+    public function eligibleForExpiredCleanup(): Collection
     {
-        $eligibleIds = Newsletter::query()
+        return Newsletter::query()
             ->pending()
             ->whereHas('reconfirmations')
             ->whereDoesntHave('reconfirmations', function ($query) {
                 $query->unconfirmed()->where('expires_at', '>=', now());
             })
             ->pluck('id');
+    }
+
+    /**
+     * Elimina gli iscritti pendenti eleggibili (vedi
+     * eligibleForExpiredCleanup()). Idempotente per costruzione: una
+     * seconda chiamata, di seguito o in una schedulazione sovrapposta,
+     * non trova più nulla di eleggibile e non cancella nulla — non solo
+     * withoutOverlapping() a livello di scheduler, ma la query stessa non
+     * ha effetto su righe già rimosse.
+     */
+    public function deleteExpiredPending(): int
+    {
+        $eligibleIds = $this->eligibleForExpiredCleanup();
 
         if ($eligibleIds->isEmpty()) {
             return 0;
         }
 
-        return Newsletter::whereIn('id', $eligibleIds)->delete();
+        $deleted = Newsletter::whereIn('id', $eligibleIds)->delete();
+
+        // Traccia dell'evento di cancellazione (mai l'indirizzo email, solo
+        // l'ID interno) — la sola prova che resta di QUALI righe sono state
+        // rimosse, dato che la cancellazione stessa non è ricostruibile da
+        // un rollback della migration (che rimuove solo la tabella di audit
+        // newsletter_reconfirmations, non ripristina le righe di newsletter
+        // già cancellate). Vedi docs/NEWSLETTER_RECONFIRMATION_CLEANUP_RUNBOOK.md.
+        Log::info('Rimozione iscritti newsletter pendenti scaduti.', [
+            'subscriber_ids' => $eligibleIds->all(),
+            'count' => $deleted,
+        ]);
+
+        return $deleted;
     }
 }
