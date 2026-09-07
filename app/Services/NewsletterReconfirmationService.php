@@ -6,6 +6,7 @@ use App\Exceptions\NewsletterReconfirmationIneligibleException;
 use App\Mail\NewsletterReconfirmationMail;
 use App\Models\Newsletter;
 use App\Models\NewsletterReconfirmation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -121,53 +122,86 @@ class NewsletterReconfirmationService
     }
 
     /**
-     * ID degli iscritti pendenti eleggibili per la pulizia: a cui è stato
-     * dato almeno un sollecito di riconferma e che non hanno mai risposto
-     * in tempo — mai un pendente che non è mai stato sollecitato (a quello
-     * va prima offerta la possibilità di riconfermare, non cancellato a
-     * priori). Nessun effetto collaterale: sola lettura, condivisa da
-     * deleteExpiredPending() e da qualunque anteprima/dry-run che debba
-     * mostrare lo stesso insieme senza cancellare nulla.
+     * Query di base per l'eleggibilità alla pulizia: pendenti a cui è
+     * stato dato almeno un sollecito di riconferma e che non hanno mai
+     * risposto in tempo — mai un pendente che non è mai stato sollecitato
+     * (a quello va prima offerta la possibilità di riconfermare, non
+     * cancellato a priori). Condivisa da eligibleForExpiredCleanup()
+     * (sola lettura, per anteprima/dry-run) e da deleteExpiredPending()
+     * (che vi applica il proprio locking prima di eliminare).
+     *
+     * @return Builder<Newsletter>
      */
-    public function eligibleForExpiredCleanup(): Collection
+    private function expiredPendingQuery()
     {
         return Newsletter::query()
             ->pending()
             ->whereHas('reconfirmations')
             ->whereDoesntHave('reconfirmations', function ($query) {
                 $query->unconfirmed()->where('expires_at', '>=', now());
-            })
-            ->pluck('id');
+            });
     }
 
     /**
-     * Elimina gli iscritti pendenti eleggibili (vedi
-     * eligibleForExpiredCleanup()). Idempotente per costruzione: una
-     * seconda chiamata, di seguito o in una schedulazione sovrapposta,
-     * non trova più nulla di eleggibile e non cancella nulla — non solo
-     * withoutOverlapping() a livello di scheduler, ma la query stessa non
-     * ha effetto su righe già rimosse.
+     * ID degli iscritti pendenti eleggibili per la pulizia. Nessun effetto
+     * collaterale: sola lettura, senza lock — usata per l'anteprima/
+     * dry-run, dove non deve mai trattenere righe. deleteExpiredPending()
+     * NON riusa questo metodo per la cancellazione vera e propria: applica
+     * il proprio locking sulla stessa query di base per garantire che gli
+     * ID registrati nel log di audit siano esattamente quelli cancellati
+     * da quella invocazione, non una fotografia che una cancellazione
+     * concorrente potrebbe rendere disallineata (revisione Codex su PR
+     * #536).
+     */
+    public function eligibleForExpiredCleanup(): Collection
+    {
+        return $this->expiredPendingQuery()->pluck('id');
+    }
+
+    /**
+     * Elimina gli iscritti pendenti eleggibili. Idempotente per
+     * costruzione: una seconda chiamata, di seguito o in una
+     * schedulazione sovrapposta, non trova più nulla di eleggibile e non
+     * cancella nulla — non solo withoutOverlapping() a livello di
+     * scheduler, ma la query stessa non ha effetto su righe già rimosse.
+     *
+     * Selezione ed eliminazione sono nella STESSA transazione con
+     * lockForUpdate(): se un'altra invocazione concorrente cancellasse una
+     * di queste righe tra la selezione e la cancellazione, quella riga
+     * resterebbe bloccata dal lock finché la prima transazione non
+     * completa — gli ID registrati nel log di audit sono quindi sempre
+     * esattamente quelli che QUESTA invocazione ha rimosso, mai una
+     * fotografia pre-cancellazione potenzialmente disallineata (revisione
+     * Codex su PR #536).
      */
     public function deleteExpiredPending(): int
     {
-        $eligibleIds = $this->eligibleForExpiredCleanup();
+        $deleted = DB::transaction(function () {
+            $eligibleIds = $this->expiredPendingQuery()->lockForUpdate()->pluck('id');
 
-        if ($eligibleIds->isEmpty()) {
-            return 0;
-        }
+            if ($eligibleIds->isEmpty()) {
+                return 0;
+            }
 
-        $deleted = Newsletter::whereIn('id', $eligibleIds)->delete();
+            $deletedCount = Newsletter::whereIn('id', $eligibleIds)->delete();
 
-        // Traccia dell'evento di cancellazione (mai l'indirizzo email, solo
-        // l'ID interno) — la sola prova che resta di QUALI righe sono state
-        // rimosse, dato che la cancellazione stessa non è ricostruibile da
-        // un rollback della migration (che rimuove solo la tabella di audit
-        // newsletter_reconfirmations, non ripristina le righe di newsletter
-        // già cancellate). Vedi docs/NEWSLETTER_RECONFIRMATION_CLEANUP_RUNBOOK.md.
-        Log::info('Rimozione iscritti newsletter pendenti scaduti.', [
-            'subscriber_ids' => $eligibleIds->all(),
-            'count' => $deleted,
-        ]);
+            // Traccia dell'evento di cancellazione (mai l'indirizzo email,
+            // solo l'ID interno), su un canale dedicato con livello fisso
+            // — non il canale di default, che in produzione (LOG_LEVEL=
+            // error) scarterebbe silenziosamente questo evento. È la sola
+            // prova che resta di QUALI righe sono state rimosse, dato che
+            // la cancellazione stessa non è ricostruibile da un rollback
+            // della migration (che rimuove solo la tabella di audit
+            // newsletter_reconfirmations, non ripristina le righe di
+            // newsletter già cancellate). Vedi
+            // docs/NEWSLETTER_RECONFIRMATION_CLEANUP_RUNBOOK.md.
+            Log::channel('newsletter_reconfirmation_audit')->info('Rimozione iscritti newsletter pendenti scaduti.', [
+                'subscriber_ids' => $eligibleIds->all(),
+                'count' => $deletedCount,
+            ]);
+
+            return $deletedCount;
+        });
 
         return $deleted;
     }

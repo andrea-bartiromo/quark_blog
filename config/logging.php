@@ -123,6 +123,29 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        /*
+        |----------------------------------------------------------------
+        | Audit trail: pulizia iscritti newsletter pendenti scaduti
+        |----------------------------------------------------------------
+        |
+        | Livello fisso a 'info', non derivato da LOG_LEVEL: la
+        | configurazione di produzione documentata (.env.production.example)
+        | imposta LOG_LEVEL=error, che scarterebbe silenziosamente questo
+        | evento se scrivesse sul canale di default — l'unica traccia di
+        | QUALI iscritti sono stati rimossi (cancellazione non
+        | recuperabile da un rollback della migration, vedi
+        | docs/NEWSLETTER_RECONFIRMATION_CLEANUP_RUNBOOK.md) andrebbe
+        | persa proprio nell'ambiente dove conta di più (revisione Codex
+        | su PR #536). Vedi
+        | App\Services\NewsletterReconfirmationService::deleteExpiredPending().
+        */
+        'newsletter_reconfirmation_audit' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/newsletter-reconfirmation-audit.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

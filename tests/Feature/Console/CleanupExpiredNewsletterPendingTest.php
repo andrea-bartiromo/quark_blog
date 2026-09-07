@@ -5,6 +5,7 @@ namespace Tests\Feature\Console;
 use App\Models\Newsletter;
 use App\Models\NewsletterReconfirmation;
 use App\Models\User;
+use App\Services\NewsletterReconfirmationService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -206,5 +207,96 @@ class CleanupExpiredNewsletterPendingTest extends TestCase
 
         $this->assertNotNull($event);
         $this->assertTrue($event->withoutOverlapping);
+    }
+
+    /**
+     * Revisione Codex su PR #536: la configurazione di produzione
+     * documentata (.env.production.example) imposta LOG_LEVEL=error, che
+     * il canale di log di default applica anche a Log::info() — l'evento
+     * di audit sarebbe stato scartato in silenzio proprio nell'ambiente
+     * dove serve di più. Il canale dedicato newsletter_reconfirmation_audit
+     * ha un livello fisso a 'info', indipendente da LOG_LEVEL: qui si
+     * simula esplicitamente quella soglia di produzione sul canale di
+     * default e si prova che l'evento arriva comunque sul file dedicato.
+     */
+    public function test_audit_log_survives_a_production_like_error_only_log_level(): void
+    {
+        $auditLogPath = storage_path('logs/test-newsletter-reconfirmation-audit-'.uniqid('', true).'.log');
+        config([
+            'logging.channels.newsletter_reconfirmation_audit.path' => $auditLogPath,
+            'logging.channels.stack.level' => 'error',
+            'logging.channels.single.level' => 'error',
+            'logging.channels.daily.level' => 'error',
+        ]);
+
+        $subscriber = Newsletter::subscribe('audit-log-level@example.com');
+        NewsletterReconfirmation::create([
+            'newsletter_id' => $subscriber->id,
+            'token' => Str::random(64),
+            'sent_at' => now()->subDays(10),
+            'expires_at' => now()->subDays(3),
+        ]);
+
+        try {
+            $this->artisan('newsletter:reconfirmation-cleanup')->assertExitCode(0);
+
+            $this->assertFileExists($auditLogPath, 'The dedicated audit channel must write its own file regardless of the default channel level.');
+            $contents = file_get_contents($auditLogPath);
+            $this->assertStringContainsString('Rimozione iscritti newsletter pendenti scaduti.', $contents);
+            $this->assertStringContainsString((string) $subscriber->id, $contents);
+        } finally {
+            @unlink($auditLogPath);
+        }
+    }
+
+    /**
+     * Revisione Codex su PR #536: selezione ed eliminazione erano due
+     * passi separati — una cancellazione concorrente tra i due poteva
+     * lasciare il log con ID che quella invocazione non aveva realmente
+     * rimosso. Non è praticamente simulabile una vera race a due
+     * connessioni in questa suite (SQLite in-memory, singolo processo);
+     * questo test prova invece l'invariante osservabile che la fix deve
+     * comunque garantire ad ogni chiamata: il conteggio e gli ID nel log
+     * di audit corrispondono ESATTAMENTE alle righe realmente rimosse dal
+     * database, mai a una fotografia presa prima della cancellazione.
+     */
+    public function test_audit_log_records_exactly_the_ids_actually_deleted(): void
+    {
+        $auditLogPath = storage_path('logs/test-newsletter-reconfirmation-audit-'.uniqid('', true).'.log');
+        config(['logging.channels.newsletter_reconfirmation_audit.path' => $auditLogPath]);
+
+        $subscribers = collect(['race-a@example.com', 'race-b@example.com', 'race-c@example.com'])
+            ->map(function (string $email) {
+                $subscriber = Newsletter::subscribe($email);
+                NewsletterReconfirmation::create([
+                    'newsletter_id' => $subscriber->id,
+                    'token' => Str::random(64),
+                    'sent_at' => now()->subDays(10),
+                    'expires_at' => now()->subDays(3),
+                ]);
+
+                return $subscriber;
+            });
+
+        try {
+            $service = app(NewsletterReconfirmationService::class);
+            $deletedCount = $service->deleteExpiredPending();
+
+            $this->assertSame(3, $deletedCount);
+
+            $contents = file_get_contents($auditLogPath);
+            preg_match('/"subscriber_ids":\[([^\]]*)\]/', $contents, $matches);
+            $this->assertNotEmpty($matches, 'audit log entry not found or malformed');
+            $loggedIds = array_filter(array_map('trim', explode(',', $matches[1])));
+
+            $this->assertCount($deletedCount, $loggedIds, 'logged subscriber_ids count must match the number of rows actually deleted');
+            $this->assertSame($subscribers->pluck('id')->sort()->values()->all(), collect($loggedIds)->map(fn ($id) => (int) $id)->sort()->values()->all());
+
+            foreach ($subscribers as $subscriber) {
+                $this->assertDatabaseMissing('newsletter', ['id' => $subscriber->id]);
+            }
+        } finally {
+            @unlink($auditLogPath);
+        }
     }
 }

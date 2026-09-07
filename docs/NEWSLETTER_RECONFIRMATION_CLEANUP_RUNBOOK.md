@@ -42,14 +42,30 @@ cui ultimo token è scaduto senza risposta.
   / `NewsletterController::confirm()`) resta un sistema completamente
   separato, mai letto né scritto da `NewsletterReconfirmationService`.
 - **Audit trail**: ogni cancellazione registra ora (hardening di questo
-  audit) un evento `Log::info('Rimozione iscritti newsletter pendenti
-  scaduti.', ['subscriber_ids' => [...], 'count' => N])` — mai l'indirizzo
-  email, solo gli ID interni — nel canale di log applicativo standard,
+  audit) un evento `Log::channel('newsletter_reconfirmation_audit')->info(
+  'Rimozione iscritti newsletter pendenti scaduti.', ['subscriber_ids' =>
+  [...], 'count' => N])` — mai l'indirizzo email, solo gli ID interni —
   oltre all'output già catturato in
   `storage/logs/newsletter-reconfirmation-cleanup.log`
   (`routes/console.php`, `->appendOutputTo(...)`). Prima di questo audit
   non esisteva alcuna traccia di QUALI righe fossero state rimosse da
   un'esecuzione, solo il conteggio nell'output del comando.
+  - **Canale dedicato, non quello di default**: `config/logging.php`
+    definisce `newsletter_reconfirmation_audit` con livello fisso a
+    `'info'`, indipendente dalla variabile `LOG_LEVEL`. La configurazione
+    di produzione documentata (`.env.production.example`) imposta
+    `LOG_LEVEL=error`: se questo evento fosse scritto sul canale di
+    default, verrebbe scartato in silenzio proprio nell'ambiente dove
+    conta di più (revisione Codex su PR #536). File dedicato:
+    `storage/logs/newsletter-reconfirmation-audit.log`.
+  - **Atomicità selezione/cancellazione**: `deleteExpiredPending()`
+    seleziona gli ID eleggibili con `lockForUpdate()` nella STESSA
+    transazione della cancellazione, non in due passi separati. Senza
+    questo, una cancellazione concorrente tra la selezione e la
+    cancellazione avrebbe potuto lasciare nel log ID che quella specifica
+    invocazione non aveva realmente rimosso (revisione Codex su PR #536)
+    — gli ID registrati sono ora sempre esattamente quelli che
+    quell'invocazione ha cancellato.
 
 ## Interruttore di emergenza (nuovo in questo audit)
 
