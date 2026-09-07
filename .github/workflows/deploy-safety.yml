@@ -102,6 +102,25 @@ jobs:
           test ! -f REVISION
           test ! -f DEPLOY_INFO
 
+      - name: TEST — a tracked app file corrupted mid-copy must fail closed without recording revision
+        run: |
+          set -eu
+          # Simulates an interrupted/corrupted external file-copy step (the
+          # "release files are already present" precondition this wrapper
+          # trusts, per docs/DEPLOYMENT.md's safety contract): a real,
+          # content-level divergence on a tracked PHP file, not the mode-only
+          # noise the "second run" test below exercises. The dirty-tree gate
+          # must catch this before any check that follows it.
+          REAL_SHA="$(git rev-parse HEAD)"
+          printf '\n// corrupted mid-copy\n' >> routes/web.php
+          if bash deploy.sh "$REAL_SHA"; then
+            echo "deploy.sh unexpectedly succeeded with a tracked file corrupted mid-copy" >&2
+            exit 1
+          fi
+          test ! -f REVISION
+          test ! -f DEPLOY_INFO
+          git checkout -- routes/web.php
+
       - name: TEST — pending migration must fail closed without migrating or recording revision
         run: |
           set -eu
