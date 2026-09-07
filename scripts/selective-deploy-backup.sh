@@ -208,6 +208,21 @@ rollback)
     src="$backup_dir/files/$scope/$rel"
     dest="$root/$rel"
     mkdir -p "$(dirname "$dest")"
+    if [[ "$scope" == "public" ]]; then
+      # I file "public"-scoped devono restare raggiungibili da Apache anche
+      # quando il rollback ricrea directory intermedie mancanti (es. una
+      # directory rimossa dalla release fallita). mkdir -p eredita lo umask
+      # del processo: con uno umask restrittivo (es. 077) creerebbe
+      # directory 0700, impedendo la traversata anche dopo che il file al
+      # loro interno e' stato normalizzato a 0644/0755 poco sotto. Normalizza
+      # ogni directory tra la radice servita e la destinazione a 0755, non
+      # solo il file finale.
+      dir="$(dirname "$dest")"
+      while [[ "$dir" != "$root" && "$dir" == "$root"/* ]]; do
+        chmod 0755 -- "$dir"
+        dir="$(dirname "$dir")"
+      done
+    fi
     rm -f -- "$dest"
     if [[ "$scope" == "public" && ! -L "$src" ]]; then
       # I file "public"-scoped finiscono sulla radice REALMENTE servita da

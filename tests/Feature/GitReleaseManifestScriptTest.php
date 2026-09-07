@@ -132,9 +132,79 @@ class GitReleaseManifestScriptTest extends TestCase
 
         $this->assertSame([
             "app\tapp/Config.php",
+            "app\tcss/new-feature.css",
+            "app\tcss/site.css",
             "public\tcss/new-feature.css",
             "public\tcss/site.css",
         ], $lines);
+    }
+
+    /**
+     * Revisione Codex su PR #535: un percorso Git sotto public/ corrisponde,
+     * dopo un deploy reale, a DUE copie fisiche — l'albero applicativo
+     * (public_path(), scope "app" nel formato manifest consumato da
+     * scripts/selective-deploy-backup.sh) e la radice realmente servita da
+     * Apache (scope "public"). Emettere solo una delle due righe lascia
+     * l'altra radice fuori da backup/rollback — esattamente la divergenza a
+     * due alberi che questo strumento esiste per prevenire (vedi
+     * SelectiveDeployBackupScriptTest::test_rollback_restores_public_premium_css_on_both_roots_and_the_revision_token_together).
+     * Verificato qui in isolamento, per ciascuna delle tre classi A/M/D.
+     */
+    public function test_every_changed_path_under_public_produces_both_an_app_and_a_public_entry(): void
+    {
+        File::ensureDirectoryExists($this->repo.'/public/css');
+        File::put($this->repo.'/public/css/modified.css', "old\n");
+        File::put($this->repo.'/public/css/deleted.css', "old\n");
+        $from = $this->commit('base');
+
+        File::put($this->repo.'/public/css/modified.css', "new\n");
+        File::delete($this->repo.'/public/css/deleted.css');
+        File::put($this->repo.'/public/css/added.css', "new\n");
+        $to = $this->commit('release');
+
+        $process = $this->runManifest($from, $to);
+
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+        $lines = array_values(array_filter(explode("\n", trim($process->getOutput()))));
+        sort($lines);
+
+        $this->assertSame([
+            "app\tcss/added.css",
+            "app\tcss/deleted.css",
+            "app\tcss/modified.css",
+            "public\tcss/added.css",
+            "public\tcss/deleted.css",
+            "public\tcss/modified.css",
+        ], $lines);
+    }
+
+    /**
+     * Revisione Codex su PR #535: `--name-status` senza `-z` C-quota i
+     * percorsi con byte non-ASCII o caratteri di controllo (es. un tab nel
+     * nome), scrivendo quella grafia quotata — letteralmente, comprese le
+     * virgolette — nel manifest. Il consumer (selective-deploy-backup.sh)
+     * cercherebbe poi un percorso che non esiste mai su disco, quindi
+     * backup/rollback lo saltano silenziosamente. `-z` emette record
+     * NUL-delimitati senza alcuna quotatura.
+     */
+    public function test_a_filename_with_non_ascii_bytes_is_never_c_quoted_in_the_output(): void
+    {
+        File::ensureDirectoryExists($this->repo.'/public/css');
+        File::put($this->repo.'/public/css/.gitkeep', '');
+        $from = $this->commit('base');
+
+        $oddName = "public/css/caff\xc3\xa8.css";
+        File::put($this->repo.'/'.$oddName, "new\n");
+        $to = $this->commit('release');
+
+        $process = $this->runManifest($from, $to);
+
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+        $output = $process->getOutput();
+
+        $this->assertStringNotContainsString('"', $output, 'Git must never be allowed to C-quote a path into the manifest — the quoted spelling does not exist on disk.');
+        $this->assertStringContainsString("app\tcss/caff\xc3\xa8.css", $output);
+        $this->assertStringContainsString("public\tcss/caff\xc3\xa8.css", $output);
     }
 
     public function test_a_pure_rename_is_never_collapsed_and_surfaces_both_the_old_and_the_new_path(): void

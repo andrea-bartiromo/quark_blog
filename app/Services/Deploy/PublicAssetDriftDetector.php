@@ -188,11 +188,17 @@ class PublicAssetDriftDetector
     }
 
     /**
-     * Verifica il permesso delle directory nominate direttamente in
-     * asset_drift_scan_paths (non ogni sottodirectory attraversata da
-     * scanDirectory() — quelle sono gia' coperte indirettamente: se non
-     * sono attraversabili, scanDirectory() semplicemente non trova i file
-     * al loro interno, che risultano "missing"). Restituisce solo i
+     * Verifica il permesso della directory nominata direttamente in
+     * asset_drift_scan_paths E di ogni sottodirectory attraversata sotto
+     * di essa. La precedente assunzione — che una sottodirectory non
+     * sicura fosse "già coperta indirettamente" perché scanDirectory() non
+     * ne troverebbe i file — è falsa quando lo script di scansione gira
+     * come lo stesso utente proprietario della directory (tipico per un
+     * processo di deploy): quell'utente può attraversare anche una
+     * directory 0700 di sua proprietà, trovare e confrontare i file al suo
+     * interno con hash identici su entrambe le radici, e far risultare
+     * "ok" un percorso che Apache (altro utente) non può comunque
+     * raggiungere (revisione Codex su PR #535). Restituisce solo i
      * percorsi realmente non sicuri: una directory sicura non genera
      * rumore nel report, coerentemente con come i file OK non lo fanno.
      *
@@ -210,25 +216,48 @@ class PublicAssetDriftDetector
                 continue;
             }
 
-            $appTarget = $appRoot.'/'.$target;
-            $servedTarget = $servedRoot.'/'.$target;
-
-            $appIsDir = is_dir($appTarget);
-            $servedIsDir = is_dir($servedTarget);
-
-            if (! $appIsDir && ! $servedIsDir) {
-                continue;
-            }
-
-            $safe = (! $appIsDir || $this->hasSafeDirMode($appTarget))
-                && (! $servedIsDir || $this->hasSafeDirMode($servedTarget));
-
-            if (! $safe) {
-                $unsafe[] = $target;
-            }
+            $unsafe = [
+                ...$unsafe,
+                ...$this->unsafeDirectoryModes($appRoot, $appRoot.'/'.$target),
+                ...$this->unsafeDirectoryModes($servedRoot, $servedRoot.'/'.$target),
+            ];
         }
 
         return array_values(array_unique($unsafe));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function unsafeDirectoryModes(string $root, string $absoluteDir): array
+    {
+        if (! is_dir($absoluteDir)) {
+            return [];
+        }
+
+        $unsafe = [];
+        $rootLength = strlen($root) + 1;
+
+        if (! $this->hasSafeDirMode($absoluteDir)) {
+            $unsafe[] = substr($absoluteDir, $rootLength);
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $file) {
+            if (! $file->isDir()) {
+                continue;
+            }
+
+            if (! $this->hasSafeDirMode($file->getPathname())) {
+                $unsafe[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
+            }
+        }
+
+        return $unsafe;
     }
 
     private function servedRoot(): ?string

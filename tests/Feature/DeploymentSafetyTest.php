@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -112,6 +113,72 @@ class DeploymentSafetyTest extends TestCase
         foreach ([$artisanCheckPosition, $composerCheckPosition, $gitCheckPosition] as $position) {
             $this->assertLessThan($envCheckPosition, $position, 'Release-completeness guards must run before the .env check.');
             $this->assertLessThan($revisionComparePosition, $position, 'Release-completeness guards must run before the revision is even read.');
+        }
+    }
+
+    /**
+     * Revisione Codex su PR #535: in un checkout creato con
+     * `git worktree add` (o un submodule), `.git` e' un file di metadati
+     * regolare — non una directory — anche se `git rev-parse HEAD` e ogni
+     * verifica successiva funzionano normalmente. La guardia precedente
+     * (`[ -d .git ]`) rifiutava un simile checkout, valido e completo,
+     * prima ancora di iniziare la verifica. Prova con un worktree Git
+     * reale (non un file fittizio) che la guardia lo accetta: l'esecuzione
+     * deve proseguire oltre il controllo `.git` e fallire sul controllo
+     * successivo (`.env` mancante), mai sul messaggio della guardia `.git`.
+     */
+    public function test_production_deploy_accepts_a_real_git_worktree_checkout_where_dot_git_is_a_file(): void
+    {
+        $this->ensureBashAndGitAvailable();
+
+        $sourceRepo = base_path('storage/framework/testing/deploy-worktree-source-'.bin2hex(random_bytes(6)));
+        $worktree = base_path('storage/framework/testing/deploy-worktree-'.bin2hex(random_bytes(6)));
+
+        try {
+            (new Process(['git', 'init', '--quiet', '--initial-branch=main', $sourceRepo]))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'config', 'user.email', 'test@example.test']))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'config', 'user.name', 'Test']))->mustRun();
+            file_put_contents($sourceRepo.'/artisan', "#!/usr/bin/env php\n");
+            file_put_contents($sourceRepo.'/composer.json', "{}\n");
+            (new Process(['git', '-C', $sourceRepo, 'add', '-A']))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'commit', '--quiet', '-m', 'base']))->mustRun();
+
+            (new Process(['git', '-C', $sourceRepo, 'worktree', 'add', '--quiet', '--detach', $worktree, 'main']))->mustRun();
+
+            $this->assertFileExists($worktree.'/.git', 'A real git worktree checkout must have created .git.');
+            $this->assertFalse(is_dir($worktree.'/.git'), 'This test only proves the fix when .git is a FILE, not a directory — otherwise it would pass even without the fix.');
+
+            $actualSha = trim((new Process(['git', '-C', $worktree, 'rev-parse', 'HEAD']))->mustRun()->getOutput());
+
+            $process = new Process(['bash', base_path('deploy.sh'), $actualSha], $worktree);
+            $process->run();
+
+            $this->assertFalse($process->isSuccessful(), 'This worktree deliberately has no .env — deploy.sh must still fail, just not on the .git guard.');
+            $this->assertStringNotContainsString('.git not found', $process->getErrorOutput(), 'A real worktree checkout (.git as a file) must not be rejected by the release-completeness guard.');
+            $this->assertStringContainsString('.env is missing', $process->getErrorOutput(), 'Execution must reach past the .git guard to the next check.');
+        } finally {
+            (new Process(['git', '-C', $sourceRepo, 'worktree', 'remove', '--force', $worktree]))->run();
+            File::deleteDirectory($sourceRepo);
+            File::deleteDirectory($worktree);
+        }
+    }
+
+    private function ensureBashAndGitAvailable(): void
+    {
+        try {
+            $bash = new Process(['bash', '-lc', 'printf ok']);
+            $bash->setTimeout(5);
+            $bash->run();
+
+            $git = new Process(['git', '--version']);
+            $git->setTimeout(5);
+            $git->run();
+
+            if (! ($bash->isSuccessful() && trim($bash->getOutput()) === 'ok' && $git->isSuccessful())) {
+                $this->markTestSkipped('No functional Bash/Git shell is available in this environment.');
+            }
+        } catch (\Throwable) {
+            $this->markTestSkipped('No functional Bash/Git shell is available in this environment.');
         }
     }
 

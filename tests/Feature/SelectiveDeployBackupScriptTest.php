@@ -200,6 +200,49 @@ class SelectiveDeployBackupScriptTest extends TestCase
         );
     }
 
+    /**
+     * Revisione Codex su PR #535: quando il rollback deve ricreare una
+     * directory intermedia mancante sulla radice servita (es. rimossa
+     * dalla release fallita), `mkdir -p` eredita lo umask del processo. Con
+     * uno umask restrittivo (077, plausibile per un processo di deploy)
+     * creerebbe una directory 0700 — non attraversabile da Apache — anche
+     * se il file al suo interno viene poi normalizzato correttamente a
+     * 0644. Il rollback deve normalizzare a 0755 anche le directory che
+     * ricrea, non solo il file finale.
+     */
+    public function test_rollback_normalizes_recreated_public_directories_even_under_a_restrictive_umask(): void
+    {
+        File::ensureDirectoryExists($this->publicRoot.'/css/theme');
+        File::put($this->publicRoot.'/css/theme/site.css', "old-css\n");
+
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "public\tcss/theme/site.css\n");
+
+        $backup = $this->runBackup($manifest);
+
+        // "Deploy fallito": la directory intermedia sparisce del tutto
+        // dalla radice servita, non solo il file.
+        File::deleteDirectory($this->publicRoot.'/css/theme');
+
+        $rollback = new Process([
+            'bash', '-c',
+            'umask 077; exec bash "$0" rollback --backup-dir "$1" --app-root "$2" --public-root "$3"',
+            $this->script, $backup, $this->appRoot, $this->publicRoot,
+        ]);
+        $rollback->mustRun();
+
+        $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/theme/site.css'));
+        $this->assertSame(
+            '755',
+            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme')), -3),
+            'A directory recreated by rollback for a public-scoped file must be 0755 regardless of the process umask — Apache must be able to traverse it.'
+        );
+        $this->assertSame(
+            '644',
+            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme/site.css')), -3)
+        );
+    }
+
     public function test_incomplete_backup_is_rejected_for_rollback(): void
     {
         File::put($this->appRoot.'/existing.php', "old\n");

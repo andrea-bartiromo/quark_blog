@@ -36,7 +36,7 @@ php -r "exit(version_compare(PHP_VERSION,'8.3','>=') ? 0 : 1);" || fail "PHP 8.3
 # later with a confusing PHP or git error.
 [ -f artisan ] || fail "artisan not found in the current directory. This does not look like a Laravel release directory — refusing to proceed."
 [ -f composer.json ] || fail "composer.json not found in the current directory. This does not look like a Laravel release directory — refusing to proceed."
-[ -d .git ] || fail ".git not found in the current directory. Cannot verify the deployed revision against its Git manifest — refusing to proceed."
+[ -d .git ] || [ -f .git ] || fail ".git not found in the current directory. Cannot verify the deployed revision against its Git manifest — refusing to proceed."
 
 [ -f .env ] || fail ".env is missing. Provision production configuration before deployment."
 

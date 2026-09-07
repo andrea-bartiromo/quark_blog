@@ -44,12 +44,16 @@ valid_sha "$to" || fail "invalid --to SHA: ${to:-<empty>}"
 git -C "$repo" cat-file -e "${from}^{commit}" 2>/dev/null || fail "--from SHA not found in repository: $from"
 git -C "$repo" cat-file -e "${to}^{commit}" 2>/dev/null || fail "--to SHA not found in repository: $to"
 
-diff_output="$(git -C "$repo" diff --no-renames --name-status "$from" "$to")"
-
-[[ -n "$diff_output" ]] || exit 0
-
-while IFS=$'\t' read -r status rel extra || [[ -n "${status:-}" ]]; do
-    [[ -n "${status:-}" ]] || continue
+# -z (NUL-delimited records) is deliberate, not cosmetic: plain
+# --name-status output C-quotes any path containing a tab, newline or
+# non-ASCII byte (e.g. `A\t"odd\tname.txt"`), and that quoted spelling
+# would otherwise be written straight into the manifest — a path that
+# does not exist on disk, so backup silently skips it and rollback can
+# neither restore nor remove the real file. -z emits raw bytes with NUL
+# terminators instead, with no quoting to get wrong.
+entries=()
+while IFS= read -r -d '' status && IFS= read -r -d '' rel; do
+    [[ -n "$status" ]] || continue
 
     case "$status" in
         A|M|D) ;;
@@ -59,10 +63,28 @@ while IFS=$'\t' read -r status rel extra || [[ -n "${status:-}" ]]; do
     esac
 
     [[ -n "${rel:-}" ]] || fail "empty path for status $status"
-    [[ -z "${extra:-}" ]] || fail "unexpected extra field for path: $rel"
 
     case "$rel" in
-        public/*) printf 'public\t%s\n' "${rel#public/}" ;;
-        *) printf 'app\t%s\n' "$rel" ;;
+        public/*)
+            # Un percorso Git sotto public/ corrisponde, dopo un deploy
+            # reale, a DUE copie fisiche: quella dell'albero applicativo
+            # (da cui public_path()/asset() leggono, scope "app" nel
+            # formato manifest consumato da selective-deploy-backup.sh) e
+            # quella della radice realmente servita da Apache (scope
+            # "public"). Emettere solo una delle due righe lascerebbe
+            # l'altra radice fuori da backup/rollback — esattamente la
+            # divergenza a due alberi che questo strumento esiste per
+            # prevenire (vedi
+            # SelectiveDeployBackupScriptTest::test_rollback_restores_public_premium_css_on_both_roots_and_the_revision_token_together
+            # per lo scenario di riferimento).
+            stripped="${rel#public/}"
+            entries+=("app"$'\t'"$stripped")
+            entries+=("public"$'\t'"$stripped")
+            ;;
+        *) entries+=("app"$'\t'"$rel") ;;
     esac
-done <<< "$diff_output" | sort -u
+done < <(git -C "$repo" diff --no-renames --name-status -z "$from" "$to")
+
+if [[ "${#entries[@]}" -gt 0 ]]; then
+    printf '%s\n' "${entries[@]}" | sort -u
+fi

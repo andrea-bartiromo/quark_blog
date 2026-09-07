@@ -309,6 +309,51 @@ class PublicAssetDriftDetectorTest extends TestCase
         }
     }
 
+    /**
+     * Revisione Codex su PR #535: la directory nominata direttamente in
+     * asset_drift_scan_paths puo' avere un permesso sicuro mentre una sua
+     * SOTTOdirectory (mai nominata esplicitamente in config) non lo ha. Il
+     * processo che esegue la scansione (proprietario dei file, come un
+     * deploy reale) puo' comunque attraversarla e trovare/confrontare
+     * "one.js" al suo interno con hash identico su entrambe le radici —
+     * senza questo test, quel file risulterebbe "ok" e il gate passerebbe
+     * anche se Apache (altro utente) non puo' raggiungere la
+     * sottodirectory. Il gate deve rilevarla come sottodirectory,
+     * non solo come directory nominata direttamente.
+     */
+    public function test_a_nested_subdirectory_with_an_unsafe_mode_is_flagged_even_when_the_named_scan_directory_itself_is_safe(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        $nested = $probeDir.'/theme';
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($nested), 0775, true);
+        file_put_contents(public_path($nested.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$nested, 0700, true);
+        file_put_contents($servedRoot.'/'.$nested.'/one.js', 'console.log(1)');
+
+        try {
+            $report = $this->detector()->report();
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_UNSAFE_MODE,
+                $byPath[$nested]['status'],
+                'A nested directory with an unsafe mode must be flagged even though it is never named directly in asset_drift_scan_paths.'
+            );
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_OK,
+                $byPath[$nested.'/one.js']['status'],
+                'The file itself is still readable and content-identical to the scanning process — only the directory entry is flagged.'
+            );
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            chmod($servedRoot.'/'.$nested, 0775);
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
     public function test_a_scanned_directory_with_a_safe_mode_is_not_reported_at_all(): void
     {
         $servedRoot = $this->makeServedRoot();
