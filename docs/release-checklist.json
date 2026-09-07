@@ -1,0 +1,74 @@
+{
+  "$schema": "https://kairus.internal/schemas/release-checklist-v1.json",
+  "description": "Machine-readable enumeration of every fail-closed gate enforced by deploy.sh, in the exact order they run. Prompt 024 (150-prompt deploy-hardening program). Each gate's \"marker\" is a literal substring that must appear in deploy.sh — tests/Feature/ReleaseChecklistDriftTest.php asserts every marker is still present and still ordered exactly as listed here, so this file cannot silently drift out of sync with the script it documents.",
+  "enforced_by": "deploy.sh",
+  "gates": [
+    {
+      "id": "release_directory_complete",
+      "description": "Current directory contains artisan, composer.json and .git — refuses an incomplete copy or the wrong working directory before anything else runs.",
+      "marker": "[ -f artisan ] ||",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "env_present",
+      "description": "Production .env already provisioned.",
+      "marker": "[ -f .env ] ||",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "revision_matches_expected",
+      "description": "The checked-out Git HEAD exactly matches the operator-supplied expected SHA.",
+      "marker": "ACTUAL_SHA=\"$(git rev-parse HEAD)\"",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "tracked_release_files_clean",
+      "description": "No uncommitted or staged content drift on tracked release files (mode-only noise from this script's own prior chmod is explicitly ignored via core.fileMode=false).",
+      "marker": "git -c core.fileMode=false diff --quiet --ignore-submodules --",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "app_env_production",
+      "description": "config('app.env') resolves to production.",
+      "marker": "APP_ENV must resolve to production",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "app_debug_false",
+      "description": "config('app.debug') resolves to false.",
+      "marker": "APP_DEBUG must resolve to false",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "app_key_present",
+      "description": "APP_KEY is already configured; this script never generates or rotates it.",
+      "marker": "APP_KEY is empty",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "db_connection_mysql_or_mariadb",
+      "description": "The configured database connection is mysql or mariadb, never sqlite, in production.",
+      "marker": "Production DB_CONNECTION must be mysql or mariadb",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "no_pending_migrations",
+      "description": "No pending migrations — this script has no Backup V2 wiring, so a schema-changing release must stop here rather than migrate first and back up later.",
+      "marker": "Pending migrations detected",
+      "failure_is": "fatal"
+    },
+    {
+      "id": "public_asset_drift_clean",
+      "description": "Release-managed static assets (config('deploy.asset_drift_scan_paths')) match on content, permission and non-emptiness between the application root and the configured served document root — see App\\Services\\Deploy\\PublicAssetDriftDetector. A no-op when DEPLOY_SERVED_PUBLIC_ROOT is unset.",
+      "marker": "php artisan deploy:asset-drift ||",
+      "failure_is": "fatal"
+    }
+  ],
+  "post_gate_actions": [
+    {
+      "id": "record_revision_and_deploy_info",
+      "description": "Only after every gate above has passed: write REVISION and DEPLOY_INFO (metadata only, never secrets) for the newly verified release.",
+      "marker": "> REVISION"
+    }
+  ]
+}

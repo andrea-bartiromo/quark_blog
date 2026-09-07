@@ -32,10 +32,37 @@ class PublicAssetDriftDetector
     public const STATUS_MISSING_ON_APP = 'missing_on_app';
 
     /**
+     * Contenuto identico su entrambe le radici ma con permessi troppo
+     * restrittivi per essere serviti in modo affidabile (es. un file 600
+     * copiato con `cp -a` da un backup che aveva preservato quel permesso,
+     * o una directory 700 non piu' attraversabile da Apache). Il detector
+     * confronta da sempre solo hash/presenza: questo status copre il gap
+     * — un asset "corretto" nel contenuto ma potenzialmente illeggibile.
+     */
+    public const STATUS_UNSAFE_MODE = 'unsafe_mode';
+
+    /**
+     * Prompt 019 (150-prompt deploy-hardening program): un file troncato a
+     * 0 byte durante la copia post-release ha hash identico su entrambe le
+     * radici SOLO se e' vuoto su entrambe (altrimenti sarebbe gia' un
+     * mismatch) — un caso che il solo confronto hash non distingue mai da
+     * "file vuoto per design". Nessun asset gestito da questa release e'
+     * legittimamente vuoto: un CSS/JS/icona a 0 byte e' sempre un segnale
+     * di copia interrotta, mai un contenuto valido.
+     */
+    public const STATUS_EMPTY_FILE = 'empty_file';
+
+    /** Permesso minimo per un file di release: rw-r--r--. */
+    private const MIN_FILE_MODE = 0644;
+
+    /** Permesso minimo per una directory di release: rwxr-xr-x. */
+    private const MIN_DIR_MODE = 0755;
+
+    /**
      * @return array{
      *     enabled: bool,
      *     entries?: list<array{path:string,status:string,app_hash:?string,served_hash:?string}>,
-     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int}
+     *     totals?: array{scanned:int,ok:int,mismatch:int,missing_on_webroot:int,missing_on_app:int,unsafe_mode:int,empty_file:int}
      * }
      */
     public function report(): array
@@ -56,6 +83,8 @@ class PublicAssetDriftDetector
             self::STATUS_MISMATCH => 0,
             self::STATUS_MISSING_ON_WEBROOT => 0,
             self::STATUS_MISSING_ON_APP => 0,
+            self::STATUS_UNSAFE_MODE => 0,
+            self::STATUS_EMPTY_FILE => 0,
         ];
         $entries = [];
 
@@ -70,6 +99,8 @@ class PublicAssetDriftDetector
                 $appHash === null => self::STATUS_MISSING_ON_APP,
                 $servedHash === null => self::STATUS_MISSING_ON_WEBROOT,
                 $appHash !== $servedHash => self::STATUS_MISMATCH,
+                filesize($appPath) === 0 => self::STATUS_EMPTY_FILE,
+                ! $this->hasSafeFileMode($appPath) || ! $this->hasSafeFileMode($servedPath) => self::STATUS_UNSAFE_MODE,
                 default => self::STATUS_OK,
             };
 
@@ -80,6 +111,17 @@ class PublicAssetDriftDetector
                 'status' => $status,
                 'app_hash' => $appHash,
                 'served_hash' => $servedHash,
+            ];
+        }
+
+        foreach ($this->unsafeScannedDirectories($appRoot, $servedRoot, $scanPaths) as $unsafeDir) {
+            $totals[self::STATUS_UNSAFE_MODE]++;
+
+            $entries[] = [
+                'path' => $unsafeDir,
+                'status' => self::STATUS_UNSAFE_MODE,
+                'app_hash' => null,
+                'served_hash' => null,
             ];
         }
 
@@ -110,7 +152,112 @@ class PublicAssetDriftDetector
 
         return $report['totals'][self::STATUS_MISMATCH] === 0
             && $report['totals'][self::STATUS_MISSING_ON_WEBROOT] === 0
-            && $report['totals'][self::STATUS_MISSING_ON_APP] === 0;
+            && $report['totals'][self::STATUS_MISSING_ON_APP] === 0
+            && $report['totals'][self::STATUS_UNSAFE_MODE] === 0
+            && $report['totals'][self::STATUS_EMPTY_FILE] === 0;
+    }
+
+    private function hasSafeFileMode(string $path): bool
+    {
+        if (! is_file($path)) {
+            return true;
+        }
+
+        $mode = @fileperms($path);
+
+        if ($mode === false) {
+            return false;
+        }
+
+        return ($mode & self::MIN_FILE_MODE) === self::MIN_FILE_MODE;
+    }
+
+    private function hasSafeDirMode(string $path): bool
+    {
+        if (! is_dir($path)) {
+            return true;
+        }
+
+        $mode = @fileperms($path);
+
+        if ($mode === false) {
+            return false;
+        }
+
+        return ($mode & self::MIN_DIR_MODE) === self::MIN_DIR_MODE;
+    }
+
+    /**
+     * Verifica il permesso della directory nominata direttamente in
+     * asset_drift_scan_paths E di ogni sottodirectory attraversata sotto
+     * di essa. La precedente assunzione — che una sottodirectory non
+     * sicura fosse "già coperta indirettamente" perché scanDirectory() non
+     * ne troverebbe i file — è falsa quando lo script di scansione gira
+     * come lo stesso utente proprietario della directory (tipico per un
+     * processo di deploy): quell'utente può attraversare anche una
+     * directory 0700 di sua proprietà, trovare e confrontare i file al suo
+     * interno con hash identici su entrambe le radici, e far risultare
+     * "ok" un percorso che Apache (altro utente) non può comunque
+     * raggiungere (revisione Codex su PR #535). Restituisce solo i
+     * percorsi realmente non sicuri: una directory sicura non genera
+     * rumore nel report, coerentemente con come i file OK non lo fanno.
+     *
+     * @param  list<string>  $scanPaths
+     * @return list<string>
+     */
+    private function unsafeScannedDirectories(string $appRoot, string $servedRoot, array $scanPaths): array
+    {
+        $unsafe = [];
+
+        foreach ($scanPaths as $target) {
+            $target = trim(str_replace('\\', '/', $target), '/');
+
+            if ($target === '') {
+                continue;
+            }
+
+            $unsafe = [
+                ...$unsafe,
+                ...$this->unsafeDirectoryModes($appRoot, $appRoot.'/'.$target),
+                ...$this->unsafeDirectoryModes($servedRoot, $servedRoot.'/'.$target),
+            ];
+        }
+
+        return array_values(array_unique($unsafe));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function unsafeDirectoryModes(string $root, string $absoluteDir): array
+    {
+        if (! is_dir($absoluteDir)) {
+            return [];
+        }
+
+        $unsafe = [];
+        $rootLength = strlen($root) + 1;
+
+        if (! $this->hasSafeDirMode($absoluteDir)) {
+            $unsafe[] = substr($absoluteDir, $rootLength);
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $file) {
+            if (! $file->isDir()) {
+                continue;
+            }
+
+            if (! $this->hasSafeDirMode($file->getPathname())) {
+                $unsafe[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
+            }
+        }
+
+        return $unsafe;
     }
 
     private function servedRoot(): ?string

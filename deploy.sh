@@ -26,6 +26,18 @@ command -v git >/dev/null 2>&1 || fail "git is required to verify and record the
 
 php -r "exit(version_compare(PHP_VERSION,'8.3','>=') ? 0 : 1);" || fail "PHP 8.3+ is required."
 
+# Prompt 016 (150-prompt deploy-hardening program): refuse a release
+# directory that does not look like a real, complete Laravel checkout
+# BEFORE anything else runs. This script assumes it is invoked from an
+# already-checked-out release directory, never from an extracted archive
+# (see Prompt 015: this script never extracts anything itself) — a
+# partial copy, a wrong working directory, or a checkout that lost its
+# Git manifest must fail here with a clear reason, not several checks
+# later with a confusing PHP or git error.
+[ -f artisan ] || fail "artisan not found in the current directory. This does not look like a Laravel release directory — refusing to proceed."
+[ -f composer.json ] || fail "composer.json not found in the current directory. This does not look like a Laravel release directory — refusing to proceed."
+[ -d .git ] || [ -f .git ] || fail ".git not found in the current directory. Cannot verify the deployed revision against its Git manifest — refusing to proceed."
+
 [ -f .env ] || fail ".env is missing. Provision production configuration before deployment."
 
 ACTUAL_SHA="$(git rev-parse HEAD)"

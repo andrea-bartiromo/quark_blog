@@ -206,9 +206,42 @@ rollback)
     [[ -n "${scope:-}" ]] || continue
     root="$app_root"; [[ "$scope" == "public" ]] && root="$public_root"
     src="$backup_dir/files/$scope/$rel"
-    mkdir -p "$(dirname "$root/$rel")"
-    rm -f -- "$root/$rel"
-    cp -a -- "$src" "$root/$rel"
+    dest="$root/$rel"
+    mkdir -p "$(dirname "$dest")"
+    if [[ "$scope" == "public" ]]; then
+      # I file "public"-scoped devono restare raggiungibili da Apache anche
+      # quando il rollback ricrea directory intermedie mancanti (es. una
+      # directory rimossa dalla release fallita). mkdir -p eredita lo umask
+      # del processo: con uno umask restrittivo (es. 077) creerebbe
+      # directory 0700, impedendo la traversata anche dopo che il file al
+      # loro interno e' stato normalizzato a 0644/0755 poco sotto. Normalizza
+      # ogni directory tra la radice servita e la destinazione a 0755, non
+      # solo il file finale.
+      dir="$(dirname "$dest")"
+      while [[ "$dir" != "$root" && "$dir" == "$root"/* ]]; do
+        chmod 0755 -- "$dir"
+        dir="$(dirname "$dir")"
+      done
+    fi
+    rm -f -- "$dest"
+    if [[ "$scope" == "public" && ! -L "$src" ]]; then
+      # I file "public"-scoped finiscono sulla radice REALMENTE servita da
+      # Apache: non devono mai ereditare cosi' com'e' un permesso ristretto
+      # (es. 600/640, dal meccanismo dell'incidente cp -a) dalla copia di
+      # backup. Copia solo il contenuto e normalizza esplicitamente la
+      # modalita' subito dopo. I file "app"-scoped restano su cp -a
+      # (permesso originale preservato): li' un permesso restrittivo puo'
+      # essere intenzionale, come gia' provato da
+      # SelectiveDeployBackupScriptTest::test_selective_backup_and_rollback_cover_existing_new_and_multiple_roots().
+      cp -- "$src" "$dest"
+      if [[ -x "$src" ]]; then
+        chmod 0755 -- "$dest"
+      else
+        chmod 0644 -- "$dest"
+      fi
+    else
+      cp -a -- "$src" "$dest"
+    fi
   done < "$backup_dir/backed-up-files.tsv"
 
   while IFS=$'\t' read -r scope rel extra || [[ -n "${scope:-}" ]]; do

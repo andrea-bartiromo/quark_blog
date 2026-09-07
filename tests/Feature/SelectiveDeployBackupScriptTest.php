@@ -152,6 +152,97 @@ class SelectiveDeployBackupScriptTest extends TestCase
         $this->assertFileExists($backup.'/.rollback-complete');
     }
 
+    /**
+     * Prompt 011/014 (150-prompt deploy-hardening program): il meccanismo
+     * concreto per cui un file con permessi 600 poteva raggiungere la
+     * radice REALMENTE servita era `cp -a` in rollback, che preserva
+     * qualunque modalita' avesse la copia di backup. Qui si prova che un
+     * file "public"-scoped con un permesso ristretto viene normalizzato a
+     * 644 dal rollback — mai propagato cosi' com'e'.
+     *
+     * L'esistente test_selective_backup_and_rollback_cover_existing_new_and_multiple_roots
+     * (sopra) prova gia' l'esatto comportamento OPPOSTO per i file
+     * "app"-scoped (0640 preservato): la distinzione e' intenzionale, non
+     * una regressione di quel test — solo cio' che finisce sulla radice
+     * pubblica deve garantire una leggibilita' minima.
+     */
+    public function test_rollback_normalizes_an_unsafe_mode_on_public_scoped_files_but_preserves_it_on_app_scoped_files(): void
+    {
+        File::ensureDirectoryExists($this->publicRoot.'/css');
+        File::put($this->publicRoot.'/css/site.css', "old-css\n");
+        chmod($this->publicRoot.'/css/site.css', 0600);
+        File::put($this->appRoot.'/config-like.php', "old-config\n");
+        chmod($this->appRoot.'/config-like.php', 0600);
+
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "public\tcss/site.css\napp\tconfig-like.php\n");
+
+        $backup = $this->runBackup($manifest);
+
+        File::put($this->publicRoot.'/css/site.css', "new-css\n");
+        chmod($this->publicRoot.'/css/site.css', 0600);
+        File::put($this->appRoot.'/config-like.php', "new-config\n");
+
+        $this->rollbackProcess($backup)->mustRun();
+
+        $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/site.css'));
+        $this->assertSame(
+            '644',
+            substr(sprintf('%o', fileperms($this->publicRoot.'/css/site.css')), -3),
+            'A public-scoped file must never come out of rollback with a restrictive mode inherited from the backup copy.'
+        );
+
+        $this->assertSame("old-config\n", File::get($this->appRoot.'/config-like.php'));
+        $this->assertSame(
+            '600',
+            substr(sprintf('%o', fileperms($this->appRoot.'/config-like.php')), -3),
+            'An app-scoped file keeps whatever mode it was backed up with — a restrictive mode there can be intentional.'
+        );
+    }
+
+    /**
+     * Revisione Codex su PR #535: quando il rollback deve ricreare una
+     * directory intermedia mancante sulla radice servita (es. rimossa
+     * dalla release fallita), `mkdir -p` eredita lo umask del processo. Con
+     * uno umask restrittivo (077, plausibile per un processo di deploy)
+     * creerebbe una directory 0700 — non attraversabile da Apache — anche
+     * se il file al suo interno viene poi normalizzato correttamente a
+     * 0644. Il rollback deve normalizzare a 0755 anche le directory che
+     * ricrea, non solo il file finale.
+     */
+    public function test_rollback_normalizes_recreated_public_directories_even_under_a_restrictive_umask(): void
+    {
+        File::ensureDirectoryExists($this->publicRoot.'/css/theme');
+        File::put($this->publicRoot.'/css/theme/site.css', "old-css\n");
+
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "public\tcss/theme/site.css\n");
+
+        $backup = $this->runBackup($manifest);
+
+        // "Deploy fallito": la directory intermedia sparisce del tutto
+        // dalla radice servita, non solo il file.
+        File::deleteDirectory($this->publicRoot.'/css/theme');
+
+        $rollback = new Process([
+            'bash', '-c',
+            'umask 077; exec bash "$0" rollback --backup-dir "$1" --app-root "$2" --public-root "$3"',
+            $this->script, $backup, $this->appRoot, $this->publicRoot,
+        ]);
+        $rollback->mustRun();
+
+        $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/theme/site.css'));
+        $this->assertSame(
+            '755',
+            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme')), -3),
+            'A directory recreated by rollback for a public-scoped file must be 0755 regardless of the process umask — Apache must be able to traverse it.'
+        );
+        $this->assertSame(
+            '644',
+            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme/site.css')), -3)
+        );
+    }
+
     public function test_incomplete_backup_is_rejected_for_rollback(): void
     {
         File::put($this->appRoot.'/existing.php', "old\n");
