@@ -1,12 +1,28 @@
 # Audit finale pre-merge — sola lettura (richiesto dall'utente dopo la chiusura Prompt 001-150)
 
 Nessun merge, deploy, migration o nuova PR eseguiti da questo audit o da
-questa sessione. Ogni verifica sotto è stata eseguita o su `git`
-direttamente (nessuna scrittura sui branch remoti) o su un checkout
-`--detach` locale (mai su un branch tracciato, mai pushato). `origin/main`
-al momento di questo audit: `74483e6f2f89a4151a92305b6dd16b70f6e614e3`
-(invariato dall'inizio dell'intero programma 150-prompt — confermato via
+questa sessione (con l'unica eccezione, esplicitamente autorizzata
+dall'utente in un secondo momento, dell'apertura — non merge — della PR
+per `fix/deploy-permissions-contract`, vedi in fondo a questo documento).
+Ogni verifica sotto è stata eseguita o su `git` direttamente (nessuna
+scrittura sui branch remoti) o su un checkout `--detach` locale (mai su
+un branch tracciato, mai pushato). `origin/main` al momento di questo
+audit: `74483e6f2f89a4151a92305b6dd16b70f6e614e3` (invariato dall'inizio
+dell'intero programma 150-prompt — confermato via
 `git fetch origin --prune --tags` prima di ogni sezione).
+
+**Nota su PR #533**: `origin/main` a `74483e6` **è esattamente il commit
+di merge di PR #533** ("Recupero prudente degli iscritti newsletter
+pendenti"), non un branch successivo. #533 **non è mai stata "in hold"**
+in questo audit — è già parte della baseline `main` su cui ogni branch
+elencato qui è stato creato. Non va però considerata "già distribuita in
+produzione": introduce una migration (`newsletter_reconfirmations`) e una
+pulizia schedulata degli iscritti pendenti (`newsletter:reconfirmation-cleanup`,
+cron giornaliero 4:30, `withoutOverlapping()`), quindi il prossimo deploy
+di produzione che porti `main` oltre lo stato attuale dovrà essere
+trattato come una **release con modifica di database**, con backup e
+piano di rollback dedicati — non come un deploy ordinario solo-codice.
+Dettagli tecnici in §5.
 
 ## 1. Elenco completo dei branch prodotti da questa sessione
 
@@ -102,14 +118,51 @@ template e verifica anche la corrispondenza esatta `.env` isolata.
 Working tree verificato pulito (`git status --short`) dopo ogni
 checkout `--detach` di verifica in questo audit.
 
-## 5. Migration — solo #522
+## 5. Migration — #522 (PR aperta) e #533 (già in `main`)
 
-Confermato su tutte e 6 le PR: **solo #522** (`feat/social-workspace-admin-v1`)
-contiene una migration
+Confermato su tutte e 6 le PR elencate in questo audit: **solo #522**
+(`feat/social-workspace-admin-v1`) contiene una migration
 (`database/migrations/2026_09_02_120000_create_social_drafts_table.php`,
 tabella `social_drafts`, nuova e separata da `social_publications` —
 nessuna migration tocca tabelle esistenti). #507, #510, #511, #512, #515:
 zero migration.
+
+Questo conteggio riguarda solo le PR **non ancora mergeate**. È distinto
+dalla baseline `main`, che a sua volta contiene già una migration propria,
+introdotta da **PR #533** (mergeata, non oggetto di questo audit come
+"branch da valutare" ma rilevante per la pianificazione del prossimo
+deploy):
+
+- **Migration**: `database/migrations/2026_09_06_090000_create_newsletter_reconfirmations_table.php`
+  → tabella `newsletter_reconfirmations` (nuova, non tocca tabelle
+  esistenti né il sistema di double opt-in preesistente su `Newsletter`).
+- **Componenti applicativi**: modello `NewsletterReconfirmation`,
+  `NewsletterReconfirmationService` (`send()`, `confirm()`,
+  `deleteExpiredPending()`), `NewsletterReconfirmationMail`, route
+  pubblica `newsletter.reconfirm`, azioni admin `sendReconfirmation()` /
+  `cleanupExpiredPending()`.
+- **Pulizia schedulata**: comando `newsletter:reconfirmation-cleanup`
+  (`routes/console.php`), cron giornaliero **4:30 UTC**, `withoutOverlapping()`,
+  **senza flag di ambiente/feature a livello di schedule** — verificato
+  in questo audit (nessun `env()`/`config()` di gate attorno alla riga
+  `Schedule::command('newsletter:reconfirmation-cleanup')`).
+
+**Verificato in questo audit** (checkout `--detach` di
+`origin/fix/deploy-permissions-contract`, il cui `merge-base` con
+`origin/main` è risultato esattamente uguale a `origin/main`, quindi
+include #533 per intero): migration, modello, servizio, mail e comando
+schedulato sono tutti presenti e riconoscibili nel checkout.
+
+**Implicazione per il prossimo deploy di produzione**: qualunque deploy
+che porti la produzione da uno stato precedente a #533 fino a (o oltre)
+`74483e6` deve essere pianificato come **release con modifica di
+database**: backup pre-deploy della tabella coinvolta, verifica esplicita
+dello stato delle migration (`php artisan migrate:status`) prima di
+qualunque `migrate --force`, e un piano di rollback che copra sia il
+codice sia lo schema. Questo audit **non verifica** se tale deploy sia
+già avvenuto in produzione — nessun accesso a produzione è stato
+effettuato o richiesto qui — e quindi non assume né conferma che #533 sia
+già distribuita in produzione.
 
 ## 6. Verifica CI + esecuzione locale indipendente (non solo fiducia nella CI)
 
@@ -180,6 +233,7 @@ mancanti per entrambi (vedi `docs/TRUST_LAYER_PILOTS_GATE_REASSESSMENT_2026_09.m
 | Elemento | Stato | Note |
 |---|---|---|
 | `fix/deploy-permissions-contract` (deploy hardening, P0) | **GO** | 0 conflitti, 4094/4094 test verdi verificati ora, nessuna migration |
+| PR #533 (recupero iscritti newsletter, riconferma) | **Già in `main`** — non "in hold", non un branch di questo audit | Introduce migration `newsletter_reconfirmations` + pulizia schedulata (`newsletter:reconfirmation-cleanup`, 4:30 UTC); il prossimo deploy production che la porti in produzione va trattato come release con modifica DB, backup e rollback dedicati (vedi §5) |
 | PR #512 (privacy log newsletter) | **GO** | 7/7 CI, 7/7 locale, 0 conflitti |
 | PR #515 (hygiene articoli) | **GO** | 9/9 CI, 15/15 locale, 0 conflitti, read-only + opt-in editoriale |
 | PR #511 (certificazione settimanale) | **GO** | 9/9 CI, 3/3 locale, 0 conflitti, read-only verificato |
@@ -192,11 +246,29 @@ mancanti per entrambi (vedi `docs/TRUST_LAYER_PILOTS_GATE_REASSESSMENT_2026_09.m
 
 ## Primo candidato concreto per una PR
 
-**Il branch `fix/deploy-permissions-contract` stesso** — non ancora una
-PR aperta (nessuna autorizzazione a farlo è stata data finora). È il
-solo elemento marcato priorità P0 dall'utente, tecnicamente pronto (test
-verificati due volte, l'ultima volta proprio per questo audit), a zero
-conflitti con qualunque altra cosa in volo. Aprire una PR per questo
-branch richiede comunque un'autorizzazione esplicita separata, coerente
-con il vincolo osservato per l'intero programma: nessuna PR aperta da
-questa sessione finora.
+**`fix/deploy-permissions-contract`** (SHA `407ef14`). Riconfermato una
+terza volta, immediatamente prima dell'apertura della PR, su un nuovo
+checkout `--detach` dedicato:
+
+- `merge-base(origin/main, origin/fix/deploy-permissions-contract)` ==
+  `origin/main` (`74483e6`) **esattamente** — il branch è avanti di soli
+  4 commit rispetto a `main`, senza alcuna divergenza: un fast-forward
+  puro, per cui un conflitto è escluso per costruzione, non solo per
+  verifica empirica.
+- `origin/main` a `74483e6` è il commit di merge di #533 stesso, quindi
+  il checkout usato per la riverifica include #533 (migration, modello,
+  servizio, mail, comando schedulato) per intero — confermato con
+  `grep`/`test -f` mirati sui suoi artefatti, non per deduzione.
+- `git status --porcelain --ignored`: solo voci `!!` (cache/sessioni
+  ignorate da `.gitignore`), zero file generati tracciati o non tracciati
+  fuori da `.gitignore`.
+- Suite completa rieseguita da zero in questo stesso passaggio:
+  **4094 passed, 11 skipped, 0 failed** — identico al numero già citato
+  in §2, ora riconfermato in un secondo checkout indipendente.
+
+Su autorizzazione esplicita dell'utente ("Procedi ad aprire una PR
+dedicata verso `main` per il solo deploy hardening... Non fare merge,
+deploy, migration o modifiche a produzione"), è stata aperta **una PR
+verso `main` per questo solo branch**. Nessun merge, deploy, migration o
+modifica a produzione è stato eseguito: la PR resta in attesa di review e
+di una successiva autorizzazione esplicita al merge.
