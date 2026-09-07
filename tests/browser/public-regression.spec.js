@@ -322,3 +322,174 @@ for (const width of viewportWidths) {
         guards.assertClean();
     });
 }
+
+// Relative luminance / contrast ratio per la formula WCAG 2.x, usata sotto
+// per verificare il vincolo AA reale (>=3.0 testo grande / titolo, >=4.5
+// testo normale / sommario e meta) sul PIXEL DI SFONDO effettivamente
+// composto e renderizzato dal browser (screenshot reale dell'elemento,
+// decodificato in canvas — non un valore CSS letto e ricalcolato a mano),
+// contro il colore di testo dichiarato via CSS (esatto, non un pixel di
+// glifo anti-aliased che introdurrebbe rumore).
+function srgbToLinear(c) {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance([r, g, b]) {
+    return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
+}
+
+function contrastRatio(l1, l2) {
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+function parseCssColor(value) {
+    const match = value.match(/rgba?\(([^)]+)\)/);
+    if (!match) {
+        throw new Error(`Unparseable CSS color: ${value}`);
+    }
+    const parts = match[1].split(',').map(part => parseFloat(part.trim()));
+    const [r, g, b, a = 1] = parts;
+    return { r, g, b, a };
+}
+
+function alphaBlend(fg, alpha, bg) {
+    return fg.map((c, i) => alpha * c + (1 - alpha) * bg[i]);
+}
+
+/**
+ * Cantiere fix/article-hero-cover-visibility: prima di questo fix,
+ * `.article-premium__hero img` era a opacity .6 e
+ * `.article-premium__overlay` applicava un gradiente fino a
+ * rgba(2,6,23,.92), rendendo le copertine quasi invisibili su desktop.
+ * Verifica sul PIXEL REALMENTE RENDERIZZATO (screenshot dell'elemento,
+ * mai un valore CSS ricalcolato a mano) che l'immagine sia visibile nella
+ * metà superiore e che il contrasto AA di titolo/sommario resti garantito
+ * nella zona di testo, sul fixture deterministico hero-placeholder.svg
+ * (sfondo quasi bianco: il caso peggiore realistico per il contrasto,
+ * non quello più favorevole).
+ */
+for (const [label, width, height] of [
+    ['mobile', 390, 844],
+    ['desktop', 1440, 900],
+]) {
+    test(`article hero cover is visible and title/excerpt stay AA-compliant at ${label}`, async ({ page }) => {
+        await page.setViewportSize({ width, height });
+        const guards = await gotoPublicPage(page, fixture.routes.article);
+
+        const hero = page.locator('.article-premium__hero').first();
+        await expect(hero).toBeVisible();
+        await expect(hero.locator('img').first()).toHaveAttribute('src', /hero-placeholder\.svg/);
+
+        const box = await hero.boundingBox();
+        expect(box, 'hero bounding box must be measurable').not.toBeNull();
+
+        const screenshot = await hero.screenshot();
+
+        const styles = await page.evaluate(() => {
+            const heroImg = document.querySelector('.article-premium__hero img');
+            const overlay = document.querySelector('.article-premium__overlay');
+            const h1 = document.querySelector('.article-premium__content h1');
+            const excerpt = document.querySelector('.article-premium__excerpt');
+            const meta = document.querySelector('.article-premium__meta');
+
+            return {
+                imgOpacity: parseFloat(getComputedStyle(heroImg).opacity),
+                overlayBackgroundImage: getComputedStyle(overlay).backgroundImage,
+                h1Color: h1 ? getComputedStyle(h1).color : null,
+                excerptColor: excerpt ? getComputedStyle(excerpt).color : null,
+                metaColor: meta ? getComputedStyle(meta).color : null,
+            };
+        });
+
+        // Il fix concreto: opacità immagine alzata, non più a .6.
+        expect(styles.imgOpacity).toBeGreaterThanOrEqual(0.85);
+        // L'overlay non deve più raggiungere il livello di opacità (.92)
+        // che rendeva la copertina quasi invisibile.
+        expect(styles.overlayBackgroundImage).not.toContain('0.92');
+
+        // Campiona il pixel REALMENTE composto (screenshot decodificato in
+        // canvas) in due punti: vicino al bordo superiore (nessun testo lì
+        // — deve essere chiaramente più luminoso di prima, prova diretta
+        // di leggibilità) e vicino all'angolo inferiore destro (zona dove
+        // sta il testo, ma fuori dall'area dei glifi per evitare rumore da
+        // anti-aliasing).
+        const base64 = screenshot.toString('base64');
+        const samples = await page.evaluate(async ({ base64, boxWidth, boxHeight }) => {
+            const img = new Image();
+            img.src = `data:image/png;base64,${base64}`;
+            await img.decode();
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            const scaleX = img.naturalWidth / boxWidth;
+            const scaleY = img.naturalHeight / boxHeight;
+
+            const pick = (relX, relY) => {
+                const x = Math.min(img.naturalWidth - 1, Math.round(relX * boxWidth * scaleX));
+                const y = Math.min(img.naturalHeight - 1, Math.round(relY * boxHeight * scaleY));
+                const data = ctx.getImageData(x, y, 1, 1).data;
+                return [data[0], data[1], data[2]];
+            };
+
+            return {
+                top: pick(0.95, 0.08),
+                bottomText: pick(0.95, 0.92),
+            };
+        }, { base64, boxWidth: box.width, boxHeight: box.height });
+
+        const topLuminance = relativeLuminance(samples.top);
+        const bottomLuminance = relativeLuminance(samples.bottomText);
+
+        // Metà superiore chiaramente leggibile: il fixture ha uno sfondo
+        // quasi bianco (hero-placeholder.svg, luminanza ~0.9); con
+        // l'immagine ora a opacità alta e overlay leggero in alto, il
+        // pixel campionato deve restare marcatamente luminoso, non quasi
+        // nero come prima del fix.
+        expect(topLuminance, `top-of-hero luminance too low at ${label} — image still reads as nearly invisible`).toBeGreaterThan(0.35);
+
+        // Contrasto AA nella zona di testo, sul caso peggiore realistico
+        // (sfondo quasi bianco): titolo (testo grande, soglia 3:1) e
+        // sommario/meta (testo normale, soglia 4.5:1), calcolati sul
+        // colore CSS dichiarato via alpha-blend sopra il pixel di sfondo
+        // realmente renderizzato.
+        const h1Color = parseCssColor(styles.h1Color);
+        const h1Contrast = contrastRatio(relativeLuminance([h1Color.r, h1Color.g, h1Color.b]), bottomLuminance);
+        expect(h1Contrast, `title contrast at ${label}`).toBeGreaterThanOrEqual(3.0);
+
+        if (styles.excerptColor) {
+            const excerpt = parseCssColor(styles.excerptColor);
+            const blended = alphaBlend([excerpt.r, excerpt.g, excerpt.b], excerpt.a, [samples.bottomText[0], samples.bottomText[1], samples.bottomText[2]]);
+            const excerptContrast = contrastRatio(relativeLuminance(blended), bottomLuminance);
+            expect(excerptContrast, `excerpt contrast at ${label}`).toBeGreaterThanOrEqual(4.5);
+        }
+
+        if (styles.metaColor) {
+            const meta = parseCssColor(styles.metaColor);
+            const blended = alphaBlend([meta.r, meta.g, meta.b], meta.a, [samples.bottomText[0], samples.bottomText[1], samples.bottomText[2]]);
+            const metaContrast = contrastRatio(relativeLuminance(blended), bottomLuminance);
+            expect(metaContrast, `meta contrast at ${label}`).toBeGreaterThanOrEqual(4.5);
+        }
+
+        // Nessun overflow orizzontale introdotto dal fix (opacity/gradient
+        // non toccano il layout, ma verificato esplicitamente comunque).
+        const dimensions = await page.evaluate(() => ({
+            clientWidth: document.documentElement.clientWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(dimensions.scrollWidth, `horizontal overflow on article page at ${label}`).toBeLessThanOrEqual(dimensions.clientWidth);
+
+        await page.screenshot({
+            path: `test-results/article-hero-${label}.png`,
+            fullPage: false,
+        });
+
+        guards.assertClean();
+    });
+}
