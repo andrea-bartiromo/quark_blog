@@ -377,6 +377,64 @@ class PublicAssetDriftDetectorTest extends TestCase
         }
     }
 
+    /**
+     * Prompt 269 (programma Kairus 251-400): i test esistenti sopra usano
+     * sempre 0700 per simulare una directory "non sicura" — un permesso
+     * che il PROCESSO DI SCANSIONE (proprietario dei file, come un deploy
+     * reale o questo stesso test) puo' comunque attraversare, perche' 0700
+     * concede rwx al proprietario. Restano quindi silenziosamente non
+     * verificati dalla suite esistente i permessi che rendono una
+     * directory NON attraversabile nemmeno dal processo che la scansiona
+     * (bit x assente anche per il proprietario, es. 0600): un caso reale
+     * — una `cp -a` da un backup che preserva un permesso troppo
+     * restrittivo su una sola sottodirectory della radice servita — che
+     * farebbe fallire opendir() con una UnexpectedValueException PHP non
+     * catturata prima di questo fix, crashando l'intero
+     * report()/comando `deploy:asset-drift` invece di segnalare
+     * l'anomalia come ogni altro caso STATUS_UNSAFE_MODE.
+     *
+     * Nota ambientale: questa sandbox esegue i test come root, che
+     * bypassa i controlli DAC del filesystem — chmod 0600 su una
+     * directory non ne impedisce davvero l'attraversamento qui. La
+     * asserzione e' quindi scritta per reggere in ENTRAMBI gli scenari
+     * (root: opendir() riesce comunque, il flag arriva dal solo controllo
+     * di modo; CI reale/non-root: opendir() fallisce, il flag arriva dal
+     * catch aggiunto in scanDirectory()/unsafeDirectoryModes()) — il
+     * contratto verificato e' "non deve mai lanciare, e la directory deve
+     * comunque risultare unsafe_mode", non il percorso interno specifico.
+     */
+    public function test_a_directory_with_no_execute_bit_does_not_crash_the_report_and_is_still_flagged_unsafe(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($probeDir), 0775, true);
+        file_put_contents(public_path($probeDir.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$probeDir, 0775, true);
+        file_put_contents($servedRoot.'/'.$probeDir.'/one.js', 'console.log(1)');
+        // 0600 (non 0700): niente bit x, nemmeno per il proprietario —
+        // una directory realmente non apribile, non solo "di proprieta'
+        // altrui" come negli altri test di questo file.
+        chmod($servedRoot.'/'.$probeDir, 0600);
+
+        try {
+            $report = $this->detector()->report();
+
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_UNSAFE_MODE,
+                $byPath[$probeDir]['status'],
+                'A directory with no execute bit at all must still be flagged, whether or not the scanning process itself could enter it.'
+            );
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            chmod($servedRoot.'/'.$probeDir, 0775);
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
     public function test_a_file_empty_on_both_roots_is_flagged_as_empty_rather_than_ok(): void
     {
         $servedRoot = $this->makeServedRoot();

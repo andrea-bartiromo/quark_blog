@@ -242,19 +242,39 @@ class PublicAssetDriftDetector
             $unsafe[] = substr($absoluteDir, $rootLength);
         }
 
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
+        // Una directory realmente non attraversabile (bit x assente, non
+        // solo "0700 di proprieta' altrui" come nei casi gia' coperti
+        // sopra) fa fallire opendir() con una UnexpectedValueException non
+        // catturata da PHP, sia alla costruzione dell'iteratore sia, per
+        // una sottodirectory scoperta piu' in profondita', durante
+        // l'avanzamento del foreach. Senza questo try/catch un singolo
+        // permesso rotto sulla radice servita crasherebbe l'intero report
+        // (e quindi il gate `deploy:asset-drift`) invece di essere
+        // segnalato come STATUS_UNSAFE_MODE come ogni altro caso: la
+        // directory di partenza e' comunque gia' in $unsafe dal controllo
+        // sopra, quindi non perdiamo il segnale principale, solo la
+        // possibilita' di scoprire sottodirectory ANCORA piu' in profondita'
+        // sotto quella non apribile — impossibile da raggiungere comunque.
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
 
-        foreach ($iterator as $file) {
-            if (! $file->isDir()) {
-                continue;
-            }
+            foreach ($iterator as $file) {
+                if (! $file->isDir()) {
+                    continue;
+                }
 
-            if (! $this->hasSafeDirMode($file->getPathname())) {
-                $unsafe[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
+                if (! $this->hasSafeDirMode($file->getPathname())) {
+                    $unsafe[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
+                }
             }
+        } catch (\UnexpectedValueException) {
+            // Gia' registrata sopra se la radice stessa non e' apribile;
+            // una sottodirectory non apribile scoperta a meta' iterazione
+            // resta out of scope (non enumerabile per definizione) ma non
+            // deve far crashare l'intero report.
         }
 
         return $unsafe;
@@ -327,16 +347,29 @@ class PublicAssetDriftDetector
         $found = [];
         $rootLength = strlen($root) + 1;
 
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS)
-        );
+        // Vedi il commento gemello in unsafeDirectoryModes(): una directory
+        // realmente non attraversabile fa fallire opendir() con una
+        // UnexpectedValueException — senza questo try/catch, un singolo
+        // permesso rotto crasherebbe l'intero report invece di lasciare
+        // che unsafeDirectoryModes() la segnali come STATUS_UNSAFE_MODE.
+        // I file al suo interno restano strutturalmente non enumerabili
+        // (non e' un dato perso: non erano comunque confrontabili).
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS)
+            );
 
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
-                continue;
+            foreach ($iterator as $file) {
+                if (! $file->isFile()) {
+                    continue;
+                }
+
+                $found[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
             }
-
-            $found[] = str_replace('\\', '/', substr($file->getPathname(), $rootLength));
+        } catch (\UnexpectedValueException) {
+            // Nessun file enumerabile da una directory che non si puo'
+            // aprire — il segnale principale arriva da
+            // unsafeDirectoryModes() sulla stessa directory.
         }
 
         return $found;
