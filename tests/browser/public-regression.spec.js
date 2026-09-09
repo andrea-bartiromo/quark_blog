@@ -372,7 +372,11 @@ function alphaBlend(fg, alpha, bg) {
  * non quello più favorevole).
  */
 for (const [label, width, height] of [
+    ['320px', 320, 700],
+    ['375px', 375, 812],
     ['mobile', 390, 844],
+    ['768px', 768, 1024],
+    ['1024px', 1024, 800],
     ['desktop', 1440, 900],
 ]) {
     test(`article hero cover is visible and title/excerpt stay AA-compliant at ${label}`, async ({ page }) => {
@@ -439,7 +443,17 @@ for (const [label, width, height] of [
             };
 
             return {
-                top: pick(0.95, 0.08),
+                // Angolo in alto a SINISTRA, non a destra: l'hero ospita
+                // sempre (a ogni viewport) il badge di espansione
+                // `.media-viewer__trigger--badge`, ancorato in alto a
+                // destra con un offset quasi fisso in px (~18px) — a
+                // scalare con la larghezza del box, un campione al 95%
+                // orizzontale può ricadere proprio sopra quel badge scuro
+                // a certe larghezze intermedie (verificato: succede fra
+                // ~700 e ~1100px di larghezza hero, mai a mobile/desktop),
+                // producendo un falso negativo di luminanza indipendente
+                // dal fix opacity/overlay che questo test verifica.
+                top: pick(0.05, 0.08),
                 bottomText: pick(0.95, 0.92),
             };
         }, { base64, boxWidth: box.width, boxHeight: box.height });
