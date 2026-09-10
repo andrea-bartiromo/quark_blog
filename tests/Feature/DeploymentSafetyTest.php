@@ -371,6 +371,155 @@ class DeploymentSafetyTest extends TestCase
         );
     }
 
+    public function test_production_deploy_verifies_scheduled_commands_via_a_dedicated_gate_command(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('php artisan deploy:verify-scheduled-commands', $script);
+
+        $cachePosition = strpos($script, 'php artisan view:cache');
+        $gatePosition = strpos($script, 'php artisan deploy:verify-scheduled-commands');
+        $chmodPosition = strpos($script, 'chmod -R 755 storage bootstrap/cache');
+
+        $this->assertNotFalse($cachePosition);
+        $this->assertNotFalse($gatePosition);
+        $this->assertNotFalse($chmodPosition);
+        $this->assertGreaterThan($cachePosition, $gatePosition, 'The scheduled-command gate must run after the same cache refresh a real release goes through.');
+        $this->assertLessThan($chmodPosition, $gatePosition, 'The scheduled-command gate must run before the release is otherwise finalized.');
+    }
+
+    /**
+     * Difetto di rilascio riscontrato di nuovo su main@0907b4e (dopo PR
+     * #540): `newsletter:reconfirmation-cleanup` era correttamente
+     * registrato secondo bootstrap/app.php e secondo
+     * test_every_scheduled_command_in_routes_console_is_actually_registered
+     * (sopra) — un test PHPUnit che chiama Artisan::all() nello STESSO
+     * processo già bootstrappato da PHPUnit — eppure un vero
+     * sottoprocesso `php artisan newsletter:reconfirmation-cleanup
+     * --dry-run` nella release reale falliva con "Command is not
+     * defined". Nessun test in-process può per costruzione rilevare
+     * questa classe di difetto: deve esistere un processo Artisan
+     * REALMENTE separato, in un vero git worktree con vendor collegato,
+     * .env di tipo produzione e lo stesso ciclo di cache di deploy.sh.
+     *
+     * Questo test costruisce esattamente quel worktree, prova prima il
+     * caso positivo (il gate passa quando nulla è rotto), poi rompe la
+     * registrazione esattamente come l'incidente reale — rimuovendo il
+     * file del comando schedulato — e prova che
+     * `php artisan deploy:verify-scheduled-commands`, eseguito come vero
+     * sottoprocesso separato (mai Artisan::all() in questo processo),
+     * fallisce chiuso con l'esatto nome del comando mancante.
+     *
+     * Revisione Codex su PR #541: nello stesso passaggio, aggiunge a
+     * routes/console.php anche una riga commentata e una riga che
+     * schedula un comando per variabile (non stringa letterale) — solo
+     * qui, in un vero sottoprocesso che ri-richiede davvero il file da
+     * disco, ha senso provare che una riga commentata non viene mai
+     * richiesta (un test in-process non potrebbe: Schedule::class è un
+     * singleton già costruito prima che il corpo del test giri, editare
+     * il file a metà test non avrebbe alcun effetto) mentre la riga per
+     * variabile continua a essere rilevata.
+     */
+    public function test_production_deploy_verify_scheduled_commands_gate_fails_closed_on_a_real_broken_release_worktree(): void
+    {
+        $this->ensureBashAndGitAvailable();
+
+        $worktree = base_path('storage/framework/testing/deploy-verify-worktree-'.bin2hex(random_bytes(6)));
+
+        try {
+            (new Process(['git', 'worktree', 'add', '--quiet', '--detach', $worktree, 'HEAD'], base_path()))->mustRun();
+
+            // Vendor collegato: stessa strategia di una release reale —
+            // link, mai una copia — cosi' l'autoloader e' esattamente
+            // quello gia' in uso in questo checkout.
+            symlink(base_path('vendor'), $worktree.'/vendor');
+
+            $dbPath = $worktree.'/database/deploy_verify_test.sqlite';
+            if (! is_dir(dirname($dbPath))) {
+                mkdir(dirname($dbPath), 0775, true);
+            }
+            touch($dbPath);
+
+            $appKey = 'base64:'.base64_encode(random_bytes(32));
+            file_put_contents($worktree.'/.env', <<<ENV
+            APP_NAME="Kairus"
+            APP_ENV=production
+            APP_KEY={$appKey}
+            APP_DEBUG=false
+            APP_URL=https://kairus.it
+            APP_LOCALE=it
+            APP_TIMEZONE=Europe/Rome
+            DB_CONNECTION=sqlite
+            DB_DATABASE={$dbPath}
+            CACHE_STORE=file
+            SESSION_DRIVER=file
+            LOG_CHANNEL=daily
+            LOG_LEVEL=error
+            MAIL_MAILER=array
+
+            ENV);
+
+            (new Process(['php', 'artisan', 'migrate', '--force', '--no-ansi'], $worktree))->mustRun();
+            (new Process(['php', 'artisan', 'optimize:clear'], $worktree))->mustRun();
+            (new Process(['php', 'artisan', 'config:cache'], $worktree))->mustRun();
+            (new Process(['php', 'artisan', 'route:cache'], $worktree))->mustRun();
+            (new Process(['php', 'artisan', 'view:cache'], $worktree))->mustRun();
+
+            $healthy = new Process(['php', 'artisan', 'deploy:verify-scheduled-commands', '--no-ansi'], $worktree);
+            $healthy->run();
+            $this->assertTrue(
+                $healthy->isSuccessful(),
+                'Expected the gate to pass as a real subprocess on an unmodified release worktree: '.$healthy->getOutput().$healthy->getErrorOutput()
+            );
+            $this->assertStringContainsString('scheduled commands are registered', $healthy->getOutput());
+
+            $commandFile = $worktree.'/app/Console/Commands/CleanupExpiredNewsletterPending.php';
+            $this->assertFileExists($commandFile, 'Fixture assumption broken: this file must exist in HEAD for the negative case to be meaningful.');
+            rename($commandFile, $commandFile.'.disabled');
+
+            $consoleRoutesPath = $worktree.'/routes/console.php';
+            $consoleRoutes = file_get_contents($consoleRoutesPath);
+            $this->assertIsString($consoleRoutes);
+            file_put_contents($consoleRoutesPath, $consoleRoutes.<<<'PHP'
+
+
+            // Riga deliberatamente commentata (revisione Codex su PR #541):
+            // il gate non deve mai richiederla, perché PHP non la esegue mai
+            // e nessun Event viene mai creato per essa.
+            // Schedule::command('this-command-was-only-ever-a-comment')->daily();
+
+            $deployGateTestMissingCommandViaVariable = 'this-command-does-not-exist-via-variable';
+            Schedule::command($deployGateTestMissingCommandViaVariable)->daily();
+            PHP);
+
+            (new Process(['php', 'artisan', 'optimize:clear'], $worktree))->mustRun();
+
+            $broken = new Process(['php', 'artisan', 'deploy:verify-scheduled-commands', '--no-ansi'], $worktree);
+            $broken->run();
+
+            $this->assertFalse(
+                $broken->isSuccessful(),
+                'A real, separate php artisan subprocess must fail closed on the exact newsletter:reconfirmation-cleanup incident class.'
+            );
+            $combinedOutput = $broken->getOutput().$broken->getErrorOutput();
+            $this->assertStringContainsString('newsletter:reconfirmation-cleanup', $combinedOutput);
+            $this->assertStringContainsString('incident class', $combinedOutput);
+            $this->assertStringContainsString(
+                'this-command-does-not-exist-via-variable',
+                $combinedOutput,
+                'A command scheduled via a variable (not a string literal) must still be caught, not silently skipped.'
+            );
+            $this->assertStringNotContainsString(
+                'this-command-was-only-ever-a-comment',
+                $combinedOutput,
+                'A commented-out Schedule::command(...) line must never be required — it is never actually executed.'
+            );
+        } finally {
+            (new Process(['git', 'worktree', 'remove', '--force', $worktree], base_path()))->run();
+            File::deleteDirectory($worktree);
+        }
+    }
+
     private function deployScript(): string
     {
         $script = file_get_contents(base_path('deploy.sh'));
