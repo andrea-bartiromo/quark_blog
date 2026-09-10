@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -241,6 +242,45 @@ class DeploymentSafetyTest extends TestCase
         $this->assertIsString($schedule);
         $this->assertStringContainsString("config('database.default') === 'sqlite'", $schedule);
         $this->assertStringContainsString("Schedule::command('backup:database')", $schedule);
+    }
+
+    /**
+     * Difetto di rilascio riscontrato: `newsletter:reconfirmation-cleanup`
+     * era schedulato in routes/console.php ma, in un tentativo di
+     * rilascio controllato, Artisan lo segnalava come "Command is not
+     * defined" — cioè `Schedule::command('newsletter:reconfirmation-cleanup')`
+     * puntava a un nome mai realmente registrato. Nessun test esistente
+     * collegava le due cose: guardava routes/console.php per stringhe
+     * isolate (vedi il test sopra), oppure verificava il comando in
+     * isolamento, mai "questo nome schedulato corrisponde a un comando
+     * che Artisan conosce davvero". Legge ogni riga Schedule::command(...)
+     * per nome e la confronta con l'elenco comandi realmente registrato
+     * in questo stesso processo: una futura riga schedulata che punta a
+     * un comando rinominato, rimosso o mai registrato fa fallire la
+     * suite, non solo un rilascio in produzione.
+     */
+    public function test_every_scheduled_command_in_routes_console_is_actually_registered(): void
+    {
+        $schedule = file_get_contents(base_path('routes/console.php'));
+        $this->assertIsString($schedule);
+
+        preg_match_all("/Schedule::command\(\s*['\"]([^'\"]+)['\"]/", $schedule, $matches);
+        $this->assertNotEmpty($matches[1], 'Expected at least one Schedule::command(...) line in routes/console.php.');
+
+        $registered = array_keys(Artisan::all());
+
+        foreach ($matches[1] as $rawCommand) {
+            // Una riga può includere argomenti/opzioni inline (es.
+            // "project:sync-editorial-calendar --execute"): il nome del
+            // comando registrato in Artisan è solo il primo token.
+            $commandName = strtok($rawCommand, ' ');
+
+            $this->assertContains(
+                $commandName,
+                $registered,
+                "routes/console.php schedules '{$commandName}' but no such command is registered in Artisan — this is exactly the release defect that made newsletter:reconfirmation-cleanup fail with \"Command is not defined\" in production.",
+            );
+        }
     }
 
     /**

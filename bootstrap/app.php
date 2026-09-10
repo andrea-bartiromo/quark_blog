@@ -24,6 +24,21 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withCommands([
+        // Application::configure() già chiama withCommands() una prima
+        // volta di default (nessun argomento), che registra
+        // app_path('Console/Commands') come directory da scoprire — è
+        // per QUELLA chiamata implicita, non per questa, che ogni comando
+        // sotto app/Console/Commands/ risultava comunque registrato anche
+        // quando qui sotto ne compariva esplicitamente solo uno. Questa
+        // seconda chiamata di withCommands() si limita ad AGGIUNGERE
+        // (le due chiamate si sommano, non si sostituiscono — vedi
+        // ApplicationBuilder::withCommands()), quindi la lista qui sotto
+        // non è mai stata l'elenco completo dei comandi registrati, per
+        // quanto sembrasse esserlo a chi legge solo questo file. Rendiamo
+        // la directory esplicita anche qui: stesso comportamento a
+        // runtime, ma questo file smette di dipendere in silenzio da una
+        // chiamata implicita fatta altrove nel framework.
+        app_path('Console/Commands'),
         FetchNewsAndGenerateDrafts::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {

@@ -10,6 +10,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class CleanupExpiredNewsletterPendingTest extends TestCase
@@ -207,6 +208,61 @@ class CleanupExpiredNewsletterPendingTest extends TestCase
 
         $this->assertNotNull($event);
         $this->assertTrue($event->withoutOverlapping);
+    }
+
+    /**
+     * Difetto di rilascio riscontrato: dopo installazione, cache e asset
+     * gate puliti, `php artisan newsletter:reconfirmation-cleanup
+     * --dry-run` falliva con "Command is not defined". Ogni test sopra
+     * usa `$this->artisan(...)`, l'helper di test di Laravel — che gira
+     * NELLO STESSO processo PHP già bootstrappato da PHPUnit, dove la
+     * scoperta dei comandi è già avvenuta con successo: non riproduce e
+     * non protegge da un fallimento di registrazione che si manifesta
+     * solo all'avvio di un vero processo CLI (`php artisan ...`), che
+     * ripete da zero il boot di Composer/bootstrap/app.php. Questo test
+     * lancia un vero sottoprocesso invece di richiamare il comando
+     * in-process, cosi' la stessa classe di regressione (un comando sotto
+     * app/Console/Commands/ che silenziosamente smette di essere
+     * scoperto) farebbe fallire la suite, non solo un tentativo di
+     * rilascio in produzione.
+     */
+    public function test_the_command_is_actually_registered_and_runnable_as_a_real_cli_process(): void
+    {
+        // phpunit.xml forces DB_DATABASE=:memory: for the PHPUnit process
+        // itself; Symfony Process inherits that same environment by
+        // default, so a spawned subprocess would otherwise get its OWN
+        // empty, unmigrated in-memory database (a real "no such table"
+        // failure, unrelated to command registration). A dedicated,
+        // migrated file keeps this test isolated from that inherited
+        // setting and from every other test's RefreshDatabase transaction.
+        $dbPath = storage_path('framework/testing/newsletter-cleanup-cli-'.bin2hex(random_bytes(6)).'.sqlite');
+        touch($dbPath);
+        $env = ['DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $dbPath];
+
+        try {
+            $migrate = new Process(['php', 'artisan', 'migrate', '--force', '--no-interaction'], base_path(), $env);
+            $migrate->setTimeout(60);
+            $migrate->mustRun();
+
+            $process = new Process(['php', 'artisan', 'newsletter:reconfirmation-cleanup', '--dry-run'], base_path(), $env);
+            $process->setTimeout(30);
+            $process->run();
+
+            $output = $process->getOutput().$process->getErrorOutput();
+
+            $this->assertStringNotContainsString(
+                'is not defined',
+                $output,
+                "php artisan newsletter:reconfirmation-cleanup must be registered and runnable as a real CLI process, not only inside PHPUnit's already-booted process. Output:\n".$output,
+            );
+            $this->assertTrue(
+                $process->isSuccessful(),
+                "php artisan newsletter:reconfirmation-cleanup --dry-run must exit successfully as a real CLI process. Output:\n".$output,
+            );
+            $this->assertStringContainsString('Dry-run', $output);
+        } finally {
+            @unlink($dbPath);
+        }
     }
 
     /**
