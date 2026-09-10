@@ -176,6 +176,35 @@ senza distinzione di forma: restano fuori da questo cantiere (Prompt
 283-286 riguarda solo il 404 sulla pagina pubblica dell'articolo) e non
 sono state toccate.
 
+**Verifica di produzione (chiusura del gate Mission 75, solo per
+`author-card.blade.php`)**: eseguita in sola lettura da chi ha accesso
+diretto al database/filesystem di produzione, con lo script
+`verify_user_photo_production_facts.php` consegnato per questo scopo.
+Esito riportato: un solo valore `User::photo` distinto in produzione,
+in formato bare filename (nessuno slash); zero valori legacy con path
+esplicito e zero valori non sicuri; il file risulta presente sotto le
+radici media attese. Confermato che l'URL prodotto dal codice precedente
+(`/storage/...`) risponde 404, mentre l'URL prodotto dal fix
+(`/assets/img/...`) risponde 200. Questo chiude il gate di Mission 75
+esclusivamente per la forma "bare filename" gestita da
+`author-card.blade.php`; non copre le altre due viste (vedi follow-up
+sotto), che restano non normalizzate.
+
+**Follow-up fuori scope (non eseguito in questo cantiere)**:
+`admin/collaborators.blade.php` e `redazione/profile.blade.php` usano
+ancora incondizionatamente `asset('storage/'.$photo)`, senza la
+distinzione per forma introdotta in `author-card.blade.php`. Per la
+stessa riga di produzione osservata sopra (bare filename), oggi
+restituiscono lo stesso 404 di `author-card.blade.php` prima del fix.
+Non sono stati modificati in questo cantiere (Prompt 283-286 era
+esplicitamente scoped al 404 sulla pagina pubblica dell'articolo) e
+restano un cantiere separato e circoscritto: applicare la stessa
+distinzione per forma (bare filename → componente responsive; valore con
+slash → comportamento invariato), con gli stessi test di regressione già
+scritti per `author-card.blade.php` come modello, senza richiedere una
+nuova verifica di produzione (i fatti raccolti qui sopra già coprono la
+forma bare filename per tutte e tre le viste).
+
 ## 5. Policy immagini: WebP, PNG, JPEG, GIF
 
 **Conferma definitiva (verificata leggendo il codice di
