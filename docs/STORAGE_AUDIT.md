@@ -117,6 +117,94 @@ L'audit riporta tre stati possibili:
    (es. l'intera document root cPanel) — scansionarla per intero non sarebbe
    né sicuro né efficiente da fare automaticamente.
 
+## 4bis. `storage/` vs `public/assets/img/` — due meccanismi distinti, uno dei due inutilizzato
+
+Kairus Prompt 281-282 (programma 251-400). Laravel scaffolda di default un meccanismo "disco pubblico": `storage/app/public` più un symlink `public/storage` (creato da `php artisan storage:link`, configurato in `config/filesystems.php`, disco `public`). **Questo repository non lo usa affatto** — verificato con una ricerca su tutto `app/` per `Storage::disk('public')` e per `public_path('storage')`: zero occorrenze reali. Nessun file di questo simlink esiste in nessun ambiente di questa sessione (`ls public/storage` → `No such file or directory`).
+
+Ogni servizio reale della Libreria media (`MediaMoveService`, `MediaFolderService`, `MediaRetirementService`, `ResponsiveImageVariantService`, `PublicMediaSyncService`, `MediaWebpAuditService`/`MediaWebpCleanupService`, e la lettura diretta della cover in `DiscoverReadinessService`) legge e scrive direttamente sotto **`public_path('assets/img')`** — una directory tracciata da Git per gli asset editoriali curati (Turing, placeholder) e scritta a runtime dall'applicazione per gli upload, **non** dietro il meccanismo storage-link di Laravel.
+
+| | `storage/app/public` + `public/storage` (Laravel default) | `public/assets/img/` (reale, in uso) |
+| --- | --- | --- |
+| Usato da questo repository? | No — scaffolding presente in config ma mai referenziato da codice applicativo | Sì — unica radice reale per tutta la Libreria media |
+| Proprietario operativo | Nessuno (inutilizzato) | Il processo applicativo (scrittura a runtime) + Git (asset curati versionati) |
+| Meccanismo di pubblicazione verso il web | Symlink filesystem (`storage:link`), mai eseguito in questo progetto | Diretto: è già dentro `public/`, letto da `public_path()`/`asset()` |
+| Sincronizzazione verso una seconda document root separata (es. cPanel) | N/A | `PublicMediaSyncService`, opt-in via `MEDIA_PUBLIC_ROOT` (sezione 4 sopra) |
+| Responsabilità di backup | N/A — nessun dato reale da perdere | Non coperta da `selective-deploy-backup.sh` (quello copre solo `config('deploy.asset_drift_scan_paths')` — CSS/JS/icone di release, esplicitamente non `assets/img`, vedi `docs/DEPLOYMENT.md`); un backup di `public/assets/img` resta un'azione operativa separata, non automatizzata da questo repository |
+
+**Implicazione pratica**: non eseguire mai `php artisan storage:link` aspettandosi che pubblichi la Libreria media — non ha alcun effetto su di essa. Non confondere un'assenza di `public/storage` con un problema: è lo stato atteso.
+
+### 4ter. Caso concreto: foto autore 404 nella author-card (Prompt 283-285)
+
+Verifica su segnalazione: la foto autore mostrata nel box "Autore" sotto
+un articolo (`resources/views/articles/partials/author-card.blade.php`)
+restituiva 404 quando un autore aveva una foto caricata. Diagnosi, letta
+esclusivamente da codice e filesystem, senza toccare il database:
+
+- **Non è un dato mancante**: `User::photo` viene valorizzato
+  correttamente dai controller di upload (`Admin\ProfileController` e
+  `Redazione\ProfileController::updatePhoto`), entrambi verificati.
+- **È un path errato nella vista**: la vista costruiva l'URL con
+  `asset('storage/'.$photo)`, presupponendo il meccanismo di storage
+  Laravel descritto in 4bis. Quel meccanismo non è mai stato attivato in
+  questo repository (`public/storage` non esiste), quindi l'URL generato
+  puntava sempre a una risorsa inesistente.
+- **Non è (semplicemente) "un problema di storage link"**: anche
+  eseguire `storage:link` non avrebbe risolto nulla, perché i controller
+  di upload non scrivono comunque sotto `storage/app/public` — scrivono
+  sotto `public/assets/img` (stessa radice della Libreria media, sezione
+  4bis). Il fix corretto non è attivare il symlink, ma far leggere la
+  vista dalla radice realmente scritta, tramite lo stesso componente
+  `<x-responsive-image diskName="...">` già usato per lo stesso dato in
+  `autore.blade.php`.
+
+**Perché il fix non è un rimpiazzo incondizionato**: come già
+determinato dall'audit read-only `docs/MISSION_75_USER_PHOTO_PRODUCTION_PREFLIGHT.md`,
+non è provato che ogni riga `users.photo` di produzione sia stata scritta
+dal codice attuale — potrebbe esistere un valore legacy con path esplicito
+(con slash) che oggi risolve correttamente attraverso il vecchio
+`asset('storage/'...)`, se in produzione quel simlink e quei file
+esistono davvero (ipotesi non verificabile da questo repository/sandbox).
+Il fix applicato in author-card.blade.php è quindi condizionato alla
+forma del valore: un `photo` senza slash (l'unica forma che il codice
+attuale può scrivere, verificato leggendo entrambi i controller) passa
+dal componente responsive; un valore con slash resta sul comportamento
+precedente, invariato, in attesa dei fatti di produzione richiesti da
+quella mission prima di normalizzare anche quel caso. Le stesse due viste
+segnalate da Mission 75 (`admin/collaborators.blade.php` e
+`redazione/profile.blade.php`) usano ancora `asset('storage/'.$photo)`
+senza distinzione di forma: restano fuori da questo cantiere (Prompt
+283-286 riguarda solo il 404 sulla pagina pubblica dell'articolo) e non
+sono state toccate.
+
+**Verifica di produzione (chiusura del gate Mission 75, solo per
+`author-card.blade.php`)**: eseguita in sola lettura da chi ha accesso
+diretto al database/filesystem di produzione, con lo script
+`verify_user_photo_production_facts.php` consegnato per questo scopo.
+Esito riportato: un solo valore `User::photo` distinto in produzione,
+in formato bare filename (nessuno slash); zero valori legacy con path
+esplicito e zero valori non sicuri; il file risulta presente sotto le
+radici media attese. Confermato che l'URL prodotto dal codice precedente
+(`/storage/...`) risponde 404, mentre l'URL prodotto dal fix
+(`/assets/img/...`) risponde 200. Questo chiude il gate di Mission 75
+esclusivamente per la forma "bare filename" gestita da
+`author-card.blade.php`; non copre le altre due viste (vedi follow-up
+sotto), che restano non normalizzate.
+
+**Follow-up fuori scope (non eseguito in questo cantiere)**:
+`admin/collaborators.blade.php` e `redazione/profile.blade.php` usano
+ancora incondizionatamente `asset('storage/'.$photo)`, senza la
+distinzione per forma introdotta in `author-card.blade.php`. Per la
+stessa riga di produzione osservata sopra (bare filename), oggi
+restituiscono lo stesso 404 di `author-card.blade.php` prima del fix.
+Non sono stati modificati in questo cantiere (Prompt 283-286 era
+esplicitamente scoped al 404 sulla pagina pubblica dell'articolo) e
+restano un cantiere separato e circoscritto: applicare la stessa
+distinzione per forma (bare filename → componente responsive; valore con
+slash → comportamento invariato), con gli stessi test di regressione già
+scritti per `author-card.blade.php` come modello, senza richiedere una
+nuova verifica di produzione (i fatti raccolti qui sopra già coprono la
+forma bare filename per tutte e tre le viste).
+
 ## 5. Policy immagini: WebP, PNG, JPEG, GIF
 
 **Conferma definitiva (verificata leggendo il codice di
