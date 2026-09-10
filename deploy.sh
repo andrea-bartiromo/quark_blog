@@ -109,6 +109,59 @@ php artisan view:cache
 echo "Verifying every scheduled command in routes/console.php is actually registered by Artisan in this exact release."
 php artisan deploy:verify-scheduled-commands || fail "Scheduled command verification failed — see output above. This is the exact newsletter:reconfirmation-cleanup incident class: refusing to deploy."
 
+# Causa reale confermata sull'host di produzione (dopo #541): la release
+# in esecuzione non era un checkout Git e il suo vendor/ — con
+# classmap-authoritative attivo, collegato da un'altra directory — non
+# conteneva affatto CleanupExpiredNewsletterPending: generato prima che
+# quella classe esistesse e mai rigenerato da allora, l'autoloader la
+# rifiutava in silenzio (Kernel::load() intercetta l'eccezione via
+# rescue() senza loggarla — deploy:verify-scheduled-commands sopra rileva
+# l'ASSENZA dal risultato ma non la CAUSA). Questi due controlli sono
+# specifici per questo comando, per il quale l'incidente si è già
+# ripetuto due volte: una vera ReflectionClass sull'autoloader di QUESTA
+# release isola esattamente un vendor/autoloader disallineato, con il
+# messaggio di errore reale invece di un semplice "assente"; un vero
+# --dry-run in sottoprocesso prova anche che il comando gira davvero (DB,
+# servizio, configurazione), non solo che è elencato da Artisan.
+#
+# Un vendor COLLEGATO (symlink) a una directory fisicamente diversa da
+# questa release è un secondo modo, distinto, in cui questo stesso
+# controllo potrebbe mentire: l'autoloader ottimizzato di Composer
+# calcola il proprio $baseDir da __DIR__ dentro vendor/composer/*.php, e
+# PHP risolve sempre __DIR__ attraverso un symlink fino al percorso
+# fisico reale — quindi un vendor collegato risolverebbe silenziosamente
+# le classi rispetto alla directory FISICA in cui quel vendor è stato
+# creato, non rispetto a questa release (verificato empiricamente: un
+# vendor collegato da un altro checkout con lo stesso comando presente
+# in entrambi supera la reflection, ma la classe risulta caricata dal
+# file dell'ALTRO checkout, non da questa release). Per questo la
+# reflection qui sotto non si accontenta di "riflette con successo": la
+# reflection deve provenire dal file DENTRO questa esatta directory di
+# rilascio.
+echo "Verifying CleanupExpiredNewsletterPending is reflectable via this release's own autoloader, from this release's own file."
+php -r '
+require "vendor/autoload.php";
+try {
+    $reflection = new ReflectionClass("App\\Console\\Commands\\CleanupExpiredNewsletterPending");
+} catch (\Throwable $e) {
+    fwrite(STDERR, get_class($e) . ": " . $e->getMessage() . "\n");
+    exit(1);
+}
+if (! $reflection->isSubclassOf(Illuminate\Console\Command::class) || $reflection->isAbstract()) {
+    fwrite(STDERR, "CleanupExpiredNewsletterPending exists but is not a concrete Artisan Command.\n");
+    exit(1);
+}
+$expectedFile = realpath(getcwd() . "/app/Console/Commands/CleanupExpiredNewsletterPending.php");
+$actualFile = realpath($reflection->getFileName());
+if ($expectedFile === false || $actualFile !== $expectedFile) {
+    fwrite(STDERR, "CleanupExpiredNewsletterPending resolved from " . var_export($actualFile, true) . ", not this release own app/Console/Commands (" . var_export($expectedFile, true) . "). The autoloader is not resolving classes from this release — check whether vendor/ is a symlink to a physically different directory.\n");
+    exit(1);
+}
+' || fail "CleanupExpiredNewsletterPending failed real reflection via this release's own vendor/autoloader (see stderr above) — this is the exact stale-vendor/classmap-authoritative incident class: refusing to deploy."
+
+echo "Running a real newsletter:reconfirmation-cleanup --dry-run in this release."
+php artisan newsletter:reconfirmation-cleanup --dry-run --no-ansi || fail "newsletter:reconfirmation-cleanup --dry-run failed in this release — refusing to deploy."
+
 chmod -R 755 storage bootstrap/cache
 
 php artisan about 2>&1 | grep -E "Name|Version|PHP|Database|Environment" || true
