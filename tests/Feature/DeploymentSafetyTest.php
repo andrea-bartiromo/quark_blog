@@ -409,6 +409,16 @@ class DeploymentSafetyTest extends TestCase
      * `php artisan deploy:verify-scheduled-commands`, eseguito come vero
      * sottoprocesso separato (mai Artisan::all() in questo processo),
      * fallisce chiuso con l'esatto nome del comando mancante.
+     *
+     * Revisione Codex su PR #541: nello stesso passaggio, aggiunge a
+     * routes/console.php anche una riga commentata e una riga che
+     * schedula un comando per variabile (non stringa letterale) — solo
+     * qui, in un vero sottoprocesso che ri-richiede davvero il file da
+     * disco, ha senso provare che una riga commentata non viene mai
+     * richiesta (un test in-process non potrebbe: Schedule::class è un
+     * singleton già costruito prima che il corpo del test giri, editare
+     * il file a metà test non avrebbe alcun effetto) mentre la riga per
+     * variabile continua a essere rilevata.
      */
     public function test_production_deploy_verify_scheduled_commands_gate_fails_closed_on_a_real_broken_release_worktree(): void
     {
@@ -467,6 +477,21 @@ class DeploymentSafetyTest extends TestCase
             $this->assertFileExists($commandFile, 'Fixture assumption broken: this file must exist in HEAD for the negative case to be meaningful.');
             rename($commandFile, $commandFile.'.disabled');
 
+            $consoleRoutesPath = $worktree.'/routes/console.php';
+            $consoleRoutes = file_get_contents($consoleRoutesPath);
+            $this->assertIsString($consoleRoutes);
+            file_put_contents($consoleRoutesPath, $consoleRoutes.<<<'PHP'
+
+
+            // Riga deliberatamente commentata (revisione Codex su PR #541):
+            // il gate non deve mai richiederla, perché PHP non la esegue mai
+            // e nessun Event viene mai creato per essa.
+            // Schedule::command('this-command-was-only-ever-a-comment')->daily();
+
+            $deployGateTestMissingCommandViaVariable = 'this-command-does-not-exist-via-variable';
+            Schedule::command($deployGateTestMissingCommandViaVariable)->daily();
+            PHP);
+
             (new Process(['php', 'artisan', 'optimize:clear'], $worktree))->mustRun();
 
             $broken = new Process(['php', 'artisan', 'deploy:verify-scheduled-commands', '--no-ansi'], $worktree);
@@ -479,6 +504,16 @@ class DeploymentSafetyTest extends TestCase
             $combinedOutput = $broken->getOutput().$broken->getErrorOutput();
             $this->assertStringContainsString('newsletter:reconfirmation-cleanup', $combinedOutput);
             $this->assertStringContainsString('incident class', $combinedOutput);
+            $this->assertStringContainsString(
+                'this-command-does-not-exist-via-variable',
+                $combinedOutput,
+                'A command scheduled via a variable (not a string literal) must still be caught, not silently skipped.'
+            );
+            $this->assertStringNotContainsString(
+                'this-command-was-only-ever-a-comment',
+                $combinedOutput,
+                'A commented-out Schedule::command(...) line must never be required — it is never actually executed.'
+            );
         } finally {
             (new Process(['git', 'worktree', 'remove', '--force', $worktree], base_path()))->run();
             File::deleteDirectory($worktree);

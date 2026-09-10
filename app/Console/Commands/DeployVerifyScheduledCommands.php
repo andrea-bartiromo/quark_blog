@@ -2,7 +2,10 @@
 
 namespace App\Console\Commands;
 
+use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Console\Command;
+use Illuminate\Console\Scheduling\CallbackEvent;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 
 /**
@@ -22,32 +25,54 @@ use Illuminate\Support\Facades\Artisan;
  * deploy.sh come `php artisan deploy:verify-scheduled-commands`, gira
  * già come un vero sottoprocesso Artisan nella release in corso di
  * verifica, dopo lo stesso ciclo di cache che precede un rilascio reale.
- * Da lì confronta ogni nome comando schedulato in routes/console.php con
- * Artisan::all() — l'elenco realmente registrato in QUESTO processo, non
- * un elenco letto da un altro processo già avviato in precedenza.
+ *
+ * Revisione Codex su PR #541: la prima versione di questo comando
+ * leggeva routes/console.php come testo e cercava `Schedule::command(`
+ * via regex — una riga commentata avrebbe comunque richiesto il
+ * comando (falso positivo), mentre una chiamata non letterale
+ * (`Schedule::command($variabile)` o via classe) sarebbe sfuggita
+ * silenziosamente al controllo (falso negativo, il peggiore dei due:
+ * un gate di rilascio che tace proprio quando dovrebbe bloccare).
+ * Corretto interrogando lo SCHEDULER GIÀ COSTRUITO da questo stesso
+ * processo — routes/console.php è comunque già stato eseguito da
+ * withRouting(commands: ...) prima che questo comando giri, quindi
+ * Schedule::events() riflette esattamente cosa è stato davvero
+ * registrato, non cosa appare nel sorgente: una riga commentata non
+ * produce mai un evento; una chiamata per classe o per variabile
+ * produce lo stesso identico Event di una chiamata letterale, perché
+ * Schedule::command() la risolve PRIMA di costruire l'evento (vedi
+ * Schedule::command() in vendor/laravel/framework).
  */
 class DeployVerifyScheduledCommands extends Command
 {
     protected $signature = 'deploy:verify-scheduled-commands';
 
-    protected $description = 'Verifica che ogni comando schedulato in routes/console.php sia realmente registrato da Artisan in questo processo. Solo lettura, non modifica mai alcun file.';
+    protected $description = 'Verifica che ogni comando schedulato via Schedule::command(...) sia realmente registrato da Artisan in questo processo. Solo lettura, non modifica mai alcun file.';
 
-    public function handle(): int
+    public function handle(Schedule $schedule): int
     {
-        $schedule = file_get_contents(base_path('routes/console.php'));
+        $prefix = ConsoleApplication::formatCommandString('');
 
-        preg_match_all("/Schedule::command\(\s*['\"]([^'\"]+)['\"]/", $schedule, $matches);
+        $scheduled = collect($schedule->events())
+            ->reject(fn ($event) => $event instanceof CallbackEvent)
+            ->map(function ($event) use ($prefix) {
+                $command = (string) $event->command;
 
-        if (empty($matches[1])) {
-            $this->error('routes/console.php has no Schedule::command(...) lines. Refusing to verify an empty scheduler contract.');
+                $withoutPrefix = str_starts_with($command, $prefix)
+                    ? substr($command, strlen($prefix))
+                    : $command;
+
+                return strtok(trim($withoutPrefix), ' ');
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($scheduled->isEmpty()) {
+            $this->error('The scheduler has no command-based events registered (Schedule::command(...)). Refusing to verify an empty scheduler contract.');
 
             return self::FAILURE;
         }
-
-        $scheduled = collect($matches[1])
-            ->map(fn (string $raw) => strtok($raw, ' '))
-            ->unique()
-            ->values();
 
         $registered = array_keys(Artisan::all());
 
