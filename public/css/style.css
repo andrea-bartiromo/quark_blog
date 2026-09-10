@@ -925,28 +925,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .btn--accent:hover { background: var(--accent-dark); }
 
-/* ── Paginazione ─────────────────────────────────────────────── */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  margin-top: 2rem;
-}
-.pagination a, .pagination span {
-  width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--ink-muted);
-  border: 1px solid var(--border);
-  background: var(--white);
-  transition: all 0.15s;
-}
-.pagination a:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
-.pagination .active { background: var(--primary); color: white; border-color: var(--primary); }
-
 /* ── Footer ──────────────────────────────────────────────────── */
 .site-footer {
   background: var(--ink);

@@ -375,3 +375,129 @@ test('"Avvisami quando continua" form expands, submits, and shows a neutral succ
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
     expect(errors).toEqual([]);
 });
+
+/**
+ * Cantiere fix/paths-internal-navigation-layout: causa radice riprodotta e
+ * confermata prima del fix — public/css/style.css definiva un vecchio
+ * `.pagination a, .pagination span { width:36px; height:36px; font-size:
+ * .85rem; font-weight:500; ... }` mai rimosso quando questo sito è passato
+ * al componente condiviso `components.pagination` (usato da OGNI ->links()
+ * del progetto, confermato: nessun'altra vista usa più il markup a cui
+ * quella regola era originariamente indirizzata). Il selettore discendente
+ * `.pagination a` colpisce comunque i link `.pagination__item` del
+ * componente (sono <a> dentro un <nav class="pagination">) con specificità
+ * più alta della classe `.pagination__item` del componente stesso, per le
+ * STESSE proprietà (height/font-size/font-weight) — height restava
+ * bloccata a 36px indipendentemente dal contenuto. Con le etichette a
+ * freccia di default (un carattere) il difetto è invisibile ovunque nel
+ * sito; su /percorsi, dove content-clusters/index.blade.php passa
+ * `previousText: 'Precedente'` / `nextText: 'Successiva'` (parole intere),
+ * il testo eccede il box e sconfina fuori dal pulsante — l'etichetta letta
+ * come "accavallata" al controllo. Fix: rimossa la regola morta da
+ * style.css (nessuna vista la usa più), il componente resta l'unica fonte
+ * di stile per `.pagination`.
+ */
+const internalNavViewportWidths = [320, 375, 768, 1024, 1440];
+
+for (const width of internalNavViewportWidths) {
+    test(`Percorsi pagination Precedente/Successiva labels stay readable and separate at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const errors = watchPage(page);
+
+        // La fixture deterministica (BrowserTestSeeder) produce esattamente
+        // 2 pagine: pagina 1 mostra solo "Successiva" (onFirstPage()),
+        // pagina 2 mostra solo "Precedente" (è l'ultima) — showDisabled è
+        // esplicitamente false per /percorsi, quindi il controllo opposto
+        // non viene proprio renderizzato, non solo disabilitato. Verificato
+        // su entrambe le pagine, non solo una, per coprire entrambe le
+        // etichette.
+        for (const [route, expectedLabel, expectedRole] of [
+            ['/percorsi', 'Successiva', 'Pagina successiva'],
+            ['/percorsi?page=2', 'Precedente', 'Pagina precedente'],
+        ]) {
+            await page.goto(route);
+            const nav = page.getByRole('navigation', { name: 'Paginazione Percorsi' });
+            await expect(nav).toBeVisible();
+
+            const control = page.getByRole('link', { name: expectedRole });
+            await expect(control).toBeVisible();
+            await expect(control).toContainText(expectedLabel);
+
+            const layout = await page.evaluate(() => {
+                const items = Array.from(document.querySelectorAll('.pagination__item'));
+                return items.map(el => {
+                    const rect = el.getBoundingClientRect();
+                    return {
+                        text: el.textContent.trim(),
+                        top: rect.top,
+                        bottom: rect.bottom,
+                        left: rect.left,
+                        right: rect.right,
+                        height: rect.height,
+                        scrollWidth: el.scrollWidth,
+                        clientWidth: el.clientWidth,
+                        scrollHeight: el.scrollHeight,
+                        clientHeight: el.clientHeight,
+                    };
+                });
+            });
+
+            // Ogni etichetta deve restare interamente contenuta nel proprio
+            // pulsante — il difetto reale era il testo che sconfinava fuori
+            // dal box (scrollWidth/scrollHeight > clientWidth/clientHeight).
+            for (const item of layout) {
+                expect(item.scrollWidth, `"${item.text}" overflows its own button horizontally at ${width}px (${route})`).toBeLessThanOrEqual(item.clientWidth + 1);
+                expect(item.scrollHeight, `"${item.text}" overflows its own button vertically at ${width}px (${route})`).toBeLessThanOrEqual(item.clientHeight + 1);
+            }
+
+            // Nessun pulsante deve sovrapporsi al successivo nella riga —
+            // stessa fila (stessa top/bottom) con right/left che non si
+            // intersecano.
+            const sorted = [...layout].sort((a, b) => a.left - b.left);
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const a = sorted[i];
+                const b = sorted[i + 1];
+                const sameRow = Math.abs(a.top - b.top) < 2;
+                if (sameRow) {
+                    expect(a.right, `"${a.text}" overlaps "${b.text}" at ${width}px (${route})`).toBeLessThanOrEqual(b.left + 1);
+                }
+            }
+
+            // Precedente/Successiva devono restare alte quanto i numeri
+            // pagina (stessa riga, stessa altezza del componente: 2.75rem)
+            // — prima del fix restavano bloccate a 36px invece di 44px.
+            const numberHeights = layout.filter(item => /^\d+$/.test(item.text)).map(item => item.height);
+            const labelHeights = layout.filter(item => item.text === expectedLabel).map(item => item.height);
+            expect(labelHeights.length, `expected label "${expectedLabel}" not found at ${width}px (${route})`).toBeGreaterThan(0);
+            for (const h of labelHeights) {
+                for (const numberHeight of numberHeights) {
+                    expect(Math.abs(h - numberHeight), `label height diverges from page-number height at ${width}px (${route})`).toBeLessThan(1);
+                }
+            }
+
+            // Nessun overflow orizzontale di pagina introdotto dal fix.
+            const dimensions = await page.evaluate(() => ({
+                clientWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+            }));
+            expect(dimensions.scrollWidth, `horizontal overflow on ${route} at ${width}px`).toBeLessThanOrEqual(dimensions.clientWidth);
+
+            // Focus-visible resta percepibile sul controllo di navigazione.
+            await control.focus();
+            await expect(control).toBeFocused();
+            const outline = await control.evaluate(el => getComputedStyle(el).outlineStyle);
+            expect(outline, `focus-visible outline missing on ${expectedRole} at ${width}px`).not.toBe('none');
+
+            // Ordine DOM/tastiera invariato: sulla pagina che mostra
+            // "Precedente", resta il primo controllo di navigazione prima
+            // dei numeri di pagina — verificato nella stessa visita già
+            // aperta per questa pagina, senza una navigazione aggiuntiva.
+            if (expectedLabel === 'Precedente') {
+                const domOrder = layout.map(item => item.text);
+                expect(domOrder[0]).toBe('Precedente');
+            }
+        }
+
+        expect(errors).toEqual([]);
+    });
+}
