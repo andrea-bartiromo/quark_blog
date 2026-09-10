@@ -242,19 +242,35 @@ class PublicAssetDriftDetector
             $unsafe[] = substr($absoluteDir, $rootLength);
         }
 
-        // Una directory realmente non attraversabile (bit x assente, non
-        // solo "0700 di proprieta' altrui" come nei casi gia' coperti
-        // sopra) fa fallire opendir() con una UnexpectedValueException non
-        // catturata da PHP, sia alla costruzione dell'iteratore sia, per
-        // una sottodirectory scoperta piu' in profondita', durante
-        // l'avanzamento del foreach. Senza questo try/catch un singolo
-        // permesso rotto sulla radice servita crasherebbe l'intero report
-        // (e quindi il gate `deploy:asset-drift`) invece di essere
-        // segnalato come STATUS_UNSAFE_MODE come ogni altro caso: la
-        // directory di partenza e' comunque gia' in $unsafe dal controllo
-        // sopra, quindi non perdiamo il segnale principale, solo la
-        // possibilita' di scoprire sottodirectory ANCORA piu' in profondita'
-        // sotto quella non apribile — impossibile da raggiungere comunque.
+        // Una directory priva del bit READ (es. 0300, non 0700 "di
+        // proprieta' altrui" come nei casi gia' coperti sopra) fa fallire
+        // opendir() con una UnexpectedValueException non catturata da PHP,
+        // sia alla costruzione dell'iteratore sia, per una sottodirectory
+        // scoperta piu' in profondita', durante l'avanzamento del foreach —
+        // verificato empiricamente con un utente non-root reale in
+        // sviluppo, non solo dedotto dal codice (vedi il commento sul test
+        // di regressione gemello in PublicAssetDriftDetectorTest per i
+        // dettagli e i log della riproduzione). Senza questo try/catch un
+        // singolo permesso rotto sulla radice servita crasherebbe l'intero
+        // report() (e quindi il gate `deploy:asset-drift`) invece di
+        // essere segnalato come STATUS_UNSAFE_MODE come ogni altro caso:
+        // la directory di partenza e' comunque gia' in $unsafe dal
+        // controllo sopra, quindi non perdiamo il segnale principale, solo
+        // la possibilita' di scoprire sottodirectory ANCORA piu' in
+        // profondita' sotto quella non apribile — impossibile da
+        // raggiungere comunque.
+        //
+        // Un caso diverso e non risolvibile da questo try/catch: una
+        // directory CHE HA il bit read ma non quello execute (es. 0600 —
+        // "non attraversabile" nel senso letterale del termine) non fa
+        // mai fallire opendir(), ma ogni tentativo di enumerarne il
+        // contenuto restituisce silenziosamente zero risultati, senza
+        // eccezione da catturare. La directory stessa resta comunque
+        // segnalata (scoperta come entry dalla sua directory padre, che
+        // deve restare attraversabile), ma il suo contenuto specifico
+        // diventa invisibile al confronto per-file — limite strutturale
+        // accettato, documentato esplicitamente dal secondo test di
+        // regressione gemello, non un bug di questo metodo.
         try {
             $iterator = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS),
@@ -348,12 +364,16 @@ class PublicAssetDriftDetector
         $rootLength = strlen($root) + 1;
 
         // Vedi il commento gemello in unsafeDirectoryModes(): una directory
-        // realmente non attraversabile fa fallire opendir() con una
-        // UnexpectedValueException — senza questo try/catch, un singolo
+        // priva del bit read fa fallire opendir() con una
+        // UnexpectedValueException (verificato con un utente non-root
+        // reale, non solo dedotto) — senza questo try/catch, un singolo
         // permesso rotto crasherebbe l'intero report invece di lasciare
         // che unsafeDirectoryModes() la segnali come STATUS_UNSAFE_MODE.
         // I file al suo interno restano strutturalmente non enumerabili
-        // (non e' un dato perso: non erano comunque confrontabili).
+        // (non e' un dato perso: non erano comunque confrontabili). Una
+        // directory con read ma senza execute (es. 0600) non fa fallire
+        // questa chiamata, ma restituisce silenziosamente zero file — vedi
+        // il secondo test di regressione gemello per questo caso distinto.
         try {
             $iterator = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($absoluteDir, FilesystemIterator::SKIP_DOTS)

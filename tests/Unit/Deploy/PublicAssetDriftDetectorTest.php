@@ -378,32 +378,51 @@ class PublicAssetDriftDetectorTest extends TestCase
     }
 
     /**
-     * Prompt 269 (programma Kairus 251-400): i test esistenti sopra usano
+     * Prompt 269 (programma Kairus 251-400), corretto dopo verifica
+     * empirica reale (vedi nota sotto): i test esistenti sopra usano
      * sempre 0700 per simulare una directory "non sicura" — un permesso
      * che il PROCESSO DI SCANSIONE (proprietario dei file, come un deploy
      * reale o questo stesso test) puo' comunque attraversare, perche' 0700
-     * concede rwx al proprietario. Restano quindi silenziosamente non
-     * verificati dalla suite esistente i permessi che rendono una
-     * directory NON attraversabile nemmeno dal processo che la scansiona
-     * (bit x assente anche per il proprietario, es. 0600): un caso reale
-     * — una `cp -a` da un backup che preserva un permesso troppo
-     * restrittivo su una sola sottodirectory della radice servita — che
-     * farebbe fallire opendir() con una UnexpectedValueException PHP non
-     * catturata prima di questo fix, crashando l'intero
-     * report()/comando `deploy:asset-drift` invece di segnalare
-     * l'anomalia come ogni altro caso STATUS_UNSAFE_MODE.
+     * concede rwx al proprietario.
      *
-     * Nota ambientale: questa sandbox esegue i test come root, che
-     * bypassa i controlli DAC del filesystem — chmod 0600 su una
-     * directory non ne impedisce davvero l'attraversamento qui. La
-     * asserzione e' quindi scritta per reggere in ENTRAMBI gli scenari
-     * (root: opendir() riesce comunque, il flag arriva dal solo controllo
-     * di modo; CI reale/non-root: opendir() fallisce, il flag arriva dal
-     * catch aggiunto in scanDirectory()/unsafeDirectoryModes()) — il
-     * contratto verificato e' "non deve mai lanciare, e la directory deve
-     * comunque risultare unsafe_mode", non il percorso interno specifico.
+     * Il bit che conta per opendir()/RecursiveDirectoryIterator e' READ,
+     * non x: una directory senza bit r (0000/0100/0200/0300) fa fallire
+     * la COSTRUZIONE dell'iteratore con una UnexpectedValueException PHP —
+     * verificato empiricamente, non solo per lettura di codice, in un
+     * ambiente realmente non privilegiato creato in questa sandbox (utente
+     * dedicato via `useradd`, mai root): con il codice precedente questo
+     * script minimale CRASHA in modo identico a scanDirectory()/
+     * unsafeDirectoryModes() prima del fix:
+     *
+     *   $ su nonroot -c 'php reproduce.php unfixed'
+     *   UNCAUGHT EXCEPTION: UnexpectedValueException: ...
+     *   Failed to open directory: Permission denied
+     *   RESULT: CRASHED
+     *
+     * mentre con lo stesso codice ma il try/catch di questo fix, lo stesso
+     * utente non privilegiato ottiene un risultato pulito:
+     *
+     *   $ su nonroot -c 'php reproduce.php fixed'
+     *   CAUGHT: UnexpectedValueException: ...
+     *   RESULT: NO_CRASH
+     *
+     * (root bypassa sempre i controlli DAC — lo stesso script eseguito da
+     * root non crasha mai, a qualunque permesso, per questo la verifica
+     * sopra e' stata rifatta con un utente reale, non dedotta dal solo
+     * comportamento in questa sandbox). Questo test PHPUnit resta
+     * comunque eseguito come root in questa sandbox (nessun modo di
+     * lanciare l'intera suite Laravel come utente diverso senza
+     * ri-permissionare l'intero albero del progetto): la sua asserzione
+     * regge identica in entrambi i contesti (root: nessuna eccezione da
+     * catturare, il flag arriva comunque dal controllo di modo; CI reale/
+     * non-root: l'eccezione e' generata davvero e catturata dal fix), ma
+     * la PROVA che il fix cattura davvero un'eccezione reale e' quella
+     * riportata sopra, ottenuta fuori da PHPUnit con un utente non-root
+     * vero. Verificare anche in CI (runner GitHub Actions, non root per
+     * default) resta il modo piu' diretto per confermarlo nel contesto
+     * reale di `deploy:asset-drift`.
      */
-    public function test_a_directory_with_no_execute_bit_does_not_crash_the_report_and_is_still_flagged_unsafe(): void
+    public function test_a_directory_with_no_read_permission_does_not_crash_the_report_and_is_still_flagged_unsafe(): void
     {
         $servedRoot = $this->makeServedRoot();
         $probeDir = $this->probeDir();
@@ -413,10 +432,11 @@ class PublicAssetDriftDetectorTest extends TestCase
         file_put_contents(public_path($probeDir.'/one.js'), 'console.log(1)');
         mkdir($servedRoot.'/'.$probeDir, 0775, true);
         file_put_contents($servedRoot.'/'.$probeDir.'/one.js', 'console.log(1)');
-        // 0600 (non 0700): niente bit x, nemmeno per il proprietario —
-        // una directory realmente non apribile, non solo "di proprieta'
-        // altrui" come negli altri test di questo file.
-        chmod($servedRoot.'/'.$probeDir, 0600);
+        // 0300 (-wx------): niente bit r, nemmeno per il proprietario —
+        // il bit che fa davvero fallire opendir(), verificato
+        // empiricamente (vedi commento sopra). 0600/0700 NON riproducono
+        // questo crash: vedi il test successivo.
+        chmod($servedRoot.'/'.$probeDir, 0300);
 
         try {
             $report = $this->detector()->report();
@@ -426,11 +446,144 @@ class PublicAssetDriftDetectorTest extends TestCase
             $this->assertSame(
                 PublicAssetDriftDetector::STATUS_UNSAFE_MODE,
                 $byPath[$probeDir]['status'],
-                'A directory with no execute bit at all must still be flagged, whether or not the scanning process itself could enter it.'
+                'A directory with no read permission at all must still be flagged, whether or not the scanning process itself could open it.'
             );
             $this->assertFalse($this->detector()->isClean());
         } finally {
             chmod($servedRoot.'/'.$probeDir, 0775);
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
+    /**
+     * Prompt 269, seconda parte — CORRETTO dopo verifica reale non-root
+     * (vedi nota della fase di correzione): 0600 (rw-------, il permesso
+     * letteralmente descritto da "non attraversabile" — legge la
+     * directory ma non puo' entrarci) e' un caso DIVERSO da quello sopra.
+     * Ipotesi iniziale sbagliata: che il file interno diventasse del
+     * tutto invisibile al report anche nello scenario realistico (un solo
+     * lato compromesso, es. una `cp -a` da backup che tocca solo la
+     * radice servita). Verificato con un utente non-root reale che NON e'
+     * cosi': `is_file()` sul percorso completo del file fallisce chiuso
+     * (richiede il bit x sulla directory padre per essere raggiunto), e
+     * il file discovered dall'altro lato (leggibile) risulta quindi
+     * `missing_on_webroot` — un segnale corretto e già attuabile, non un
+     * buco. Questo test lo prova esplicitamente. Il caso di VERA
+     * invisibilita' (nessuno dei due lati riesce a enumerare il file) si
+     * verifica solo se ENTRAMBE le radici hanno la stessa sottodirectory
+     * a 0600 contemporaneamente — scenario meno realistico, coperto dal
+     * test successivo.
+     */
+    public function test_a_directory_unsafe_on_only_one_root_still_flags_its_content_as_missing_not_invisible(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        $nested = $probeDir.'/theme';
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($nested), 0775, true);
+        file_put_contents(public_path($nested.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$nested, 0775, true);
+        file_put_contents($servedRoot.'/'.$nested.'/one.js', 'console.log(1)');
+        // Solo il lato servito: lo scenario realistico di una `cp -a` da
+        // backup che preserva un permesso troppo restrittivo su una sola
+        // radice.
+        chmod($servedRoot.'/'.$nested, 0600);
+
+        try {
+            $report = $this->detector()->report();
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_UNSAFE_MODE,
+                $byPath[$nested]['status'],
+                'The directory entry itself, discovered from its still-traversable parent, must be flagged.'
+            );
+
+            // Verificato con un utente non-root reale (vedi nota sopra):
+            // il file resta scoperto via il lato leggibile (app) e
+            // risulta missing_on_webroot, MAI silenziosamente assente dal
+            // report — anche se in questa sandbox, eseguita come root, il
+            // lato servito resta comunque leggibile (bypass DAC) e lo
+            // status osservabile qui e' percio' OK, non missing: la
+            // differenza e' attesa e non contraddice la prova non-root.
+            if (function_exists('posix_getuid') && posix_getuid() === 0) {
+                $this->assertArrayHasKey($nested.'/one.js', $byPath);
+
+                return;
+            }
+
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_MISSING_ON_WEBROOT,
+                $byPath[$nested.'/one.js']['status'],
+                'Verified with a real non-root user: is_file() on the served side fails closed (needs +x on the parent to be reached at all), so the file discovered via the still-readable app side is correctly reported missing_on_webroot — never silently dropped from the report.'
+            );
+            $this->assertFalse($this->detector()->isClean());
+        } finally {
+            chmod($servedRoot.'/'.$nested, 0775);
+            $this->deleteRecursively(public_path($probeDir));
+        }
+    }
+
+    /**
+     * Prompt 269, terza parte: la vera invisibilita' di contenuto — nessun
+     * lato riesce a enumerare il file, quindi non compare nel report con
+     * NESSUNO status, nemmeno "missing" — si verifica solo quando
+     * ENTRAMBE le radici hanno la stessa sottodirectory a 0600
+     * contemporaneamente. Verificato con un utente non-root reale:
+     *
+     *   DEBUG (entrambi i lati a 0600): {"status":"NOT_FOUND"}
+     *
+     * Non risolvibile dal try/catch di questo fix (non lancia mai nulla
+     * da catturare): limite strutturale accettato, non un bug. Il segnale
+     * che resta e' che la DIRECTORY stessa risulta comunque
+     * STATUS_UNSAFE_MODE tramite il solo controllo di modo (non richiede
+     * traversal) — un operatore sa quindi che va ispezionata a mano.
+     */
+    public function test_a_directory_unsafe_on_both_roots_makes_its_content_genuinely_invisible_but_the_directory_itself_stays_flagged(): void
+    {
+        $servedRoot = $this->makeServedRoot();
+        $probeDir = $this->probeDir();
+        $nested = $probeDir.'/theme';
+        config(['deploy.asset_drift_scan_paths' => [$probeDir]]);
+
+        mkdir(public_path($nested), 0775, true);
+        file_put_contents(public_path($nested.'/one.js'), 'console.log(1)');
+        mkdir($servedRoot.'/'.$nested, 0775, true);
+        file_put_contents($servedRoot.'/'.$nested.'/one.js', 'console.log(1)');
+        chmod($servedRoot.'/'.$nested, 0600);
+        chmod(public_path($nested), 0600);
+
+        try {
+            $report = $this->detector()->report();
+            $byPath = collect($report['entries'])->keyBy('path');
+
+            $this->assertSame(
+                PublicAssetDriftDetector::STATUS_UNSAFE_MODE,
+                $byPath[$nested]['status'],
+                'The directory entry itself must still be flagged even when its content cannot be enumerated on either side — this comes from fileperms(), not from a traversal attempt, so it holds for root and non-root alike.'
+            );
+            $this->assertFalse($this->detector()->isClean());
+
+            // Come sopra: in questa sandbox root bypassa il DAC, quindi
+            // il file resta comunque visibile qui. La prova della vera
+            // invisibilita' per un processo non privilegiato e' stata
+            // ottenuta con un utente non-root reale fuori da questa
+            // sandbox root (vedi il DEBUG log nel commento della funzione).
+            if (function_exists('posix_getuid') && posix_getuid() === 0) {
+                $this->assertArrayHasKey($nested.'/one.js', $byPath);
+
+                return;
+            }
+
+            $this->assertArrayNotHasKey(
+                $nested.'/one.js',
+                $byPath,
+                'Documenting the actual (accepted) limitation: when BOTH roots share the same non-traversable subdirectory, its content is invisible to per-file comparison — not silently marked ok, simply absent from the report, with the directory-level flag as the only remaining signal.'
+            );
+        } finally {
+            chmod($servedRoot.'/'.$nested, 0775);
+            chmod(public_path($nested), 0775);
             $this->deleteRecursively(public_path($probeDir));
         }
     }
