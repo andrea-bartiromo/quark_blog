@@ -23,7 +23,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || { echo "ERROR: cannot cd into repository root: $REPO_ROOT" >&2; exit 1; }
 
 FILTER=""
 for arg in "$@"; do
@@ -104,6 +104,15 @@ fi
 section "Riepilogo"
 for check in phpunit pint diff_check asset_drift; do
   printf '  %-16s %s\n' "$check" "${RESULT[$check]}"
+  # ShellCheck SC2034 (Kairus Prompt 279): DETAIL[phpunit] veniva
+  # popolato all'esito PHPUnit (riga sopra) ma non era mai letto — l'unico
+  # dettaglio visibile a un operatore restava l'output scorso via `tail
+  # -3` al momento del controllo, perso se la sessione scrolla oltre in
+  # una suite lunga. Il riepilogo finale ora lo ristampa quando presente,
+  # invece di limitarsi a rimuovere la variabile morta.
+  if [[ -n "${DETAIL[$check]:-}" ]]; then
+    printf '    -> %s\n' "${DETAIL[$check]}"
+  fi
 done
 
 if [[ "$OVERALL" -eq 0 ]]; then

@@ -212,35 +212,118 @@ class SelectiveDeployBackupScriptTest extends TestCase
      */
     public function test_rollback_normalizes_recreated_public_directories_even_under_a_restrictive_umask(): void
     {
-        File::ensureDirectoryExists($this->publicRoot.'/css/theme');
-        File::put($this->publicRoot.'/css/theme/site.css', "old-css\n");
-
         $manifest = $this->root.'/manifest.tsv';
         File::put($manifest, "public\tcss/theme/site.css\n");
 
-        $backup = $this->runBackup($manifest);
+        // Kairus Prompt 274 (programma 251-400): tre umask esplicitamente
+        // richiesti, non solo il piu' restrittivo — la normalizzazione a
+        // 0755 di questo script e' un chmod assoluto (mai relativo allo
+        // umask), quindi il risultato atteso e' identico per tutti e tre,
+        // a differenza del lato app-scoped (vedi il test gemello sotto).
+        foreach (['077', '022', '027'] as $umask) {
+            File::deleteDirectory($this->publicRoot.'/css');
+            File::ensureDirectoryExists($this->publicRoot.'/css/theme');
+            File::put($this->publicRoot.'/css/theme/site.css', "old-css\n");
 
-        // "Deploy fallito": la directory intermedia sparisce del tutto
-        // dalla radice servita, non solo il file.
-        File::deleteDirectory($this->publicRoot.'/css/theme');
+            File::deleteDirectory($this->backupRoot);
+            File::ensureDirectoryExists($this->backupRoot);
 
-        $rollback = new Process([
-            'bash', '-c',
-            'umask 077; exec bash "$0" rollback --backup-dir "$1" --app-root "$2" --public-root "$3"',
-            $this->script, $backup, $this->appRoot, $this->publicRoot,
-        ]);
-        $rollback->mustRun();
+            $backup = $this->runBackup($manifest);
 
-        $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/theme/site.css'));
-        $this->assertSame(
-            '755',
-            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme')), -3),
-            'A directory recreated by rollback for a public-scoped file must be 0755 regardless of the process umask — Apache must be able to traverse it.'
-        );
-        $this->assertSame(
-            '644',
-            substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme/site.css')), -3)
-        );
+            // "Deploy fallito": la directory intermedia sparisce del
+            // tutto dalla radice servita, non solo il file.
+            File::deleteDirectory($this->publicRoot.'/css/theme');
+
+            $rollback = new Process([
+                'bash', '-c',
+                'umask '.$umask.'; exec bash "$0" rollback --backup-dir "$1" --app-root "$2" --public-root "$3"',
+                $this->script, $backup, $this->appRoot, $this->publicRoot,
+            ]);
+            $rollback->mustRun();
+
+            $this->assertSame("old-css\n", File::get($this->publicRoot.'/css/theme/site.css'));
+            $this->assertSame(
+                '755',
+                substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme')), -3),
+                "Under umask $umask: a directory recreated by rollback for a public-scoped file must be 0755 regardless of the process umask — Apache must be able to traverse it."
+            );
+            $this->assertSame(
+                '644',
+                substr(sprintf('%o', fileperms($this->publicRoot.'/css/theme/site.css')), -3)
+            );
+        }
+    }
+
+    /**
+     * Kairus Prompt 274-275 (programma 251-400): il test gemello sopra
+     * (`..._even_under_a_restrictive_umask`) prova la normalizzazione a
+     * 0755 solo per una directory intermedia RICREATA lato "public". Lo
+     * stesso `mkdir -p "$(dirname "$dest")"` (riga 210 dello script) vale
+     * anche per il lato "app" — ma il blocco di chmod esplicito appena
+     * sotto (righe 211-225) e' condizionato a `[[ "$scope" == "public" ]]`
+     * e non si applica mai li'. Questo test verifica cosa succede
+     * davvero: sotto umask 077, una directory app-scoped ricreata da
+     * rollback resta a 0700 (mkdir eredita l'umask del processo, nessuna
+     * normalizzazione la corregge) — a differenza del lato public, sempre
+     * forzato a 0755. Per il file al suo interno non cambia nulla (i file
+     * app-scoped preservano gia' volutamente il proprio permesso, provato
+     * sopra): qui l'oggetto sotto esame e' la DIRECTORY, non il file.
+     *
+     * Non e' necessariamente un difetto: il lato app non e' la radice
+     * servita da Apache, quindi una directory 0700 non produce lo stesso
+     * incidente di readability pubblica gia' chiuso per il lato public —
+     * ma resta un comportamento diverso da quello che ci si aspetterebbe
+     * leggendo solo il commento della riga 214 ("mkdir -p eredita lo
+     * umask del processo"), che descrive il problema in generale senza
+     * dire che la correzione si applica solo a un lato. Questo test rende
+     * esplicito il confine reale del fix esistente, cosi' un futuro
+     * lettore non lo confonda con una copertura completa.
+     */
+    public function test_rollback_leaves_a_recreated_app_scoped_directory_at_the_raw_umask_mode_unlike_public(): void
+    {
+        $manifest = $this->root.'/manifest.tsv';
+        File::put($manifest, "app\tconfig/nested/settings.php\n");
+
+        // Ogni rollback si automarca completato (.rollback-complete) e
+        // rifiuta di essere rieseguito sullo stesso backup: un backup
+        // fresco per ogni umask testato, non uno riutilizzato tre volte.
+        foreach (['077', '022', '027'] as $umask) {
+            File::deleteDirectory($this->appRoot.'/config');
+            File::ensureDirectoryExists($this->appRoot.'/config/nested');
+            File::put($this->appRoot.'/config/nested/settings.php', "old-config\n");
+
+            // Un backup fresco per ogni umask: lo script rifiuta un
+            // backup path gia' esistente per lo stesso previous/target
+            // SHA (fisso in runBackup()).
+            File::deleteDirectory($this->backupRoot);
+            File::ensureDirectoryExists($this->backupRoot);
+
+            $backup = $this->runBackup($manifest);
+
+            // "Deploy fallito": la directory intermedia sparisce del
+            // tutto dal lato applicativo, non solo il file — stesso
+            // scenario del test gemello public, ma sul lato app.
+            File::deleteDirectory($this->appRoot.'/config');
+
+            $rollback = new Process([
+                'bash', '-c',
+                'umask '.$umask.'; exec bash "$0" rollback --backup-dir "$1" --app-root "$2" --public-root "$3"',
+                $this->script, $backup, $this->appRoot, $this->publicRoot,
+            ]);
+            $rollback->mustRun();
+
+            $this->assertSame("old-config\n", File::get($this->appRoot.'/config/nested/settings.php'));
+
+            // Il permesso effettivo di una directory creata da mkdir -p è
+            // 0777 meno lo umask del processo — non normalizzato da
+            // questo script lato app, a differenza del lato public.
+            $expectedDirMode = sprintf('%03o', 0777 & ~octdec($umask));
+            $this->assertSame(
+                $expectedDirMode,
+                substr(sprintf('%o', fileperms($this->appRoot.'/config')), -3),
+                "Under umask $umask, an app-scoped directory recreated by rollback is left at the raw mkdir mode ($expectedDirMode) — documented limitation, not normalized to 0755 the way the public-scoped path is."
+            );
+        }
     }
 
     public function test_incomplete_backup_is_rejected_for_rollback(): void

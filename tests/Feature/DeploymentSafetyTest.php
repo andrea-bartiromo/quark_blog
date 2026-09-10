@@ -254,12 +254,30 @@ class DeploymentSafetyTest extends TestCase
         $revisionWritePosition = strpos($script, '> REVISION');
         $assetDriftCheckPosition = strpos($script, 'deploy:asset-drift');
         $migrationGatePosition = strpos($script, 'Pending migrations detected');
+        // Kairus Prompt 278 (programma 251-400): la terza tappa che deve
+        // precedere REVISION/DEPLOY_INFO — le cache locali (config/route/
+        // view), il "test di fumo" applicativo prima del gate asset-drift.
+        // Le due posizioni sopra erano gia' testate; questa mancava.
+        $cacheRefreshPosition = strpos($script, 'php artisan config:cache');
+        $localSmokeCheckPosition = strpos($script, 'php artisan about');
 
         $this->assertNotFalse($revisionWritePosition);
         $this->assertNotFalse($assetDriftCheckPosition);
         $this->assertNotFalse($migrationGatePosition);
+        $this->assertNotFalse($cacheRefreshPosition);
+        $this->assertNotFalse($localSmokeCheckPosition);
         $this->assertGreaterThan($migrationGatePosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the migration safety gate, never before it.');
+        $this->assertGreaterThan($cacheRefreshPosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the local cache refresh (config/route/view:cache), never before it.');
+        $this->assertGreaterThan($localSmokeCheckPosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the local smoke check (`php artisan about`), never before it.');
         $this->assertGreaterThan($assetDriftCheckPosition, $revisionWritePosition, 'REVISION/DEPLOY_INFO must be recorded after the asset drift gate, never before it.');
+
+        // L'ordine relativo fra loro conta quanto la posizione rispetto a
+        // REVISION: un cache refresh eseguito DOPO il gate asset-drift (o
+        // uno smoke check dopo REVISION) soddisferebbe comunque i soli
+        // controlli sopra senza che l'invariante voluto (cache -> smoke ->
+        // asset-drift -> REVISION) sia davvero rispettato.
+        $this->assertGreaterThan($cacheRefreshPosition, $localSmokeCheckPosition, 'The local smoke check must run after the cache refresh, matching the documented order.');
+        $this->assertGreaterThan($localSmokeCheckPosition, $assetDriftCheckPosition, 'The asset drift gate must run after the local smoke check, matching the documented order.');
     }
 
     /**

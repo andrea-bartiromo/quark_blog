@@ -90,6 +90,77 @@ The drift detector above originally compared only content (SHA-256) and presence
 
 **Where a restrictive permission on a nested directory could escape the drift gate:** `App\Services\Deploy\PublicAssetDriftDetector`'s `STATUS_UNSAFE_MODE` check originally inspected only the directory named directly in `config('deploy.asset_drift_scan_paths')` (e.g. `css`), on the assumption that an unreadable *nested* directory (e.g. `css/theme`) would simply make its files show up as missing. That assumption holds only when the scanning process itself lacks access — but the deploy/scanning process typically owns the files and can traverse a `0700` directory it owns even though Apache (a different user) cannot, so a nested directory like that could hash and match its files as `ok` while still being unreachable to the actual web server. The detector now walks and validates every directory in the scanned subtree, not just the one named directly in config — found by the same PR #535 review and locked in by a regression test with a safe top-level directory and an unsafe nested one.
 
+## Incident runbook: a public CSS/JS asset returns 404 or is unreadable
+
+Kairus Prompt 280 (programma 251-400). A release-managed static asset (CSS, JS, an icon under `assets/icons`, or one of the top-level static files — see `config('deploy.asset_drift_scan_paths')`) either returns HTTP 404 on the real site, or a browser/CI report shows a stylesheet failed to load. This section is the explicit diagnosis → rollback → fix → post-release verification sequence for that specific incident class — see "Known limits" below for what it does *not* cover (a real host has never been touched by any tooling in this repository; every step here assumes an authorized human is operating against the actual production host).
+
+### 1. Diagnose
+
+Run the drift gate directly against production first — it is read-only and safe to run at any time, deployed or not:
+
+```bash
+php artisan deploy:asset-drift
+```
+
+Match the reported status to a cause:
+
+| Status | Meaning | Likely cause |
+| --- | --- | --- |
+| `missing_on_webroot` | File exists in the application root, not on the served root | A release step never copied it to `DEPLOY_SERVED_PUBLIC_ROOT` — the exact two-document-root divergence this gate exists to catch (see "Public asset deployment: two document roots" above). |
+| `missing_on_app` | File exists on the served root, not in the application root | A file was manually placed on the served root outside of any release, or a prior release removed it from Git without removing the served copy. |
+| `mismatch` | Different content (SHA-256) on the two roots | A partial/failed copy left a stale version on one side — the exact `public-premium.css` incident from the night of 24/08 this whole mechanism was built to prevent. |
+| `unsafe_mode` | Content matches, but the file (`< 644`) or a directory in the path (`< 755`) is too restrictive on one root | Almost always a `cp -a`-style copy (a backup restore, a manual `scp -p`) that preserved an overly restrictive source permission — see "Public asset permission contract" above. This is the status that most often explains a 404 with byte-identical content on both roots: Apache literally cannot read the file, or cannot traverse a directory in its path. |
+| `empty_file` | `0` bytes on both roots | A copy was interrupted mid-write on both sides (rare — usually only reachable via a broken release automation step, not a normal deploy). |
+
+If the gate is disabled (`DEPLOY_SERVED_PUBLIC_ROOT` unset or resolving to the same physical directory as the application root), it cannot help here — confirm first with `php artisan tinker` or a direct `echo $DEPLOY_SERVED_PUBLIC_ROOT` on the host that the two document roots are in fact configured as physically separate, which they must be for a served-root-only 404 to be possible at all.
+
+For `unsafe_mode` specifically, confirm directly on the host which side and which permission bit is missing — the gate's table names the exact path but not the numeric mode:
+
+```bash
+stat -c '%a %n' /path/on/served/root/css/style.css
+stat -c '%a %n' /path/on/app/root/public/css/style.css
+```
+
+A directory missing its execute bit (e.g. `600` instead of `755`) is **not attraversabile**: Apache cannot even reach a byte-identical, correctly-permissioned file inside it. Check every directory component between the served webroot and the file, not just the file itself — this is exactly the gap `unsafeScannedDirectories()` was extended to close (see above), but that extension only makes the *gate* catch it; a human still has to read which directory in the chain is the actual culprit.
+
+### 2. Roll back (if the release itself is the cause)
+
+If the diagnosis points to the most recent release (not a manual, out-of-band change to the served root), roll back the specific affected files with the selective backup/restore tooling rather than a broader release rollback:
+
+```bash
+bash scripts/selective-deploy-backup.sh rollback \
+  --backup-dir <path recorded by the failed/preceding backup run> \
+  --app-root <application public/ root> \
+  --public-root <the real served webroot>
+```
+
+This restores both the `app`-scoped and `public`-scoped copies from the backup taken before the release, and — for `public`-scoped entries specifically — always normalizes the restored file to `644`/`755` and every directory it has to recreate to `755`, regardless of the umask the rollback process happens to run under (verified for `022`, `027`, and `077` — see `SelectiveDeployBackupScriptTest::test_rollback_normalizes_recreated_public_directories_even_under_a_restrictive_umask`). A rollback can only restore what a prior `selective-deploy-backup.sh backup` run actually captured — confirm a backup directory for the affected release exists before relying on this path.
+
+**Known limit, explicit:** the same normalization does **not** apply to `app`-scoped directories rollback has to recreate — those are left at whatever mode the process umask produces (e.g. `700` under `umask 077`), by design symmetry with `app`-scoped *files* already preserving their original mode. This is safe for the application root (not served directly by Apache) but means an `app`-scoped rollback under a restrictive umask can leave a directory the deploying process itself struggles to re-enter later — verified by `SelectiveDeployBackupScriptTest::test_rollback_leaves_a_recreated_app_scoped_directory_at_the_raw_umask_mode_unlike_public`. If this ever matters in practice, `chmod -R 755` the affected application-root subtree by hand after rollback; it is not automatic.
+
+### 3. Fix (if a manual permission/placement correction is enough)
+
+For an isolated `unsafe_mode` finding where the content is already correct on both roots, correcting the permission directly is faster than a full rollback:
+
+```bash
+chmod 644 /path/on/served/root/css/style.css
+chmod 755 /path/on/served/root/css   # every directory component that is too restrictive
+```
+
+Never `chmod -R` a shared directory blindly — normalize only the exact path the gate named, to avoid loosening permissions on unrelated files that may be intentionally restrictive.
+
+For `missing_on_webroot`, copy the file from the application root to the served root, matching the exact relative path the gate reported, then re-run the mode normalization above — a plain `cp` inherits the process umask like any other file creation and is not guaranteed to land at `644`.
+
+### 4. Verify (post-fix, before considering the incident closed)
+
+1. Re-run the gate — it must exit `0` with no problems listed:
+   ```bash
+   php artisan deploy:asset-drift
+   ```
+2. Confirm the asset is actually served correctly, not just present on disk — an authorized human requesting the real URL directly (`curl -I` for status and `Content-Type`, or a browser) against the production host. Neither this command nor any other tooling in this repository has ever made a request against the real host; this step cannot be automated from here.
+3. If the incident affected a page's visual layout (a missing/stale CSS file), also visually confirm the affected page, not only the asset's HTTP status — a `200` with the wrong cached content is still a visible defect.
+4. Record the incident using the standard incident report template (see the backup/RPO-RTO/incident-runbook material from the earlier operational cantieri) — status found, root cause, remediation applied, verification evidence.
+
 ## Staging rollback drill
 
 `scripts/staging-rollback-drill.sh` exercises the real `php artisan deploy:asset-drift` gate against a temporary, throwaway "served root" — never production, never this checkout's own `public/` content, no database required. It mirrors every path in `config('deploy.asset_drift_scan_paths')` into a temp directory, confirms the gate passes clean, injects a real fault (a restrictive `600` permission on one release-managed file — the exact class of risk Prompt 011-014 closed), confirms the same gate now fails closed with that specific file named as `unsafe_mode`, then remediates and confirms the gate passes again. Run it locally at any time:
