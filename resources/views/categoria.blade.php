@@ -12,6 +12,8 @@
     : route('categoria', $slug))
 
 @section('head')
+@if($previousPageUrl)<link rel="prev" href="{{ $previousPageUrl }}">@endif
+@if($nextPageUrl)<link rel="next" href="{{ $nextPageUrl }}">@endif
 @include('collections.partials.structured-data', ['collectionName' => $categoryLabel])
 @endsection
 

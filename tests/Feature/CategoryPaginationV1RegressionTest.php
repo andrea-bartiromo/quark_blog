@@ -80,18 +80,13 @@ class CategoryPaginationV1RegressionTest extends TestCase
         $response->assertViewHas('articles', fn ($paginator) => $paginator->currentPage() === 2 && $paginator->count() === 1);
     }
 
-    public function test_requesting_a_page_beyond_the_last_returns_an_empty_but_valid_page(): void
+    public function test_requesting_a_page_beyond_the_last_returns_404(): void
     {
         $this->publishedArticle('energia');
 
-        // Laravel's LengthAwarePaginator does not 404 or error on a page
-        // number past the last available page — it returns that page
-        // number with zero items. Locking that behavior in explicitly:
-        // /categoria/{slug}?page=999 must stay a real 200, never a crash.
         $response = $this->get(route('categoria', ['slug' => 'energia', 'page' => 999]));
 
-        $response->assertOk();
-        $response->assertViewHas('articles', fn ($paginator) => $paginator->count() === 0);
+        $response->assertNotFound();
     }
 
     public function test_a_non_numeric_page_parameter_falls_back_to_page_one_without_erroring(): void
@@ -129,6 +124,43 @@ class CategoryPaginationV1RegressionTest extends TestCase
         $titles = $response->viewData('articles')->pluck('title')->values()->all();
 
         $this->assertSame(['Il più recente', 'Nel mezzo', 'Il più vecchio'], $titles);
+    }
+
+    public function test_equal_publication_dates_use_id_as_the_final_tie_breaker_across_pages(): void
+    {
+        $publishedAt = now()->subDay();
+        $articles = collect();
+
+        for ($i = 0; $i < 13; $i++) {
+            $articles->push($this->publishedArticle('energia', [
+                'title' => 'Articolo '.$i,
+                'published_at' => $publishedAt,
+            ]));
+        }
+
+        $pageOne = $this->get(route('categoria', 'energia'))->viewData('articles')->pluck('id');
+        $pageTwo = $this->get(route('categoria', ['slug' => 'energia', 'page' => 2]))->viewData('articles')->pluck('id');
+        $combined = $pageOne->concat($pageTwo);
+
+        $this->assertSame($articles->pluck('id')->sortDesc()->values()->all(), $combined->all());
+        $this->assertCount(13, $combined->unique());
+    }
+
+    public function test_head_pagination_links_are_page_aware_and_page_one_is_clean(): void
+    {
+        for ($i = 0; $i < 25; $i++) {
+            $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
+        }
+
+        $pageOne = $this->get(route('categoria', 'energia'));
+        $pageOne->assertOk();
+        $pageOne->assertSee('<link rel="next" href="'.route('categoria', ['slug' => 'energia', 'page' => 2]).'">', false);
+        $pageOne->assertDontSee('<link rel="prev"', false);
+
+        $pageTwo = $this->get(route('categoria', ['slug' => 'energia', 'page' => 2]));
+        $pageTwo->assertOk();
+        $pageTwo->assertSee('<link rel="prev" href="'.route('categoria', 'energia').'">', false);
+        $pageTwo->assertSee('<link rel="next" href="'.route('categoria', ['slug' => 'energia', 'page' => 3]).'">', false);
     }
 
     public function test_a_category_with_zero_published_articles_shows_no_pagination_controls(): void
