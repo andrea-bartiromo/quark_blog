@@ -204,6 +204,25 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringNotContainsString('DB_CONNECTION=sqlite', $env);
     }
 
+    /**
+     * Kairus Prompt 281 (programma 251-400): DEPLOY_SERVED_PUBLIC_ROOT
+     * attiva l'intero gate di drift degli asset statici (vedi
+     * PublicAssetDriftDetector, deploy.sh e docs/DEPLOYMENT.md) ma non
+     * compariva affatto in .env.production.example, a differenza del suo
+     * omologo per la Libreria media (MEDIA_PUBLIC_ROOT, gia' documentato
+     * li' con un esempio commentato) — un operatore che segue solo questo
+     * file come checklist di configurazione non avrebbe mai saputo che la
+     * variabile esiste, lasciando il gate silenziosamente disattivato per
+     * omissione, non per scelta deliberata.
+     */
+    public function test_production_environment_example_documents_the_asset_drift_served_root_variable(): void
+    {
+        $env = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($env);
+        $this->assertStringContainsString('DEPLOY_SERVED_PUBLIC_ROOT', $env);
+    }
+
     public function test_sqlite_remains_the_deterministic_test_database(): void
     {
         $phpunit = file_get_contents(base_path('phpunit.xml'));

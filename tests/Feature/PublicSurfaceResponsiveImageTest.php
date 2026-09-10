@@ -22,12 +22,16 @@ use Tests\TestCase;
  * variante ancora generata: comportamento identico al raw <img>
  * preesistente, nessuna migrazione necessaria).
  *
- * author-card.blade.php (foto autore nel box "Autore" sotto l'articolo)
- * resta volutamente fuori da questo file: FASE 6 della missione ha
- * verificato che usa una radice di storage diversa (storage/) da quella
- * scritta oggi dai controller di upload (assets/img/), e la missione vieta
- * esplicitamente di normalizzare quella radice alla cieca — vedi il report
- * finale per l'analisi completa.
+ * author-card.blade.php (foto autore nel box "Autore" sotto l'articolo) era
+ * rimasto volutamente fuori da questa missione: FASE 6 aveva verificato che
+ * usava una radice di storage diversa (storage/) da quella scritta dai
+ * controller di upload (assets/img/), e la missione vietava di normalizzare
+ * quella radice alla cieca senza prima confermare quale delle due fosse
+ * quella reale. Prompt 283-286 ha chiuso quella verifica: nessun controller
+ * scrive mai in storage/ (il symlink public/storage non esiste nemmeno in
+ * questo repository), quindi la card autore sotto l'articolo restituiva un
+ * 404 permanente ogni volta che un autore aveva una foto caricata. Fix e
+ * relativa copertura ora vivono qui sotto, nella sezione dedicata.
  */
 class PublicSurfaceResponsiveImageTest extends TestCase
 {
@@ -278,6 +282,82 @@ class PublicSurfaceResponsiveImageTest extends TestCase
             .asset('assets/img/articles/covers/autore-cover.jpg').' 1600w"', false);
         $response->assertSee('sizes="180px"', false);
         $response->assertSee('alt="Articolo di autore con copertina"', false);
+    }
+
+    // ---- /articolo/{slug}: author-card (Prompt 283-286, fix 404 storage/) ----
+
+    public function test_articolo_author_card_photo_uses_assets_img_not_the_unused_storage_symlink(): void
+    {
+        $author = $this->author();
+        $this->placeCoverWithVariantsAt('author-card-avatar.jpg', 800, 800);
+        $author->update(['photo' => 'author-card-avatar.jpg']);
+        $article = $this->publishedArticle($author, ['title' => 'Articolo con autore fotografato']);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        preg_match('/kairus-author-card__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar della author-card non trovato in pagina.');
+
+        // Il fix sostituisce asset('storage/'.photo) — un simlink mai
+        // creato in questo repository — con il componente responsive che
+        // risolve dalla radice realmente scritta dai controller di upload.
+        $this->assertStringNotContainsString('/storage/', $avatarBlock[0]);
+        $this->assertStringContainsString('src="'.asset('assets/img/author-card-avatar.jpg').'"', $avatarBlock[0]);
+        $this->assertStringContainsString('srcset="'.asset('assets/img/author-card-avatar-480w.jpg').' 480w, '
+            .asset('assets/img/author-card-avatar.jpg').' 800w"', $avatarBlock[0]);
+        $this->assertStringContainsString('alt="'.$author->name.'"', $avatarBlock[0]);
+    }
+
+    public function test_articolo_author_card_falls_back_gracefully_when_photo_file_is_missing_on_disk(): void
+    {
+        // Stesso fallback legacy gia' verificato per /autore/{user}: un
+        // dato "photo" senza file fisico corrispondente non deve mai
+        // generare un errore o una pagina rotta.
+        $author = $this->author();
+        $author->update(['photo' => 'author-che-non-esiste.jpg']);
+        $article = $this->publishedArticle($author, ['title' => 'Articolo con foto autore mancante']);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        $response->assertSee('src="'.asset('assets/img/author-che-non-esiste.jpg').'"', false);
+        $response->assertDontSee('/storage/', false);
+    }
+
+    public function test_articolo_author_card_still_shows_initial_placeholder_when_no_photo_is_set(): void
+    {
+        $author = User::factory()->create(['role' => 'author', 'name' => 'Autrice Senza Foto', 'photo' => null]);
+        $article = $this->publishedArticle($author, ['title' => 'Articolo con autore senza foto']);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        preg_match('/kairus-author-card__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar della author-card non trovato in pagina.');
+        $this->assertStringNotContainsString('<img', $avatarBlock[0]);
+        $this->assertStringContainsString(mb_substr($author->name, 0, 2), $avatarBlock[0]);
+    }
+
+    public function test_articolo_author_card_leaves_a_legacy_slash_path_photo_untouched(): void
+    {
+        // docs/MISSION_75_USER_PHOTO_PRODUCTION_PREFLIGHT.md: non e'
+        // provato che ogni riga "photo" di produzione sia stata scritta
+        // dal codice attuale (che salva sempre un disk_name senza slash).
+        // Un valore con slash e' trattato come possibile path legacy e
+        // deve continuare a passare per asset('storage/'...) esattamente
+        // come prima del fix, finche' quella mission non fornisce i fatti
+        // di produzione necessari a normalizzarlo in sicurezza.
+        $author = $this->author();
+        $author->update(['photo' => 'legacy/avatar-autore.jpg']);
+        $article = $this->publishedArticle($author, ['title' => 'Articolo con foto autore legacy']);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        preg_match('/kairus-author-card__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar della author-card non trovato in pagina.');
+        $this->assertStringContainsString('src="'.asset('storage/legacy/avatar-autore.jpg').'"', $avatarBlock[0]);
     }
 
     // ---- Upload profilo: le foto autore devono generare varianti ----
