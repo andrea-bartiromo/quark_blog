@@ -89,6 +89,26 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+# Incidente reale (rilascio controllato di main@0907b4e, dopo PR #540):
+# `newsletter:reconfirmation-cleanup` era presente e correttamente
+# registrato secondo ogni verifica statica/in-process disponibile
+# (bootstrap/app.php, test PHPUnit nello stesso processo), eppure un vero
+# sottoprocesso `php artisan newsletter:reconfirmation-cleanup --dry-run`
+# nella release effettiva falliva con "Command is not defined". La causa
+# ambientale esatta non è mai stata riprodotta né confermata: nessun test
+# statico o in-process l'avrebbe mai potuta rilevare, perché entrambi
+# guardano il codice sorgente o un processo PHP già bootstrappato da
+# PHPUnit, mai il runtime Artisan realmente eseguito in questa release.
+# deploy:verify-scheduled-commands non presume di conoscere la causa:
+# verifica il SINTOMO, nel modo in cui si è manifestato — da un vero
+# sottoprocesso `php artisan`, nella stessa release, dopo lo stesso ciclo
+# di cache — per ogni comando che routes/console.php schedula. Se anche
+# un solo comando risulta assente, il rilascio si blocca qui, invece di
+# essere dichiarato riuscito e scoperto solo da un operatore che esegue
+# manualmente --dry-run dopo il fatto.
+echo "Verifying every scheduled command in routes/console.php is actually registered by Artisan in this exact release."
+php artisan deploy:verify-scheduled-commands || fail "Scheduled command verification failed — see output above. This is the exact newsletter:reconfirmation-cleanup incident class: refusing to deploy."
+
 chmod -R 755 storage bootstrap/cache
 
 php artisan about 2>&1 | grep -E "Name|Version|PHP|Database|Environment" || true
