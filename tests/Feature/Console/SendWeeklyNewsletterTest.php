@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
@@ -62,6 +63,34 @@ class SendWeeklyNewsletterTest extends TestCase
 
         Mail::shouldReceive('send')->once()->andReturnNull();
         (new SendNewsletterJob($subscriber, $deliveryKey))->handle();
+    }
+
+    public function test_mail_failure_log_never_contains_recipient_or_provider_payload(): void
+    {
+        $subscriber = $this->confirmedSubscriber('private-recipient@example.com');
+        $this->publishedArticle();
+        $providerPayload = 'Authorization: Bearer super-secret private-recipient@example.com';
+
+        Log::shouldReceive('error')->once()->withArgs(function (string $message, array $context) use ($subscriber, $providerPayload): bool {
+            $serialized = $message.' '.json_encode($context);
+
+            return $message === 'Invio newsletter legacy fallito.'
+                && $context === [
+                    'subscriber_id' => $subscriber->id,
+                    'error_class' => 'RuntimeException',
+                ]
+                && ! str_contains($serialized, $subscriber->email)
+                && ! str_contains($serialized, $providerPayload)
+                && ! str_contains($serialized, 'super-secret');
+        });
+        Mail::shouldReceive('send')->once()->andThrow(new RuntimeException($providerPayload));
+
+        try {
+            (new SendNewsletterJob($subscriber, 'privacy-safe-failure'))->handle();
+            $this->fail('Expected exception was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($providerPayload, $exception->getMessage());
+        }
     }
 
     public function test_no_articles_releases_the_claim_without_sending(): void

@@ -91,7 +91,14 @@ class SendNewsletterJob implements ShouldQueue
                 Cache::forget($cacheKey);
             }
 
-            Log::error("Errore newsletter {$this->subscriber->email}: ".$e->getMessage());
+            // Il log operativo non deve diventare una copia del payload del
+            // provider: email, token, header e messaggi arbitrari possono
+            // contenere dati personali o segreti. Manteniamo solo riferimenti
+            // interni e una classe d'errore a vocabolario controllabile.
+            Log::error('Invio newsletter legacy fallito.', [
+                'subscriber_id' => $this->subscriber->id,
+                'error_class' => class_basename($e),
+            ]);
 
             throw $e;
         }
