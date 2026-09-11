@@ -389,6 +389,216 @@ class DeploymentSafetyTest extends TestCase
     }
 
     /**
+     * Causa reale confermata sull'host di produzione dopo #541:
+     * ~/kairus_app non era un checkout Git e il suo vendor/ — collegato
+     * da altrove, con classmap-authoritative — non conteneva affatto
+     * CleanupExpiredNewsletterPending, mai rigenerato da quando la
+     * classe è stata introdotta. Due controlli dedicati, specifici per
+     * questo comando (già coinvolto in due incidenti separati): una vera
+     * ReflectionClass sull'autoloader di QUESTA release (isola la causa
+     * esatta, non solo l'assenza già rilevata da
+     * deploy:verify-scheduled-commands) e un vero --dry-run in
+     * sottoprocesso (prova che il comando gira davvero, non solo che è
+     * elencato).
+     */
+    public function test_production_deploy_reflects_and_dry_runs_newsletter_cleanup_before_any_public_switch(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('CleanupExpiredNewsletterPending', $script);
+        $this->assertStringContainsString('php artisan newsletter:reconfirmation-cleanup --dry-run', $script);
+
+        $scheduledGatePosition = strpos($script, 'php artisan deploy:verify-scheduled-commands');
+        $reflectionPosition = strpos($script, 'new ReflectionClass("App\\\\Console\\\\Commands\\\\CleanupExpiredNewsletterPending")');
+        $dryRunPosition = strpos($script, 'php artisan newsletter:reconfirmation-cleanup --dry-run --no-ansi');
+        $chmodPosition = strpos($script, 'chmod -R 755 storage bootstrap/cache');
+        $revisionWritePosition = strpos($script, "printf '%s\\n' \"\$ACTUAL_SHA\" > REVISION");
+
+        $this->assertNotFalse($scheduledGatePosition);
+        $this->assertNotFalse($reflectionPosition);
+        $this->assertNotFalse($dryRunPosition);
+        $this->assertNotFalse($chmodPosition);
+        $this->assertNotFalse($revisionWritePosition);
+
+        $this->assertGreaterThan($scheduledGatePosition, $reflectionPosition, 'The reflection gate must run after the generic scheduled-command gate.');
+        $this->assertGreaterThan($reflectionPosition, $dryRunPosition, 'The dry-run gate must run after the reflection gate.');
+        $this->assertLessThan($chmodPosition, $dryRunPosition, 'Both new gates must run before the release is otherwise finalized.');
+        $this->assertLessThan($revisionWritePosition, $dryRunPosition, 'Both new gates must run before REVISION/DEPLOY_INFO — and therefore before any public file switch, which an operator only ever does after a completed deploy.sh run.');
+    }
+
+    /**
+     * Prova a sottoprocesso reale, con un vendor GENUINAMENTE dentro la
+     * release (hard link via `cp -al`, mai un symlink — vedi il test
+     * gemello sotto per il perché) — esattamente l'architettura
+     * corretta richiesta dall'operatore ("vendor rigenerato dentro la
+     * release stessa dal suo composer.lock"): caso positivo, poi rottura
+     * reale del file del comando (stesso incidente), a dimostrare che il
+     * controllo di reflection fallisce chiuso con il messaggio esatto.
+     */
+    public function test_production_deploy_reflection_gate_fails_closed_when_the_command_file_is_genuinely_missing(): void
+    {
+        $this->ensureBashAndGitAvailable();
+
+        $worktree = base_path('storage/framework/testing/deploy-reflect-worktree-'.bin2hex(random_bytes(6)));
+
+        try {
+            (new Process(['git', 'worktree', 'add', '--quiet', '--detach', $worktree, 'HEAD'], base_path()))->mustRun();
+
+            // `cp -al`: albero di hard link, non un symlink. Un vendor
+            // symlinkato da un'altra directory farebbe risolvere
+            // l'autoloader ottimizzato di Composer (il cui $baseDir è
+            // calcolato da __DIR__ dentro vendor/composer/*.php, e PHP
+            // risolve sempre __DIR__ attraverso un symlink fino al
+            // percorso fisico reale) rispetto a QUELLA directory, non a
+            // questo worktree — esattamente il secondo test qui sotto.
+            // Un albero di hard link e' invece composto da voci di
+            // directory reali in questo worktree: nessuna risoluzione,
+            // vendor si comporta come se fosse stato rigenerato qui.
+            (new Process(['cp', '-al', base_path('vendor'), $worktree.'/vendor']))->mustRun();
+
+            $dbPath = $worktree.'/database/deploy_reflect_test.sqlite';
+            if (! is_dir(dirname($dbPath))) {
+                mkdir(dirname($dbPath), 0775, true);
+            }
+            touch($dbPath);
+
+            // phpunit.xml forces DB_DATABASE=:memory: for this PHPUnit
+            // process itself; Symfony Process inherits that same
+            // environment by default, which would otherwise give every
+            // spawned subprocess its own empty, unmigrated in-memory
+            // database instead of this worktree's own file — same fix
+            // as CleanupExpiredNewsletterPendingTest's subprocess test.
+            $env = ['DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $dbPath];
+
+            $appKey = 'base64:'.base64_encode(random_bytes(32));
+            file_put_contents($worktree.'/.env', <<<ENV
+            APP_NAME="Kairus"
+            APP_ENV=production
+            APP_KEY={$appKey}
+            APP_DEBUG=false
+            APP_URL=https://kairus.it
+            DB_CONNECTION=sqlite
+            DB_DATABASE={$dbPath}
+            CACHE_STORE=file
+            SESSION_DRIVER=file
+            LOG_CHANNEL=daily
+            MAIL_MAILER=array
+
+            ENV);
+
+            (new Process(['php', 'artisan', 'migrate', '--force', '--no-ansi'], $worktree, $env))->mustRun();
+            (new Process(['php', 'artisan', 'optimize:clear'], $worktree))->mustRun();
+
+            $reflectionScript = <<<'PHP'
+            require "vendor/autoload.php";
+            try {
+                $reflection = new ReflectionClass("App\Console\Commands\CleanupExpiredNewsletterPending");
+            } catch (\Throwable $e) {
+                fwrite(STDERR, get_class($e) . ": " . $e->getMessage() . "\n");
+                exit(1);
+            }
+            $expectedFile = realpath(getcwd() . "/app/Console/Commands/CleanupExpiredNewsletterPending.php");
+            $actualFile = realpath($reflection->getFileName());
+            if ($expectedFile === false || $actualFile !== $expectedFile) {
+                fwrite(STDERR, "MISMATCH\n");
+                exit(1);
+            }
+            echo "reflected from this release's own file\n";
+            PHP;
+
+            $healthy = new Process(['php', '-r', $reflectionScript], $worktree);
+            $healthy->run();
+            $this->assertTrue($healthy->isSuccessful(), 'Expected the reflection gate to pass on an unmodified release: '.$healthy->getOutput().$healthy->getErrorOutput());
+            $this->assertStringContainsString("reflected from this release's own file", $healthy->getOutput());
+
+            $dryRun = new Process(['php', 'artisan', 'newsletter:reconfirmation-cleanup', '--dry-run', '--no-ansi'], $worktree, $env);
+            $dryRun->run();
+            $this->assertTrue($dryRun->isSuccessful(), 'Expected a real --dry-run subprocess to succeed on an unmodified release: '.$dryRun->getOutput().$dryRun->getErrorOutput());
+
+            $commandFile = $worktree.'/app/Console/Commands/CleanupExpiredNewsletterPending.php';
+            $this->assertFileExists($commandFile);
+            unlink($commandFile);
+
+            (new Process(['php', 'artisan', 'optimize:clear'], $worktree))->mustRun();
+
+            $broken = new Process(['php', '-r', $reflectionScript], $worktree);
+            $broken->run();
+            $this->assertFalse($broken->isSuccessful(), 'A genuinely missing command file must fail real reflection via a real subprocess.');
+
+            $brokenDryRun = new Process(['php', 'artisan', 'newsletter:reconfirmation-cleanup', '--dry-run', '--no-ansi'], $worktree, $env);
+            $brokenDryRun->run();
+            $this->assertFalse($brokenDryRun->isSuccessful(), 'A genuinely missing command file must also fail a real --dry-run subprocess.');
+            $this->assertStringContainsString('not defined', $brokenDryRun->getOutput().$brokenDryRun->getErrorOutput());
+        } finally {
+            (new Process(['git', 'worktree', 'remove', '--force', $worktree], base_path()))->run();
+            File::deleteDirectory($worktree);
+        }
+    }
+
+    /**
+     * Riproduce empiricamente il meccanismo scoperto durante questo
+     * stesso cantiere: un vendor COLLEGATO (symlink) a una directory
+     * fisicamente diversa da questa release risolve silenziosamente le
+     * classi rispetto a QUELLA directory, non rispetto a questa release
+     * — perché l'autoloader ottimizzato di Composer calcola il proprio
+     * $baseDir da __DIR__ dentro vendor/composer/*.php, e PHP risolve
+     * sempre __DIR__ attraverso un symlink fino al percorso fisico
+     * reale. Un naive "vendor collegato" condiviso tra più release
+     * sarebbe quindi silenziosamente pericoloso anche se perfettamente
+     * aggiornato: le classi si caricherebbero dalla directory FISICA in
+     * cui quel vendor e' stato creato, non dalla release che lo usa.
+     * Questo test prova che il controllo di percorso nel gate lo rileva
+     * comunque — anche quando la reflection "ha successo".
+     */
+    public function test_production_deploy_reflection_gate_fails_closed_on_a_vendor_symlinked_to_a_different_release(): void
+    {
+        $this->ensureBashAndGitAvailable();
+
+        $worktree = base_path('storage/framework/testing/deploy-reflect-symlink-worktree-'.bin2hex(random_bytes(6)));
+
+        try {
+            (new Process(['git', 'worktree', 'add', '--quiet', '--detach', $worktree, 'HEAD'], base_path()))->mustRun();
+
+            // Un vendor COLLEGATO (symlink), non un hard link: qui
+            // vogliamo riprodurre esattamente il meccanismo pericoloso.
+            symlink(base_path('vendor'), $worktree.'/vendor');
+
+            $reflectionScript = <<<'PHP'
+            require "vendor/autoload.php";
+            try {
+                $reflection = new ReflectionClass("App\Console\Commands\CleanupExpiredNewsletterPending");
+            } catch (\Throwable $e) {
+                fwrite(STDERR, get_class($e) . ": " . $e->getMessage() . "\n");
+                exit(1);
+            }
+            $expectedFile = realpath(getcwd() . "/app/Console/Commands/CleanupExpiredNewsletterPending.php");
+            $actualFile = realpath($reflection->getFileName());
+            if ($expectedFile === false || $actualFile !== $expectedFile) {
+                fwrite(STDERR, "resolved from " . $actualFile . ", not this release's own " . $expectedFile . "\n");
+                exit(1);
+            }
+            echo "reflected from this release's own file\n";
+            PHP;
+
+            $process = new Process(['php', '-r', $reflectionScript], $worktree);
+            $process->run();
+
+            $this->assertFalse(
+                $process->isSuccessful(),
+                'A vendor symlinked to a physically different directory must fail the path-sanity check, even though bare reflection would report success.'
+            );
+            $this->assertStringContainsString(
+                'not this release',
+                $process->getErrorOutput(),
+                'The failure must specifically be the path mismatch, not a generic reflection error.'
+            );
+        } finally {
+            (new Process(['git', 'worktree', 'remove', '--force', $worktree], base_path()))->run();
+            File::deleteDirectory($worktree);
+        }
+    }
+
+    /**
      * Difetto di rilascio riscontrato di nuovo su main@0907b4e (dopo PR
      * #540): `newsletter:reconfirmation-cleanup` era correttamente
      * registrato secondo bootstrap/app.php e secondo
