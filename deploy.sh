@@ -89,6 +89,20 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+# Prompt 8 (programma 100-prompt Kairus): config:cache appena rigenerata
+# sopra congela ogni percorso storage_path()-based (log, sessioni, cache
+# su file, disco locale) risolto in QUESTA directory. Con lo schema a
+# directory di release separate + switch di symlink, un
+# bootstrap/cache/config.php sopravvissuto da una release con un
+# percorso diverso (copia/rsync che include per errore bootstrap/cache,
+# un operatore che salta il refresh) farebbe scrivere log/sessioni/cache
+# nella directory sbagliata in modo silenzioso — nessun errore
+# immediato, solo dati persi. Verifica il sintomo esatto subito dopo il
+# refresh che dovrebbe averlo già escluso per costruzione — vedi
+# App\Services\Deploy\CachedConfigPathAudit.
+echo "Verifying the freshly rebuilt config cache resolves storage_path()-based paths under this exact release directory."
+php artisan deploy:verify-cache-paths || fail "Cached config paths do not match this release directory — see output above. Refusing to deploy with a config cache that may belong to a different release."
+
 # Incidente reale (rilascio controllato di main@0907b4e, dopo PR #540):
 # `newsletter:reconfirmation-cleanup` era presente e correttamente
 # registrato secondo ogni verifica statica/in-process disponibile

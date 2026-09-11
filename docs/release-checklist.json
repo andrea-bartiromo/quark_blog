@@ -58,6 +58,12 @@
       "failure_is": "fatal"
     },
     {
+      "id": "cached_config_paths_match_this_release",
+      "description": "Prompt 8 (100-prompt Kairus program). Freshly rebuilt config:cache resolves every storage_path()-based value (log/session/cache/disk paths) under this exact release directory, not a directory from a different release — see App\\Services\\Deploy\\CachedConfigPathAudit.",
+      "marker": "php artisan deploy:verify-cache-paths ||",
+      "failure_is": "fatal"
+    },
+    {
       "id": "public_asset_drift_clean",
       "description": "Release-managed static assets (config('deploy.asset_drift_scan_paths')) match on content, permission and non-emptiness between the application root and the configured served document root — see App\\Services\\Deploy\\PublicAssetDriftDetector. A no-op when DEPLOY_SERVED_PUBLIC_ROOT is unset.",
       "marker": "php artisan deploy:asset-drift ||",
