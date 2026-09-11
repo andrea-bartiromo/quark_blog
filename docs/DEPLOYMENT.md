@@ -42,6 +42,22 @@ Before deploying, record the current production `REVISION` as the rollback targe
 
 Database rollback is not implied by a Git rollback. Any release that includes migrations requires an explicit migration/restore plan reviewed together with the MariaDB/MySQL backup procedure.
 
+## Release registry
+
+`REVISION` and `DEPLOY_INFO` above live inside the release directory itself and are overwritten/discarded on the next release — with the two-directory-plus-symlink-switch schema already in production use, no history survives across deploys. The operational roadmap's own stated principle (`costruito ≠ CI green ≠ merged ≠ deployed ≠ verified ≠ measured` — see `docs/KAIRUS_TECHNICAL_ROADMAP_V14.md`) is tracked today as a hand-maintained Markdown table, with no automatic source.
+
+`App\Services\Deploy\ReleaseRegistry` is an append-only, JSON Lines log at `config('deploy.release_registry_path')` (`DEPLOY_RELEASE_REGISTRY_PATH`), one event per line: `{"revision", "stage", "recorded_at_utc", "note"}`. **Disabled by default** — same opt-in pattern as `DEPLOY_SERVED_PUBLIC_ROOT`/`MEDIA_PUBLIC_ROOT` — nothing changes until the path is set, and it must point **outside** the release directory (e.g. a file sibling to `~/kairus_app`, never inside it) or the entry is lost on the next release just like `DEPLOY_INFO`.
+
+`deploy.sh` calls `php artisan release:record-registry "$ACTUAL_SHA" --stage=deployed` as the very last step, after `REVISION`/`DEPLOY_INFO` are written. **Never a gate**: a no-op when unconfigured, and any other failure (unwritable path, missing directory) only produces a warning — `deploy.sh` always continues. Later stages (`verified`, `measured`) are meant to be recorded by separate, manual or scheduled invocations of the same command once that evidence actually exists — this repository does not (and should not) infer "verified" or "measured" from the mere fact that a deploy succeeded.
+
+Read the history at any time:
+
+```bash
+php artisan release:registry
+```
+
+Exits `0` always; prints a table of every registered revision with its earliest `deployed`/`verified`/`measured` timestamp, or an explanatory message when the registry is disabled or empty. `--json` returns the same data as JSON for tooling.
+
 ## What stays SQLite
 
 SQLite is intentionally retained for local development, PHPUnit and the deterministic Playwright/browser environment. Do not replace those uses merely because production uses MariaDB/MySQL.
