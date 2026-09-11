@@ -282,13 +282,16 @@ class Category extends Model
      * Come options(false), ma restituisce i model completi (con le
      * colonne necessarie a isPubliclyVisible()) invece della sola mappa
      * slug=>name — per un consumer che deve derivare SIA l'etichetta SIA
-     * la visibilità di una categoria da UNA query sola. Vedi
-     * ArticleController::show(), unico consumer attuale: prima di questo
-     * metodo, calcolare 'categoryPubliclyVisible' lì richiedeva una
-     * seconda query dedicata oltre a options(false), regredendo il
-     * budget query della pagina articolo (vedi PublicPageQueryBudgetTest).
-     * Stesso fallback a config() di options()/publicOptions() quando la
-     * tabella non esiste ancora.
+     * la visibilità di una categoria da UNA query sola. Nato per
+     * ArticleController::show(): prima di questo metodo, calcolare
+     * 'categoryPubliclyVisible' lì richiedeva una seconda query dedicata
+     * oltre a options(false), regredendo il budget query della pagina
+     * articolo (vedi PublicPageQueryBudgetTest). Riusato anche da
+     * publicOptions() e ArticleDiscoveryAuditService per lo stesso motivo:
+     * distinguere "nessuna riga DB" (fallback a config legittimo) da
+     * "riga DB nascosta di proposito" (fallback vietato, vedi i rispettivi
+     * docblock). Stesso fallback a config() di options()/publicOptions()
+     * quando la tabella non esiste ancora.
      *
      * @return Collection<int, Category>
      */
