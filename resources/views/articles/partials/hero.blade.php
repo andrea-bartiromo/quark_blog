@@ -48,9 +48,19 @@
   />
 
   <div class="article-premium__content">
+    {{-- Un articolo già pubblicato può avere una categoria bozza o
+         programmata nel futuro (assegnabile in anticipo, vedi
+         Category::options() vs publicOptions()): il kicker non deve mai
+         linkare una pagina categoria che risponderebbe 404
+         (ArticleController::category()) — vedi $categoryPubliclyVisible,
+         passato dal controller. --}}
+    @if($categoryPubliclyVisible)
     <a href="{{ route('categoria', $article->category) }}" class="public-hero__kicker kairus-focusable" style="text-decoration:none;">
       {{ $categoryLabel }}
     </a>
+    @else
+    <span class="public-hero__kicker">{{ $categoryLabel }}</span>
+    @endif
 
     <h1 class="kairus-article-hero__title">{{ $article->title }}</h1>
 

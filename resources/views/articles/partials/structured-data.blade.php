@@ -87,7 +87,14 @@
     // da articolo.blade.php e breadcrumb.blade.php: prima ciascuno dei tre
     // rieseguiva la stessa query "select name, slug from categories".
     $articleCategoryOptions = $categoryOptions;
-    $articleCategoryRecognized = array_key_exists($article->category, $articleCategoryOptions);
+    // categoryPubliclyVisible (anch'esso dal controller), non solo
+    // array_key_exists: un articolo già pubblicato può avere una categoria
+    // bozza o programmata nel futuro — il BreadcrumbList non deve mai
+    // linkare una pagina categoria che risponderebbe 404
+    // (ArticleController::category()). articleSection sotto resta
+    // un'etichetta testuale, non un link, e quindi non è filtrato qui.
+    $articleCategoryRecognized = array_key_exists($article->category, $articleCategoryOptions)
+        && $categoryPubliclyVisible;
 
     $articleBreadcrumbItems = [
         [

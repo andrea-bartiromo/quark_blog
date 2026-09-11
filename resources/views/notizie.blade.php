@@ -53,7 +53,7 @@
 
     <div class="public-pill-row">
       <a href="{{ route('notizie') }}" class="active">Tutti</a>
-      @foreach(\App\Models\Category::options() as $slug => $label)
+      @foreach(\App\Models\Category::publicOptions() as $slug => $label)
         <a href="{{ route('categoria', $slug) }}">{{ $label }}</a>
       @endforeach
     </div>

@@ -113,12 +113,17 @@ class AppServiceProvider extends ServiceProvider
                     try {
                         $categories = Category::query()
                             ->ordered()
-                            ->get(['name', 'slug', 'is_active']);
+                            ->get(['name', 'slug', 'is_active', 'status', 'published_at']);
 
                         if ($categories->isNotEmpty()) {
                             $all = $categories->pluck('name', 'slug')->toArray();
+                            // Category::isPubliclyVisible(), non solo
+                            // is_active: una categoria bozza o programmata
+                            // nel futuro non deve comparire in nessuna
+                            // superficie di navigazione pubblica — vedi
+                            // Category::scopePubliclyVisible().
                             $active = $categories
-                                ->where('is_active', true)
+                                ->filter(fn (Category $category) => $category->isPubliclyVisible())
                                 ->pluck('name', 'slug')
                                 ->toArray();
                         } else {

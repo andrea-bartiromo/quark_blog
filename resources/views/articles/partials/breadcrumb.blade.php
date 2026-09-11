@@ -16,7 +16,13 @@
     // da articolo.blade.php e structured-data.blade.php: prima ciascuno dei
     // tre rieseguiva la stessa query "select name, slug from categories".
     $breadcrumbCategoryOptions = $categoryOptions;
-    $breadcrumbCategoryRecognized = array_key_exists($article->category, $breadcrumbCategoryOptions);
+    // categoryPubliclyVisible (anch'esso dal controller), non solo
+    // array_key_exists: un articolo già pubblicato può avere una
+    // categoria bozza o programmata nel futuro — il breadcrumb non deve
+    // mai linkare una pagina categoria che risponderebbe 404
+    // (ArticleController::category()).
+    $breadcrumbCategoryRecognized = array_key_exists($article->category, $breadcrumbCategoryOptions)
+        && $categoryPubliclyVisible;
 @endphp
 <nav class="article-premium__breadcrumb" aria-label="Percorso di navigazione">
   <ol>

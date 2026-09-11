@@ -23,7 +23,20 @@ class SeoController extends Controller
     public function sitemap(): Response
     {
         $articles = Article::published()->get(['slug', 'category']);
-        $categories = array_keys(Category::options());
+        // publicOptions(), non options(): una categoria bozza o
+        // programmata nel futuro non deve mai comparire in sitemap — vedi
+        // Category::scopePubliclyVisible(). published_at è qui un lastmod
+        // editoriale affidabile (a differenza di updated_at, vedi sotto)
+        // solo per lo stato "published": una categoria "scheduled" appare
+        // in sitemap solo quando la query publicOptions() la considera già
+        // pubblica (published_at passato), quindi il dato è comunque
+        // significativo in entrambi i casi.
+        $categoriesWithDates = Category::query()
+            ->publiclyVisible()
+            ->ordered()
+            ->get(['slug', 'published_at'])
+            ->keyBy('slug');
+        $categories = $categoriesWithDates->keys()->all();
         $contentClusters = ContentCluster::query()
             ->publiclyVisible()
             ->whereHas('articles', fn ($query) => $query->published())
@@ -46,7 +59,9 @@ class SeoController extends Controller
         }
 
         foreach ($categories as $slug) {
-            $xml .= "  <url><loc>{$base}/categoria/{$slug}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>".PHP_EOL;
+            $publishedAt = $categoriesWithDates[$slug]->published_at ?? null;
+            $lastmod = $publishedAt ? '<lastmod>'.$publishedAt->toAtomString().'</lastmod>' : '';
+            $xml .= "  <url><loc>{$base}/categoria/{$slug}</loc>{$lastmod}<changefreq>daily</changefreq><priority>0.8</priority></url>".PHP_EOL;
         }
 
         foreach ($contentClusters as $cluster) {
