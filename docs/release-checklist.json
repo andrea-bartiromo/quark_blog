@@ -75,6 +75,11 @@
       "id": "record_revision_and_deploy_info",
       "description": "Only after every gate above has passed: write REVISION and DEPLOY_INFO (metadata only, never secrets) for the newly verified release.",
       "marker": "> REVISION"
+    },
+    {
+      "id": "record_release_registry_entry",
+      "description": "Optional, append-only, cross-release history (Prompt 7, 100-prompt Kairus program) — records this release's revision to config('deploy.release_registry_path') (DEPLOY_RELEASE_REGISTRY_PATH) when configured, since REVISION/DEPLOY_INFO are discarded on the next release. Never blocks the release: a no-op when unconfigured, only a warning on any other failure.",
+      "marker": "php artisan release:record-registry"
     }
   ]
 }

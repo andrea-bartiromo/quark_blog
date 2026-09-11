@@ -199,4 +199,15 @@ printf '%s\n' "$ACTUAL_SHA" > REVISION
     printf 'database_driver=%s\n' "$DB_CONNECTION_VALUE"
 } > DEPLOY_INFO
 
+# Release registry (Prompt 7, programma 100-prompt Kairus): REVISION and
+# DEPLOY_INFO above live inside this release directory and are discarded
+# on the next release (schema a directory separate + switch di symlink
+# gia' in uso in produzione) -- nessuna storia sopravvive tra un deploy e
+# l'altro. Quando DEPLOY_RELEASE_REGISTRY_PATH e' configurato, questo
+# registra lo stesso evento a un percorso stabile fuori dalla directory
+# di release. Mai bloccante: no-op se non configurato, solo un avviso se
+# la scrittura fallisce -- vedi App\Services\Deploy\ReleaseRegistry e
+# App\Console\Commands\ReleaseRegistryRecord.
+php artisan release:record-registry "$ACTUAL_SHA" --stage=deployed --no-ansi || true
+
 echo "Deploy safety checks completed for $ACTUAL_SHA."
