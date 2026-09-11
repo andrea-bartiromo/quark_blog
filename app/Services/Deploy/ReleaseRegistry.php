@@ -195,22 +195,36 @@ class ReleaseRegistry
      * deploy.sh È la directory di release: realpath() lo confermerebbe
      * comunque sotto base_path(), quindi non serve un controllo separato
      * "deve essere assoluto".
+     *
+     * Se il file configurato esiste già ed è (o è raggiunto tramite) un
+     * symlink il cui bersaglio finale sta dentro questa release, validare
+     * solo dirname($path) non basta: quella directory contenitrice può
+     * essere legittimamente esterna mentre file_put_contents() segue
+     * comunque il link fino al bersaglio reale dentro la release. Quando
+     * il file esiste già, risolve quindi il file stesso — non la sua
+     * directory — e valida QUEL bersaglio; ricade sulla directory solo
+     * per un file davvero nuovo, dove realpath() sul file non può ancora
+     * risolvere nulla.
      */
     private function assertOutsideReleaseDirectory(string $directory, string $configuredPath): void
     {
         $releaseRoot = realpath(base_path());
-        $resolvedDirectory = realpath($directory);
+        $resolvedTarget = realpath($configuredPath);
 
-        if ($releaseRoot === false || $resolvedDirectory === false) {
+        if ($resolvedTarget === false) {
+            $resolvedTarget = realpath($directory);
+        }
+
+        if ($releaseRoot === false || $resolvedTarget === false) {
             return;
         }
 
         $releaseRoot = rtrim(str_replace('\\', '/', $releaseRoot), '/');
-        $resolvedDirectory = rtrim(str_replace('\\', '/', $resolvedDirectory), '/');
+        $resolvedTarget = rtrim(str_replace('\\', '/', $resolvedTarget), '/');
 
-        if ($resolvedDirectory === $releaseRoot || str_starts_with($resolvedDirectory.'/', $releaseRoot.'/')) {
+        if ($resolvedTarget === $releaseRoot || str_starts_with($resolvedTarget.'/', $releaseRoot.'/')) {
             throw new RuntimeException(
-                "DEPLOY_RELEASE_REGISTRY_PATH must resolve outside the release directory ({$releaseRoot}), got a path under it: {$configuredPath}. Cross-release history would be silently lost at the next symlink switch."
+                "DEPLOY_RELEASE_REGISTRY_PATH must resolve outside the release directory ({$releaseRoot}), got a path resolving under it: {$configuredPath}. Cross-release history would be silently lost at the next symlink switch."
             );
         }
     }

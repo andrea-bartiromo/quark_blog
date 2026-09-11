@@ -168,6 +168,37 @@ class ReleaseRegistryTest extends TestCase
     }
 
     /**
+     * Finding Codex su #548 (dopo l'apertura di questa stessa PR):
+     * validare solo dirname($path) non basta — se il percorso
+     * configurato è un symlink che esiste già in una directory esterna
+     * legittima ma il cui bersaglio finale sta dentro questa release,
+     * dirname() approva la directory esterna mentre file_put_contents()
+     * segue comunque il link fino al vero bersaglio dentro la release.
+     */
+    public function test_record_throws_when_the_configured_path_is_a_symlink_resolving_inside_the_release_directory(): void
+    {
+        $externalDirectory = sys_get_temp_dir().'/'.self::MARKER.uniqid('', true);
+        mkdir($externalDirectory);
+        $symlinkPath = $externalDirectory.'/registry.jsonl';
+        $targetInsideRelease = base_path('storage/framework/testing/'.self::MARKER.'symlink-target.jsonl');
+        touch($targetInsideRelease);
+        symlink($targetInsideRelease, $symlinkPath);
+
+        config(['deploy.release_registry_path' => $symlinkPath]);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+            $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+        } finally {
+            @unlink($symlinkPath);
+            @unlink($targetInsideRelease);
+            @rmdir($externalDirectory);
+        }
+    }
+
+    /**
      * Finding Codex su #546 (dopo il merge): file_get_contents() senza
      * l'operatore di soppressione errori emette un E_WARNING se il file
      * diventa illeggibile tra il check is_file() e la lettura — Laravel
