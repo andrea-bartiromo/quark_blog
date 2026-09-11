@@ -34,14 +34,26 @@ class ArticleDiscoveryAuditService
         $publishedIds = $articles->pluck('id')->map(fn ($id) => (int) $id)->values();
         $publishedIdSet = $publishedIds->flip();
 
-        // publiclyVisible(), non un pluck grezzo: una categoria bozza o
+        // isPubliclyVisible(), non un pluck grezzo: una categoria bozza o
         // programmata nel futuro non ha una pagina raggiungibile (404, vedi
         // ArticleController::category()) e non deve contare come un
-        // percorso di discovery valido per gli articoli che la usano. Le
-        // categorie legacy solo da config restano navigabili come prima —
-        // non sono mai state coperte dalla pianificazione.
-        $navigableCategorySlugs = Category::query()->publiclyVisible()->pluck('slug')
-            ->merge(array_keys(config('laboratorio.categories', [])))
+        // percorso di discovery valido per gli articoli che la usano. Il
+        // fallback a config('laboratorio.categories') copre SOLO gli slug
+        // legacy SENZA alcuna riga DB (mai stati migrati) — mai uno slug
+        // la cui riga DB esiste proprio perché nascosta ora: un merge
+        // incondizionato dei due insiemi (come in una versione precedente
+        // di questa query) avrebbe fatto ricomparire dal config uno slug
+        // come "energia" nello stesso istante in cui viene reso bozza,
+        // programmato o disattivato in DB — mascherando esattamente la
+        // condizione NO_CATEGORY_PATH/WEAK_DISCOVERY che questo audit deve
+        // segnalare.
+        $categoryRows = Category::allOrderedWithVisibilityColumns();
+        $configOnlyCategorySlugs = collect(array_keys(config('laboratorio.categories', [])))
+            ->diff($categoryRows->pluck('slug'));
+        $navigableCategorySlugs = $categoryRows
+            ->filter(fn (Category $category) => $category->isPubliclyVisible())
+            ->pluck('slug')
+            ->merge($configOnlyCategorySlugs)
             ->filter()
             ->unique()
             ->flip();

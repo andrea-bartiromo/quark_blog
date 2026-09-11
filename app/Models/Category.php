@@ -225,24 +225,36 @@ class Category extends Model
      * selezionabile nei form editoriali tramite options() (il
      * requisito esplicito è che resti assegnabile in anticipo a un
      * articolo), ma non deve mai comparire qui.
+     *
+     * Il fallback a config('laboratorio.categories') copre SOLO gli slug
+     * senza alcuna riga DB corrispondente (tabella non ancora esistente
+     * durante deploy/migrazioni, o uno slug legacy mai migrato) — mai uno
+     * slug la cui riga DB esiste proprio perché è stata resa bozza,
+     * programmata nel futuro o disattivata. Senza questa distinzione, una
+     * categoria come "energia" (presente anche in config come default
+     * legacy) sarebbe tornata pubblica tramite il fallback nello stesso
+     * istante in cui viene nascosta in DB — riaprendo esattamente
+     * l'incoerenza che publiclyVisible() esiste per chiudere.
      */
     public static function publicOptions(): array
     {
-        try {
-            $categories = static::query()
-                ->publiclyVisible()
-                ->ordered()
-                ->pluck('name', 'slug')
-                ->toArray();
+        $categories = static::allOrderedWithVisibilityColumns();
 
-            if ($categories !== []) {
-                return $categories;
-            }
-        } catch (\Throwable $e) {
-            // Durante deploy/migrazioni la tabella potrebbe non esistere ancora.
+        if ($categories->isEmpty()) {
+            return config('laboratorio.categories', []);
         }
 
-        return config('laboratorio.categories', []);
+        $visible = $categories
+            ->filter(fn (Category $category) => $category->isPubliclyVisible())
+            ->pluck('name', 'slug')
+            ->toArray();
+
+        $configOnlySlugs = array_diff_key(
+            config('laboratorio.categories', []),
+            array_flip($categories->pluck('slug')->all())
+        );
+
+        return $visible + $configOnlySlugs;
     }
 
     public static function options(bool $activeOnly = true): array

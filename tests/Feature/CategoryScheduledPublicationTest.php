@@ -285,6 +285,37 @@ class CategoryScheduledPublicationTest extends TestCase
         $this->assertArrayNotHasKey($category->slug, Category::publicOptions());
     }
 
+    /**
+     * Codex review (PR #543): il fallback a config('laboratorio.categories')
+     * in publicOptions() copriva SOLO gli slug senza alcuna riga DB — uno
+     * slug come 'energia' (anche in config come default legacy) esiste
+     * come riga DB creata dalla migration one-time. Un fallback
+     * incondizionato quando publiclyVisible() restituisce zero righe
+     * l'avrebbe fatto ricomparire come opzione pubblica nello stesso
+     * istante in cui viene nascosto in DB, in HomeController/notizie/
+     * SearchController.
+     */
+    public function test_publicoptions_never_resurrects_a_config_legacy_category_hidden_in_db(): void
+    {
+        Category::where('slug', 'energia')->first()->update(['status' => Category::STATUS_DRAFT]);
+
+        $this->assertArrayNotHasKey('energia', Category::publicOptions());
+    }
+
+    /**
+     * Contro-prova del test precedente: uno slug realmente assente dal DB
+     * (mai migrato) deve invece continuare a comparire dal fallback — il
+     * fix non deve diventare più restrittivo del necessario.
+     */
+    public function test_publicoptions_still_falls_back_to_config_for_a_slug_with_no_db_row_at_all(): void
+    {
+        Category::query()->delete();
+
+        $publicOptions = Category::publicOptions();
+
+        $this->assertSame(config('laboratorio.categories'), $publicOptions);
+    }
+
     public function test_breadcrumb_and_json_ld_do_not_link_a_scheduled_future_category_on_an_already_published_article(): void
     {
         $category = $this->scheduledFutureCategory(['name' => 'Categoria Non Ancora Pubblica']);

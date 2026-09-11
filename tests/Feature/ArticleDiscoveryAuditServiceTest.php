@@ -42,6 +42,26 @@ class ArticleDiscoveryAuditServiceTest extends TestCase
         $this->assertNotContains('NO_CATEGORY_PATH', $row['risks']);
     }
 
+    /**
+     * Codex review (PR #543): il fallback a config('laboratorio.categories')
+     * copriva SOLO gli slug senza alcuna riga DB — 'energia' esiste anche
+     * in config come default legacy, ma la sua riga DB (creata dalla
+     * migration one-time) esiste proprio perché è stata resa bozza qui.
+     * Un merge incondizionato del fallback l'avrebbe fatta ricomparire
+     * come "navigabile", mascherando NO_CATEGORY_PATH per un articolo la
+     * cui pagina categoria risponde in realtà 404.
+     */
+    public function test_a_config_legacy_category_hidden_in_db_is_not_counted_as_a_category_path(): void
+    {
+        Category::where('slug', 'energia')->first()->update(['status' => Category::STATUS_DRAFT]);
+        $article = $this->article('discovery-hidden-legacy-category', Article::STATUS_PUBLISHED, '<p>Body</p>', 'energia');
+
+        $row = app(ArticleDiscoveryAuditService::class)->audit()->firstWhere('article_id', $article->id);
+
+        $this->assertSame([], $row['category_page_numbers']);
+        $this->assertContains('NO_CATEGORY_PATH', $row['risks']);
+    }
+
     public function test_public_percorso_prefix_and_real_body_incoming_link_are_counted_separately(): void
     {
         $target = $this->article('discovery-target', Article::STATUS_PUBLISHED);
