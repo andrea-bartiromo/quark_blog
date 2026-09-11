@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class Category extends Model
@@ -263,5 +264,29 @@ class Category extends Model
         }
 
         return config('laboratorio.categories', []);
+    }
+
+    /**
+     * Come options(false), ma restituisce i model completi (con le
+     * colonne necessarie a isPubliclyVisible()) invece della sola mappa
+     * slug=>name — per un consumer che deve derivare SIA l'etichetta SIA
+     * la visibilità di una categoria da UNA query sola. Vedi
+     * ArticleController::show(), unico consumer attuale: prima di questo
+     * metodo, calcolare 'categoryPubliclyVisible' lì richiedeva una
+     * seconda query dedicata oltre a options(false), regredendo il
+     * budget query della pagina articolo (vedi PublicPageQueryBudgetTest).
+     * Stesso fallback a config() di options()/publicOptions() quando la
+     * tabella non esiste ancora.
+     *
+     * @return Collection<int, Category>
+     */
+    public static function allOrderedWithVisibilityColumns(): Collection
+    {
+        try {
+            return static::query()->ordered()->get(['id', 'name', 'slug', 'is_active', 'status', 'published_at']);
+        } catch (\Throwable $e) {
+            // Durante deploy/migrazioni la tabella potrebbe non esistere ancora.
+            return collect();
+        }
     }
 }

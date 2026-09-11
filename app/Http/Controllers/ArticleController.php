@@ -177,18 +177,28 @@ class ArticleController extends Controller
             ]);
         }
 
-        // Un articolo già pubblicato può avere una categoria bozza o
-        // programmata nel futuro (assegnabile in anticipo, vedi
-        // Category::options() vs publicOptions()): il breadcrumb visibile
-        // e il suo companion JSON-LD BreadcrumbList non devono mai
-        // linkare una pagina categoria che risponderebbe 404
-        // (ArticleController::category()) — vedi 'categoryPubliclyVisible'
-        // sotto, consumato da articles/partials/breadcrumb.blade.php e
+        // Category::allOrderedWithVisibilityColumns(), non options(false)
+        // + un lookup dedicato: UNA sola query da cui derivare sia la
+        // mappa slug=>name (categoryOptions, come prima) sia la
+        // visibilità pubblica della categoria di QUESTO articolo — una
+        // seconda query qui regredirebbe il budget della pagina articolo
+        // (vedi PublicPageQueryBudgetTest). Un articolo già pubblicato
+        // può avere una categoria bozza o programmata nel futuro
+        // (assegnabile in anticipo, vedi Category::options() vs
+        // publicOptions()): il breadcrumb visibile e il suo companion
+        // JSON-LD BreadcrumbList non devono mai linkare una pagina
+        // categoria che risponderebbe 404 (ArticleController::category())
+        // — vedi 'categoryPubliclyVisible' sotto, consumato da
+        // articles/partials/breadcrumb.blade.php e
         // articles/partials/structured-data.blade.php.
-        $categoryModelForVisibility = Category::where('slug', $article->category)->first();
+        $categoryModels = Category::allOrderedWithVisibilityColumns();
+        $categoryOptions = $categoryModels->isNotEmpty()
+            ? $categoryModels->pluck('name', 'slug')->toArray()
+            : config('laboratorio.categories', []);
+        $categoryModelForVisibility = $categoryModels->firstWhere('slug', $article->category);
         $categoryPubliclyVisible = $categoryModelForVisibility
             ? $categoryModelForVisibility->isPubliclyVisible()
-            : array_key_exists($article->category, Category::options(false));
+            : array_key_exists($article->category, $categoryOptions);
 
         return view('articolo', [
             'article' => $article,
@@ -205,7 +215,7 @@ class ArticleController extends Controller
             // questo partial, vedi grep): prima ciascuno rieseguiva la
             // stessa query "select name, slug from categories" per conto
             // proprio, 4 query identiche per singola pagina articolo.
-            'categoryOptions' => Category::options(false),
+            'categoryOptions' => $categoryOptions,
 
             // Un articolo già pubblicato può avere una categoria bozza o
             // programmata nel futuro (assegnabile in anticipo, vedi
