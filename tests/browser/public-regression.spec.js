@@ -339,6 +339,31 @@ test('popup auto-open stays suppressed while a dismissal is still within its 7-d
     guards.assertClean();
 });
 
+// Finding Codex su questa stessa PR: portare clearExpiredNewsletterDismiss()
+// prima della lettura di `dismissed`/`subscribed` (il fix sopra) esponeva un
+// bug preesistente e distinto — il redirect di successo `?newsletter=ok`
+// scrive `newsletter_subscribed` SOLO alla fine dello script, quindi la
+// lettura di `subscribed` usata per decidere il timer non vede ancora quella
+// sottoscrizione appena confermata: un lettore con un dismissal scaduto che
+// si iscrive rivedrebbe il popup 30s dopo aver appena completato
+// l'iscrizione. Corretto scrivendo il marker di successo prima della lettura
+// del gate, non solo prima della sua vecchia posizione a fine script.
+test('a successful subscription redirect suppresses the popup on the very same page load, even with an expired dismissal', async ({ page }) => {
+    const expiredDismissal = Date.now() - 1000;
+    await page.addInitScript(value => {
+        localStorage.setItem('newsletter_dismissed', String(value));
+    }, expiredDismissal);
+    await page.clock.install({ time: Date.now() });
+
+    const guards = await gotoPublicPage(page, fixture.routes.home + '?newsletter=ok');
+    const dialog = page.getByRole('dialog', { name: 'Resta aggiornato su Kairus' });
+
+    await page.clock.fastForward('00:31');
+    await expect(dialog).toHaveAttribute('hidden', '');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('newsletter_subscribed'))).toBe('1');
+    guards.assertClean();
+});
+
 for (const width of viewportWidths) {
     test(`article lightbox is keyboard-safe and restores focus at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });

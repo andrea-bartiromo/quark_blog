@@ -13,6 +13,10 @@
 
     clearExpiredNewsletterDismiss();
 
+    @if(request('newsletter') === 'ok')
+      localStorage.setItem('newsletter_subscribed', '1');
+    @endif
+
     const dismissed = localStorage.getItem('newsletter_dismissed');
     const subscribed = localStorage.getItem('newsletter_subscribed');
     const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -114,10 +118,6 @@
         firstFocusable.focus();
       }
     });
-
-    @if(request('newsletter') === 'ok')
-      localStorage.setItem('newsletter_subscribed', '1');
-    @endif
   });
 
   function fadeNewsletterAlert(alert) {
