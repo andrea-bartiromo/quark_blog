@@ -26,6 +26,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registro rilasci (Release Registry)
+    |--------------------------------------------------------------------------
+    |
+    | REVISION e DEPLOY_INFO (scritti da deploy.sh) vivono dentro la
+    | directory di release stessa: con lo schema a directory separate +
+    | switch di symlink già in uso in produzione, vengono scartati al
+    | rilascio successivo — nessuna storia sopravvive tra un deploy e
+    | l'altro. Il "Principio di stato" della roadmap operativa
+    | (costruito ≠ CI green ≠ merged ≠ deployed ≠ verified ≠ measured,
+    | vedi docs/KAIRUS_TECHNICAL_ROADMAP_V14.md) oggi viene tracciato a
+    | mano in una tabella Markdown, senza alcuna fonte automatica.
+    |
+    | Un percorso QUI configurato, FUORI dalla directory di release (es.
+    | un file sibling alle directory di release stesse, mai dentro
+    | ~/kairus_app), riceve un log append-only (JSON Lines) di ogni
+    | evento registrato per revisione — deployed da deploy.sh, verified/
+    | measured da comandi separati eseguiti in seguito. Lasciare questa
+    | variabile non impostata disattiva completamente il registro
+    | (App\Services\Deploy\ReleaseRegistry): nessun comportamento
+    | esistente cambia finché non viene impostato esplicitamente
+    | DEPLOY_RELEASE_REGISTRY_PATH — stesso principio già in uso per
+    | served_public_root sopra e per MEDIA_PUBLIC_ROOT (config/media.php).
+    */
+    'release_registry_path' => env('DEPLOY_RELEASE_REGISTRY_PATH'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Percorsi da confrontare (drift detector)
     |--------------------------------------------------------------------------
     |

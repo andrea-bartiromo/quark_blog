@@ -224,6 +224,41 @@ class DeploymentSafetyTest extends TestCase
         $this->assertStringContainsString('DEPLOY_SERVED_PUBLIC_ROOT', $env);
     }
 
+    /**
+     * Prompt 7 (programma 100-prompt Kairus): stessa classe di difetto
+     * già chiusa sopra per DEPLOY_SERVED_PUBLIC_ROOT — un operatore che
+     * segue solo questo file come checklist di configurazione deve poter
+     * scoprire anche il release registry.
+     */
+    public function test_production_environment_example_documents_the_release_registry_path_variable(): void
+    {
+        $env = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($env);
+        $this->assertStringContainsString('DEPLOY_RELEASE_REGISTRY_PATH', $env);
+    }
+
+    /**
+     * Prompt 7 (programma 100-prompt Kairus): release:record-registry
+     * deve girare come ultimissimo passo, dopo che REVISION/DEPLOY_INFO
+     * sono già stati scritti — non è un gate, non deve mai poter
+     * precedere o interrompere la registrazione della revisione
+     * verificata.
+     */
+    public function test_production_deploy_records_release_registry_entry_after_revision_and_deploy_info(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('php artisan release:record-registry "$ACTUAL_SHA" --stage=deployed --no-ansi || true', $script);
+
+        $deployInfoPosition = strpos($script, '> DEPLOY_INFO');
+        $registryPosition = strpos($script, 'php artisan release:record-registry');
+
+        $this->assertNotFalse($deployInfoPosition);
+        $this->assertNotFalse($registryPosition);
+        $this->assertGreaterThan($deployInfoPosition, $registryPosition, 'The release registry write must come after REVISION/DEPLOY_INFO, never before.');
+    }
+
     public function test_sqlite_remains_the_deterministic_test_database(): void
     {
         $phpunit = file_get_contents(base_path('phpunit.xml'));
