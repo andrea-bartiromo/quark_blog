@@ -23,7 +23,7 @@ Su una pagina articolo un lettore può vedere sia il band inline sia il popup gl
 
 Il popup usa una finestra di 7 giorni dopo dismiss, scelta comprensibile ma non accompagnata da evidence conversion/fatigue nel repository. Non proporre di accorciarla o allungarla senza dati.
 
-Nota implementativa da testare prima di qualunque modifica: `clearExpiredNewsletterDismiss()` viene chiamata dopo il controllo iniziale `if (!dismissed && !subscribed)`. Un dismissal scaduto può quindi restare efficace per la request corrente e venire rimosso solo per la successiva navigazione. È un comportamento da confermare con browser test, non da correggere alla cieca in questo batch.
+Nota implementativa (confermata e corretta, Prompt 11 programma 100-prompt Kairus): `clearExpiredNewsletterDismiss()` veniva chiamata dopo il controllo iniziale `if (!dismissed && !subscribed)`, quindi un dismissal scaduto restava efficace per la request corrente e veniva rimosso solo alla navigazione successiva. Confermato con un browser test reale (`tests/browser/public-regression.spec.js`, `page.clock` per portare avanti il timer dei 30s senza attese reali) prima di correggere: `clearExpiredNewsletterDismiss()` ora viene chiamata subito dopo la guardia `if (!popup) return`, prima della lettura di `dismissed` — così un dismissal scaduto viene rimosso prima che la decisione di apertura automatica lo legga, nella stessa request. Vedi `resources/views/layouts/partials/newsletter-scripts.blade.php`.
 
 ### 3. Accessibility
 
