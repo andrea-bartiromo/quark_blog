@@ -62,4 +62,32 @@ class CachedConfigPathAuditTest extends TestCase
 
         $this->assertTrue($report['ok']);
     }
+
+    /**
+     * Finding Codex su #547 (dopo il merge): str_starts_with() da solo
+     * accetta anche una directory SORELLA che condivide solo il
+     * prefisso testuale (qui "{storage_path}-old") come se fosse sotto
+     * questa release — il falso negativo esatto che questo gate
+     * fail-closed deve escludere, perché un percorso del genere non è
+     * affatto sotto storage_path() reale.
+     */
+    public function test_flags_a_sibling_directory_that_only_shares_the_textual_prefix(): void
+    {
+        config(['logging.channels.daily.path' => storage_path().'-old/logs/laravel.log']);
+
+        $report = app(CachedConfigPathAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertCount(1, $report['problems']);
+        $this->assertSame('logging.channels.daily.path', $report['problems'][0]['key']);
+    }
+
+    public function test_the_expected_prefix_itself_with_no_trailing_segment_is_not_a_problem(): void
+    {
+        config(['session.files' => storage_path()]);
+
+        $report = app(CachedConfigPathAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+    }
 }

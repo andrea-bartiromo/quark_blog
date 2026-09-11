@@ -131,4 +131,66 @@ class ReleaseRegistryTest extends TestCase
 
         $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
     }
+
+    /**
+     * Finding Codex su #546 (dopo il merge): un percorso configurato
+     * dentro la directory di release veniva accettato in silenzio da
+     * record() e la storia scritta lì sarebbe andata persa al prossimo
+     * switch di symlink — esattamente il problema che questo registro
+     * esiste per risolvere. base_path('storage/framework/testing/...')
+     * è dentro la release corrente per costruzione.
+     */
+    public function test_record_throws_when_the_configured_path_resolves_inside_the_release_directory(): void
+    {
+        config(['deploy.release_registry_path' => base_path('storage/framework/testing/inside-release-registry.jsonl')]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+        $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+    }
+
+    /**
+     * Un percorso relativo risolve rispetto alla working directory del
+     * processo — durante un deploy reale quella directory È la release
+     * corrente, quindi un percorso relativo deve essere rifiutato con lo
+     * stesso errore di un percorso assoluto dentro base_path(), senza
+     * bisogno di un controllo "deve essere assoluto" separato.
+     */
+    public function test_record_throws_when_the_configured_path_is_relative(): void
+    {
+        config(['deploy.release_registry_path' => 'storage/framework/testing/relative-release-registry.jsonl']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+        $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+    }
+
+    /**
+     * Finding Codex su #546 (dopo il merge): file_get_contents() senza
+     * l'operatore di soppressione errori emette un E_WARNING se il file
+     * diventa illeggibile tra il check is_file() e la lettura — Laravel
+     * lo converte in ErrorException, mai raggiungendo il fallback
+     * $contents === false. entries() è best-effort per contratto (vedi
+     * il docblock della classe) e non deve mai lanciare per un singolo
+     * file illeggibile.
+     */
+    public function test_entries_does_not_throw_when_the_registry_file_becomes_unreadable(): void
+    {
+        $path = $this->useTempRegistryPath();
+        $registry = $this->registry();
+        $registry->record('sha-unreadable', ReleaseRegistry::STAGE_DEPLOYED);
+
+        chmod($path, 0000);
+
+        if (is_readable($path)) {
+            chmod($path, 0644);
+            $this->markTestSkipped('This process can read files regardless of permission bits (likely running as root); cannot reproduce an unreadable-file race here.');
+        }
+
+        $this->assertSame([], $registry->entries());
+
+        chmod($path, 0644);
+    }
 }

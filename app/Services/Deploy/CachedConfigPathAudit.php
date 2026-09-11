@@ -76,7 +76,14 @@ class CachedConfigPathAudit
 
             $normalized = rtrim(str_replace('\\', '/', $value), '/');
 
-            if (! str_starts_with($normalized, $expectedPrefix)) {
+            // str_starts_with da solo accetterebbe una directory SORELLA
+            // che condivide solo il prefisso testuale (es.
+            // "/srv/app/storage-old/logs" con expected_prefix
+            // "/srv/app/storage") come se fosse sotto questa release —
+            // esattamente il falso negativo che questo gate fail-closed
+            // deve escludere. Serve un confine di directory reale: o è
+            // lo stesso percorso, o il prefisso è seguito da "/".
+            if ($normalized !== $expectedPrefix && ! str_starts_with($normalized, $expectedPrefix.'/')) {
                 $problems[] = ['key' => $key, 'value' => $value];
             }
         }
