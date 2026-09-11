@@ -44,8 +44,8 @@
           <img src="{{ asset('storage/'.$article->author->photo) }}" alt="{{ $article->author->name }}" class="kairus-author-card__photo" loading="lazy" decoding="async">
         @else
           <x-responsive-image
-              disk-name="{{ $article->author->photo }}"
-              alt="{{ $article->author->name }}"
+              :disk-name="$article->author->photo"
+              :alt="$article->author->name"
               class="kairus-author-card__photo"
               loading="lazy" />
         @endif

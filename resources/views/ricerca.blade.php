@@ -109,10 +109,10 @@
                 >
                   <x-slot:image>
                     <x-responsive-image
-                        disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
-                        alt="{{ $article->title }}"
+                        :disk-name="$article->cover_image ?? 'placeholder-1.svg'"
+                        :alt="$article->title"
                         sizes="180px"
-                        onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+                        :onerror-src="asset('assets/img/placeholder-1.svg')"
                     />
                   </x-slot:image>
                   <x-slot:meta>
