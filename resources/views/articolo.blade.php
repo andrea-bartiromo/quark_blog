@@ -133,7 +133,9 @@
                     coincidere per lo stesso articolo, quindi non
                     unificati in un solo pannello.
                 --}}
-                <x-article.primary-sources :sources="$primarySources" />
+                @unless($hasManualSourcesSection)
+                    <x-article.primary-sources :sources="$primarySources" />
+                @endunless
                 @include('articles.partials.path-continuation')
                 @include('articles.partials.continue-reading')
                 @include('articles.partials.newsletter-band')

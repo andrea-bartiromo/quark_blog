@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleSlugRedirect;
 use App\Models\Category;
 use App\Services\ArticleContinuationService;
+use App\Services\ArticleManualSourcesDetector;
 use App\Services\ArticlePathNavigation;
 use App\Services\ArticlePrimarySourcesParser;
 use App\Services\ArticleRelatedService;
@@ -253,6 +254,9 @@ class ArticleController extends Controller
             // strutturato. Vedi App\Services\ArticlePrimarySourcesParser
             // e components/article/primary-sources.blade.php.
             'primarySources' => app(ArticlePrimarySourcesParser::class)->parse($article->primary_sources),
+
+            // Nasconde solo il pannello duplicato: body e primary_sources restano invariati.
+            'hasManualSourcesSection' => app(ArticleManualSourcesDetector::class)->hasManualSourcesSection($article->body),
 
             // Trust Layer — trasparenza revisioni: null a meno che
             // esista una revisione post-pubblicazione con contenuto
