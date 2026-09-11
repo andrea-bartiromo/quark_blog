@@ -25,6 +25,43 @@
     @if($category->is_active)<span class="status status--published">Attiva</span>@else<span class="status status--draft">Disattiva</span>@endif
   </div>
 
+  {{--
+      Prompt 3 — anteprima di visibilità: stato effettivo, data in
+      Europe/Rome, URL pubblico che verrà pubblicato, checklist minima
+      (CategoryPublicationReadiness, stesso pattern già in uso per i
+      Percorsi via ContentClusterHealth). Sola lettura: non pubblica né
+      modifica mai automaticamente la categoria o gli articoli collegati.
+  --}}
+  @php $categoryVisibilityLabel = $category->effectiveVisibilityLabel(); @endphp
+  <section class="admin-alert" role="status" style="margin-bottom:1.5rem;">
+    <h2 style="font-size:1rem;margin:0 0 .5rem;">Anteprima pubblicazione</h2>
+    <p style="margin:0 0 .35rem;">
+      Stato effettivo:
+      <span class="status {{ $categoryVisibilityLabel === 'Pubblica' ? 'status--published' : 'status--draft' }}">{{ $categoryVisibilityLabel }}</span>
+      @if($category->publishedAtForEditors())
+        — {{ $category->publishedAtForEditors()->format('d/m/Y H:i') }} (Europe/Rome)
+      @endif
+    </p>
+    <p style="margin:0 0 .35rem;">
+      URL pubblico:
+      @if($category->isPubliclyVisible())
+        <a href="{{ route('categoria', $category->slug) }}" target="_blank" rel="noopener">{{ route('categoria', $category->slug) }}</a>
+      @else
+        <code>{{ route('categoria', $category->slug) }}</code> — non ancora raggiungibile (risponde 404 finché la categoria non diventa pubblica)
+      @endif
+    </p>
+    @if(! empty($readiness['findings']))
+      <p style="margin:.5rem 0 .25rem;font-weight:600;">Checklist:</p>
+      <ul style="margin:0;padding-left:1.2rem;">
+        @foreach($readiness['findings'] as $finding)
+          <li>{{ \App\Services\CategoryPublicationReadiness::label($finding) }}</li>
+        @endforeach
+      </ul>
+    @else
+      <p style="margin:.5rem 0 0;color:#15803d;">Nessuna criticità rilevata.</p>
+    @endif
+  </section>
+
   <form method="POST" action="{{ route('admin.categories.update', $category) }}" enctype="multipart/form-data">
     @csrf
     @method('PUT')
@@ -54,10 +91,43 @@
 
     <label class="form-checkbox" style="margin:0 0 1.25rem;display:flex;gap:.5rem;align-items:center;"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $category->is_active) ? 'checked' : '' }}>Categoria attiva</label>
 
-    <div style="display:flex;gap:.75rem;align-items:center;">
+    @php $currentCategoryStatus = old('status', $category->status); @endphp
+    <div class="form-group">
+      <label class="form-label" for="status">Pubblicazione</label>
+      <select class="form-select" id="status" name="status">
+        @foreach(\App\Models\Category::statusOptions() as $value => $label)
+          <option value="{{ $value }}" {{ $currentCategoryStatus === $value ? 'selected' : '' }}>{{ $label }}</option>
+        @endforeach
+      </select>
+    </div>
+
+    <div class="form-group" id="schedule-fields" @if($currentCategoryStatus !== \App\Models\Category::STATUS_SCHEDULED) hidden @endif>
+      <label class="form-label" for="scheduled_date">Data pubblicazione (Europe/Rome)</label>
+      <input class="form-input" type="date" id="scheduled_date" name="scheduled_date"
+             value="{{ old('scheduled_date', optional($category->publishedAtForEditors())->format('Y-m-d')) }}">
+      <label class="form-label" for="scheduled_time" style="margin-top:.5rem;">Ora pubblicazione (Europe/Rome)</label>
+      <input class="form-input" type="time" id="scheduled_time" name="scheduled_time"
+             value="{{ old('scheduled_time', optional($category->publishedAtForEditors())->format('H:i')) }}">
+      <small style="display:block;margin-top:.35rem;color:#6b7280;font-size:.72rem;">Fino a quella data/ora la categoria resta selezionabile nei form editoriali ma non compare in navigazione, URL pubblico, sitemap o ricerca.</small>
+    </div>
+
+    <div style="display:flex;gap:.75rem;align-items:center;margin-top:1.25rem;">
       <button class="btn btn--primary" type="submit">Salva modifiche</button>
       <a class="btn" href="{{ route('admin.categories') }}">Annulla</a>
     </div>
   </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const statusSelect = document.getElementById('status');
+  const scheduleFields = document.getElementById('schedule-fields');
+  if (! statusSelect || ! scheduleFields) {
+    return;
+  }
+  statusSelect.addEventListener('change', function () {
+    scheduleFields.hidden = statusSelect.value !== 'scheduled';
+  });
+});
+</script>
 @endsection

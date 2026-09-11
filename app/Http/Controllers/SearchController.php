@@ -49,8 +49,11 @@ class SearchController extends Controller
         // DB-first (stessa fonte di Category::options() usata altrove):
         // una categoria creata dall'admin dopo il deploy deve comparire
         // subito nel filtro di ricerca, non solo dopo un redeploy che
-        // aggiorni config('laboratorio.categories').
-        $categories = Category::options(false);
+        // aggiorni config('laboratorio.categories'). publicOptions(), non
+        // options(false): una categoria bozza o programmata nel futuro
+        // non deve mai comparire come filtro selezionabile in ricerca —
+        // vedi Category::scopePubliclyVisible().
+        $categories = Category::publicOptions();
 
         return view('ricerca', compact('query', 'results', 'category', 'authorId', 'from', 'to', 'authors', 'categories'));
     }

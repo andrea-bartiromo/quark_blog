@@ -35,6 +35,15 @@ class ArticleController extends Controller
 
         abort_unless($categoryModel || array_key_exists($slug, $categories), 404);
 
+        // Una categoria presente in DB (bozza/programmata futura/disattivata)
+        // non è mai raggiungibile dalla sua pagina pubblica — vedi
+        // Category::scopePubliclyVisible(). Le categorie legacy solo da
+        // config (nessuna riga DB) restano raggiungibili come prima: non
+        // sono mai state coperte dalla pianificazione.
+        if ($categoryModel && ! $categoryModel->isPubliclyVisible()) {
+            abort(404);
+        }
+
         $articles = Article::published()
             ->where(function ($query) use ($slug) {
                 $query->where('category', $slug)
@@ -168,6 +177,19 @@ class ArticleController extends Controller
             ]);
         }
 
+        // Un articolo già pubblicato può avere una categoria bozza o
+        // programmata nel futuro (assegnabile in anticipo, vedi
+        // Category::options() vs publicOptions()): il breadcrumb visibile
+        // e il suo companion JSON-LD BreadcrumbList non devono mai
+        // linkare una pagina categoria che risponderebbe 404
+        // (ArticleController::category()) — vedi 'categoryPubliclyVisible'
+        // sotto, consumato da articles/partials/breadcrumb.blade.php e
+        // articles/partials/structured-data.blade.php.
+        $categoryModelForVisibility = Category::where('slug', $article->category)->first();
+        $categoryPubliclyVisible = $categoryModelForVisibility
+            ? $categoryModelForVisibility->isPubliclyVisible()
+            : array_key_exists($article->category, Category::options(false));
+
         return view('articolo', [
             'article' => $article,
 
@@ -184,6 +206,16 @@ class ArticleController extends Controller
             // stessa query "select name, slug from categories" per conto
             // proprio, 4 query identiche per singola pagina articolo.
             'categoryOptions' => Category::options(false),
+
+            // Un articolo già pubblicato può avere una categoria bozza o
+            // programmata nel futuro (assegnabile in anticipo, vedi
+            // Category::options() vs publicOptions()): il breadcrumb
+            // visibile e il suo companion JSON-LD BreadcrumbList non
+            // devono mai linkare una pagina categoria che risponderebbe
+            // 404 (ArticleController::category()) — omettono quella voce
+            // quando questo è false, mostrando comunque il nome come
+            // testo semplice altrove (articleSection) dove non è un link.
+            'categoryPubliclyVisible' => $categoryPubliclyVisible,
 
             'pathNavigation' => $pathNavigation,
 

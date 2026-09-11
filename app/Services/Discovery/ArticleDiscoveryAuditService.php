@@ -34,7 +34,13 @@ class ArticleDiscoveryAuditService
         $publishedIds = $articles->pluck('id')->map(fn ($id) => (int) $id)->values();
         $publishedIdSet = $publishedIds->flip();
 
-        $navigableCategorySlugs = Category::query()->pluck('slug')
+        // publiclyVisible(), non un pluck grezzo: una categoria bozza o
+        // programmata nel futuro non ha una pagina raggiungibile (404, vedi
+        // ArticleController::category()) e non deve contare come un
+        // percorso di discovery valido per gli articoli che la usano. Le
+        // categorie legacy solo da config restano navigabili come prima —
+        // non sono mai state coperte dalla pianificazione.
+        $navigableCategorySlugs = Category::query()->publiclyVisible()->pluck('slug')
             ->merge(array_keys(config('laboratorio.categories', [])))
             ->filter()
             ->unique()

@@ -43,8 +43,10 @@ class HomeController extends Controller
             ->get();
 
         $categoryRecords = Category::ordered()->get()->keyBy('slug');
-        $categoryOptions = Category::options();
-        // Le tile di navigazione restano limitate alle categorie attive,
+        $categoryOptions = Category::publicOptions();
+        // Le tile di navigazione restano limitate alle categorie
+        // effettivamente pubbliche (Category::publiclyVisible(): esclude
+        // bozze e programmate future, non solo disattivate),
         // mentre gli articoli gia pubblicati conservano sempre la label
         // umana anche se la loro categoria viene disattivata. Derivato
         // dalla query $categoryRecords gia eseguita: zero query aggiuntive.

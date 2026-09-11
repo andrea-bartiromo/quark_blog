@@ -37,12 +37,13 @@ use Illuminate\Support\Str;
  * publiclyVisible() al posto di active(), stesso allineamento già
  * applicato altrove.
  *
- * Category non ha un equivalente scheduling/publiclyVisible(): la pagina
- * pubblica /categoria/{slug} (ArticleController::category()) non filtra
- * mai su is_active — accetta qualunque categoria esistente (o slug legacy
- * di config) con almeno un articolo pubblicato — quindi non filtrare qui
- * su Category::active() converge con quel comportamento pubblico
- * esistente, non lo contraddice.
+ * Category ha ora un proprio Category::publiclyVisible() (pianificazione
+ * categorie: bozza/programmato/pubblicato, vedi il docblock dello scope),
+ * usato anche da ArticleController::category() per rifiutare con 404 una
+ * categoria bozza o programmata nel futuro raggiunta direttamente per
+ * URL. searchCategories() applica lo stesso scope qui, cosi' la ricerca
+ * TROVA non puo' mai rivelare l'esistenza di una categoria non ancora
+ * pubblica prima che lo faccia la sua stessa pagina.
  *
  * Mission 30 — TROVA Content Graph Enrichment. Aggiunge un terzo gruppo,
  * `concepts`, ora che il Content Graph (Missioni 16-25) è su `main` con un
@@ -100,6 +101,7 @@ class TrovaEntitySearchService
     private function searchCategories(string $query, array $tokens): Collection
     {
         return Category::query()
+            ->publiclyVisible()
             ->where(function ($categories) {
                 $categories
                     ->whereHas('articles', fn ($articles) => $articles->published())
