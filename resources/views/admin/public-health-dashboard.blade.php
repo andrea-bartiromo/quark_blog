@@ -7,10 +7,13 @@
 </div>
 
 <p style="color:var(--admin-muted);font-size:.85rem;margin-bottom:1rem;max-width:70ch;">
-  Riepilogo read-only degli audit tecnici delle pagine pubbliche (SEO/canonical,
-  redirect, 404 reali, collegamenti, media, accessibilità WCAG statica) — nessun
-  nuovo controllo, nessuna correzione automatica. Ogni card rimanda al comando
-  Artisan corrispondente per il dettaglio completo.
+  Riepilogo degli audit tecnici delle pagine pubbliche (SEO/canonical,
+  redirect, 404 reali, collegamenti, media, accessibilità WCAG statica) —
+  nessun nuovo controllo, nessuna correzione automatica. Ogni card rimanda
+  al comando Artisan corrispondente per il dettaglio completo. Ogni riga
+  segnalata ha una gravità (Alta/Media) e può essere presa in carico o
+  ignorata: un finding ignorato resta visibile ma esce dai conteggi "da
+  rivedere" qui sotto.
 </p>
 
 @php $status = $snapshot['status']; @endphp
@@ -24,6 +27,12 @@
         {{ $snapshot['open_findings_total'] }} {{ $snapshot['open_findings_total'] === 1 ? 'finding aperto' : 'finding aperti' }} da rivedere.
       @endif
     </strong>
+    @if($snapshot['high_severity_open_total'] > 0)
+      <div style="font-size:.78rem;color:#b91c1c;font-weight:600;margin-top:.15rem;">{{ $snapshot['high_severity_open_total'] }} a gravità alta.</div>
+    @endif
+    @if($snapshot['dismissed_findings_total'] > 0)
+      <div style="font-size:.78rem;color:#6b7280;margin-top:.15rem;">{{ $snapshot['dismissed_findings_total'] }} {{ $snapshot['dismissed_findings_total'] === 1 ? 'finding ignorato' : 'finding ignorati' }} — non contati sopra.</div>
+    @endif
   </div>
 </div>
 
@@ -36,8 +45,14 @@
   @foreach($available as $domain)
     <div class="admin-card" style="margin:0;">
       <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--admin-muted);">{{ $domain['label'] }}</div>
-      <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;color:{{ $domain['finding_count'] > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($domain['finding_count']) }}</div>
-      <span style="font-size:.78rem;color:var(--admin-muted);">finding · <code style="font-size:.72rem;">{{ $domain['cli_hint'] }}</code></span>
+      <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;color:{{ $domain['open_count'] > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($domain['open_count']) }}</div>
+      <span style="font-size:.78rem;color:var(--admin-muted);">
+        aperti su {{ number_format($domain['finding_count']) }}
+        @if($domain['dismissed_count'] > 0)
+          ({{ $domain['dismissed_count'] }} ignorati)
+        @endif
+        · <code style="font-size:.72rem;">{{ $domain['cli_hint'] }}</code>
+      </span>
     </div>
   @endforeach
 </div>
@@ -64,6 +79,12 @@
   $links = $snapshot['domains']['links'];
   $media = $snapshot['domains']['media'];
   $wcag = $snapshot['domains']['wcag'];
+  $severityBadge = fn (string $severity) => sprintf(
+      '<span style="font-size:.72rem;font-weight:700;padding:.1rem .5rem;border-radius:999px;background:%s;color:%s;">%s</span>',
+      $severity === 'HIGH' ? '#fee2e2' : '#fef3c7',
+      $severity === 'HIGH' ? '#991b1b' : '#92400e',
+      $severity === 'HIGH' ? 'Alta' : 'Media',
+  );
 @endphp
 
 <section class="admin-card" style="margin-bottom:1.5rem;">
@@ -73,13 +94,15 @@
   @else
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">Pagina</th><th scope="col">URL</th><th scope="col">Finding</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">Pagina</th><th scope="col">URL</th><th scope="col">Finding</th><th scope="col">Stato</th></tr></thead>
         <tbody>
           @foreach($seo['flagged'] as $row)
             <tr>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
               <td>{{ $row['label'] }}</td>
               <td>{{ $row['sample_url'] ?? '—' }}</td>
               <td>{{ implode(' | ', $row['findings']) }}</td>
+              <td><x-admin.finding-status-cell domain="seo" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
@@ -90,27 +113,26 @@
 
 <section class="admin-card" style="margin-bottom:1.5rem;">
   <h2 style="font-size:1rem;margin:0 0 .75rem;">Redirect vecchi slug e coerenza canonical</h2>
-  @if($redirectsCanonical['flagged_redirects'] === [] && $redirectsCanonical['flagged_canonicals'] === [])
+  @if($redirectsCanonical['flagged'] === [])
     <p style="font-size:.82rem;color:var(--admin-muted);margin:0;">Nessun finding — {{ $redirectsCanonical['checked_count'] }} elementi verificati.</p>
   @else
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">Tipo</th><th scope="col">Riferimento</th><th scope="col">Stato HTTP</th><th scope="col">Finding</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">Tipo</th><th scope="col">Riferimento</th><th scope="col">Stato HTTP</th><th scope="col">Finding</th><th scope="col">Stato</th></tr></thead>
         <tbody>
-          @foreach($redirectsCanonical['flagged_redirects'] as $row)
+          @foreach($redirectsCanonical['flagged'] as $row)
             <tr>
-              <td>Redirect</td>
-              <td>{{ $row['old_slug'] }} (articolo #{{ $row['article_id'] }})</td>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
+              @if($row['kind'] === 'redirect')
+                <td>Redirect</td>
+                <td>{{ $row['old_slug'] }} (articolo #{{ $row['article_id'] }})</td>
+              @else
+                <td>Canonical ({{ $row['type'] }})</td>
+                <td>{{ $row['url'] }}</td>
+              @endif
               <td>{{ $row['http_status'] }}</td>
               <td>{{ implode(' | ', $row['findings']) }}</td>
-            </tr>
-          @endforeach
-          @foreach($redirectsCanonical['flagged_canonicals'] as $row)
-            <tr>
-              <td>Canonical ({{ $row['type'] }})</td>
-              <td>{{ $row['url'] }}</td>
-              <td>{{ $row['http_status'] }}</td>
-              <td>{{ implode(' | ', $row['findings']) }}</td>
+              <td><x-admin.finding-status-cell domain="redirects_canonical" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
@@ -126,13 +148,15 @@
   @else
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">Path</th><th scope="col">Occorrenze</th><th scope="col">Ultima vista</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">Path</th><th scope="col">Occorrenze</th><th scope="col">Ultima vista</th><th scope="col">Stato</th></tr></thead>
         <tbody>
-          @foreach($notFound['flagged'] as $hit)
+          @foreach($notFound['flagged'] as $row)
             <tr>
-              <td>{{ $hit->path }}</td>
-              <td>{{ $hit->hits }}</td>
-              <td>{{ $hit->last_seen_at->toDateTimeString() }}</td>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
+              <td>{{ $row['path'] }}</td>
+              <td>{{ $row['hits'] }}</td>
+              <td>{{ $row['last_seen_at']->toDateTimeString() }}</td>
+              <td><x-admin.finding-status-cell domain="not_found" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
@@ -152,13 +176,15 @@
   @else
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">URL</th><th scope="col">Articoli</th><th scope="col">Finding</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">URL</th><th scope="col">Articoli</th><th scope="col">Finding</th><th scope="col">Stato</th></tr></thead>
         <tbody>
           @foreach($links['flagged'] as $row)
             <tr>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
               <td>{{ $row['url'] }}</td>
               <td>{{ implode(', ', $row['articles']) }}</td>
               <td>{{ implode(' | ', $row['findings']) }}</td>
+              <td><x-admin.finding-status-cell domain="links" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
@@ -179,12 +205,14 @@
     </p>
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">File</th><th scope="col">Finding</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">File</th><th scope="col">Finding</th><th scope="col">Stato</th></tr></thead>
         <tbody>
           @foreach($media['flagged'] as $row)
             <tr>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
               <td><a href="{{ route('admin.media') }}">{{ $row['filename'] }}</a></td>
               <td>{{ implode(' | ', $row['findings']) }}</td>
+              <td><x-admin.finding-status-cell domain="media" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
@@ -200,13 +228,15 @@
   @else
     <div style="overflow-x:auto;">
       <table class="admin-table">
-        <thead><tr><th scope="col">Pagina</th><th scope="col">URL</th><th scope="col">Finding</th></tr></thead>
+        <thead><tr><th scope="col">Gravità</th><th scope="col">Pagina</th><th scope="col">URL</th><th scope="col">Finding</th><th scope="col">Stato</th></tr></thead>
         <tbody>
           @foreach($wcag['flagged'] as $row)
             <tr>
+              <td>{!! $severityBadge($row['severity']) !!}</td>
               <td>{{ $row['label'] }}</td>
               <td>{{ $row['url'] ?? '—' }}</td>
               <td>{{ implode(' | ', $row['findings']) }}</td>
+              <td><x-admin.finding-status-cell domain="wcag" :finding-key="$row['finding_key']" :status="$row['status']" :status-options="$statusOptions" /></td>
             </tr>
           @endforeach
         </tbody>
