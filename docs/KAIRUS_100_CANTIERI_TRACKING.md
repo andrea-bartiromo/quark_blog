@@ -57,7 +57,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 23 | Audit 404/redirect/canonical incoerenti | merged | [#571](https://github.com/andrea-bartiromo/quark_blog/pull/571) | 38c6654 | 13/13 (audit) + 5/5 (comando); PublicPages+Console: 258/258 (819 assert., 3 skip.); suite completa: 4348 (4345 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali, tutti corretti — 404 accettato senza verificare che l'articolo non sia più pubblicato; 302 accettato al pari di 301; redirect verso l'articolo sbagliato non rilevato; confronto canonical sempre sul self-URL invece di `metaCanonicalUrl()`; `--json` non rifletteva i findings nell'exit code) | 21 |
 | 24 | Registro interno aggregato 404 | merged | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | 5ce3263 | 10/10 (tracker) + 5/5 (integrazione end-to-end) + 4/4 (comando); suite completa: 4367 (4364 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali — 4 corretti: chiave path_hash sha256 invece di path troncato/case-insensitive; scrittura mai rilanciata; middleware globale sulla risposta finale invece dell'hook su render() per coprire i 404 espliciti da controller; 1 accettato e documentato: l'esclusione redazionale non copre un path che non corrisponde a nessuna rotta — un fix generale (Route::fallback()) è stato tentato e scartato dopo aver riprodotto una regressione peggiore, rottura della corretta individuazione dei verbi alternativi di Laravel/405) | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | merged | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | 9b30160 | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); suite completa: 4389 (4386 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 0 (nessun finding Codex) | 21 |
-| 26 | Audit media (mancanti/alt/peso/formati/crediti) | pending | — | — | — | — | 21 |
+| 26 | Audit media (mancanti/alt/peso/formati/crediti) | open | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | — | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 0 (nessun finding Codex ricevuto finora) | 21 |
 | 27 | Baseline performance lab | pending | — | — | — | — | 21 |
 | 28 | Test browser navigazione tastiera | pending | — | — | — | — | 21 |
 | 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
@@ -134,6 +134,21 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 26 — Audit editoriale Libreria media (mancanti/alt/peso/formati/crediti)
+
+Ispezione preliminare: `MediaWebpAuditService` (missione WebP) verifica
+già `format_breakdown`, `missing_media_files` e i candidati a
+conversione WebP per i file immagine sotto `public/assets/img`.
+Nessuna duplicazione: questo audit li riusa per "file mancante" e
+"formato non ottimale", e aggiunge testo alternativo e credito/fonte
+(nessun audit esistente le copriva) più un controllo di peso (soglia
+configurabile, `config('media.audit_max_size_bytes')`, nuovo).
+
+`App\Services\MediaLibraryHealthAudit` — stesso criterio di
+`ArticleContentHealthService::coverAttribution()` per
+credito/fonte (serve il credito E almeno una tra fonte/URL fonte).
+Comando `php artisan media:health-audit` (`--max-size=`, `--json`).
 
 ### 25 — Audit link interni (oltre articolo) ed esterni irraggiungibili
 
