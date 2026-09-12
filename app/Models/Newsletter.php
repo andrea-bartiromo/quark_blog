@@ -53,8 +53,7 @@ class Newsletter extends Model
             $subscriber->update([
                 'token' => Str::random(64),
                 'unsubscribe_token' => $subscriber->unsubscribe_token ?: Str::random(32),
-                'source' => in_array($source, self::SOURCES, true) ? $source : $subscriber->source,
-                'created_at' => now(),
+                                'created_at' => now(),
             ]);
 
             // I vecchi token non possono riaprire una richiesta di consenso
