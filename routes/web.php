@@ -195,6 +195,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/categorie', [CategoryController::class, 'store'])->name('categories.store');
     Route::put('/categorie/{category}', [CategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categorie/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    // Cantiere 11 (programma 100-cantieri Kairus): anteprima di sola
+    // lettura, staff-only (dentro auth+editor sopra), della pagina
+    // pubblica per una categoria bozza/programmata/disattivata.
+    Route::get('/categorie/{category}/anteprima', [CategoryController::class, 'preview'])->name('categories.preview');
 
     // Commenti
     Route::get('/commenti', [AdminCommentController::class, 'index'])->name('comments');
