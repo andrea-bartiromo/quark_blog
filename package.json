@@ -6,7 +6,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:browser": "playwright test"
+        "test:browser": "playwright test",
+        "performance:lab": "node scripts/performance-lab.mjs"
     },
     "devDependencies": {
         "@playwright/test": "1.62.0",
