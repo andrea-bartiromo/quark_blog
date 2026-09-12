@@ -49,7 +49,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
 | 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | merged | [#565](https://github.com/andrea-bartiromo/quark_blog/pull/565) | `16d5d0e` | 26/26 (155 assert.) | 0 | 16 |
-| 18 | Preflight storage persistente release | pending | — | — | — | — | — |
+| 18 | Preflight storage persistente release | in_progress | — | — | — | — | — |
 | 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
 | 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
@@ -134,6 +134,36 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 18 — Preflight storage persistente release
+
+Ispezione preliminare: con lo schema "directory di release separate +
+switch di symlink" già in produzione, `docs/DEPLOYMENT.md` documenta già
+il rischio per il registro rilasci (`DEPLOY_RELEASE_REGISTRY_PATH` deve
+puntare fuori dalla directory di release, o l'evento è perduto al
+deploy successivo) — ma lo stesso identico rischio si applica, senza che
+nulla lo verifichi, alla directory dei backup MariaDB
+(`DB_BACKUP_DIRECTORY`, `config/backup.php`): a differenza del registro
+rilasci (disattivato di default, nessun rischio se non configurato), il
+backup ha SEMPRE un valore di default
+(`storage_path('backups/mariadb')`), che è per costruzione dentro la
+directory di release corrente — un `.env` di produzione che non lo
+sovrascrive esplicitamente perderebbe ogni backup al deploy successivo,
+vanificando la retention a 7 copie di `docs/STORAGE_AUDIT.md`. Nessun
+comando o test verificava questo. Gap genuino, non "già coperto".
+
+Aggiunto `App\Services\Deploy\PersistentStoragePreflight` + il comando
+`php artisan deploy:verify-persistent-storage`: verifica che entrambi i
+percorsi (backup, registro rilasci) risolvano fuori dalla directory di
+release corrente, segnalando solo quelli effettivamente configurati
+dentro (mai il registro rilasci quando è semplicemente disattivato —
+stato deliberato, non un rischio). **Solo informativo**: wired in
+`deploy.sh` senza `|| fail` (stesso principio già in uso per
+`release:record-registry`) — un `.env` di produzione già funzionante non
+deve iniziare improvvisamente a bloccare i rilasci per una
+configurazione mai stata un requisito fin qui. Aggiornati
+`.env.production.example` (nuova variabile documentata) e
+`docs/DEPLOYMENT.md`.
 
 ### 17 — Test deploy reale release senza .git (REVISION)
 

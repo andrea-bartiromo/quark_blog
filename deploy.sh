@@ -202,6 +202,17 @@ php artisan about 2>&1 | grep -E "Name|Version|PHP|Database|Environment" || true
 echo "Checking public asset consistency between the application root and the served document root (if configured)."
 php artisan deploy:asset-drift || fail "Public asset drift detected between the application root and the configured served document root (DEPLOY_SERVED_PUBLIC_ROOT). Synchronize the two document roots before proceeding — see docs/DEPLOYMENT.md."
 
+# Cantiere 18 (programma 100-cantieri Kairus): con lo schema a directory
+# separate + switch di symlink, un percorso pensato per sopravvivere tra
+# un rilascio e l'altro (backup MariaDB, registro rilasci) ma lasciato a
+# puntare dentro QUESTA directory di release verrebbe silenziosamente
+# perduto al deploy successivo. Solo informativo (mai `|| fail`, stesso
+# principio di release:record-registry sotto): un .env di produzione già
+# esistente e funzionante non deve iniziare improvvisamente a bloccare i
+# rilasci per una configurazione mai stata un requisito fin qui — vedi
+# App\Services\Deploy\PersistentStoragePreflight.
+php artisan deploy:verify-persistent-storage || true
+
 # Record the exact successful code revision only after all deploy checks and
 # cache operations complete. These files contain metadata only, never secrets.
 printf '%s\n' "$ACTUAL_SHA" > REVISION
