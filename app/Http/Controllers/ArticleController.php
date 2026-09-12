@@ -71,7 +71,7 @@ class ArticleController extends Controller
         // ?page=1; il canonical invece viene costruito separatamente dalla
         // vista e non eredita parametri di tracking o filtri.
         $paginationQuery = $request->query();
-        unset($paginationQuery['page']);
+        unset($paginationQuery['page'], $paginationQuery['slug']);
 
         $pageUrl = static fn (int $page): string => route('categoria', array_merge(
             ['slug' => $slug],
