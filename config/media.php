@@ -158,6 +158,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Soglia di peso per l'audit editoriale della Libreria media
+    |--------------------------------------------------------------------------
+    |
+    | Usata esclusivamente da App\Services\MediaLibraryHealthAudit
+    | (`media:health-audit`, Cantiere 26, sola lettura): un file immagine
+    | oltre questa soglia viene segnalato come "peso elevato" — un
+    | suggerimento editoriale, mai un blocco. 1 MB di default: coerente con
+    | webp_max_width sopra (1600px), oltre il quale un JPG/PNG non ancora
+    | ottimizzato supera tipicamente questa soglia.
+    */
+    'audit_max_size_bytes' => (int) env('MEDIA_AUDIT_MAX_SIZE_BYTES', 1_000_000),
+
+    /*
+    |--------------------------------------------------------------------------
     | Varianti responsive (missione S2)
     |--------------------------------------------------------------------------
     |
