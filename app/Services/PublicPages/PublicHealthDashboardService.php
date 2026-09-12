@@ -50,6 +50,15 @@ class PublicHealthDashboardService
     private const NOT_FOUND_DISPLAY_LIMIT = 50;
 
     /**
+     * Limite ampio ma non illimitato per i conteggi aperti/ignorati del
+     * registro 404 (Codex, PR #579, P2) — una query singola resta
+     * economica anche a questa scala, ben oltre quanti path 404 distinti
+     * un registro di questa natura accumula realisticamente prima che un
+     * editore li smaltisca.
+     */
+    private const NOT_FOUND_COUNTING_LIMIT = 5000;
+
+    /**
      * Soglia oltre la quale un path 404 realmente visitato passa da
      * MEDIUM a HIGH — arbitraria ma dichiarata: un path colpito da molti
      * visitatori reali merita priorità su uno visitato una volta sola
@@ -144,33 +153,54 @@ class PublicHealthDashboardService
      * Una riga senza stato persistito è implicitamente "new" — nessuna
      * riga viene mai scritta solo per essere letta.
      *
+     * Codex (PR #579, P2): i conteggi aperti/ignorati/gravità alta devono
+     * riflettere l'INTERO insieme di righe di un dominio, non solo la
+     * porzione mostrata in tabella — altrimenti ignorare un finding fuori
+     * dalla porzione mostrata (es. un path 404 oltre i 50 più frequenti)
+     * non riduce mai il conteggio "aperti", e la dashboard può restare
+     * "DA_RIVEDERE" (o peggio, apparire "SANA") in modo scorrelato dallo
+     * stato reale. Un dominio può opzionalmente fornire `_counting_rows`
+     * (l'insieme completo, usato SOLO qui) quando è più ampio di `flagged`
+     * (la sola porzione mostrata) — rimosso dallo snapshot finale.
+     *
      * @param  array<string, array<string, mixed>>  $domains
      * @return array<string, array<string, mixed>>
      */
     private function attachStatuses(array $domains): array
     {
-        $findingKeys = collect($domains)
-            ->only(self::REAL_DOMAIN_KEYS)
-            ->flatMap(fn (array $d) => collect($d['flagged'])->pluck('finding_key'))
+        $countingRowsByDomain = collect(self::REAL_DOMAIN_KEYS)
+            ->mapWithKeys(fn (string $key) => [$key => $domains[$key]['_counting_rows'] ?? $domains[$key]['flagged']]);
+
+        $findingKeys = $countingRowsByDomain
+            ->flatMap(fn (array $rows) => collect($rows)->pluck('finding_key'))
             ->values()
             ->all();
 
         $statuses = $this->findingStatuses->statusesFor($findingKeys);
 
         foreach (self::REAL_DOMAIN_KEYS as $key) {
-            $flagged = collect($domains[$key]['flagged'])
+            $countingRows = collect($countingRowsByDomain[$key])
                 ->map(function (array $row) use ($statuses) {
                     $row['status'] = $statuses[$row['finding_key']] ?? AuditFindingStatus::STATUS_NEW;
 
                     return $row;
-                })
-                ->values();
+                });
 
-            $open = $flagged->where('status', '!=', AuditFindingStatus::STATUS_DISMISSED);
+            $open = $countingRows->where('status', '!=', AuditFindingStatus::STATUS_DISMISSED);
 
-            $domains[$key]['flagged'] = $flagged->all();
+            if (isset($domains[$key]['_counting_rows'])) {
+                // 'flagged' è già un sotto-insieme (stesso finding_key) di
+                // counting_rows: riusa lo stato già calcolato sopra invece
+                // di interrogare di nuovo il database per le stesse chiavi.
+                $displayedKeys = collect($domains[$key]['flagged'])->pluck('finding_key');
+                $domains[$key]['flagged'] = $countingRows->whereIn('finding_key', $displayedKeys)->values()->all();
+                unset($domains[$key]['_counting_rows']);
+            } else {
+                $domains[$key]['flagged'] = $countingRows->values()->all();
+            }
+
             $domains[$key]['open_count'] = $open->count();
-            $domains[$key]['dismissed_count'] = $flagged->count() - $open->count();
+            $domains[$key]['dismissed_count'] = $countingRows->count() - $open->count();
             $domains[$key]['high_open_count'] = $open->where('severity', 'HIGH')->count();
         }
 
@@ -203,9 +233,15 @@ class PublicHealthDashboardService
             $flagged,
             'seo',
             fn (array $r) => $r['key'],
+            // Codex (PR #579, P1): PublicPageSeoAudit espone 'sample_url',
+            // mai 'url' — un accesso alla chiave sbagliata qui non veniva
+            // mai eseguito nei test perche' http_status !== 200 va sempre
+            // in cortocircuito prima, ma su una pagina reale che risponde
+            // 200 con un canonical incoerente questo confronto viene
+            // eseguito davvero e avrebbe fatto fallire l'intera dashboard.
             fn (array $r) => ($r['http_status'] !== 200
                 || $r['canonical'] === null
-                || rtrim((string) $r['canonical'], '/') !== rtrim((string) $r['url'], '/')
+                || rtrim((string) $r['canonical'], '/') !== rtrim((string) $r['sample_url'], '/')
             ) ? 'HIGH' : 'MEDIUM',
         );
 
@@ -267,16 +303,26 @@ class PublicHealthDashboardService
     /** @return array<string, mixed> */
     private function notFoundDomain(): array
     {
-        $topHits = collect($this->notFoundHitTracker->topHits(self::NOT_FOUND_DISPLAY_LIMIT))
-            ->map(fn (NotFoundHit $hit) => [
-                'path' => $hit->path,
-                'hits' => $hit->hits,
-                'last_seen_at' => $hit->last_seen_at,
-                'findings' => ["Visitato {$hit->hits} volte dal traffico reale."],
-            ])
-            ->all();
-        $flagged = $this->withMeta(
-            $topHits,
+        // Codex (PR #579, P2): calcolare severità/stato solo sui path
+        // mostrati in tabella (NOT_FOUND_DISPLAY_LIMIT) sotto-contava i
+        // finding "aperti" quando il registro supera quel limite — un
+        // path 404 oltre i 50 più frequenti mostrati non contribuiva mai
+        // ai conteggi, quindi ignorarne uno tra i 50 mostrati poteva far
+        // apparire la dashboard "SANA" con altri 404 aperti oltre quel
+        // limite. _counting_rows copre l'intero registro (limite ampio
+        // ma non illimitato: oltre questa soglia i conteggi tornano ad
+        // essere un'approssimazione, non più un problema pratico per un
+        // registro di questa natura); 'flagged' resta limitato ai path
+        // più frequenti per la sola tabella.
+        $allRows = $this->withMeta(
+            collect($this->notFoundHitTracker->topHits(self::NOT_FOUND_COUNTING_LIMIT))
+                ->map(fn (NotFoundHit $hit) => [
+                    'path' => $hit->path,
+                    'hits' => $hit->hits,
+                    'last_seen_at' => $hit->last_seen_at,
+                    'findings' => ["Visitato {$hit->hits} volte dal traffico reale."],
+                ])
+                ->all(),
             'not_found',
             fn (array $r) => $r['path'],
             fn (array $r) => $r['hits'] >= self::NOT_FOUND_HIGH_SEVERITY_HIT_THRESHOLD ? 'HIGH' : 'MEDIUM',
@@ -286,7 +332,8 @@ class PublicHealthDashboardService
             'label' => 'Registro 404 dal traffico reale',
             'available' => true,
             'finding_count' => NotFoundHit::query()->count(),
-            'flagged' => $flagged,
+            'flagged' => array_slice($allRows, 0, self::NOT_FOUND_DISPLAY_LIMIT),
+            '_counting_rows' => $allRows,
             'cli_hint' => 'php artisan pages:not-found-registry',
         ];
     }
