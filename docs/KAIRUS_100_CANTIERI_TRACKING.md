@@ -40,7 +40,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 6 | Test feature/browser composizione categorie | merged | [#555](https://github.com/andrea-bartiromo/quark_blog/pull/555) | `b68695e` | 16/16 PHPUnit (56 assert.) + 6 browser (verdi in CI reale, "Chromium public regression") | 2 reali (fixati: focus programmatico non tastiera reale; breakpoint 900px non testato al confine) | 1-5 |
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
-| 9 | Categorie non pubbliche isolate ovunque | pending | — | — | — | — | — |
+| 9 | Categorie non pubbliche isolate ovunque | in_progress | — | — | — | — | — |
 | 10 | Test integrazione visibilità temporale categorie | pending | — | — | — | — | 9 |
 | 11 | Preview admin categorie bozza/programmate | pending | — | — | — | — | 9 |
 | 12 | Checklist admin attivazione categoria | pending | — | — | — | — | 11 |
@@ -134,6 +134,30 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 9 — Categorie non pubbliche isolate ovunque
+
+Audit completo (read-only, prima di scrivere codice) di ogni superficie
+pubblica che referenzia `Category`: sitemap, sitemap-news, RSS feed,
+ricerca, JSON-LD/breadcrumb, pagina categoria, notizie/home, pagina
+articolo, header/footer/sidebar/category-bar, blocco "Continua a
+esplorare", newsletter. **Nessun gap funzionale reale trovato**: ogni
+superficie che rende un link cliccabile verso una pagina categoria usa
+già `publicOptions()`/`isPubliclyVisible()`/`scopePubliclyVisible()`; ogni
+uso del più permissivo `Category::options(false)` è confinato a
+un'etichetta testuale sulla categoria di un articolo già pubblicato (mai
+un link), seguendo la convenzione già esplicitamente documentata in
+`structured-data.blade.php` ("articleSection ... resta un'etichetta
+testuale, non un link, e quindi non è filtrato qui").
+
+Unico neo trovato: due usi di `Category::options(false)` in
+`SeoController.php` (`feed()` per `<category>`, `newsSitemap()` per
+`<news:genres>`) non avevano il commento esplicativo che accompagna ogni
+altro uso analogo altrove. Aggiunto per coerenza, insieme a 2 test di
+regressione che verificano che l'etichetta sopravviva alla disattivazione
+della categoria dopo la pubblicazione dell'articolo (comportamento
+corretto, non un leak: l'articolo resta pubblico, solo l'etichetta di
+testo non deve sparire né mostrare lo slug grezzo).
 
 ### 4 — Più letti → 3 articoli, esclusi duplicati pagina
 

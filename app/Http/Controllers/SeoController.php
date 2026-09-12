@@ -106,6 +106,13 @@ class SeoController extends Controller
             $url = $base.'/articolo/'.$article->slug;
             $date = $article->published_at->toRfc2822String();
             $author = htmlspecialchars($article->author->name, ENT_XML1);
+            // Category::options(false), non publicOptions(): <category> qui
+            // resta un'etichetta testuale sull'articolo (già filtrato da
+            // Article::published() sopra), mai un link cliccabile verso una
+            // pagina categoria — stessa convenzione di articleSection in
+            // structured-data.blade.php. Una categoria nel frattempo
+            // disattivata deve continuare a mostrare il proprio nome, non
+            // sparire dal feed di un articolo già pubblicato.
             $cat = htmlspecialchars(Category::options(false)[$article->category] ?? $article->category, ENT_XML1);
             $body = htmlspecialchars('<p>'.nl2br(strip_tags($article->body)).'</p>', ENT_XML1);
 
@@ -132,6 +139,10 @@ class SeoController extends Controller
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'.PHP_EOL;
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'.PHP_EOL;
         $xml .= '        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">'.PHP_EOL;
+        // Category::options(false), non publicOptions(): <news:genres> è
+        // un'etichetta testuale sull'articolo (già filtrato dalla query
+        // sopra: solo status='published'), mai un link — stessa convenzione
+        // di RSS::feed() sopra e di articleSection in structured-data.blade.php.
         $cats = Category::options(false);
 
         foreach ($articles as $article) {
