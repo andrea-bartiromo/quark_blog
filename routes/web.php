@@ -34,6 +34,7 @@ use App\Http\Controllers\Admin\ProjectDecisionController;
 use App\Http\Controllers\Admin\ProjectDocumentController;
 use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
+use App\Http\Controllers\Admin\PublicHealthDashboardController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
@@ -291,6 +292,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Editorial Operations Dashboard V1 (Mission 09)
     Route::get('/operazioni-editoriali', [EditorialOperationsDashboardController::class, 'index'])->name('editorial-operations');
+
+    // Dashboard admin Salute pubblica — aggrega gli audit tecnici delle
+    // pagine pubbliche (Cantiere 30, dipende dai Cantieri 22-29).
+    Route::get('/salute-pubblica', [PublicHealthDashboardController::class, 'index'])->name('public-health');
 
     // Editorial Quality Gate — sitewide audit (Missione 35, batch KAIRUS)
     Route::get('/qualita-editoriale', [EditorialQualityAuditController::class, 'index'])->name('editorial-quality');
