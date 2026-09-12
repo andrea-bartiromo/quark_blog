@@ -91,6 +91,60 @@ class CategoryAdminPreviewTest extends TestCase
         $this->get(route('admin.categories.preview', $category))->assertRedirect(route('login'));
     }
 
+    /**
+     * Finding Codex (P2, PR #558): 'category' non veniva rimosso dalla
+     * query string carried tra le pagine, solo 'page' — un
+     * ?category=<altro-id> sopravviveva all'array_merge e vinceva su
+     * $category->id, facendo puntare i link di paginazione/prev/next
+     * all'anteprima di UN'ALTRA categoria. Serve una categoria con più di
+     * 6 articoli (una pagina non basta) per generare un link "successiva".
+     */
+    public function test_pagination_links_ignore_a_category_query_parameter_spoofing_another_category(): void
+    {
+        $category = Category::create([
+            'name' => 'Bozza Con Paginazione',
+            'slug' => 'bozza-con-paginazione',
+            'is_active' => true,
+            'status' => Category::STATUS_DRAFT,
+        ]);
+        $other = Category::create([
+            'name' => 'Altra Categoria',
+            'slug' => 'altra-categoria-bozza',
+            'is_active' => true,
+            'status' => Category::STATUS_DRAFT,
+        ]);
+
+        $author = $this->author();
+        for ($i = 0; $i < 7; $i++) {
+            Article::create([
+                'user_id' => $author->id,
+                'title' => 'Articolo paginazione '.$i,
+                'slug' => 'articolo-paginazione-'.$i,
+                'excerpt' => 'Sommario di prova.',
+                'body' => '<p>Corpo articolo di prova.</p>',
+                'category' => $category->slug,
+                'status' => Article::STATUS_PUBLISHED,
+                'published_at' => now()->subMinutes($i),
+                'read_minutes' => 3,
+            ]);
+        }
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.categories.preview', $category).'?category='.$other->id);
+        $content = $response->getContent();
+
+        $response->assertOk();
+        // Il rischio reale è nel PATH, non nella query string: il link
+        // "successiva" generato dal nostro $pageUrl deve puntare al PATH
+        // della categoria richiesta (8), mai a quello dell'altra (9) — un
+        // eventuale ?category=9 residuo aggiunto dal componente di
+        // paginazione standard di Laravel (withQueryString(), condiviso da
+        // ogni pagina paginata del sito) resta innocuo perché il binding
+        // della rotta legge sempre il PATH, non la query string.
+        $this->assertStringContainsString('admin/categorie/'.$category->id.'/anteprima?page=2', $content);
+        $this->assertStringNotContainsString('admin/categorie/'.$other->id.'/anteprima', $content);
+    }
+
     public function test_a_second_page_beyond_the_last_still_404s_in_preview(): void
     {
         $category = Category::create([

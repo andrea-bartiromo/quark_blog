@@ -57,8 +57,14 @@ class CategoryController extends Controller
      */
     public function preview(Request $request, Category $category, CategoryDiscoveryPageData $pageData)
     {
+        // 'category' rimosso oltre a 'page': è la route key stessa (vedi
+        // ArticleController::category(), che per lo stesso motivo rimuove
+        // 'slug'). Senza questo, un ?category=<altro-id> nella query string
+        // sopravvivrebbe all'array_merge sotto e vincerebbe su
+        // $category->id, facendo puntare i link di paginazione/prev/next
+        // all'anteprima di UN'ALTRA categoria (finding Codex su questa PR).
         $paginationQuery = $request->query();
-        unset($paginationQuery['page']);
+        unset($paginationQuery['page'], $paginationQuery['category']);
 
         $pageUrl = static fn (int $page): string => route('admin.categories.preview', array_merge(
             ['category' => $category->id],
