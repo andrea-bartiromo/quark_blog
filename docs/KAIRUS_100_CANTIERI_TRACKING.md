@@ -51,7 +51,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 17 | Test deploy reale release senza .git (REVISION) | merged | [#565](https://github.com/andrea-bartiromo/quark_blog/pull/565) | `16d5d0e` | 26/26 (155 assert.) | 0 | 16 |
 | 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
 | 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
-| 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
+| 20 | Report read-only deploy readiness | open | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | — | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente) | 0 (nessun finding Codex ricevuto finora) | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
@@ -134,6 +134,38 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 20 — Report read-only deploy readiness
+
+Ispezione preliminare: dopo i Cantieri 15-19 esistono sei verifiche di
+rilascio di sola lettura indipendenti (`deploy:verify-cache-paths`,
+`deploy:verify-scheduled-commands`, `deploy:verify-front-controller`,
+`deploy:asset-drift`, `deploy:verify-persistent-storage`,
+`deploy:verify-database-backup`), ma nessuna di esse è mai stata
+consultabile in un colpo solo: `deploy.sh` le esegue una alla volta, e
+solo DURANTE un rilascio reale contro una release già effettivamente
+checked-out. Verificare oggi la prontezza di un rilascio senza eseguire
+`deploy.sh` per davvero (con i suoi effetti collaterali: refresh cache,
+scrittura di REVISION/DEPLOY_INFO) richiede di lanciare a mano sei
+comandi separati, ricordandosi quali sono bloccanti (`|| fail`) e quali
+solo informativi (`|| true`) in `deploy.sh`. Nessun comando o servizio
+esistente aggregava questo in un'unica vista. Gap genuino, non "già
+coperto".
+
+Aggiunto `php artisan deploy:readiness-report` (`--json` per
+l'automazione): invoca i sei comandi `deploy:verify-*`/`deploy:asset-
+drift` GIÀ esistenti (mai una loro riscrittura — ciascuno resta l'unica
+fonte di verità per la propria verifica) tramite `Artisan::call()` con
+output catturato in un `BufferedOutput` dedicato per comando, e
+stampa una tabella riassuntiva che etichetta esplicitamente ogni
+verifica come bloccante o informativa. Exit code: 0 quando tutto passa
+o quando fallisce solo una verifica informativa (il report ne stampa
+comunque il dettaglio e avverte che va rivista); diverso da zero solo
+se fallisce una verifica bloccante — rispecchiando esattamente cosa
+farebbe `deploy.sh` stesso. Deliberatamente NON wired in `deploy.sh`:
+ogni verifica gira già lì con la propria semantica corretta, ripeterla
+dentro il wrapper di rilascio sarebbe ridondante, non più sicuro.
+Aggiornato `docs/DEPLOYMENT.md`.
 
 ### 19 — Verifica automatica backup MariaDB
 

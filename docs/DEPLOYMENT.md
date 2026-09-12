@@ -68,7 +68,7 @@ The release registry above is one instance of a broader class of risk: **any** p
 
 The preflight above only checks *where* a configured backup directory resolves — it says nothing about whether a valid backup actually exists there, or how old it is. Since `backup:database-v2` remains manual/opt-in (see "Database and backup ordering" above: no scheduler runs it, `deploy.sh` does not call it), an operator who forgets to run it has had no automated signal at all.
 
-`App\Services\Deploy\MariaDbBackupHealthAudit` (`php artisan deploy:verify-database-backup`) is a **read-only** check: it never creates, schedules, or deletes any backup. It scans `config('backup.v2.directory')` for artifact/metadata pairs whose recorded SHA-256 and size still match the file on disk (the same integrity check `MariaDbBackupService::isKnownGoodPair()` uses when applying retention), and reports:
+`App\Services\Deploy\MariaDbBackupHealthAudit` (`php artisan deploy:verify-database-backup`) is a **read-only** check: it never creates, schedules, or deletes any backup. It scans `config('backup.v2.directory')` for artifact/metadata pairs belonging to the *current* database identity (the same `identityHash` `MariaDbBackupService::create()` embeds in every filename, so a leftover backup for a previously configured database/host is never mistaken for a valid backup of the current one) whose recorded SHA-256 and size still match the file on disk (the same integrity check `MariaDbBackupService::isKnownGoodPair()` uses when applying retention), and reports:
 
 - **not applicable** — the current `database.default` connection is not `mysql`/`mariadb` (Backup V2 only supports those; nothing to check on SQLite dev/test environments);
 - **no valid backup found** — the directory has no artifact/metadata pair that passes the integrity check;
@@ -78,6 +78,14 @@ The preflight above only checks *where* a configured backup directory resolves �
 `DB_BACKUP_MAX_AGE_HOURS` is deliberately opt-in, like `DB_BACKUP_RETENTION`: because Backup V2 has no fixed schedule, this repository cannot guess what cadence counts as "too old" for a given deployment, so the staleness check is skipped entirely (only existence is reported) until an operator sets that threshold explicitly — see `.env.production.example`.
 
 **Informational only** — `deploy.sh` calls it without `|| fail`, right after `deploy:verify-persistent-storage`: it must never start blocking an existing, working deploy over a backup policy that was never a hard requirement until now. Wiring Backup V2 *creation* into the deploy pipeline remains, as stated above, a distinct and deliberately gated engineering decision — this check only ever reads what already exists.
+
+## Deploy readiness report (Cantiere 20, programma Kairus 100 cantieri)
+
+`deploy.sh` runs every `deploy:verify-*` gate (plus `deploy:asset-drift`) one at a time, but only *during* a real release against an already checked-out directory — checking whether production is currently ready to deploy otherwise meant either running `deploy.sh` for real (with its side effects: cache refresh, `REVISION`/`DEPLOY_INFO` writes) or running six separate commands by hand and remembering which ones are fail-closed.
+
+`php artisan deploy:readiness-report` is a **read-only aggregator with no side effects of its own**: it invokes the same, already-existing `deploy:verify-cache-paths`, `deploy:verify-scheduled-commands`, `deploy:verify-front-controller`, `deploy:asset-drift`, `deploy:verify-persistent-storage` and `deploy:verify-database-backup` commands (never a reimplementation — each stays the single source of truth for its own check) and prints one consolidated table, explicitly labeling each check as **blocking** (what `deploy.sh` runs with `|| fail`) or **informational** (what it runs with `|| true`).
+
+Exit code: `0` when every check passes, or when only informational checks fail (the report still prints their detail and warns a risk needs reviewing); non-zero only when a blocking check fails — mirroring exactly what `deploy.sh` itself would do. `--json` returns the same per-check results (`command`, `label`, `blocking`, `ok`, `output`) as JSON for tooling. This command is intentionally **not** wired into `deploy.sh` itself — every check it aggregates already runs there with its own correct semantics; adding the same checks a second time inside the release wrapper would be redundant, not safer.
 
 ## What stays SQLite
 
