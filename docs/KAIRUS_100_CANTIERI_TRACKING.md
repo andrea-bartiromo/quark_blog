@@ -47,7 +47,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
 | 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
 | 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
-| 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
+| 16 | Gate deploy integrità front controller | in_progress | — | — | — | — | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
 | 18 | Preflight storage persistente release | pending | — | — | — | — | — |
 | 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
@@ -134,6 +134,31 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 16 — Gate deploy integrità front controller
+
+Ispezione preliminare: nessun comando o test in questo repository
+verificava il contenuto di `public/.htaccess` — il runbook del Cantiere
+15 lo dichiarava esplicitamente come lavoro futuro proprio di questo
+cantiere. Gap genuino, non "già coperto".
+
+Aggiunto `App\Services\Deploy\FrontControllerHtaccessAudit` (sola
+lettura, verifica la presenza di ogni direttiva critica documentata nel
+runbook: blocco file sensibili, front controller, canonicalizzazione
+host/protocollo, header di sicurezza) e il comando
+`php artisan deploy:verify-front-controller` che lo espone, seguendo
+esattamente la stessa convenzione già in uso per
+`deploy:verify-cache-paths`/`deploy:verify-scheduled-commands` (servizio
++ comando sottile + test dedicati). Wired in `deploy.sh` come gate
+fail-closed, con lo stesso test strutturale già usato per gli altri gate
+(`DeploymentSafetyTest`, verifica che giri dopo il refresh cache e prima
+della finalizzazione della release).
+
+Dichiarato esplicitamente, sia nel comando sia nel runbook aggiornato,
+cosa questo gate NON copre: verifica solo il file git-tracked di questa
+release, mai la copia realmente servita da `~/public_html/.htaccess` —
+resta fuori dalla portata di questo repository, come già dichiarato in
+`docs/DEPLOYMENT.md`.
 
 ### 15 — Runbook cPanel + front controller pubblico
 

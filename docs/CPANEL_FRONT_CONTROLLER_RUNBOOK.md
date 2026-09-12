@@ -213,15 +213,30 @@ memoria di chi ha configurato l'hosting la prima volta:
   stesso (altrimenti il browser mostra un errore di certificato su
   `www.kairus.it` ancora prima che Apache possa reindirizzare altrove).
 
-## Cosa questo runbook NON automatizza (per ora)
+## Gate automatico su public/.htaccess (Cantiere 16)
 
-Questo documento è di sola consultazione: nessun comando o test in questo
-repository verifica automaticamente `~/public_html/index.php` o
-`~/public_html/.htaccess` in produzione — sono entrambi fuori dalla
-portata di questo repository nello stesso senso già dichiarato in
-`docs/DEPLOYMENT.md` ("Known limits"). Il Cantiere 16 del programma Kairus
-("Gate deploy integrità front controller", dipende da questo) è
-esplicitamente incaricato di costruire quella verifica automatica (a
-partire dal contenuto atteso di `public/.htaccess`, che essendo
-git-tracked in questo repository *è* verificabile in CI, a differenza del
-front controller pubblicato in `public_html`, che non lo è mai).
+`php artisan deploy:verify-front-controller` (`App\Services\Deploy\FrontControllerHtaccessAudit`)
+verifica che `public/.htaccess` di QUESTA release contenga ancora ogni
+direttiva critica descritta sopra — blocco file sensibili, front
+controller, canonicalizzazione host/protocollo, header di sicurezza.
+Solo lettura, mai scrittura. `deploy.sh` lo esegue automaticamente come
+gate fail-closed: una direttiva persa (riscrittura accidentale, merge
+risolto male) blocca il rilascio invece di essere scoperta solo dopo che
+un operatore ha copiato il file rotto in `~/public_html/.htaccess`.
+
+Eseguibile anche manualmente in qualunque momento:
+
+```bash
+php artisan deploy:verify-front-controller
+```
+
+## Cosa questo gate NON copre
+
+Questo comando verifica solo il file git-tracked di QUESTA release, MAI
+la copia realmente servita da Apache. `~/public_html/index.php` e
+`~/public_html/.htaccess` restano fuori dalla portata di qualunque
+comando o test di questo repository — nello stesso senso già dichiarato
+in `docs/DEPLOYMENT.md` ("Known limits"): nessun codice qui ha mai
+raggiunto l'host reale. Le verifiche via `curl` documentate sopra restano
+l'unico modo per confermare che `public_html` rifletta davvero questo
+file dopo che un operatore lo ha copiato manualmente.
