@@ -25,9 +25,12 @@ use Closure;
  * alcun contenuto. Per le pagine "dinamiche" (che richiedono un record
  * reale nel database, es. un articolo pubblicato) interroga il database
  * con le stesse query/scope già usati altrove per la visibilità pubblica
- * (`Article::scopePublished()`, `Category::scopePubliclyVisible()`,
- * `ContentCluster::scopePubliclyVisible()`) — mai una condizione
- * duplicata e potenzialmente divergente. Quando nessun record pubblico
+ * (`Article::scopePublished()`, `Category::publicOptions()` — che copre
+ * sia le righe DB pubblicamente visibili sia le categorie legacy
+ * esistenti solo in config, entrambe realmente raggiungibili su
+ * `/categoria/{slug}` — e `ContentCluster::scopePubliclyVisible()`) —
+ * mai una condizione duplicata e potenzialmente divergente. Quando
+ * nessun record pubblico
  * esiste ancora (es. un ambiente appena installato), `sample_url` è
  * `null`: non è un errore, è uno stato legittimo che gli audit a valle
  * devono gestire (nessun esempio da verificare, non "verifica fallita").
@@ -131,9 +134,22 @@ class PublicPageInventory
 
     private function sampleCategoryUrl(): ?string
     {
-        $category = Category::ordered()->publiclyVisible()->first();
+        // Finding Codex (P2, PR #569): una categoria legacy presente SOLO
+        // in config('laboratorio.categories'), senza alcuna riga nella
+        // tabella categories, resta comunque raggiungibile su
+        // /categoria/{slug} — ArticleController::category() non fa mai
+        // abort(404) quando $categoryModel è null (nessuna riga DB), vedi
+        // il suo stesso commento: "Le categorie legacy solo da config...
+        // restano raggiungibili come prima". Category::publicOptions() è
+        // già l'unica fonte di verità per "quali slug categoria sono
+        // davvero pubblici oggi" (righe DB pubblicamente visibili PIÙ gli
+        // slug legacy solo-config): riusarla qui, mai una query duplicata
+        // che ignorerebbe il fallback legacy e segnalerebbe erroneamente
+        // "nessun esempio" quando invece una pagina categoria è
+        // genuinamente raggiungibile.
+        $slug = array_key_first(Category::publicOptions());
 
-        return $category ? route('categoria', ['slug' => $category->slug]) : null;
+        return $slug !== null ? route('categoria', ['slug' => $slug]) : null;
     }
 
     private function sampleArticleUrl(): ?string

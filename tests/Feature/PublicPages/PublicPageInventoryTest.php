@@ -83,6 +83,27 @@ class PublicPageInventoryTest extends TestCase
         $this->assertStringContainsString('/categoria/', $pages['categoria']['sample_url']);
     }
 
+    /**
+     * Finding Codex (P2, PR #569): una categoria legacy presente SOLO in
+     * config('laboratorio.categories'), senza alcuna riga nella tabella
+     * categories (es. dopo la cancellazione di una categoria di base mai
+     * usata), resta comunque raggiungibile su /categoria/{slug} —
+     * ArticleController::category() non fa mai abort(404) quando la
+     * categoria non esiste in DB. Category::publicOptions() è la stessa
+     * fonte di verità già usata dalla superficie pubblica: deve restare
+     * l'unica interrogata anche qui, mai una query DB-only che
+     * ignorerebbe questo fallback legacy.
+     */
+    public function test_a_config_only_legacy_category_without_any_database_row_is_still_used_as_a_sample(): void
+    {
+        Category::query()->delete();
+
+        $pages = collect(app(PublicPageInventory::class)->pages())->keyBy('key');
+
+        $this->assertIsString($pages['categoria']['sample_url']);
+        $this->assertStringContainsString('/categoria/', $pages['categoria']['sample_url']);
+    }
+
     public function test_a_draft_category_is_never_used_as_the_sample(): void
     {
         Category::create([
