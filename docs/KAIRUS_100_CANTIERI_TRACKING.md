@@ -50,7 +50,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | merged | [#565](https://github.com/andrea-bartiromo/quark_blog/pull/565) | `16d5d0e` | 26/26 (155 assert.) | 0 | 16 |
 | 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
-| 19 | Verifica automatica backup MariaDB | open | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | — | 9/9 (audit) + 4/4 (comando); Deploy*: verdi | 0 (nessun finding Codex ricevuto finora) | — |
+| 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
 | 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
@@ -164,6 +164,25 @@ sha256/size combaciano ancora (stesso controllo di
 oppure ok. **Solo informativo**: wired in `deploy.sh` senza `|| fail`,
 subito dopo `deploy:verify-persistent-storage`. Aggiornati
 `.env.production.example` e `docs/DEPLOYMENT.md`.
+
+3 finding Codex (PR #567), tutti reali e fixati con test di regressione
+dedicati:
+- P1: il confronto usava un wildcard su qualunque backup nella directory
+  invece di filtrare per l'`identityHash` della connessione CORRENTE
+  (stesso calcolo di `MariaDbBackupService::create()`) — un vecchio
+  backup di un database diverso avrebbe fatto riportare "ok"
+  indefinitamente se produzione cambiasse nome database/host mantenendo
+  la stessa directory persistente;
+- P2: senza retention configurata (default) la ricerca del backup più
+  recente chiamava `hash_file()` su OGNI dump storico ad ogni
+  `deploy.sh`, potenzialmente leggendo un'intera storia di backup
+  multi-gigabyte — corretto leggendo prima solo i metadata (economici),
+  ordinando per data, e convalidando un candidato alla volta dal più
+  recente finché non se ne trova uno valido;
+- P2: `DB_BACKUP_MAX_AGE_HOURS` configurato ma malformato (es. "-3")
+  veniva silenziosamente trattato come "non configurato", disabilitando
+  il controllo di staleness invece di segnalare l'errore — corretto con
+  un nuovo stato esplicito `max_age_invalid`.
 
 ### 18 — Preflight storage persistente release
 
