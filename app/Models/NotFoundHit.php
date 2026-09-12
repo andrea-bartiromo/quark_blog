@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Model;
 class NotFoundHit extends Model
 {
     protected $fillable = [
-        'path', 'hits', 'last_referer', 'first_seen_at', 'last_seen_at',
+        'path_hash', 'path', 'hits', 'last_referer', 'first_seen_at', 'last_seen_at',
     ];
 
     protected function casts(): array

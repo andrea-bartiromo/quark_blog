@@ -5,9 +5,9 @@ use App\Http\Middleware\EditorMiddleware;
 use App\Http\Middleware\ForceHttpsUrlScheme;
 use App\Http\Middleware\LoginRateLimiter;
 use App\Http\Middleware\LogLoginAttempts;
+use App\Http\Middleware\RecordNotFoundHits;
 use App\Http\Middleware\RedazioneMiddleware;
 use App\Http\Middleware\SecurityHeaders;
-use App\Services\PublicPages\NotFoundHitTracker;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -51,15 +51,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->prepend(ForceHttpsUrlScheme::class);
         $middleware->append(SecurityHeaders::class);
+        $middleware->append(RecordNotFoundHits::class);
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (HttpException $e, $request) {
             $code = $e->getStatusCode();
-
-            if ($code === 404) {
-                app(NotFoundHitTracker::class)->recordHit($request);
-            }
 
             $viewMap = [404 => 'errors.404', 403 => 'errors.403', 500 => 'errors.500'];
             if (isset($viewMap[$code]) && view()->exists($viewMap[$code])) {

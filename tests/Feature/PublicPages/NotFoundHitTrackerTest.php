@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\PublicPages\NotFoundHitTracker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -108,5 +109,59 @@ class NotFoundHitTrackerTest extends TestCase
         app(NotFoundHitTracker::class)->recordHit(Request::create('/link-provato-da-un-lettore', 'GET'));
 
         $this->assertSame(1, NotFoundHit::query()->count());
+    }
+
+    /**
+     * Codex (PR #572): la chiave di conflitto e' `path_hash` (sha256 del
+     * path), non il path stesso — su MariaDB in produzione (collation
+     * utf8mb4_unicode_ci, case-insensitive) un unique diretto su `path`
+     * farebbe collidere "/Articolo/Uno" e "/articolo/uno" come lo stesso
+     * path. sqlite (l'ambiente di test) confronta gia' in modo
+     * case-sensitive di default, quindi questo test non riproduce il bug
+     * di per se', ma blocca una regressione se la chiave tornasse a
+     * essere il path grezzo.
+     */
+    public function test_paths_differing_only_by_case_are_tracked_as_separate_rows(): void
+    {
+        $tracker = app(NotFoundHitTracker::class);
+
+        $tracker->recordHit(Request::create('/Articolo/Uno', 'GET'));
+        $tracker->recordHit(Request::create('/articolo/uno', 'GET'));
+
+        $this->assertSame(2, NotFoundHit::query()->count());
+    }
+
+    /**
+     * Codex (PR #572): troncare il path a 255 byte prima di usarlo come
+     * chiave di aggregazione farebbe collidere path distinti che
+     * condividono lo stesso prefisso (scansioni bot, link malformati). Il
+     * path_hash e' calcolato sul path COMPLETO: nessuna collisione, e la
+     * colonna `path` (solo per visualizzazione) conserva il path intero.
+     */
+    public function test_distinct_paths_longer_than_255_characters_sharing_a_prefix_are_not_merged(): void
+    {
+        $prefix = str_repeat('a', 260);
+        $tracker = app(NotFoundHitTracker::class);
+
+        $tracker->recordHit(Request::create('/'.$prefix.'-primo', 'GET'));
+        $tracker->recordHit(Request::create('/'.$prefix.'-secondo', 'GET'));
+
+        $this->assertSame(2, NotFoundHit::query()->count());
+        $this->assertDatabaseHas('not_found_hits', ['path' => '/'.$prefix.'-primo', 'hits' => 1]);
+        $this->assertDatabaseHas('not_found_hits', ['path' => '/'.$prefix.'-secondo', 'hits' => 1]);
+    }
+
+    /**
+     * Codex (PR #572): questo registro e' puramente osservativo — un suo
+     * fallimento di scrittura (tabella assente, connessione persa) non
+     * deve mai propagarsi e trasformare un 404 genuino in un errore.
+     */
+    public function test_a_write_failure_is_swallowed_and_never_thrown(): void
+    {
+        Schema::drop('not_found_hits');
+
+        app(NotFoundHitTracker::class)->recordHit(Request::create('/questo-path-fallisce-la-scrittura', 'GET'));
+
+        $this->assertTrue(true);
     }
 }
