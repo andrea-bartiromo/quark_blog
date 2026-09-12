@@ -1,6 +1,11 @@
 @extends('layouts.app')
-@section('title', $categoryLabel.' — '.config('laboratorio.name'))
-@section('description', 'Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.')
+@php
+  $pageNumber = $articles->currentPage();
+  $pageSeoSuffix = $pageNumber > 1 ? ' — Pagina '.$pageNumber : '';
+  $pageDescriptionSuffix = $pageNumber > 1 ? ' Pagina '.$pageNumber.'.' : '';
+@endphp
+@section('title', $categoryLabel.$pageSeoSuffix.' — '.config('laboratorio.name'))
+@section('description', 'Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno.'.$pageDescriptionSuffix)
 
 {{--
     Canonical auto-referenziale per pagina: stessa logica di notizie.blade.php
@@ -148,7 +153,7 @@
 
         @if($articles->hasPages())
         <div style="margin-top:2rem;">
-          {{ $articles->links('components.pagination') }}
+          {{ $articles->links('components.pagination', ['firstPageUrl' => $pageUrl(1)]) }}
         </div>
         @endif
 
