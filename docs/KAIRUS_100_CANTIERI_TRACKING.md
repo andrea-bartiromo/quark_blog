@@ -58,7 +58,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 24 | Registro interno aggregato 404 | merged | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | 5ce3263 | 10/10 (tracker) + 5/5 (integrazione end-to-end) + 4/4 (comando); suite completa: 4367 (4364 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali — 4 corretti: chiave path_hash sha256 invece di path troncato/case-insensitive; scrittura mai rilanciata; middleware globale sulla risposta finale invece dell'hook su render() per coprire i 404 espliciti da controller; 1 accettato e documentato: l'esclusione redazionale non copre un path che non corrisponde a nessuna rotta — un fix generale (Route::fallback()) è stato tentato e scartato dopo aver riprodotto una regressione peggiore, rottura della corretta individuazione dei verbi alternativi di Laravel/405) | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | merged | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | 9b30160 | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); suite completa: 4389 (4386 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 0 (nessun finding Codex) | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
-| 27 | Baseline performance lab | open | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | — | N/A (nessun file PHP toccato); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 0 (nessun finding Codex ricevuto finora) | 21 |
+| 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
 | 28 | Test browser navigazione tastiera | pending | — | — | — | — | 21 |
 | 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
@@ -149,10 +149,26 @@ ambiente ha Chromium/Playwright già funzionanti
 stessa fixture deterministica (`BrowserTestSeeder`) e le stesse
 superfici/viewport di `tests/browser/public-regression.spec.js` per
 catturare Navigation/Paint Timing reali, con mediana su più run. Mai
-un gate di rilascio, mai in CI. Prima esecuzione reale validata
-end-to-end (18/18 combinazioni), numeri coerenti con la misura
-manuale precedente — vedi `docs/PERFORMANCE_LAB.md` e
-`docs/PERFORMANCE_LAB_BASELINE.md`.
+un gate di rilascio, mai in CI.
+
+3 finding Codex, tutti reali e tutti corretti (`6084a5c`): (1) P1,
+nessun isolamento dal traffico di terze parti — la prima esecuzione
+mostrava ~12.6-12.7s uniformi su ogni superficie, causati da Google
+Fonts che in questo ambiente sandboxato fallisce con
+`ERR_CONNECTION_RESET` (gia' diagnosticato in
+`docs/CWV_BASELINE_RUNNER.md` per `scripts/cwv-baseline.mjs`, non
+scoperto durante l'ispezione preliminare — gap corretto durante la
+revisione), fissato bloccando ogni richiesta cross-origin prima della
+navigazione; (2) P1, `page.goto()` non verificava lo stato della
+risposta, registrando potenzialmente una pagina di errore come misura
+valida; (3) P2, porta fissa (8199) e nessuna verifica che il processo
+server appena avviato fosse ancora vivo, fissati con una porta libera
+scelta a runtime e il monitoraggio dell'uscita del processo.
+
+Dopo il fix, la stessa esecuzione scende a TTFB 33-55ms e Load sotto i
+350ms, con tempi che variano sensatamente per superficie — vedi
+`docs/PERFORMANCE_LAB.md` e `docs/PERFORMANCE_LAB_BASELINE.md` (numeri
+corretti, non piu' quelli contaminati della primissima esecuzione).
 
 ### 26 — Audit editoriale Libreria media (mancanti/alt/peso/formati/crediti)
 
