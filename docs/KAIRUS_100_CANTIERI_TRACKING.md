@@ -43,7 +43,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 9 | Categorie non pubbliche isolate ovunque | merged | [#556](https://github.com/andrea-bartiromo/quark_blog/pull/556) | `1ab7b6c` | 34/34 (112 assert.) | 0 gap reali (audit completo) | — |
 | 10 | Test integrazione visibilità temporale categorie | merged | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | `d005ad1` | 37/37 (106 assert.) | 0 | 9 |
 | 11 | Preview admin categorie bozza/programmate | merged | [#558](https://github.com/andrea-bartiromo/quark_blog/pull/558) | `6ddfd56` | 241/241 (817 assert.) | 1 reale (fixato: route key `category` non rimossa dalla query string in preview()) | 9 |
-| 12 | Checklist admin attivazione categoria | in_progress | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | — | 66/66 (212 assert.) | 0 | 11 |
+| 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
 | 13 | Comando category:publication-audit | pending | — | — | — | — | 9 |
 | 14 | Test comando audit categorie | pending | — | — | — | — | 13 |
 | 15 | Runbook cPanel + front controller pubblico | pending | — | — | — | — | — |
@@ -151,6 +151,15 @@ nessuno spreco di query per quelle già pubbliche). "Pronta" (badge verde)
 se nessuna criticità, altrimenti un conteggio con tooltip nativo
 (`title="..."`) che elenca le etichette esatte — mai bloccante, stessa
 filosofia già stabilita per il pannello di anteprima nell'editor.
+
+Finding Codex (P2): la fixture del test "categoria pronta" si chiamava
+"Bozza Pronta Lista" — `assertSee('Pronta')` passava grazie al NOME della
+categoria, non al badge reale, e la fixture non era affatto pronta (nessun
+Percorso collegato → `NO_RELATED_PERCORSO`). Corretto: fixture rinominata,
+Percorso collegato come nel test analogo di
+`CategoryPublicationReadinessTest`, asserzione indipendente sul risultato
+del servizio prima di verificare la vista, asserzione finale sul markup
+esatto del badge.
 
 ### 11 — Preview admin categorie bozza/programmate
 
