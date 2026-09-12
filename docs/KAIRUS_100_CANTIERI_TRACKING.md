@@ -60,7 +60,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
 | 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
 | 28 | Test browser navigazione tastiera | merged | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | `bfa4d83` | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js); suite completa: 4390 passed, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 (tutti reali, tutti corretti: traversata partiva dopo skip-link, loop-detection su tag/classe/id anziche' identita' reale, indicatore di focus non confrontato con lo stato senza focus) | 21 |
-| 29 | Audit WCAG interno | open | [#577](https://github.com/andrea-bartiromo/quark_blog/pull/577) | — | 14/14 (servizio) + 6/6 (comando, incl. 2 regressioni reali) | — | 21 |
+| 29 | Audit WCAG interno | merged | [#577](https://github.com/andrea-bartiromo/quark_blog/pull/577) | `81e4301` | 17/17 (servizio) + 6/6 (comando, incl. 2 regressioni reali); suite completa: 4412 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 4 reali (round 1: nome accessibile falso positivo su solo-immagine con alt, `aria-labelledby` verso id inesistente accettato senza risoluzione; round 2 dopo il fix: `libxml_use_internal_errors` non ripristinato, perdita a livello di processo PHP) — tutti corretti | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
 | 31 | Severità e presa in carico audit | pending | — | — | — | — | 30 |
 | 32 | Report articoli con carenze editoriali | pending | — | — | — | — | 30 |
@@ -167,6 +167,18 @@ appena installato): l'unico h1 viveva dentro
 `home/partials/hero-trending.blade.php`, interamente condizionato a
 `@if($featured)` — corretto con un `<h1 class="sr-only">` di fallback,
 visibile solo in quello stato esatto.
+
+Codex (PR #577, 2 round): nome accessibile falso positivo — un
+`aria-labelledby` verso un id inesistente/vuoto contava come nome
+presente per la sola presenza dell'attributo, e un link solo-immagine
+con `alt` risultava senza nome perche' `textContent` non include gli
+`alt` dei discendenti (round 1, fixato con risoluzione reale
+dell'id e fallback su `<img alt>`); il fix ha introdotto
+`libxml_use_internal_errors(true)` senza ripristinare il valore
+precedente — impostazione a livello di intero processo PHP, con
+rischio di contaminare il parsing DOM di test successivi nella stessa
+suite (round 2, fixato catturando e ripristinando il valore
+precedente). Merge `81e4301`.
 
 ### 28 — Test browser navigazione tastiera
 
