@@ -84,6 +84,10 @@ Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
 Route::get('/newsletter/conferma', [NewsletterController::class, 'confirm'])
     ->name('newsletter.confirm');
 
+Route::post('/newsletter/rinvia-conferma', [NewsletterController::class, 'resendConfirmation'])
+    ->middleware('throttle:5,1')
+    ->name('newsletter.resend-confirmation');
+
 Route::get('/newsletter/disiscrivi', [NewsletterController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe');
 
