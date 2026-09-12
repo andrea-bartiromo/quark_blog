@@ -66,7 +66,7 @@ class CategoryDiscoveryFlowTest extends TestCase
         $response = $this->get(route('categoria', 'energia'));
 
         $response->assertOk();
-        $response->assertSee('<nav class="public-pill-row" aria-label="Argomenti">', false);
+        $response->assertSee('<nav class="public-pill-row" aria-label="Filtra per argomento">', false);
         $response->assertSee('href="'.route('categoria', 'energia').'" class="active" aria-current="page"', false);
         // Un'altra categoria pubblica compare come link non attivo, senza
         // classe/aria-current.

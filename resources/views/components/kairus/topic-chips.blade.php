@@ -12,13 +12,20 @@
     $current: slug della categoria attualmente in pagina, o null quando il
     chiamante è la pagina "Tutti" (notizie.blade.php) — in quel caso è
     "Tutti" ad avere class="active" + aria-current="page", non un'altra voce.
+
+    aria-label "Filtra per argomento" (non "Argomenti"): sia notizie.blade.php
+    che categoria.blade.php includono anche components/sidebar.blade.php, il
+    cui topic-cloud è già un <nav aria-label="Argomenti"> distinto — due
+    landmark nav con lo stesso nome accessibile sulla stessa pagina sarebbero
+    indistinguibili per chi naviga con tecnologie assistive (finding Codex
+    P2 su PR #553).
 --}}
 @props([
     'options' => [],
     'current' => null,
 ])
 
-<nav class="public-pill-row" aria-label="Argomenti">
+<nav class="public-pill-row" aria-label="Filtra per argomento">
   @if($current === null)
   <a href="{{ route('notizie') }}" class="active" aria-current="page">Tutti</a>
   @else
