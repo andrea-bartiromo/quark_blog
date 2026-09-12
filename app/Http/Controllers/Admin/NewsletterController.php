@@ -21,7 +21,7 @@ class NewsletterController extends Controller
             ->get();
 
         return view('admin.newsletter', [
-            'subscribers' => Newsletter::with('reconfirmations')->latest()->paginate(50),
+            'subscribers' => Newsletter::with(['reconfirmations', 'consentEvents' => fn ($query) => $query->latest('occurred_at')])->latest()->paginate(50),
             'total' => Newsletter::count(),
             'confirmed' => Newsletter::where('confirmed', true)->count(),
             'sourceReport' => $sourceReport,
