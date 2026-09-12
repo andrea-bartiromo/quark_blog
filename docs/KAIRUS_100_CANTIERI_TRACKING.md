@@ -58,7 +58,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 24 | Registro interno aggregato 404 | merged | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | 5ce3263 | 10/10 (tracker) + 5/5 (integrazione end-to-end) + 4/4 (comando); suite completa: 4367 (4364 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali — 4 corretti: chiave path_hash sha256 invece di path troncato/case-insensitive; scrittura mai rilanciata; middleware globale sulla risposta finale invece dell'hook su render() per coprire i 404 espliciti da controller; 1 accettato e documentato: l'esclusione redazionale non copre un path che non corrisponde a nessuna rotta — un fix generale (Route::fallback()) è stato tentato e scartato dopo aver riprodotto una regressione peggiore, rottura della corretta individuazione dei verbi alternativi di Laravel/405) | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | merged | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | 9b30160 | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); suite completa: 4389 (4386 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 0 (nessun finding Codex) | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
-| 27 | Baseline performance lab | pending | — | — | — | — | 21 |
+| 27 | Baseline performance lab | open | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | — | N/A (nessun file PHP toccato); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 0 (nessun finding Codex ricevuto finora) | 21 |
 | 28 | Test browser navigazione tastiera | pending | — | — | — | — | 21 |
 | 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
@@ -134,6 +134,25 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 27 — Laboratorio prestazioni ripetibile (baseline performance lab)
+
+Ispezione preliminare: `docs/PERFORMANCE_CWV_S3_AUDIT_PLAN.md` aveva
+rimandato ogni audit CWV per mancanza di un browser affidabile nella
+sessione di allora. `docs/PERFORMANCE_BASELINE.md` (Cantiere J, un
+programma precedente e distinto da questo) è una sola misura manuale
+ad-hoc, senza script committato — non uno strumento ripetibile. Questo
+ambiente ha Chromium/Playwright già funzionanti
+(`tests/browser/*.spec.js`): gap genuino.
+
+`scripts/performance-lab.mjs` (`npm run performance:lab`) riusa la
+stessa fixture deterministica (`BrowserTestSeeder`) e le stesse
+superfici/viewport di `tests/browser/public-regression.spec.js` per
+catturare Navigation/Paint Timing reali, con mediana su più run. Mai
+un gate di rilascio, mai in CI. Prima esecuzione reale validata
+end-to-end (18/18 combinazioni), numeri coerenti con la misura
+manuale precedente — vedi `docs/PERFORMANCE_LAB.md` e
+`docs/PERFORMANCE_LAB_BASELINE.md`.
 
 ### 26 — Audit editoriale Libreria media (mancanti/alt/peso/formati/crediti)
 
