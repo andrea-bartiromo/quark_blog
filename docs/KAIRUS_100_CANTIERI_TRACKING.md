@@ -62,7 +62,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 28 | Test browser navigazione tastiera | merged | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | `bfa4d83` | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js); suite completa: 4390 passed, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 (tutti reali, tutti corretti: traversata partiva dopo skip-link, loop-detection su tag/classe/id anziche' identita' reale, indicatore di focus non confrontato con lo stato senza focus) | 21 |
 | 29 | Audit WCAG interno | merged | [#577](https://github.com/andrea-bartiromo/quark_blog/pull/577) | `81e4301` | 17/17 (servizio) + 6/6 (comando, incl. 2 regressioni reali); suite completa: 4412 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 4 reali (round 1: nome accessibile falso positivo su solo-immagine con alt, `aria-labelledby` verso id inesistente accettato senza risoluzione; round 2 dopo il fix: `libxml_use_internal_errors` non ripristinato, perdita a livello di processo PHP) — tutti corretti | 21 |
 | 30 | Dashboard admin Salute pubblica | merged | [#578](https://github.com/andrea-bartiromo/quark_blog/pull/578) | `ccd9bdf` | 4/4 (controller) + 4/4 (servizio); suite completa: 4420 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: `snapshot()` non ripristinava l'id di sessione condiviso dopo i fetch in-process, rischio di cookie di sessione errato/logout silenzioso lato editor; suggerimento CLI della card Media indicava un comando inesistente) | 22-29 |
-| 31 | Severità e presa in carico audit | open | [#579](https://github.com/andrea-bartiromo/quark_blog/pull/579) | — | 4/4 (AuditFindingStatusService) + 9/9 (servizio) + 8/8 (controller) | — | 30 |
+| 31 | Severità e presa in carico audit | merged | [#579](https://github.com/andrea-bartiromo/quark_blog/pull/579) | `f42157d` | 4/4 (AuditFindingStatusService) + 13/13 (servizio) + 8/8 (controller); suite completa: 4438 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 reali (fixati: severità SEO accedeva a `$r['url']` invece di `sample_url`, mai eseguito nei test esistenti per corto-circuito su http_status; conteggi aperti/ignorati del registro 404 calcolati solo sui 50 path mostrati invece che sull'intero registro; finding_key del registro 404 usava il path grezzo invece di path_hash, stesso rischio di collisione case-insensitive già risolto altrove per not_found_hits, PR #572) | 30 |
 | 32 | Report articoli con carenze editoriali | pending | — | — | — | — | 30 |
 | 33 | Audit heading Fonti/Fonti primarie duplicati | pending | — | — | — | — | — |
 | 34 | Regressione pannello fonti auto vs manuali | pending | — | — | — | — | 33 |
@@ -134,6 +134,43 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 31 — Severità e presa in carico audit
+
+Ispezione preliminare: nessuna severità (HIGH/MEDIUM/LOW) né alcun
+workflow di acknowledgment/dismiss esisteva per i finding dei sei domini
+di `PublicHealthDashboardService` (Cantiere 30) — l'unico precedente
+reale nel repository e' `search_opportunity_statuses`/
+`SearchOpportunityStatusService` (Mission 6, nuova/vista/gestita/ignorata
+per le Search Console opportunities), specifico a quel dominio e privo di
+un concetto di severità.
+
+Ogni riga segnalata riceve ora una `severity` HIGH/MEDIUM (stesso
+vocabolario a due livelli di `EditorialOperationsDashboardService`,
+calcolata su campi già strutturati — mai una nuova regola di dominio) e
+un `finding_key` stabile. Nuova tabella `audit_finding_statuses` +
+modello `AuditFindingStatus` + `AuditFindingStatusService` (stesso
+pattern di `SearchOpportunityStatusService`: una sola query per l'intero
+snapshot) per il workflow "presa in carico"/"ignorato" —
+`PublicHealthDashboardController::updateFindingStatus()`. Un finding
+"ignorato" resta visibile ma esce dai conteggi "aperti"; uno "preso in
+carico" resta conteggiato come aperto.
+
+Codex (PR #579, 3 finding reali, tutti corretti): (1) la severità SEO
+accedeva a `$r['url']`, chiave inesistente su una riga di
+`PublicPageSeoAudit` (che espone `sample_url`) — mai scoperto nei test
+perché `http_status !== 200` va sempre in cortocircuito prima, ma su una
+pagina reale con canonical incoerente questo confronto viene eseguito
+davvero e avrebbe fatto fallire l'intera dashboard; (2) i conteggi
+aperti/ignorati/gravità alta del registro 404 venivano calcolati solo sui
+50 path più frequenti mostrati in tabella, sotto-contando i finding
+aperti oltre quel limite — `attachStatuses()` ora supporta un insieme di
+conteggio più ampio (`_counting_rows`, fino a 5000 righe) distinto dalla
+sola porzione mostrata; (3) il `finding_key` del registro 404 usava il
+path grezzo invece di `path_hash` — stesso rischio di collisione
+case-insensitive (MariaDB `utf8mb4_unicode_ci`) già risolto altrove per
+`not_found_hits.path_hash` (Codex, PR #572), reintrodotto qui e ora
+corretto. Merge `f42157d`.
 
 ### 30 — Dashboard admin Salute pubblica
 
