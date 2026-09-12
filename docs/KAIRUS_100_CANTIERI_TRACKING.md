@@ -48,7 +48,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
 | 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
 | 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
-| 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
+| 17 | Test deploy reale release senza .git (REVISION) | in_progress | — | — | — | — | 16 |
 | 18 | Preflight storage persistente release | pending | — | — | — | — | — |
 | 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
 | 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
@@ -134,6 +134,31 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 17 — Test deploy reale release senza .git (REVISION)
+
+Ispezione preliminare: `deploy.sh` rifiuta esplicitamente qualunque
+release priva di `.git` (`[ -d .git ] || [ -f .git ] || fail ...`, senza
+alcun fallback su un eventuale file `REVISION` preesistente — quella
+guardia è categorica), e un test reale in sottoprocesso già dimostra il
+caso SIMMETRICO (un worktree Git valido dove `.git` è un file, accettato
+correttamente). Nessun test reale in sottoprocesso dimostrava però il
+caso opposto: una release altrimenti completa (`artisan`,
+`composer.json`, `.env` tutti presenti) a cui manca del tutto `.git` —
+lo scenario esatto per cui quella guardia esiste (un archivio estratto
+senza i metadati Git). Un'analisi solo testuale dello script (già
+presente altrove) non prova che l'eseguibile reale si fermi davvero, né
+che `REVISION`/`DEPLOY_INFO` (scritti solo a rilascio completato)
+restino assenti quando la guardia respinge la directory. Gap genuino,
+non "già coperto".
+
+Aggiunto `test_production_deploy_rejects_a_real_checkout_release_with_no_git_metadata_at_all`
+in `tests/Feature/DeploymentSafetyTest.php`, stesso pattern del test del
+worktree esistente: un vero `git init`+commit, poi `.git` rimosso del
+tutto, `deploy.sh` eseguito come vero sottoprocesso contro quella
+directory. Verifica il messaggio esatto (`.git not found`), l'exit code
+non zero, e l'assenza di `REVISION`/`DEPLOY_INFO` dopo il fallimento.
+Nessuna modifica a `deploy.sh` stesso: solo nuova copertura di test.
 
 ### 16 — Gate deploy integrità front controller
 
