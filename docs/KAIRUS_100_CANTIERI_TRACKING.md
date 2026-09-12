@@ -46,7 +46,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
 | 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
-| 15 | Runbook cPanel + front controller pubblico | pending | — | — | — | — | — |
+| 15 | Runbook cPanel + front controller pubblico | in_progress | — | — | — | — | — |
 | 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
 | 18 | Preflight storage persistente release | pending | — | — | — | — | — |
@@ -134,6 +134,29 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 15 — Runbook cPanel + front controller pubblico
+
+Ispezione preliminare: `docs/DEPLOYMENT.md` copre già in dettaglio
+l'architettura a due document root e dichiara esplicitamente fuori scope
+"Web server configuration (Apache vhost, `public_html` alias,
+`.htaccess`)... nor validate `.htaccess` rules" nella sua sezione "Known
+limits". Nessun documento esistente copre invece quel livello stesso —
+cosa deve contenere `~/public_html/index.php` (necessariamente diverso da
+`public/index.php` di questo repository, dato che le due directory sono
+fisicamente separate), cosa fa ogni blocco di `public/.htaccess` e perché,
+e quali impostazioni vivono solo dentro il pannello cPanel (document root,
+versione PHP, cron, AutoSSL). Gap genuino e dichiarato dal repository
+stesso, non "già coperto".
+
+Aggiunto `docs/CPANEL_FRONT_CONTROLLER_RUNBOOK.md`: architettura (rimando
+a `docs/DEPLOYMENT.md`, nessuna duplicazione), front controller e il
+rischio silenzioso di un percorso assoluto sbagliato in
+`~/public_html/index.php`, spiegazione blocco-per-blocco di `.htaccess`
+con verifica via `curl`, configurazione cPanel non versionata altrove,
+ed esplicita dichiarazione di cosa questo runbook NON automatizza (compito
+del Cantiere 16). Solo documentazione: nessuna modifica applicativa,
+nessun comando eseguito contro l'hosting reale.
 
 ### 14 — Test comando audit categorie
 
