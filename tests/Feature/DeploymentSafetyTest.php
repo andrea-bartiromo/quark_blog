@@ -164,6 +164,56 @@ class DeploymentSafetyTest extends TestCase
         }
     }
 
+    /**
+     * Cantiere 17 (programma 100-cantieri Kairus, dipende dal Cantiere
+     * 16): la guardia `[ -d .git ] || [ -f .git ] || fail ...` sopra è
+     * verificata solo per il caso in cui accetta un checkout valido (il
+     * worktree qui sopra) — nessun test reale in sottoprocesso dimostrava
+     * mai il caso simmetrico: un vero rilascio a cui `.git` manca del
+     * tutto (es. un archivio estratto senza i metadati Git, lo scenario
+     * che questa stessa guardia esiste per intercettare — vedi il
+     * commento sopra `[ -f artisan ] ||`). Un test solo di lettura sul
+     * testo dello script (già coperto altrove) non prova che
+     * l'eseguibile reale si fermi davvero, né che REVISION/DEPLOY_INFO
+     * — scritti solo a rilascio completato — restino assenti quando la
+     * guardia respinge la directory prima ancora di leggere la revisione.
+     */
+    public function test_production_deploy_rejects_a_real_checkout_release_with_no_git_metadata_at_all(): void
+    {
+        $this->ensureBashAndGitAvailable();
+
+        $sourceRepo = base_path('storage/framework/testing/deploy-no-git-source-'.bin2hex(random_bytes(6)));
+
+        try {
+            (new Process(['git', 'init', '--quiet', '--initial-branch=main', $sourceRepo]))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'config', 'user.email', 'test@example.test']))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'config', 'user.name', 'Test']))->mustRun();
+            file_put_contents($sourceRepo.'/artisan', "#!/usr/bin/env php\n");
+            file_put_contents($sourceRepo.'/composer.json', "{}\n");
+            file_put_contents($sourceRepo.'/.env', "APP_ENV=production\n");
+            (new Process(['git', '-C', $sourceRepo, 'add', '-A']))->mustRun();
+            (new Process(['git', '-C', $sourceRepo, 'commit', '--quiet', '-m', 'base']))->mustRun();
+
+            $actualSha = trim((new Process(['git', '-C', $sourceRepo, 'rev-parse', 'HEAD']))->mustRun()->getOutput());
+
+            // Il checkout è a questo punto identico a un vero rilascio
+            // completo (artisan, composer.json, .env tutti presenti) —
+            // l'unica cosa che manca, deliberatamente, è .git stesso.
+            File::deleteDirectory($sourceRepo.'/.git');
+            $this->assertFileDoesNotExist($sourceRepo.'/.git', 'This test only proves the guard when .git is truly absent, not a file or a directory.');
+
+            $process = new Process(['bash', base_path('deploy.sh'), $actualSha], $sourceRepo);
+            $process->run();
+
+            $this->assertFalse($process->isSuccessful(), 'A release with no .git at all must never be accepted, even with every other file present.');
+            $this->assertStringContainsString('.git not found', $process->getErrorOutput());
+            $this->assertFileDoesNotExist($sourceRepo.'/REVISION', 'REVISION must never be written when the release-completeness guard rejects the checkout before the revision is even read.');
+            $this->assertFileDoesNotExist($sourceRepo.'/DEPLOY_INFO');
+        } finally {
+            File::deleteDirectory($sourceRepo);
+        }
+    }
+
     private function ensureBashAndGitAvailable(): void
     {
         try {
