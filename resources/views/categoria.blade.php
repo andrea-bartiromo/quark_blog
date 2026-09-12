@@ -153,7 +153,7 @@
 
         @if($articles->hasPages())
         <div style="margin-top:2rem;">
-          {{ $articles->links('components.pagination', ['firstPageUrl' => $pageUrl(1)]) }}
+          {{ $articles->links('components.pagination', ['firstPageUrl' => $firstPageUrl]) }}
         </div>
         @endif
 
