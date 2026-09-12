@@ -53,7 +53,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
 | 20 | Report read-only deploy readiness | merged | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | `1fd4bac` | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente); suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 0 (nessun finding Codex) | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
-| 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | open | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | — | 8/8 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo): 176/176 (786 assert.) | 0 (nessun finding Codex ricevuto finora) | 21 |
+| 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | merged | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | `85ecea9` | 10/10 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics): 187/187 (817 assert.) | 1 reale (fixato P1: l'audit incrementava le analytics reali di visualizzazione articolo a ogni esecuzione) | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
 | 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
@@ -166,6 +166,22 @@ automatica — "il sistema prepara/verifica/propone"):
 `resources/views/cookie.blade.php` non impostano mai
 `@section('canonical', ...)`, a differenza di ogni altra pagina
 statica.
+
+Finding Codex (P1, PR #570), reale e fixato: l'audit raggiunge
+`ArticleController::show()` con un vero GET in-process per verificare
+l'articolo campione — senza un modo per distinguerlo da una visita
+reale, ogni esecuzione dell'audit (pensato per essere di sola lettura e
+ripetibile a piacere) incrementava silenziosamente il contatore
+lifetime, il log per-pageview e l'aggregato giornaliero delle view
+reali, oltre a poter registrare un'impression di continuazione.
+Corretto con un marcatore esplicito e deterministico (header
+`X-Kairus-Internal-Audit`, impostato solo dall'audit — mai
+un'euristica sullo User-Agent, che il progetto esclude già
+esplicitamente per design in `ArticleViewTrackingService`) controllato
+da `ArticleController::show()` prima di registrare la view o
+l'impression; aggiunto un test di regressione che esegue l'audit due
+volte su un articolo pubblicato e verifica che il contatore resti a
+zero.
 
 ### 21 — Inventario tecnico pagine pubbliche
 
