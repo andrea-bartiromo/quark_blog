@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Cronologia append-only del consenso newsletter.
@@ -18,6 +19,11 @@ class NewsletterConsentEvent extends Model
     public const DELETED_UNCONFIRMED = 'deleted_unconfirmed';
     public const SEND_FAILED = 'send_failed';
     public const PROCESS_SKIPPED = 'process_skipped';
+
+    public function newsletter(): BelongsTo
+    {
+        return $this->belongsTo(Newsletter::class);
+    }
 
     protected $fillable = [
         'newsletter_id',
