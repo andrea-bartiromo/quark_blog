@@ -90,12 +90,15 @@
     {{--
         Cantiere 1/2 (programma 100-cantieri Kairus): chip "Argomenti" sotto
         l'header, componente condiviso con notizie.blade.php
-        (x-kairus.topic-chips). $categoryOptions qui è Category::publicOptions()
+        (x-topic-chips, componente condiviso — non sotto components/kairus/
+        perché riusa .public-pill-row del tema "public", non i token del
+        design system Kairus, vedi il commento nel componente stesso).
+        $categoryOptions qui è Category::publicOptions()
         passato esplicitamente da ArticleController::category() (mai la
         lista che include bozza/programmata/disattivata usata sopra solo
         per il controllo 404).
     --}}
-    <x-kairus.topic-chips :options="$categoryOptions" :current="$slug" />
+    <x-topic-chips :options="$categoryOptions" :current="$slug" />
 
     <section class="public-feature-band">
       <span class="public-hero__kicker">Editorial Focus</span>

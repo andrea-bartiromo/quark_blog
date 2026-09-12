@@ -60,12 +60,12 @@
 
     {{--
         Cantiere 2 (programma 100-cantieri Kairus): componente condiviso con
-        categoria.blade.php (x-kairus.topic-chips). $topicChipOptions (sopra)
+        categoria.blade.php (x-topic-chips). $topicChipOptions (sopra)
         è Category::publicOptions() come prima — mai $categoryOptions, che è
         la lista completa usata solo per le etichette badge in riga 77 più
         sotto.
     --}}
-    <x-kairus.topic-chips :options="$topicChipOptions" />
+    <x-topic-chips :options="$topicChipOptions" />
 
     <div class="public-premium-layout kairus-sidebar-layout">
       <section>

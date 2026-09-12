@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 /**
  * Cantiere 2 (programma 100-cantieri Kairus): chip "Argomenti" estratti in
- * x-kairus.topic-chips, condiviso da notizie.blade.php e categoria.blade.php.
+ * x-topic-chips, condiviso da notizie.blade.php e categoria.blade.php.
  * Il Cantiere 1 copriva già il caso categoria.blade.php dentro
  * CategoryDiscoveryFlowTest; qui si aggiunge il caso notizie.blade.php
  * (dove "Tutti" è la voce corrente) e si verifica che l'estrazione non
