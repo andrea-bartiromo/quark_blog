@@ -32,7 +32,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
-| 1 | Nuovo flusso UX pagine categoria | in_progress | — | — | — | — | — |
+| 1 | Nuovo flusso UX pagine categoria | in_progress | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | — | 166/166 (1039 assert.) | 0 | — |
 | 2 | Chip categorie → componente Blade accessibile | pending | — | — | — | — | 1 |
 | 3 | Newsletter categorie → CTA contestuale | pending | — | — | — | — | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
