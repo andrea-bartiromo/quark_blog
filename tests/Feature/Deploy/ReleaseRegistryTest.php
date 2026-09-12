@@ -131,4 +131,97 @@ class ReleaseRegistryTest extends TestCase
 
         $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
     }
+
+    /**
+     * Finding Codex su #546 (dopo il merge): un percorso configurato
+     * dentro la directory di release veniva accettato in silenzio da
+     * record() e la storia scritta lì sarebbe andata persa al prossimo
+     * switch di symlink — esattamente il problema che questo registro
+     * esiste per risolvere. base_path('storage/framework/testing/...')
+     * è dentro la release corrente per costruzione.
+     */
+    public function test_record_throws_when_the_configured_path_resolves_inside_the_release_directory(): void
+    {
+        config(['deploy.release_registry_path' => base_path('storage/framework/testing/inside-release-registry.jsonl')]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+        $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+    }
+
+    /**
+     * Un percorso relativo risolve rispetto alla working directory del
+     * processo — durante un deploy reale quella directory È la release
+     * corrente, quindi un percorso relativo deve essere rifiutato con lo
+     * stesso errore di un percorso assoluto dentro base_path(), senza
+     * bisogno di un controllo "deve essere assoluto" separato.
+     */
+    public function test_record_throws_when_the_configured_path_is_relative(): void
+    {
+        config(['deploy.release_registry_path' => 'storage/framework/testing/relative-release-registry.jsonl']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+        $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+    }
+
+    /**
+     * Finding Codex su #548 (dopo l'apertura di questa stessa PR):
+     * validare solo dirname($path) non basta — se il percorso
+     * configurato è un symlink che esiste già in una directory esterna
+     * legittima ma il cui bersaglio finale sta dentro questa release,
+     * dirname() approva la directory esterna mentre file_put_contents()
+     * segue comunque il link fino al vero bersaglio dentro la release.
+     */
+    public function test_record_throws_when_the_configured_path_is_a_symlink_resolving_inside_the_release_directory(): void
+    {
+        $externalDirectory = sys_get_temp_dir().'/'.self::MARKER.uniqid('', true);
+        mkdir($externalDirectory);
+        $symlinkPath = $externalDirectory.'/registry.jsonl';
+        $targetInsideRelease = base_path('storage/framework/testing/'.self::MARKER.'symlink-target.jsonl');
+        touch($targetInsideRelease);
+        symlink($targetInsideRelease, $symlinkPath);
+
+        config(['deploy.release_registry_path' => $symlinkPath]);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessageMatches('/must resolve outside the release directory/');
+
+            $this->registry()->record('sha', ReleaseRegistry::STAGE_DEPLOYED);
+        } finally {
+            @unlink($symlinkPath);
+            @unlink($targetInsideRelease);
+            @rmdir($externalDirectory);
+        }
+    }
+
+    /**
+     * Finding Codex su #546 (dopo il merge): file_get_contents() senza
+     * l'operatore di soppressione errori emette un E_WARNING se il file
+     * diventa illeggibile tra il check is_file() e la lettura — Laravel
+     * lo converte in ErrorException, mai raggiungendo il fallback
+     * $contents === false. entries() è best-effort per contratto (vedi
+     * il docblock della classe) e non deve mai lanciare per un singolo
+     * file illeggibile.
+     */
+    public function test_entries_does_not_throw_when_the_registry_file_becomes_unreadable(): void
+    {
+        $path = $this->useTempRegistryPath();
+        $registry = $this->registry();
+        $registry->record('sha-unreadable', ReleaseRegistry::STAGE_DEPLOYED);
+
+        chmod($path, 0000);
+
+        if (is_readable($path)) {
+            chmod($path, 0644);
+            $this->markTestSkipped('This process can read files regardless of permission bits (likely running as root); cannot reproduce an unreadable-file race here.');
+        }
+
+        $this->assertSame([], $registry->entries());
+
+        chmod($path, 0644);
+    }
 }
