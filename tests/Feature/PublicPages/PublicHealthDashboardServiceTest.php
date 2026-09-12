@@ -199,7 +199,9 @@ class PublicHealthDashboardServiceTest extends TestCase
 
         $notFoundRow = $snapshot['domains']['not_found']['flagged'][0];
         $this->assertSame('MEDIUM', $notFoundRow['severity']); // 3 hits, sotto la soglia HIGH.
-        $this->assertSame('not_found|/vecchio-path', $notFoundRow['finding_key']);
+        // La chiave usa path_hash (sha256), non il path grezzo (Codex,
+        // PR #579, P2) — stessa scelta già fatta da not_found_hits.path_hash.
+        $this->assertSame('not_found|'.hash('sha256', '/vecchio-path'), $notFoundRow['finding_key']);
 
         $linkRow = $snapshot['domains']['links']['flagged'][0];
         $this->assertSame('HIGH', $linkRow['severity']); // un link interno rotto e' sempre HIGH.
@@ -360,6 +362,27 @@ class PublicHealthDashboardServiceTest extends TestCase
      * open_count. Path con hits bassi (1..5) restano fuori dai 50 più
      * frequenti quando ce ne sono altri 50 con hits più alti.
      */
+    /**
+     * Codex (PR #579, P2): usare il path grezzo come chiave (invece di
+     * path_hash) avrebbe fatto collidere due path distinti che si
+     * differenziano solo per maiuscole/minuscole sotto la collation di
+     * produzione (MariaDB, utf8mb4_unicode_ci case-insensitive) — stessa
+     * scoperta già fatta per not_found_hits.path_hash (Codex, PR #572).
+     * sha256 e' invece sempre case-sensitive: due path diversi solo per
+     * maiuscole/minuscole devono ricevere due finding_key distinti.
+     */
+    public function test_two_paths_differing_only_by_case_receive_distinct_finding_keys(): void
+    {
+        $this->fakeEverythingEmpty();
+        NotFoundHit::create(['path_hash' => hash('sha256', '/Articolo/Uno'), 'path' => '/Articolo/Uno', 'hits' => 1, 'last_referer' => null, 'first_seen_at' => now(), 'last_seen_at' => now()]);
+        NotFoundHit::create(['path_hash' => hash('sha256', '/articolo/uno'), 'path' => '/articolo/uno', 'hits' => 1, 'last_referer' => null, 'first_seen_at' => now(), 'last_seen_at' => now()]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $keys = collect($snapshot['domains']['not_found']['flagged'])->pluck('finding_key')->all();
+        $this->assertCount(2, array_unique($keys));
+    }
+
     public function test_not_found_open_count_accounts_for_paths_beyond_the_displayed_limit(): void
     {
         $this->fakeEverythingEmpty();
@@ -377,7 +400,9 @@ class PublicHealthDashboardServiceTest extends TestCase
 
         // /path-3 (hits: 3) e' tra i 5 meno visitati: mai tra i 50 piu'
         // frequenti mostrati in tabella (che partono da /path-55 in giu').
-        app(AuditFindingStatusService::class)->setStatus('not_found', 'not_found|/path-3', AuditFindingStatus::STATUS_DISMISSED, null);
+        // La chiave usa path_hash (sha256), non il path grezzo (Codex,
+        // PR #579, P2) — stessa scelta già fatta da not_found_hits.path_hash.
+        app(AuditFindingStatusService::class)->setStatus('not_found', 'not_found|'.hash('sha256', '/path-3'), AuditFindingStatus::STATUS_DISMISSED, null);
 
         $snapshot = app(PublicHealthDashboardService::class)->snapshot();
         $notFound = $snapshot['domains']['not_found'];

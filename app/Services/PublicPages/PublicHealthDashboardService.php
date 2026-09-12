@@ -318,13 +318,24 @@ class PublicHealthDashboardService
             collect($this->notFoundHitTracker->topHits(self::NOT_FOUND_COUNTING_LIMIT))
                 ->map(fn (NotFoundHit $hit) => [
                     'path' => $hit->path,
+                    'path_hash' => $hit->path_hash,
                     'hits' => $hit->hits,
                     'last_seen_at' => $hit->last_seen_at,
                     'findings' => ["Visitato {$hit->hits} volte dal traffico reale."],
                 ])
                 ->all(),
             'not_found',
-            fn (array $r) => $r['path'],
+            // Codex (PR #579, P2): not_found_hits usa deliberatamente
+            // path_hash (sha256, case-sensitive) invece del path grezzo
+            // come chiave — la collation di produzione (MariaDB,
+            // utf8mb4_unicode_ci) considera "/Articolo/Uno" e
+            // "/articolo/uno" lo stesso valore, e un path e' testo non
+            // limitato. Usare qui il path grezzo avrebbe fatto
+            // collidere finding_key distinti sulla stessa riga di stato
+            // (perdendo lo stato indipendente dell'uno o dell'altro) o
+            // avrebbe fatto rifiutare l'aggiornamento quando il path
+            // rende la chiave con prefisso più lunga di 600 caratteri.
+            fn (array $r) => $r['path_hash'],
             fn (array $r) => $r['hits'] >= self::NOT_FOUND_HIGH_SEVERITY_HIT_THRESHOLD ? 'HIGH' : 'MEDIUM',
         );
 
