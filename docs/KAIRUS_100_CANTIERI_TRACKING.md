@@ -37,7 +37,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 3 | Newsletter categorie → CTA contestuale | merged | [#554](https://github.com/andrea-bartiromo/quark_blog/pull/554) | `b1e6553` | 75/75 (1768 assert.) | 0 | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | covered-by-existing | — | — | vedi nota | 0 | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | covered-by-existing | — | — | vedi nota | 0 | 1, 4 |
-| 6 | Test feature/browser composizione categorie | in_progress | — | — | — | — | 1-5 |
+| 6 | Test feature/browser composizione categorie | in_progress | [#555](https://github.com/andrea-bartiromo/quark_blog/pull/555) | — | 16/16 PHPUnit (56 assert.) + 4 browser (verificati manualmente) | 0 | 1-5 |
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
 | 9 | Categorie non pubbliche isolate ovunque | pending | — | — | — | — | — |

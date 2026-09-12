@@ -247,6 +247,43 @@ class BrowserTestSeeder extends Seeder
             'updated_at' => $now,
         ]);
 
+        // Cantiere 6 (programma 100-cantieri Kairus): fixture dedicata e
+        // isolata per tests/browser/category-discovery.spec.js — una
+        // categoria propria con 4 articoli pubblicati (mai
+        // 'intelligenza-artificiale', su cui altre suite browser fanno
+        // assunzioni precise su conteggio/ordine) per esercitare
+        // davvero la CTA newsletter, che compare solo oltre 3 articoli.
+        DB::table('categories')->updateOrInsert(
+            ['slug' => 'browser-newsletter-category'],
+            [
+                'name' => 'Browser Newsletter Category',
+                'description' => 'Categoria deterministica per il flusso di scoperta categoria.',
+                'sort_order' => 50,
+                'is_active' => true,
+                'updated_at' => $now,
+                'created_at' => $now,
+            ]
+        );
+
+        for ($index = 1; $index <= 4; $index++) {
+            DB::table('articles')->insert([
+                'user_id' => $authorId,
+                'title' => 'Browser newsletter fixture article '.$index,
+                'slug' => 'browser-newsletter-fixture-'.$index,
+                'excerpt' => 'Fixture deterministica per il flusso di scoperta categoria.',
+                'body' => '<p>Contenuto fixture browser newsletter '.$index.'.</p>',
+                'category' => 'browser-newsletter-category',
+                'cover_image' => null,
+                'status' => 'published',
+                'featured' => false,
+                'read_minutes' => 1,
+                'views' => 0,
+                'published_at' => $now->copy()->subMinutes($index),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
         foreach (range(1, 5) as $index) {
             DB::table('content_clusters')->insert([
                 'name' => $index === 5
