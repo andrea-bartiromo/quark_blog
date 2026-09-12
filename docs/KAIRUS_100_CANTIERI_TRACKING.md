@@ -63,7 +63,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 29 | Audit WCAG interno | merged | [#577](https://github.com/andrea-bartiromo/quark_blog/pull/577) | `81e4301` | 17/17 (servizio) + 6/6 (comando, incl. 2 regressioni reali); suite completa: 4412 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 4 reali (round 1: nome accessibile falso positivo su solo-immagine con alt, `aria-labelledby` verso id inesistente accettato senza risoluzione; round 2 dopo il fix: `libxml_use_internal_errors` non ripristinato, perdita a livello di processo PHP) — tutti corretti | 21 |
 | 30 | Dashboard admin Salute pubblica | merged | [#578](https://github.com/andrea-bartiromo/quark_blog/pull/578) | `ccd9bdf` | 4/4 (controller) + 4/4 (servizio); suite completa: 4420 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: `snapshot()` non ripristinava l'id di sessione condiviso dopo i fetch in-process, rischio di cookie di sessione errato/logout silenzioso lato editor; suggerimento CLI della card Media indicava un comando inesistente) | 22-29 |
 | 31 | Severità e presa in carico audit | merged | [#579](https://github.com/andrea-bartiromo/quark_blog/pull/579) | `f42157d` | 4/4 (AuditFindingStatusService) + 13/13 (servizio) + 8/8 (controller); suite completa: 4438 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 reali (fixati: severità SEO accedeva a `$r['url']` invece di `sample_url`, mai eseguito nei test esistenti per corto-circuito su http_status; conteggi aperti/ignorati del registro 404 calcolati solo sui 50 path mostrati invece che sull'intero registro; finding_key del registro 404 usava il path grezzo invece di path_hash, stesso rischio di collisione case-insensitive già risolto altrove per not_found_hits, PR #572) | 30 |
-| 32 | Report articoli con carenze editoriali | pending | — | — | — | — | 30 |
+| 32 | Report articoli con carenze editoriali | covered-by-existing | — | — | vedi nota | 0 | 30 |
 | 33 | Audit heading Fonti/Fonti primarie duplicati | pending | — | — | — | — | — |
 | 34 | Regressione pannello fonti auto vs manuali | pending | — | — | — | — | 33 |
 | 35 | Admin baseline mensile, denominatori separati | pending | — | — | — | — | 30 |
@@ -134,6 +134,39 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 32 — Report articoli con carenze editoriali
+
+Ispezione preliminare (agente di ricerca dedicato): questa esatta
+funzionalità esiste già, costruita in un batch di missioni precedente al
+programma Kairus 100-cantieri (Missione 35, "secondo batch autonomo
+KAIRUS, Fase E — Editorial Quality & Readiness") —
+`App\Http\Controllers\Admin\EditorialQualityAuditController` (route
+`admin.editorial-quality`, `/qualita-editoriale`, già in sidebar come
+"Qualità editoriale") elenca già TUTTI gli articoli (bozza/revisione/
+programmato/pubblicato, nessun filtro di stato di default) con almeno un
+livello non-READY secondo `EditorialQualityChecker` — 17 controlli reali
+su contenuto/media/SEO/struttura/fonti/discovery/pubblicazione (title,
+slug, excerpt, body, placeholder, cover, cover alt, alt immagini nel
+corpo, seo title/description, indicizzabilità, struttura heading,
+**fonti presenti** — anche rilevate nel corpo articolo, non solo nel
+campo dedicato —, link interni, titolo duplicato, autore, categoria,
+coerenza di pubblicazione), con drill-down per singolo codice di problema
+(`?problema=`) e filtro per stato (`?stato=`). Questo È, testualmente,
+il "report articoli con carenze editoriali" richiesto da questo
+cantiere — non una funzionalità simile ma distinta (a differenza di
+`ArticleContentHealthService`, che è invece scoped a soli pubblicati/
+programmati e usato per un'altra dashboard, o di `VerificationController`,
+un tracker manuale dello stato di verifica fonti, non un report
+calcolato di carenze). 104/104 test esistenti già verdi
+(`tests/Unit/EditorialQuality/EditorialQualityCheckerTest.php`,
+`tests/Feature/EditorialQualityAuditCommandTest.php`,
+`tests/Feature/Admin/EditorialQualityAuditControllerTest.php`,
+`tests/Feature/EditorialQualityGateUiTest.php`,
+`tests/Feature/EditorialQualityAuditPerformanceTest.php`). Nessuna nuova
+PR: duplicare questa pagina sarebbe stata una violazione diretta del
+principio "mai ricalcolare una regola già espressa da un audit
+esistente".
 
 ### 31 — Severità e presa in carico audit
 
