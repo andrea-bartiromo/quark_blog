@@ -29,7 +29,7 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function category(string $slug)
+    public function category(Request $request, string $slug)
     {
         $categoryModel = Category::where('slug', $slug)->first();
         $categories = Category::options(false);
@@ -52,15 +52,32 @@ class ArticleController extends Controller
             })
             ->orderByDesc('id')
             ->with('author')
-            ->paginate(12);
+            // Sei card sono la misura editoriale della griglia pubblica:
+            // abbastanza per scoprire, senza trasformare l'archivio in una
+            // lista infinita. withQueryString() conserva eventuali filtri
+            // già presenti nei link HTML della navigazione.
+            ->paginate(6)
+            ->withQueryString();
 
-        if ($articles->total() > 0 && $articles->currentPage() > $articles->lastPage()) {
+        // Anche una categoria senza articoli ha una sola pagina valida:
+        // ?page=2 (o maggiore) deve essere un vero 404, mai una griglia
+        // vuota con HTTP 200.
+        if ($articles->currentPage() > $articles->lastPage()) {
             abort(404);
         }
 
-        $pageUrl = static fn (int $page): string => $page === 1
-            ? route('categoria', $slug)
-            : route('categoria', ['slug' => $slug, 'page' => $page]);
+        // I link di navigazione mantengono i parametri della richiesta
+        // tranne page. La pagina uno resta il suo URL naturale, senza
+        // ?page=1; il canonical invece viene costruito separatamente dalla
+        // vista e non eredita parametri di tracking o filtri.
+        $paginationQuery = $request->query();
+        unset($paginationQuery['page']);
+
+        $pageUrl = static fn (int $page): string => route('categoria', array_merge(
+            ['slug' => $slug],
+            $paginationQuery,
+            $page === 1 ? [] : ['page' => $page],
+        ));
 
         return view('categoria', [
             'slug' => $slug,
