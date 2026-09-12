@@ -45,7 +45,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 11 | Preview admin categorie bozza/programmate | merged | [#558](https://github.com/andrea-bartiromo/quark_blog/pull/558) | `6ddfd56` | 241/241 (817 assert.) | 1 reale (fixato: route key `category` non rimossa dalla query string in preview()) | 9 |
 | 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
-| 14 | Test comando audit categorie | pending | — | — | — | — | 13 |
+| 14 | Test comando audit categorie | in_progress | — | — | — | — | 13 |
 | 15 | Runbook cPanel + front controller pubblico | pending | — | — | — | — | — |
 | 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
@@ -134,6 +134,25 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 14 — Test comando audit categorie
+
+Ispezione preliminare: la copertura del comando `category:publication-readiness`
+viveva interamente dentro `tests/Feature/CategoryPublicationReadinessTest.php`,
+condivisa con i test del servizio, e restava superficiale sul comando in sé
+(nessuna verifica della struttura esatta dell'output `--json`, nessun caso
+per una categoria PROGRAMMATA ma disattivata, nessuna asserzione sul
+messaggio di stato vuoto). La convenzione già stabilita nel repository per
+i comandi di audit di sola lettura è un file dedicato in
+`tests/Feature/Console/*CommandTest.php` (es. `EditorialCalendarAuditCommandTest`).
+Gap genuino: copertura esistente insufficiente e in un percorso non
+convenzionale, non "già coperto".
+
+Aggiunto `tests/Feature/Console/CategoryPublicationReadinessAuditCommandTest.php`:
+messaggio di stato vuoto, struttura JSON campo per campo per una bozza,
+categoria programmata ma disattivata (`visibility_label` = Disattivata, non
+Programmata), ordinamento coerente con `Category::scopeOrdered()`, conteggio
+del riepilogo. Nessuna modifica al comando stesso.
 
 ### 13 — Comando category:publication-audit
 
