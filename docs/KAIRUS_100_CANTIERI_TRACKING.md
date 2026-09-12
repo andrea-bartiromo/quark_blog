@@ -37,7 +37,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 3 | Newsletter categorie → CTA contestuale | merged | [#554](https://github.com/andrea-bartiromo/quark_blog/pull/554) | `b1e6553` | 75/75 (1768 assert.) | 0 | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | covered-by-existing | — | — | vedi nota | 0 | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | covered-by-existing | — | — | vedi nota | 0 | 1, 4 |
-| 6 | Test feature/browser composizione categorie | in_progress | [#555](https://github.com/andrea-bartiromo/quark_blog/pull/555) | — | 16/16 PHPUnit (56 assert.) + 4 browser (verificati manualmente) | 0 | 1-5 |
+| 6 | Test feature/browser composizione categorie | merged | [#555](https://github.com/andrea-bartiromo/quark_blog/pull/555) | `b68695e` | 16/16 PHPUnit (56 assert.) + 6 browser (verdi in CI reale, "Chromium public regression") | 2 reali (fixati: focus programmatico non tastiera reale; breakpoint 900px non testato al confine) | 1-5 |
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
 | 9 | Categorie non pubbliche isolate ovunque | pending | — | — | — | — | — |
@@ -149,6 +149,25 @@ Ispezione: già implementato dal Cantiere 1 come sezione unica
 (`categories/partials/continue-exploring.blade.php`) che combina Più letti
 e categorie correlate in un solo blocco a fine pagina, testato da 2 dei 6
 test di `CategoryDiscoveryFlowTest.php`. Nessuna PR necessaria.
+
+### 6 — Test feature/browser composizione categorie
+
+Nuovo `tests/browser/category-discovery.spec.js` (4 test — 6 con il
+breakpoint diviso in due casi) + fixture isolata `browser-newsletter-category`
+in `BrowserTestSeeder.php` (mai `intelligenza-artificiale`, su cui altre
+suite browser fanno assunzioni su conteggio/ordine articoli).
+
+Due finding reali di Codex, entrambi sulla qualità del test stesso (non
+sul codice applicativo): (1) il test del focus usava `.focus()`
+programmatico e verificava solo "outline diverso da none" — un default
+del browser avrebbe fatto passare il test anche senza il fix reale;
+corretto con navigazione da tastiera reale (Tab ripetuto) e verifica
+della firma specifica (outline 3px solid, offset 2px) della regola
+`.kairus-focusable:focus-visible`. (2) il test del breakpoint 900px
+usava solo 390px, lontano dalla soglia reale; aggiunti due test al
+confine esatto (899px/901px). Entrambi verificati con un browser reale
+prima del push; "Chromium public regression" verde in CI sul commit
+finale.
 
 ### 7 — Query budget categorie anti-N+1
 
