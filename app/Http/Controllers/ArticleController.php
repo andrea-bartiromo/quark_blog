@@ -92,6 +92,7 @@ class ArticleController extends Controller
             // whereHas() usa EXISTS e quindi non duplica le righe anche se
             // un articolo soddisfacesse entrambe le condizioni.
             'articles' => $articles,
+            'firstPageUrl' => $pageUrl(1),
             'previousPageUrl' => $articles->onFirstPage() ? null : $pageUrl($articles->currentPage() - 1),
             'nextPageUrl' => $articles->hasMorePages() ? $pageUrl($articles->currentPage() + 1) : null,
         ]);
