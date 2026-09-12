@@ -4,7 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Article;
 use App\Models\Category;
+use App\Models\ContentCluster;
 use App\Models\User;
+use App\Services\CategoryPublicationReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,12 +42,22 @@ class CategoryAdminActivationChecklistTest extends TestCase
         $response->assertSee('Manca la descrizione', false);
     }
 
+    /**
+     * Finding Codex (P2, PR #559): la fixture originale si chiamava
+     * "Bozza Pronta Lista" — assertSee('Pronta') passava anche solo
+     * grazie al NOME della categoria, non al badge reale, e senza un
+     * Percorso collegato la categoria non era affatto "pronta"
+     * (NO_RELATED_PERCORSO). Corretto: nome senza la parola "Pronta",
+     * un Percorso collegato come nel test analogo di
+     * CategoryPublicationReadinessTest, e un'asserzione scoperta sul
+     * markup del badge, non su una stringa generica.
+     */
     public function test_a_fully_ready_draft_category_shows_ready_in_the_list(): void
     {
         $author = User::factory()->create(['role' => 'author']);
         $category = Category::create([
-            'name' => 'Bozza Pronta Lista',
-            'slug' => 'bozza-pronta-lista',
+            'name' => 'Bozza Completa In Lista',
+            'slug' => 'bozza-completa-in-lista',
             'is_active' => true,
             'status' => Category::STATUS_DRAFT,
             'description' => 'Descrizione completa.',
@@ -53,10 +65,10 @@ class CategoryAdminActivationChecklistTest extends TestCase
             'color' => '#0d9488',
         ]);
 
-        Article::create([
+        $article = Article::create([
             'user_id' => $author->id,
-            'title' => 'Articolo della bozza pronta',
-            'slug' => 'articolo-bozza-pronta-lista',
+            'title' => 'Articolo della categoria completa',
+            'slug' => 'articolo-categoria-completa-in-lista',
             'excerpt' => 'Sommario di prova.',
             'body' => '<p>Corpo articolo di prova.</p>',
             'category' => $category->slug,
@@ -65,10 +77,21 @@ class CategoryAdminActivationChecklistTest extends TestCase
             'read_minutes' => 3,
         ]);
 
+        $cluster = ContentCluster::factory()->create(['is_active' => true]);
+        $cluster->articles()->attach($article->id, ['position' => 10]);
+
+        // Prova indipendente che la fixture sia davvero "pronta" prima di
+        // verificare cosa mostra la vista — altrimenti un futuro cambio a
+        // CategoryPublicationReadiness potrebbe far tornare 'ready' => false
+        // e questo test continuerebbe comunque a cercare la stringa giusta
+        // senza accorgersi che il presupposto è cambiato.
+        $readiness = app(CategoryPublicationReadiness::class)->evaluate($category->fresh());
+        $this->assertTrue($readiness['ready'], 'Fixture non pronta: '.implode(', ', $readiness['findings']));
+
         $response = $this->actingAs($this->editor())->get(route('admin.categories'));
 
         $response->assertOk();
-        $response->assertSee('Pronta');
+        $response->assertSee('<span class="status status--published" title="Nessuna criticità rilevata.">Pronta</span>', false);
     }
 
     public function test_an_already_public_category_shows_no_checklist_in_the_list(): void
