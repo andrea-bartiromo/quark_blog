@@ -45,7 +45,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 11 | Preview admin categorie bozza/programmate | merged | [#558](https://github.com/andrea-bartiromo/quark_blog/pull/558) | `6ddfd56` | 241/241 (817 assert.) | 1 reale (fixato: route key `category` non rimossa dalla query string in preview()) | 9 |
 | 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
-| 14 | Test comando audit categorie | in_progress | — | — | — | — | 13 |
+| 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
 | 15 | Runbook cPanel + front controller pubblico | pending | — | — | — | — | — |
 | 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
@@ -153,6 +153,11 @@ messaggio di stato vuoto, struttura JSON campo per campo per una bozza,
 categoria programmata ma disattivata (`visibility_label` = Disattivata, non
 Programmata), ordinamento coerente con `Category::scopeOrdered()`, conteggio
 del riepilogo. Nessuna modifica al comando stesso.
+
+Finding Codex (P2, PR #561): il test di ordinamento usava lo stesso
+`sort_order` per entrambe le fixture, verificando solo lo spareggio per
+nome — una regressione a "ordina solo per nome" sarebbe rimasta verde.
+Aggiunto un test dedicato con `sort_order` e nome in conflitto deliberato.
 
 ### 13 — Comando category:publication-audit
 
