@@ -50,11 +50,35 @@ risolverebbero altrimenti dentro `~/public_html/../`, cioè `~/`, non dentro
 
 Il front controller effettivamente pubblicato in `~/public_html/index.php`
 deve quindi puntare esplicitamente all'albero applicativo, tipicamente con
-percorsi assoluti:
+percorsi assoluti — e non solo per le due righe più visibili: la riga 9 di
+`public/index.php` (`if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))`)
+usa lo stesso `__DIR__` relativo. Adattare solo `autoload.php` e
+`bootstrap/app.php` e dimenticare questa terza riga lascia la modalità
+manutenzione silenziosamente inefficace in produzione (il file cercherebbe
+`~/storage/framework/maintenance.php`, dentro `~/`, non dentro
+`~/kairus_app/`): un `artisan down` non avrebbe mai effetto sul sito
+pubblico. Esempio completo, non solo un estratto parziale:
 
 ```php
-require '/home/<utente-cpanel>/kairus_app/vendor/autoload.php';
-$app = require_once '/home/<utente-cpanel>/kairus_app/bootstrap/app.php';
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+$appRoot = '/home/<utente-cpanel>/kairus_app';
+
+if (file_exists($maintenance = $appRoot.'/storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+require $appRoot.'/vendor/autoload.php';
+
+/** @var Application $app */
+$app = require_once $appRoot.'/bootstrap/app.php';
+
+$app->handleRequest(Request::capture());
 ```
 
 **Questo è il punto di configurazione più critico e più silenziosamente
@@ -127,13 +151,22 @@ curl -sI http://kairus.it/qualsiasi/path        # atteso: 301 -> https://kairus.
 curl -sI https://www.kairus.it/                 # atteso: 301 -> https://kairus.it/
 curl -sI https://kairus.it/.env                 # atteso: 403
 curl -sI https://kairus.it/.git/config          # atteso: 403
-curl -sI https://kairus.it/articolo/uno-slug-qualunque   # atteso: 200 o 404 Laravel, mai 404 Apache "nudo"
+curl -s https://kairus.it/articolo/uno-slug-qualunque | head -5   # vedi sotto
 ```
 
-Un 404 Apache "nudo" (senza il layout HTML di questo sito) sull'ultima
-riga indica che il rewrite verso `index.php` non sta avvenendo — sintomo
-tipico di un `.htaccess` mancante/non allineato o di `mod_rewrite` non
-attivo sull'hosting.
+L'ultima verifica richiede il **corpo** della risposta, non solo gli
+header (`curl -s`, senza `-I`): sia Apache sia Laravel possono rispondere
+con status 404 e `Content-Type: text/html` a uno slug inesistente, quindi
+`curl -I` da solo non distingue i due casi proprio quando servirebbe di
+più — quando il rewrite verso `index.php` è rotto. Un 404 Apache "nudo"
+(il layout di errore predefinito del server, non il markup di questo
+sito) nel corpo della risposta indica che il rewrite verso `index.php` non
+sta avvenendo — sintomo tipico di un `.htaccess` mancante/non allineato o
+di `mod_rewrite` non attivo sull'hosting. In alternativa, per un controllo
+univoco senza ispezionare il corpo, usare una rotta nota per rispondere
+sempre `200` (es. la homepage) e confrontarne lo status con quello di uno
+slug inesistente: se entrambi restituiscono lo stesso 404 "nudo" invece di
+un 200/404 Laravel distinti, il rewrite non sta funzionando.
 
 ## Configurazione cPanel non coperta da nessun file di questo repository
 
@@ -155,13 +188,25 @@ memoria di chi ha configurato l'hosting la prima volta:
   non globalmente.
 - **Entry crontab** per `php artisan schedule:run` — già segnalato come
   "esterno" in `docs/DEPLOYMENT.md` ("Cron/scheduler registration is
-  external"): va registrato in "Cron Jobs" di cPanel, puntando al binario
-  PHP corretto (lo stesso selezionato in MultiPHP, non necessariamente
-  `/usr/bin/php` di sistema) e alla working directory
-  `~/kairus_app`. Un cron mancante o che punta al PHP CLI sbagliato non
-  produce alcun errore visibile: i comandi schedulati (incluso
-  `newsletter:reconfirmation-cleanup`) semplicemente non girano mai, in
-  silenzio.
+  external"): va registrato in "Cron Jobs" di cPanel **ogni minuto**, non
+  a una cadenza più larga — `schedule:run` valuta solo gli eventi già
+  scaduti al momento in cui viene invocato, e `routes/console.php`
+  programma eventi a cadenza di un minuto (`articles:publish-scheduled`)
+  e di cinque minuti; un cron orario o giornaliero farebbe perdere la
+  quasi totalità delle finestre di pubblicazione/sincronizzazione, in
+  silenzio. Espressione crontab completa:
+
+  ```
+  * * * * * cd ~/kairus_app && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
+  ```
+
+  dove il binario PHP deve essere quello selezionato in MultiPHP per
+  questo dominio (il percorso varia da hosting a hosting — verificarlo in
+  cPanel, non assumere `/usr/local/bin/php`), non necessariamente
+  `/usr/bin/php` di sistema. Un cron mancante, a cadenza troppo larga, o
+  che punta al PHP CLI sbagliato non produce alcun errore visibile: i
+  comandi schedulati (incluso `newsletter:reconfirmation-cleanup`)
+  semplicemente non girano mai, in silenzio.
 - **AutoSSL/certificato TLS** deve coprire sia `kairus.it` che
   `www.kairus.it` — il redirect canonico in `.htaccess` presuppone che
   entrambi gli host abbiano un certificato valido *prima* del redirect
