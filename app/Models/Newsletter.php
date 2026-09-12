@@ -22,29 +22,46 @@ class Newsletter extends Model
         return $this->hasMany(NewsletterReconfirmation::class);
     }
 
+    public function consentEvents(): HasMany
+    {
+        return $this->hasMany(NewsletterConsentEvent::class);
+    }
+
     public function scopePending(Builder $query): Builder
     {
         return $query->where('confirmed', false);
     }
 
+    /**
+     * L'unico stato canonico di consenso è newsletter.confirmed.
+     * Un'iscrizione attiva non viene mai degradata da una nuova richiesta.
+     * Una richiesta pending riparte invece dal giorno 0 con un token nuovo.
+     */
     public static function subscribe(string $email, ?string $source = null): static
     {
-        $subscriptionState = [
-            'confirmed' => false,
-            'token' => Str::random(64),
-            'unsubscribe_token' => Str::random(32),
-        ];
         $subscriber = static::firstOrCreate(
             ['email' => $email],
-            $subscriptionState+[
+            [
+                'confirmed' => false,
+                'token' => Str::random(64),
+                'unsubscribe_token' => Str::random(32),
                 'source' => in_array($source, self::SOURCES, true) ? $source : null,
             ],
         );
 
-        if (! $subscriber->wasRecentlyCreated) {
-            $subscriber->update($subscriptionState);
+        if (! $subscriber->wasRecentlyCreated && ! $subscriber->confirmed) {
+            $subscriber->update([
+                'token' => Str::random(64),
+                'unsubscribe_token' => $subscriber->unsubscribe_token ?: Str::random(32),
+                'source' => in_array($source, self::SOURCES, true) ? $source : $subscriber->source,
+                'created_at' => now(),
+            ]);
+
+            // I vecchi token non possono riaprire una richiesta di consenso
+            // appena riavviata dall'utente.
+            $subscriber->reconfirmations()->unconfirmed()->update(['expires_at' => now()]);
         }
 
-        return $subscriber;
+        return $subscriber->refresh();
     }
 }
