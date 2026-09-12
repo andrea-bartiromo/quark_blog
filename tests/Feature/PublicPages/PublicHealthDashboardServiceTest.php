@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\PublicPages;
 
+use App\Models\AuditFindingStatus;
 use App\Models\NotFoundHit;
 use App\Services\LinkHealth\LinkReachabilityAuditService;
 use App\Services\MediaLibraryHealthAudit;
+use App\Services\PublicPages\AuditFindingStatusService;
 use App\Services\PublicPages\PublicHealthDashboardService;
 use App\Services\PublicPages\PublicPageSeoAudit;
 use App\Services\PublicPages\RedirectAndCanonicalIntegrityAudit;
@@ -23,6 +25,11 @@ use Tests\TestCase;
  * solo un valore fisso di ritorno) per isolare completamente la logica di
  * aggregazione dal comportamento di ciascun audit, già provato dai propri
  * test dedicati.
+ *
+ * Cantiere 31: severità (HIGH/MEDIUM) e finding_key per ogni riga
+ * segnalata, più lo stato "presa in carico"/"ignorato" letto da
+ * AuditFindingStatusService (reale, mai finto: RefreshDatabase basta a
+ * isolare i test l'uno dall'altro).
  */
 class PublicHealthDashboardServiceTest extends TestCase
 {
@@ -113,6 +120,15 @@ class PublicHealthDashboardServiceTest extends TestCase
         return ['analyzed' => 0, 'rows' => [], 'missing_alt' => 0, 'missing_credit' => 0, 'missing_file' => 0, 'oversized' => 0, 'non_optimal_format' => 0];
     }
 
+    private function fakeEverythingEmpty(): void
+    {
+        $this->fakeSeo([]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([]);
+    }
+
     public function test_the_snapshot_is_sana_when_every_domain_has_no_findings(): void
     {
         $this->fakeSeo([['key' => 'home', 'label' => 'Home', 'route_name' => 'home', 'kind' => 'static', 'sample_url' => 'http://x/test', 'checked' => true, 'http_status' => 200, 'title_present' => true, 'description_present' => true, 'canonical' => 'http://x/test', 'robots' => null, 'json_ld_blocks' => 1, 'findings' => []]]);
@@ -125,11 +141,13 @@ class PublicHealthDashboardServiceTest extends TestCase
 
         $this->assertSame('SANA', $snapshot['status']);
         $this->assertSame(0, $snapshot['open_findings_total']);
+        $this->assertSame(0, $snapshot['high_severity_open_total']);
+        $this->assertSame(0, $snapshot['dismissed_findings_total']);
         $this->assertSame([], $snapshot['domains']['seo']['flagged']);
         $this->assertSame([], $snapshot['domains']['wcag']['flagged']);
     }
 
-    public function test_a_finding_in_every_audited_domain_is_counted_in_the_total(): void
+    public function test_a_finding_in_every_audited_domain_is_counted_in_the_total_with_the_expected_severity(): void
     {
         $this->fakeSeo([
             ['key' => 'home', 'label' => 'Home', 'route_name' => 'home', 'kind' => 'static', 'sample_url' => 'http://x/home', 'checked' => true, 'http_status' => 500, 'title_present' => null, 'description_present' => null, 'canonical' => null, 'robots' => null, 'json_ld_blocks' => null, 'findings' => ['Stato HTTP inatteso: 500.']],
@@ -165,23 +183,240 @@ class PublicHealthDashboardServiceTest extends TestCase
         $this->assertSame('DA_RIVEDERE', $snapshot['status']);
         // 1 seo + 1 redirect + 1 canonical + 1 link interno + 1 media + 1 wcag + 1 not-found = 7.
         $this->assertSame(7, $snapshot['open_findings_total']);
-        $this->assertCount(1, $snapshot['domains']['seo']['flagged']);
-        $this->assertCount(1, $snapshot['domains']['redirects_canonical']['flagged_redirects']);
-        $this->assertCount(1, $snapshot['domains']['redirects_canonical']['flagged_canonicals']);
-        $this->assertCount(1, $snapshot['domains']['links']['flagged']);
+        $this->assertSame(0, $snapshot['dismissed_findings_total']);
+
+        $seoRow = $snapshot['domains']['seo']['flagged'][0];
+        $this->assertSame('HIGH', $seoRow['severity']); // stato HTTP 500.
+        $this->assertSame('seo|home', $seoRow['finding_key']);
+        $this->assertSame(AuditFindingStatus::STATUS_NEW, $seoRow['status']);
+
+        $redirectRow = collect($snapshot['domains']['redirects_canonical']['flagged'])->firstWhere('kind', 'redirect');
+        $this->assertSame('HIGH', $redirectRow['severity']); // un redirect rotto e' sempre HIGH.
+        $this->assertSame('redirects_canonical|redirect:vecchio', $redirectRow['finding_key']);
+
+        $canonicalRow = collect($snapshot['domains']['redirects_canonical']['flagged'])->firstWhere('kind', 'canonical');
+        $this->assertSame('MEDIUM', $canonicalRow['severity']); // http_status 200, solo canonical incoerente.
+
+        $notFoundRow = $snapshot['domains']['not_found']['flagged'][0];
+        $this->assertSame('MEDIUM', $notFoundRow['severity']); // 3 hits, sotto la soglia HIGH.
+        // La chiave usa path_hash (sha256), non il path grezzo (Codex,
+        // PR #579, P2) — stessa scelta già fatta da not_found_hits.path_hash.
+        $this->assertSame('not_found|'.hash('sha256', '/vecchio-path'), $notFoundRow['finding_key']);
+
+        $linkRow = $snapshot['domains']['links']['flagged'][0];
+        $this->assertSame('HIGH', $linkRow['severity']); // un link interno rotto e' sempre HIGH.
         $this->assertSame(1, $snapshot['domains']['links']['external_links_found']);
-        $this->assertCount(1, $snapshot['domains']['media']['flagged']);
-        $this->assertCount(1, $snapshot['domains']['wcag']['flagged']);
-        $this->assertSame(1, $snapshot['domains']['not_found']['finding_count']);
+
+        $mediaRow = $snapshot['domains']['media']['flagged'][0];
+        $this->assertSame('MEDIUM', $mediaRow['severity']); // solo alt mancante, nessun file assente.
+        $this->assertSame('media|1', $mediaRow['finding_key']);
+
+        $wcagRow = $snapshot['domains']['wcag']['flagged'][0];
+        $this->assertSame('MEDIUM', $wcagRow['severity']); // solo struttura heading, nessun landmark/skip-link/lang.
     }
 
-    public function test_performance_and_keyboard_navigation_are_reported_unavailable_and_excluded_from_the_total(): void
+    public function test_a_missing_landmark_or_skip_link_wcag_finding_is_high_severity(): void
     {
         $this->fakeSeo([]);
         $this->fakeRedirectCanonical([], []);
         $this->fakeLinks([], []);
         $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([
+            ['key' => 'contatti', 'label' => 'Contatti', 'url' => 'http://x/contatti', 'http_status' => 200, 'findings' => ['Skip-link assente (WCAG 2.4.1).']],
+        ]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('HIGH', $snapshot['domains']['wcag']['flagged'][0]['severity']);
+    }
+
+    public function test_a_missing_file_media_finding_is_high_severity(): void
+    {
+        $this->fakeSeo([]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia([
+            'analyzed' => 1,
+            'rows' => [['id' => 5, 'filename' => 'assente.jpg', 'disk_name' => 'assente.jpg', 'findings' => ['File assente su disco (registrato in Libreria media, ma non trovato in public/assets/img).']]],
+            'missing_alt' => 0, 'missing_credit' => 0, 'missing_file' => 1, 'oversized' => 0, 'non_optimal_format' => 0,
+        ]);
         $this->fakeWcag([]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('HIGH', $snapshot['domains']['media']['flagged'][0]['severity']);
+    }
+
+    /**
+     * Codex (PR #579, P1): PublicPageSeoAudit espone 'sample_url', mai
+     * 'url' — un accesso a $r['url'] nel calcolo della severità andava
+     * in errore ogni volta che il confronto con il canonical veniva
+     * davvero eseguito (http_status 200, canonical non nullo). I test
+     * precedenti non lo scoprivano mai perché usavano solo righe con
+     * http_status non-200, che va in cortocircuito prima di quel
+     * confronto.
+     */
+    public function test_a_seo_finding_with_a_200_status_and_a_mismatched_canonical_is_high_severity_without_erroring(): void
+    {
+        $this->fakeSeo([
+            ['key' => 'categoria', 'label' => 'Categoria', 'route_name' => 'categoria', 'kind' => 'dynamic', 'sample_url' => 'http://x/categoria/energia', 'checked' => true, 'http_status' => 200, 'title_present' => true, 'description_present' => true, 'canonical' => 'http://x/altra-pagina', 'robots' => null, 'json_ld_blocks' => 1, 'findings' => ['Canonical non corrisponde alla URL richiesta: http://x/altra-pagina.']],
+        ]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('HIGH', $snapshot['domains']['seo']['flagged'][0]['severity']);
+    }
+
+    public function test_a_seo_finding_with_a_200_status_and_a_matching_canonical_is_medium_severity(): void
+    {
+        $this->fakeSeo([
+            ['key' => 'categoria', 'label' => 'Categoria', 'route_name' => 'categoria', 'kind' => 'dynamic', 'sample_url' => 'http://x/categoria/energia', 'checked' => true, 'http_status' => 200, 'title_present' => false, 'description_present' => true, 'canonical' => 'http://x/categoria/energia', 'robots' => null, 'json_ld_blocks' => 1, 'findings' => ['Tag <title> assente o vuoto.']],
+        ]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('MEDIUM', $snapshot['domains']['seo']['flagged'][0]['severity']);
+    }
+
+    public function test_a_not_found_path_at_or_above_the_hit_threshold_is_high_severity(): void
+    {
+        $this->fakeEverythingEmpty();
+        NotFoundHit::create([
+            'path_hash' => hash('sha256', '/molto-visitato'),
+            'path' => '/molto-visitato',
+            'hits' => 10,
+            'last_referer' => null,
+            'first_seen_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('HIGH', $snapshot['domains']['not_found']['flagged'][0]['severity']);
+    }
+
+    /**
+     * Cantiere 31: un finding con stato "ignorato" resta visibile
+     * (trasparenza) ma esce dal conteggio "aperti" della dashboard —
+     * stesso principio già in produzione per search_opportunity_statuses
+     * (SearchConsoleOpportunityProvider filtra STATUS_DISMISSED).
+     */
+    public function test_a_dismissed_finding_is_still_listed_but_excluded_from_open_counts(): void
+    {
+        $this->fakeSeo([
+            ['key' => 'home', 'label' => 'Home', 'route_name' => 'home', 'kind' => 'static', 'sample_url' => 'http://x/home', 'checked' => true, 'http_status' => 500, 'title_present' => null, 'description_present' => null, 'canonical' => null, 'robots' => null, 'json_ld_blocks' => null, 'findings' => ['Stato HTTP inatteso: 500.']],
+        ]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([]);
+
+        app(AuditFindingStatusService::class)->setStatus('seo', 'seo|home', AuditFindingStatus::STATUS_DISMISSED, null);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('SANA', $snapshot['status']);
+        $this->assertSame(0, $snapshot['open_findings_total']);
+        $this->assertSame(1, $snapshot['dismissed_findings_total']);
+        $this->assertSame(0, $snapshot['high_severity_open_total']);
+        // La riga resta nell'elenco, solo esclusa dai conteggi.
+        $this->assertCount(1, $snapshot['domains']['seo']['flagged']);
+        $this->assertSame(AuditFindingStatus::STATUS_DISMISSED, $snapshot['domains']['seo']['flagged'][0]['status']);
+        $this->assertSame(0, $snapshot['domains']['seo']['open_count']);
+        $this->assertSame(1, $snapshot['domains']['seo']['dismissed_count']);
+    }
+
+    public function test_a_finding_taken_in_charge_still_counts_as_open(): void
+    {
+        $this->fakeSeo([
+            ['key' => 'home', 'label' => 'Home', 'route_name' => 'home', 'kind' => 'static', 'sample_url' => 'http://x/home', 'checked' => true, 'http_status' => 500, 'title_present' => null, 'description_present' => null, 'canonical' => null, 'robots' => null, 'json_ld_blocks' => null, 'findings' => ['Stato HTTP inatteso: 500.']],
+        ]);
+        $this->fakeRedirectCanonical([], []);
+        $this->fakeLinks([], []);
+        $this->fakeMedia($this->emptyMediaResult());
+        $this->fakeWcag([]);
+
+        app(AuditFindingStatusService::class)->setStatus('seo', 'seo|home', AuditFindingStatus::STATUS_IN_CARICO, null);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame('DA_RIVEDERE', $snapshot['status']);
+        $this->assertSame(1, $snapshot['open_findings_total']);
+        $this->assertSame(0, $snapshot['dismissed_findings_total']);
+        $this->assertSame(AuditFindingStatus::STATUS_IN_CARICO, $snapshot['domains']['seo']['flagged'][0]['status']);
+    }
+
+    /**
+     * Codex (PR #579, P2): calcolare i conteggi aperti/ignorati solo sui
+     * path mostrati in tabella (i 50 più frequenti) sotto-contava i
+     * finding "aperti" quando il registro supera quel limite — un path
+     * dismissato ma FUORI dalla porzione mostrata non riduceva mai
+     * open_count. Path con hits bassi (1..5) restano fuori dai 50 più
+     * frequenti quando ce ne sono altri 50 con hits più alti.
+     */
+    /**
+     * Codex (PR #579, P2): usare il path grezzo come chiave (invece di
+     * path_hash) avrebbe fatto collidere due path distinti che si
+     * differenziano solo per maiuscole/minuscole sotto la collation di
+     * produzione (MariaDB, utf8mb4_unicode_ci case-insensitive) — stessa
+     * scoperta già fatta per not_found_hits.path_hash (Codex, PR #572).
+     * sha256 e' invece sempre case-sensitive: due path diversi solo per
+     * maiuscole/minuscole devono ricevere due finding_key distinti.
+     */
+    public function test_two_paths_differing_only_by_case_receive_distinct_finding_keys(): void
+    {
+        $this->fakeEverythingEmpty();
+        NotFoundHit::create(['path_hash' => hash('sha256', '/Articolo/Uno'), 'path' => '/Articolo/Uno', 'hits' => 1, 'last_referer' => null, 'first_seen_at' => now(), 'last_seen_at' => now()]);
+        NotFoundHit::create(['path_hash' => hash('sha256', '/articolo/uno'), 'path' => '/articolo/uno', 'hits' => 1, 'last_referer' => null, 'first_seen_at' => now(), 'last_seen_at' => now()]);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+
+        $keys = collect($snapshot['domains']['not_found']['flagged'])->pluck('finding_key')->all();
+        $this->assertCount(2, array_unique($keys));
+    }
+
+    public function test_not_found_open_count_accounts_for_paths_beyond_the_displayed_limit(): void
+    {
+        $this->fakeEverythingEmpty();
+
+        for ($i = 1; $i <= 55; $i++) {
+            NotFoundHit::create([
+                'path_hash' => hash('sha256', "/path-{$i}"),
+                'path' => "/path-{$i}",
+                'hits' => $i,
+                'last_referer' => null,
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        // /path-3 (hits: 3) e' tra i 5 meno visitati: mai tra i 50 piu'
+        // frequenti mostrati in tabella (che partono da /path-55 in giu').
+        // La chiave usa path_hash (sha256), non il path grezzo (Codex,
+        // PR #579, P2) — stessa scelta già fatta da not_found_hits.path_hash.
+        app(AuditFindingStatusService::class)->setStatus('not_found', 'not_found|'.hash('sha256', '/path-3'), AuditFindingStatus::STATUS_DISMISSED, null);
+
+        $snapshot = app(PublicHealthDashboardService::class)->snapshot();
+        $notFound = $snapshot['domains']['not_found'];
+
+        $this->assertSame(55, $notFound['finding_count']);
+        $this->assertCount(50, $notFound['flagged']);
+        $this->assertSame(54, $notFound['open_count']);
+        $this->assertSame(1, $notFound['dismissed_count']);
+        $this->assertSame(54, $snapshot['open_findings_total']);
+    }
+
+    public function test_performance_and_keyboard_navigation_are_reported_unavailable_and_excluded_from_the_total(): void
+    {
+        $this->fakeEverythingEmpty();
 
         $snapshot = app(PublicHealthDashboardService::class)->snapshot();
 

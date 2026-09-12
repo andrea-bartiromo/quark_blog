@@ -296,6 +296,8 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // Dashboard admin Salute pubblica — aggrega gli audit tecnici delle
     // pagine pubbliche (Cantiere 30, dipende dai Cantieri 22-29).
     Route::get('/salute-pubblica', [PublicHealthDashboardController::class, 'index'])->name('public-health');
+    // Cantiere 31: workflow "presa in carico"/"ignorato" per singolo finding.
+    Route::post('/salute-pubblica/stato', [PublicHealthDashboardController::class, 'updateFindingStatus'])->name('public-health.update-status');
 
     // Editorial Quality Gate — sitewide audit (Missione 35, batch KAIRUS)
     Route::get('/qualita-editoriale', [EditorialQualityAuditController::class, 'index'])->name('editorial-quality');
