@@ -87,6 +87,28 @@
     </x-kairus.page-header>
     @endif
 
+    {{--
+        Cantiere 1 (programma 100-cantieri Kairus): chip "Argomenti" sotto
+        l'header, stesso pattern .public-pill-row già in uso in
+        notizie.blade.php (riusato, non duplicato come stile) con lo stato
+        "corrente" evidenziato tramite aria-current oltre alla classe
+        visiva già esistente. $categoryOptions qui è Category::publicOptions()
+        passato esplicitamente da ArticleController::category() (mai la
+        lista che include bozza/programmata/disattivata usata sopra solo
+        per il controllo 404). Il Cantiere 2 estrae questo markup (qui e in
+        notizie.blade.php) in un componente Blade dedicato.
+    --}}
+    <nav class="public-pill-row" aria-label="Argomenti">
+      <a href="{{ route('notizie') }}">Tutti</a>
+      @foreach($categoryOptions as $optionSlug => $optionLabel)
+        @if($optionSlug === $slug)
+        <a href="{{ route('categoria', $optionSlug) }}" class="active" aria-current="page">{{ $optionLabel }}</a>
+        @else
+        <a href="{{ route('categoria', $optionSlug) }}">{{ $optionLabel }}</a>
+        @endif
+      @endforeach
+    </nav>
+
     <section class="public-feature-band">
       <span class="public-hero__kicker">Editorial Focus</span>
       <h2>Dentro {{ $categoryLabel }}</h2>
@@ -138,6 +160,18 @@
               </x-slot:meta>
             </x-kairus.article-card>
           </li>
+          {{--
+              Cantiere 1 (programma 100-cantieri Kairus): newsletter CTA
+              dopo la terza card, solo quando esistono altre card dopo
+              (mai su una pagina da 1-3 articoli, dove non c'è nulla da
+              "interrompere"). grid-column:1/-1 (editorial-system.css) la
+              fa occupare l'intera riga della griglia.
+          --}}
+          @if($loop->iteration === 3 && ! $loop->last)
+          <li class="kairus-category-newsletter-slot">
+            @include('categories.partials.newsletter-cta')
+          </li>
+          @endif
           @empty
           {{-- Nessuna categoria hardcoded qui: la stessa vista serve ogni
                slug, quindi il messaggio resta generico e onesto (nessun
@@ -165,6 +199,8 @@
         </div>
       </aside>
     </div>
+
+    @include('categories.partials.continue-exploring')
 
   </div>
 </div>
