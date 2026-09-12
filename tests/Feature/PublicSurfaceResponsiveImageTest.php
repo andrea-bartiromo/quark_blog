@@ -309,6 +309,36 @@ class PublicSurfaceResponsiveImageTest extends TestCase
         $this->assertStringContainsString('alt="'.$author->name.'"', $avatarBlock[0]);
     }
 
+    /**
+     * Prompt 12 (programma 100-prompt Kairus, root-causato durante la
+     * revisione di un'altra PR): author-card.blade.php passava
+     * `alt="{{ $article->author->name }}"` (attributo letterale, già
+     * HTML-escaped da Blade) a <x-responsive-image>, che a sua volta
+     * esegue `alt="{{ $alt }}"` internamente — un secondo escape sopra al
+     * primo. Un nome con un carattere HTML-speciale come l'apostrofo
+     * risultava quindi doppiamente codificato (`&amp;#039;` invece di
+     * `&#039;`). Nome fisso qui (non Faker) perché il bug si manifestava
+     * solo quando la generazione casuale includeva per caso un simile
+     * carattere — non riproducibile in modo affidabile altrimenti.
+     */
+    public function test_articolo_author_card_photo_alt_is_html_escaped_exactly_once(): void
+    {
+        $author = $this->author();
+        $author->update(['name' => "Jason D'Amore DVM"]);
+        $this->placeCoverWithVariantsAt('author-card-apostrophe.jpg', 800, 800);
+        $author->update(['photo' => 'author-card-apostrophe.jpg']);
+        $article = $this->publishedArticle($author, ['title' => 'Articolo con autore apostrofo']);
+
+        $response = $this->get(route('articolo', $article->slug));
+
+        $response->assertOk();
+        preg_match('/kairus-author-card__avatar.*?<\/div>/s', $response->getContent(), $avatarBlock);
+        $this->assertNotEmpty($avatarBlock, 'Blocco avatar della author-card non trovato in pagina.');
+
+        $this->assertStringContainsString('alt="'.e("Jason D'Amore DVM").'"', $avatarBlock[0]);
+        $this->assertStringNotContainsString('&amp;#039;', $avatarBlock[0]);
+    }
+
     public function test_articolo_author_card_falls_back_gracefully_when_photo_file_is_missing_on_disk(): void
     {
         // Stesso fallback legacy gia' verificato per /autore/{user}: un
