@@ -49,7 +49,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
 | 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | merged | [#565](https://github.com/andrea-bartiromo/quark_blog/pull/565) | `16d5d0e` | 26/26 (155 assert.) | 0 | 16 |
-| 18 | Preflight storage persistente release | in_progress | — | — | — | — | — |
+| 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
 | 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
 | 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
@@ -164,6 +164,16 @@ deve iniziare improvvisamente a bloccare i rilasci per una
 configurazione mai stata un requisito fin qui. Aggiornati
 `.env.production.example` (nuova variabile documentata) e
 `docs/DEPLOYMENT.md`.
+
+Finding Codex (P1, PR #566): un valore RELATIVO (es.
+`DB_BACKUP_DIRECTORY=storage/backups/mariadb`) non comincia mai per
+l'assoluto `$releaseRoot`, quindi il confronto per sottostringa lo
+classificava erroneamente come "fuori release" — ma sia i comandi
+Artisan sia la shell durante `deploy.sh` risolvono un percorso relativo
+rispetto a QUESTA directory di release, non a una futura, quindi il
+backup sarebbe comunque perduto al prossimo deploy. Corretto ancorando
+esplicitamente il valore a `$releaseRoot` prima del confronto quando non
+è già assoluto; aggiunto un test di regressione dedicato.
 
 ### 17 — Test deploy reale release senza .git (REVISION)
 
