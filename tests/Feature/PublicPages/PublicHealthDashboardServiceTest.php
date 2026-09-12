@@ -189,4 +189,25 @@ class PublicHealthDashboardServiceTest extends TestCase
         $this->assertFalse($snapshot['domains']['keyboard_navigation']['available']);
         $this->assertSame(0, $snapshot['open_findings_total']);
     }
+
+    /**
+     * Codex (PR #578, P1): ogni fetch in-process (InProcessPageFetcher)
+     * riattraversa il middleware 'web' — incluso StartSession — su una
+     * Request sintetica senza cookie, che chiama sempre setId() sulla
+     * STESSA istanza Store condivisa con la richiesta reale che ha aperto
+     * questa dashboard. Usa i sei servizi REALI (non finti): solo con
+     * InProcessPageFetcher che dispatcha davvero attraverso il kernel
+     * HTTP si riproduce la rigenerazione dell'id di sessione che il fix
+     * deve annullare. Prima del fix, l'id di sessione dopo snapshot()
+     * sarebbe quello dell'ULTIMA sotto-richiesta interna, non quello
+     * originale.
+     */
+    public function test_the_session_id_is_unchanged_after_computing_the_snapshot_with_the_real_audits(): void
+    {
+        $originalId = session()->getId();
+
+        app(PublicHealthDashboardService::class)->snapshot();
+
+        $this->assertSame($originalId, session()->getId());
+    }
 }

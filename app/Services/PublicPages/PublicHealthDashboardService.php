@@ -5,6 +5,7 @@ namespace App\Services\PublicPages;
 use App\Models\NotFoundHit;
 use App\Services\LinkHealth\LinkReachabilityAuditService;
 use App\Services\MediaLibraryHealthAudit;
+use Closure;
 
 /**
  * Cantiere 30 (programma 100-cantieri Kairus), dipende dai Cantieri 22-29.
@@ -48,26 +49,60 @@ class PublicHealthDashboardService
     /** @return array<string, mixed> */
     public function snapshot(): array
     {
-        $domains = [
-            'seo' => $this->seoDomain(),
-            'redirects_canonical' => $this->redirectsCanonicalDomain(),
-            'not_found' => $this->notFoundDomain(),
-            'links' => $this->linksDomain(),
-            'media' => $this->mediaDomain(),
-            'wcag' => $this->wcagDomain(),
-            'performance' => $this->performanceDomain(),
-            'keyboard_navigation' => $this->keyboardNavigationDomain(),
-        ];
+        return $this->withPreservedSessionId(function () {
+            $domains = [
+                'seo' => $this->seoDomain(),
+                'redirects_canonical' => $this->redirectsCanonicalDomain(),
+                'not_found' => $this->notFoundDomain(),
+                'links' => $this->linksDomain(),
+                'media' => $this->mediaDomain(),
+                'wcag' => $this->wcagDomain(),
+                'performance' => $this->performanceDomain(),
+                'keyboard_navigation' => $this->keyboardNavigationDomain(),
+            ];
 
-        $openFindingsTotal = collect($domains)
-            ->where('available', true)
-            ->sum('finding_count');
+            $openFindingsTotal = collect($domains)
+                ->where('available', true)
+                ->sum('finding_count');
 
-        return [
-            'status' => $openFindingsTotal === 0 ? 'SANA' : 'DA_RIVEDERE',
-            'open_findings_total' => $openFindingsTotal,
-            'domains' => $domains,
-        ];
+            return [
+                'status' => $openFindingsTotal === 0 ? 'SANA' : 'DA_RIVEDERE',
+                'open_findings_total' => $openFindingsTotal,
+                'domains' => $domains,
+            ];
+        });
+    }
+
+    /**
+     * Codex (PR #578, P1): ogni fetch in-process di InProcessPageFetcher
+     * riattraversa l'intero gruppo di middleware 'web' — incluso
+     * StartSession — su una Request sintetica senza alcun cookie.
+     * Illuminate\Session\Middleware\StartSession::getSession() chiama
+     * sempre $session->setId(...) sulla STESSA istanza Store condivisa
+     * (singleton) già in uso per la richiesta reale che ha aperto questa
+     * dashboard, generandole un nuovo id casuale a ogni singola fetch (e
+     * ce ne sono decine, una per pagina/link/media verificato). Il
+     * cookie di sessione restituito al browser viene scritto SOLO dopo
+     * che il controller (e quindi ogni fetch) è già tornato (vedi
+     * StartSession::handleStatefulRequest()): senza questo ripristino
+     * porterebbe l'id dell'ULTIMA sotto-richiesta invece di quello reale
+     * dell'editor — indistinguibile da un logout silenzioso lato browser.
+     * Gli attributi di sessione stessi non sono mai a rischio (ogni id
+     * generato è sempre nuovo, quindi la lettura dall'handler restituisce
+     * sempre un array vuoto che Store::loadSession() fonde senza mai
+     * sovrascrivere nulla di esistente) — solo l'id necessita di un
+     * ripristino esplicito.
+     */
+    private function withPreservedSessionId(Closure $callback): array
+    {
+        $session = session();
+        $originalId = $session->getId();
+
+        try {
+            return $callback();
+        } finally {
+            $session->setId($originalId);
+        }
     }
 
     /** @return array<string, mixed> */
@@ -160,7 +195,7 @@ class PublicHealthDashboardService
                 'oversized' => $result['oversized'],
                 'non_optimal_format' => $result['non_optimal_format'],
             ],
-            'cli_hint' => 'php artisan media:library-health-audit',
+            'cli_hint' => 'php artisan media:health-audit',
         ];
     }
 
