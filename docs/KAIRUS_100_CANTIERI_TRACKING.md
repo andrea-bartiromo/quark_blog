@@ -59,7 +59,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 25 | Audit link interni rotti / esterni irraggiungibili | merged | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | 9b30160 | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); suite completa: 4389 (4386 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 0 (nessun finding Codex) | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
 | 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
-| 28 | Test browser navigazione tastiera | open | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | — | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js) | — | 21 |
+| 28 | Test browser navigazione tastiera | merged | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | `bfa4d83` | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js); suite completa: 4390 passed, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 (tutti reali, tutti corretti: traversata partiva dopo skip-link, loop-detection su tag/classe/id anziche' identita' reale, indicatore di focus non confrontato con lo stato senza focus) | 21 |
 | 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
 | 31 | Severità e presa in carico audit | pending | — | — | — | — | 30 |
@@ -152,11 +152,24 @@ stesse sei superfici/fixture deterministica di `public-regression.spec.js`
 (riusa l'inventario del Cantiere 21, `PublicPageInventory`): (1) lo
 skip-link e' il primo elemento raggiungibile con Tab e attivandolo
 (Enter) sposta il focus su `#main-content`; (2) proseguendo con Tab
-(fino a 25 pressioni, campione ampio e deterministico) nessun elemento
-focalizzato e visibile e' privo di un indicatore di focus visibile
-(`outline` o `box-shadow` diverso da `none`) — l'invariante che
-avrebbe intercettato il bug dei "14 controlli" gia' corretto
-manualmente in Cantiere I, ora sotto regressione automatica.
+(fino a 35 pressioni, campione ampio e deterministico) nessun elemento
+focalizzato e visibile e' privo di un indicatore di focus visibile —
+l'invariante che avrebbe intercettato il bug dei "14 controlli" gia'
+corretto manualmente in Cantiere I, ora sotto regressione automatica.
+
+3 finding Codex, tutti reali e tutti corretti (`bfa4d83`): (1) il test
+di attraversamento attivava lo skip-link prima del ciclo Tab, quindi
+partiva gia' da `#main-content` senza mai coprire header/ticker/
+category-bar (che precedono `<main>` nel DOM) — ora la traversata
+riparte dall'inizio pagina; (2) il rilevamento di loop confrontava
+tag/classe/id del giro precedente, indistinguibile per card ripetute
+con la stessa classe e id vuoto (griglia trending della home) — ora
+ogni nodo visitato e' marcato con un attributo dedicato, confrontando
+l'identita' reale del nodo; (3) l'indicatore di focus non veniva
+confrontato con lo stato senza focus, quindi un box-shadow permanente
+di una card avrebbe fatto risultare "visibile" un indicatore
+inesistente — ora si confronta lo stile a fuoco con quello subito
+dopo `blur()` sullo stesso nodo.
 
 ### 27 — Laboratorio prestazioni ripetibile (baseline performance lab)
 
