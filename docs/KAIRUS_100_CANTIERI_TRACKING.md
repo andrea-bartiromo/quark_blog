@@ -61,7 +61,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
 | 28 | Test browser navigazione tastiera | merged | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | `bfa4d83` | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js); suite completa: 4390 passed, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 (tutti reali, tutti corretti: traversata partiva dopo skip-link, loop-detection su tag/classe/id anziche' identita' reale, indicatore di focus non confrontato con lo stato senza focus) | 21 |
 | 29 | Audit WCAG interno | merged | [#577](https://github.com/andrea-bartiromo/quark_blog/pull/577) | `81e4301` | 17/17 (servizio) + 6/6 (comando, incl. 2 regressioni reali); suite completa: 4412 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 4 reali (round 1: nome accessibile falso positivo su solo-immagine con alt, `aria-labelledby` verso id inesistente accettato senza risoluzione; round 2 dopo il fix: `libxml_use_internal_errors` non ripristinato, perdita a livello di processo PHP) — tutti corretti | 21 |
-| 30 | Dashboard admin Salute pubblica | open | [#578](https://github.com/andrea-bartiromo/quark_blog/pull/578) | — | 3/3 (controller) + 3/3 (servizio) | — | 22-29 |
+| 30 | Dashboard admin Salute pubblica | merged | [#578](https://github.com/andrea-bartiromo/quark_blog/pull/578) | `ccd9bdf` | 4/4 (controller) + 4/4 (servizio); suite completa: 4420 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: `snapshot()` non ripristinava l'id di sessione condiviso dopo i fetch in-process, rischio di cookie di sessione errato/logout silenzioso lato editor; suggerimento CLI della card Media indicava un comando inesistente) | 22-29 |
 | 31 | Severità e presa in carico audit | pending | — | — | — | — | 30 |
 | 32 | Report articoli con carenze editoriali | pending | — | — | — | — | 30 |
 | 33 | Audit heading Fonti/Fonti primarie duplicati | pending | — | — | — | — | — |
@@ -134,6 +134,37 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 30 — Dashboard admin Salute pubblica
+
+Ispezione preliminare: ognuno degli audit dei Cantieri 22-29
+(`PublicPageSeoAudit`, `RedirectAndCanonicalIntegrityAudit`,
+`NotFoundHitTracker`, `LinkReachabilityAuditService`,
+`MediaLibraryHealthAudit`, `WcagInternalAudit`) era raggiungibile solo
+da riga di comando — nessuna pagina admin li riassumeva in un unico
+posto, a differenza di `EditorialOperationsDashboardService` (salute
+EDITORIALE dei contenuti, dominio distinto). Nuovo
+`App\Services\PublicPages\PublicHealthDashboardService` + pagina
+`admin/salute-pubblica`: chiama, raccoglie e riassume i sei audit
+esistenti (mai una nuova regola di dominio). I Cantieri 27 (performance)
+e 28 (test browser tastiera) non hanno un servizio PHP da aggregare:
+sezioni "non disponibili qui" con rimando allo strumento reale.
+
+Codex (PR #578): (1) reale e serio — ogni fetch in-process
+(`InProcessPageFetcher`) riattraversa il middleware `web` (incluso
+`StartSession`) su una Request sintetica senza cookie, rigenerando
+l'id della sessione CONDIVISA (singleton) a ogni singola fetch (decine
+per il caricamento completo). Il cookie di sessione viene scritto dopo
+che il controller e' gia' tornato: senza ripristino, l'editor che apre
+questa pagina riceverebbe indietro l'id dell'ULTIMA sotto-richiesta
+interna anziche' il proprio — indistinguibile da un logout silenzioso.
+Corretto avvolgendo l'intero calcolo di `snapshot()` con un
+salva/ripristina dell'id di sessione; nuovo test di regressione con i
+sei servizi REALI (non finti) che riproduce davvero la rigenerazione
+attraverso il kernel HTTP (verificato che fallisce senza il fix). (2)
+il suggerimento CLI della card Media indicava un comando inesistente
+(`media:library-health-audit` invece di `media:health-audit`) — fixato.
+Merge `ccd9bdf`.
 
 ### 29 — Audit WCAG interno
 
