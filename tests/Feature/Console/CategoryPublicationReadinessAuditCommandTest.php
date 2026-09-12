@@ -96,7 +96,7 @@ class CategoryPublicationReadinessAuditCommandTest extends TestCase
             ->doesntExpectOutputToContain('Programmata per:');
     }
 
-    public function test_categories_are_reported_in_the_same_order_as_the_admin_list(): void
+    public function test_categories_with_the_same_sort_order_fall_back_to_name(): void
     {
         Category::create([
             'name' => 'Zeta Bozza',
@@ -119,6 +119,38 @@ class CategoryPublicationReadinessAuditCommandTest extends TestCase
         // Category::scopeOrdered(): orderBy(sort_order) poi orderBy(name) —
         // a parità di sort_order, "Alfa Bozza" precede "Zeta Bozza".
         $this->assertSame(['Alfa Bozza', 'Zeta Bozza'], array_column($decoded, 'name'));
+    }
+
+    /**
+     * Finding Codex (P2, PR #561): il test sopra usa lo stesso sort_order
+     * per entrambe le fixture, quindi verifica solo lo spareggio per nome —
+     * se il comando regredisse a ordinare per solo nome, ignorando
+     * sort_order, questo test resterebbe comunque verde. Qui sort_order e
+     * nome sono in conflitto deliberato: "Zeta Bozza" ha sort_order più
+     * basso di "Alfa Bozza", quindi deve comparire prima nonostante l'ordine
+     * alfabetico inverso.
+     */
+    public function test_sort_order_takes_precedence_over_name(): void
+    {
+        Category::create([
+            'name' => 'Zeta Bozza Priorita',
+            'slug' => 'zeta-bozza-priorita',
+            'is_active' => true,
+            'status' => Category::STATUS_DRAFT,
+            'sort_order' => 0,
+        ]);
+        Category::create([
+            'name' => 'Alfa Bozza Priorita',
+            'slug' => 'alfa-bozza-priorita',
+            'is_active' => true,
+            'status' => Category::STATUS_DRAFT,
+            'sort_order' => 1,
+        ]);
+
+        Artisan::call('category:publication-readiness --json');
+        $decoded = json_decode(Artisan::output(), true);
+
+        $this->assertSame(['Zeta Bozza Priorita', 'Alfa Bozza Priorita'], array_column($decoded, 'name'));
     }
 
     public function test_the_summary_counts_only_categories_with_findings(): void
