@@ -50,7 +50,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | merged | [#565](https://github.com/andrea-bartiromo/quark_blog/pull/565) | `16d5d0e` | 26/26 (155 assert.) | 0 | 16 |
 | 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
-| 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
+| 19 | Verifica automatica backup MariaDB | open | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | — | 9/9 (audit) + 4/4 (comando); Deploy*: verdi | 0 (nessun finding Codex ricevuto finora) | — |
 | 20 | Report read-only deploy readiness | pending | — | — | — | — | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
@@ -134,6 +134,36 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 19 — Verifica automatica backup MariaDB
+
+Ispezione preliminare: `backup:database-v2` (Backup V2, reale dump
+MariaDB/MySQL) resta manuale/opt-in — `routes/console.php` pianifica il
+legacy `backup:database` (SQLite-only) SOLO quando `database.default ===
+'sqlite'`, quindi in produzione MariaDB nessuno scheduler crea backup
+automaticamente, esattamente come già documentato in
+`docs/DEPLOYMENT.md` ("Wiring Backup V2 into the deploy pipeline itself…
+remains a distinct, deliberately gated engineering decision"). Nessun
+comando o servizio esistente verificava però se un backup valido
+esistesse già o quanto fosse vecchio — un operatore che dimentica di
+eseguirlo manualmente non aveva alcun segnale. Gap genuino, non "già
+coperto"; scartata deliberatamente l'alternativa di pianificare
+`backup:database-v2` automaticamente, perché sarebbe la stessa
+"decisione ingegneristica distinta" che i documenti segnalano come non
+implicita — fuori scope per una verifica.
+
+Aggiunto `App\Services\Deploy\MariaDbBackupHealthAudit` + il comando
+`php artisan deploy:verify-database-backup`: sola lettura, non crea/
+pianifica/elimina mai alcun backup. Scansiona
+`config('backup.v2.directory')` per coppie artefatto+metadata la cui
+sha256/size combaciano ancora (stesso controllo di
+`MariaDbBackupService::isKnownGoodPair()`) e riporta: non applicabile
+(connessione non mysql/mariadb), nessun backup valido, stantio (quando
+`DB_BACKUP_MAX_AGE_HOURS` è configurato — deliberatamente opt-in come
+`DB_BACKUP_RETENTION`, nessuna cadenza presunta per un comando manuale),
+oppure ok. **Solo informativo**: wired in `deploy.sh` senza `|| fail`,
+subito dopo `deploy:verify-persistent-storage`. Aggiornati
+`.env.production.example` e `docs/DEPLOYMENT.md`.
 
 ### 18 — Preflight storage persistente release
 

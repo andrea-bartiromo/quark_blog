@@ -331,6 +331,32 @@ class DeploymentSafetyTest extends TestCase
     }
 
     /**
+     * Cantiere 19 (programma 100-cantieri Kairus): `backup:database-v2` è
+     * manuale/opt-in (nessuno scheduler lo esegue automaticamente — vedi
+     * routes/console.php e docs/DEPLOYMENT.md). Questa verifica non crea,
+     * pianifica né elimina mai alcun backup: solo informativo — mai
+     * `|| fail` — cosicché un rilascio esistente e funzionante non inizi
+     * improvvisamente a essere bloccato da una policy di backup mai stata
+     * un requisito fin qui.
+     */
+    public function test_production_deploy_checks_database_backup_health_without_ever_blocking(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('php artisan deploy:verify-database-backup || true', $script);
+
+        $preflightPosition = strpos($script, 'php artisan deploy:verify-persistent-storage');
+        $backupAuditPosition = strpos($script, 'php artisan deploy:verify-database-backup');
+        $revisionWritePosition = strpos($script, "printf '%s\\n' \"\$ACTUAL_SHA\" > REVISION");
+
+        $this->assertNotFalse($preflightPosition);
+        $this->assertNotFalse($backupAuditPosition);
+        $this->assertNotFalse($revisionWritePosition);
+        $this->assertGreaterThan($preflightPosition, $backupAuditPosition, 'The database backup health check must run after the persistent-storage preflight.');
+        $this->assertLessThan($revisionWritePosition, $backupAuditPosition, 'The database backup health check must run before REVISION/DEPLOY_INFO are written, like every other check.');
+    }
+
+    /**
      * Prompt 7 (programma 100-prompt Kairus): release:record-registry
      * deve girare come ultimissimo passo, dopo che REVISION/DEPLOY_INFO
      * sono già stati scritti — non è un gate, non deve mai poter
