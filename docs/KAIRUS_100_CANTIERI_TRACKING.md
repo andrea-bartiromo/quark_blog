@@ -46,7 +46,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
 | 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
-| 15 | Runbook cPanel + front controller pubblico | in_progress | — | — | — | — | — |
+| 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
 | 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
 | 18 | Preflight storage persistente release | pending | — | — | — | — | — |
@@ -157,6 +157,26 @@ con verifica via `curl`, configurazione cPanel non versionata altrove,
 ed esplicita dichiarazione di cosa questo runbook NON automatizza (compito
 del Cantiere 16). Solo documentazione: nessuna modifica applicativa,
 nessun comando eseguito contro l'hosting reale.
+
+Finding Codex (3, PR #562), tutti reali: (1, P1) mancava la cadenza esatta
+del cron per `schedule:run` — doveva essere ogni minuto
+(`routes/console.php` ha eventi a cadenza di 1 e 5 minuti), non generica;
+(2, P2) la verifica del rewrite usava `curl -I` (solo header): un 404
+Apache e un 404 Laravel possono condividere status e `Content-Type`,
+serve il corpo della risposta per distinguerli; (3, P2) l'esempio di front
+controller adattato ometteva il terzo percorso relativo di
+`public/index.php` (`storage/framework/maintenance.php`), lasciando la
+modalità manutenzione silenziosamente inefficace se copiato così com'era.
+Tutti e tre corretti nello stesso PR, thread risolti.
+
+Nota a margine non di merito: il merge di questa PR è stato ritardato da
+un'interruzione a livello di infrastruttura CI del repository (nessun
+runner mai assegnato ai job, riprodotta identicamente anche sui push
+diretti su `main`), causata dal limite di minuti Actions su repository
+privato senza spending limit configurato — risolta dall'utente rendendo
+il repository pubblico e rilanciando manualmente i job dalla UI di
+GitHub (l'integrazione usata in questa sessione non ha il permesso
+`actions:write` necessario per farlo autonomamente).
 
 ### 14 — Test comando audit categorie
 
