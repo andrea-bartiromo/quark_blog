@@ -32,7 +32,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
-| 1 | Nuovo flusso UX pagine categoria | in_progress | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | — | 166/166 (1039 assert.) | 0 | — |
+| 1 | Nuovo flusso UX pagine categoria | merged | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | `a5af463` | 172/172 (1049 assert.) | 1 reale (fixato: allowlist newsletter `source=category`) | — |
 | 2 | Chip categorie → componente Blade accessibile | pending | — | — | — | — | 1 |
 | 3 | Newsletter categorie → CTA contestuale | pending | — | — | — | — | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
@@ -143,3 +143,14 @@ sidebar con "Più letti"/"Argomenti". Mancavano: chip Argomenti nel flusso
 principale (esiste già come pattern `.public-pill-row` in `notizie.blade.php`
 e come CSS in `public-premium.css` — riusati, non duplicati), newsletter
 CTA a metà griglia, blocco "Continua a esplorare" a fine pagina.
+
+Finding reale in review (Codex, P1): `Newsletter::SOURCES` non includeva
+`category`, quindi ogni submit dalla nuova CTA veniva respinto dalla
+validazione prima di raggiungere `Newsletter::subscribe()` — la CTA non
+avrebbe mai registrato un'email. Corretto nello stesso PR (commit
+`29f9f9a`): aggiunto `category` all'allowlist + test di regressione
+dedicato in `NewsletterSourcePersistenceTest.php`. `PHP 8.4` ha continuato
+a mostrare solo il fallimento pre-esistente
+`ContentClusterAutoLifecycleCompletionTest.php:231` ("Failed asserting
+that false is true."), identico per file/riga/messaggio sia prima che
+dopo il fix — documentato, non toccato.
