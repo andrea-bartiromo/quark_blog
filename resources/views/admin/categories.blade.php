@@ -55,7 +55,7 @@
 
   <div class="admin-table-wrap">
     <table class="admin-table">
-      <thead><tr><th>Immagine</th><th>Nome</th><th>Slug</th><th>Articoli</th><th>Ordine</th><th>Attiva</th><th>Pubblicazione</th><th>Azioni</th></tr></thead>
+      <thead><tr><th>Immagine</th><th>Nome</th><th>Slug</th><th>Articoli</th><th>Ordine</th><th>Attiva</th><th>Pubblicazione</th><th>Checklist</th><th>Azioni</th></tr></thead>
       <tbody>
         @forelse($categories as $category)
         <tr>
@@ -78,6 +78,29 @@
               <div style="font-size:.7rem;color:#6b7280;margin-top:.2rem;">{{ $category->publishedAtForEditors()->format('d/m/Y H:i') }}</div>
             @endif
           </td>
+          <td>
+            {{--
+                Cantiere 12 (programma 100-cantieri Kairus): checklist di
+                attivazione — mai bloccante, solo informativa (stessa
+                filosofia di CategoryPublicationReadiness ovunque già
+                usata). Calcolata solo per le categorie non ancora
+                pubbliche: readinessByCategory non ha una entry per
+                quelle già pubbliche.
+            --}}
+            @if($readinessByCategory->has($category->id))
+              @php $readiness = $readinessByCategory->get($category->id); @endphp
+              @if($readiness['ready'])
+                <span class="status status--published" title="Nessuna criticità rilevata.">Pronta</span>
+              @else
+                <span
+                    class="status status--draft"
+                    title="{{ collect($readiness['findings'])->map(fn ($finding) => \App\Services\CategoryPublicationReadiness::label($finding))->join('; ') }}"
+                >{{ count($readiness['findings']) }} da verificare</span>
+              @endif
+            @else
+              <span style="color:#9ca3af;font-size:.78rem;">—</span>
+            @endif
+          </td>
           <td style="white-space:nowrap;">
             <a class="action-btn" href="{{ route('admin.categories', ['modifica' => $category->id]) }}">Modifica</a>
             <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" onsubmit="return confirm('Eliminare categoria?')" style="display:inline-block;margin-left:.35rem;">
@@ -88,7 +111,7 @@
           </td>
         </tr>
         @empty
-        <tr><td colspan="8" style="text-align:center;padding:2rem;color:#6b7280;">Nessuna categoria disponibile.</td></tr>
+        <tr><td colspan="9" style="text-align:center;padding:2rem;color:#6b7280;">Nessuna categoria disponibile.</td></tr>
         @endforelse
       </tbody>
     </table>
