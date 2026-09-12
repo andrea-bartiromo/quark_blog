@@ -54,4 +54,31 @@ class NewsletterSourcePersistenceTest extends TestCase
             'source' => 'sidebar',
         ]);
     }
+
+    /**
+     * Cantiere 1 (programma 100-cantieri Kairus): la CTA newsletter della
+     * pagina categoria (resources/views/categories/partials/newsletter-cta.blade.php)
+     * invia source=category. Senza 'category' in Newsletter::SOURCES la
+     * richiesta sarebbe respinta dalla validazione in
+     * NewsletterController::subscribe() prima di raggiungere
+     * Newsletter::subscribe(), impedendo di fatto ogni iscrizione da questo
+     * blocco (finding Codex su PR #552).
+     */
+    public function test_category_cta_submits_a_valid_semantic_source_and_persists_it(): void
+    {
+        $this->view('categories.partials.newsletter-cta', [
+            'categoryLabel' => 'Energia',
+        ])->assertSee('name="source" value="category"', false);
+
+        $this->post(route('newsletter.subscribe'), [
+            'email' => 'category-reader@example.test',
+            'source' => 'category',
+            'website' => '',
+        ]);
+
+        $this->assertDatabaseHas('newsletter', [
+            'email' => 'category-reader@example.test',
+            'source' => 'category',
+        ]);
+    }
 }

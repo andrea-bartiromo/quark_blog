@@ -11,7 +11,7 @@ class Newsletter extends Model
 {
     protected $table = 'newsletter';
 
-    public const SOURCES = ['popup', 'homepage', 'article', 'sidebar'];
+    public const SOURCES = ['popup', 'homepage', 'article', 'sidebar', 'category'];
 
     protected $fillable = ['email', 'confirmed', 'token', 'unsubscribe_token', 'source'];
 
