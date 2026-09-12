@@ -77,10 +77,24 @@ class PersistentStoragePreflight
                 continue;
             }
 
+            // Finding Codex (P1, PR #566): un valore RELATIVO (es.
+            // "storage/backups/mariadb") non comincia mai per l'assoluto
+            // $releaseRoot, quindi sfuggirebbe al controllo pur essendo
+            // altrettanto dentro la release — sia i comandi Artisan
+            // invocati da deploy.sh sia la working directory della shell
+            // durante il deploy risolvono un percorso relativo rispetto
+            // a QUESTA directory di release, non rispetto a una futura.
+            // Va quindi ancorato esplicitamente a $releaseRoot prima del
+            // confronto.
+            $normalized = str_replace('\\', '/', $value);
+            if (! str_starts_with($normalized, '/')) {
+                $normalized = $releaseRoot.'/'.$normalized;
+            }
+            $normalized = rtrim($normalized, '/');
+
             // Confine di directory reale (non solo un prefisso testuale
             // condiviso, es. "…/kairus_app-old"): stesso principio già
             // applicato da CachedConfigPathAudit.
-            $normalized = rtrim(str_replace('\\', '/', $value), '/');
             $insideRelease = $normalized === $releaseRoot || str_starts_with($normalized, $releaseRoot.'/');
 
             if ($insideRelease) {

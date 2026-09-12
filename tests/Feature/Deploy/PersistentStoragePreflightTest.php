@@ -102,4 +102,23 @@ class PersistentStoragePreflightTest extends TestCase
 
         $this->assertTrue($report['ok']);
     }
+
+    /**
+     * Finding Codex (P1, PR #566): un valore RELATIVO
+     * (es. "storage/backups/mariadb") non comincia mai per l'assoluto
+     * $releaseRoot, quindi sfuggirebbe al controllo per sottostringa pur
+     * risolvendo comunque dentro questa directory di release — sia i
+     * comandi Artisan sia la working directory della shell durante
+     * deploy.sh risolvono un percorso relativo rispetto a QUESTA
+     * directory, non a una futura.
+     */
+    public function test_a_relative_backup_directory_is_still_flagged_as_inside_this_release(): void
+    {
+        config(['backup.v2.directory' => 'storage/backups/mariadb']);
+
+        $report = app(PersistentStoragePreflight::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertSame('DB_BACKUP_DIRECTORY', $report['at_risk'][0]['env_var']);
+    }
 }
