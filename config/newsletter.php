@@ -9,10 +9,13 @@ return [
         'expires_after_days' => 10,
         'max_attempts' => 3,
 
-        // Reinvio manuale: al massimo una richiesta ogni 24 ore.
+        // Il valore legacy resta per il flusso admin ed evita di rompere
+        // configurazioni esistenti; il processore automatico usa 10 giorni.
+        'cooldown_hours' => 24,
         'manual_resend_cooldown_hours' => 24,
 
-        // Interruttore fail-closed del processore schedulato.
+        // Interruttori fail-closed.
         'automation_enabled' => (bool) env('NEWSLETTER_RECONFIRMATION_AUTOMATION_ENABLED', true),
+        'cleanup_enabled' => (bool) env('NEWSLETTER_RECONFIRMATION_CLEANUP_ENABLED', true),
     ],
 ];
