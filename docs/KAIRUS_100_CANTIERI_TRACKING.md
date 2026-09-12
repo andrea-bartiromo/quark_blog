@@ -34,7 +34,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 |---|---|---|---|---|---|---|---|
 | 1 | Nuovo flusso UX pagine categoria | merged | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | `a5af463` | 172/172 (1049 assert.) | 1 reale (fixato: allowlist newsletter `source=category`) | — |
 | 2 | Chip categorie → componente Blade accessibile | merged | [#553](https://github.com/andrea-bartiromo/quark_blog/pull/553) | `83446de` | 35/35 (1267 assert.) | 2 reali (fixati: landmark aria duplicato; classe non-kairus in components/kairus/) | 1 |
-| 3 | Newsletter categorie → CTA contestuale | in_progress | — | — | — | — | 1 |
+| 3 | Newsletter categorie → CTA contestuale | in_progress | [#554](https://github.com/andrea-bartiromo/quark_blog/pull/554) | — | 75/75 (1768 assert.) | 0 | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | pending | — | — | — | — | 1, 4 |
 | 6 | Test feature/browser composizione categorie | pending | — | — | — | — | 1-5 |
