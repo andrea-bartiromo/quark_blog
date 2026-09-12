@@ -17,6 +17,12 @@ class CleanupExpiredNewsletterPending extends Command
 
     public function handle(NewsletterReconfirmationService $service): int
     {
+        if (! config('newsletter.reconfirmation.cleanup_enabled')) {
+            $this->warn('Pulizia disattivata. Nessuna riga toccata.');
+
+            return self::SUCCESS;
+        }
+
         $result = $service->process((bool) $this->option('dry-run'));
 
         $this->info($this->option('dry-run')
