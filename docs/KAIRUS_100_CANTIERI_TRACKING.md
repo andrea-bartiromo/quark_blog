@@ -52,7 +52,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
 | 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
 | 20 | Report read-only deploy readiness | merged | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | `1fd4bac` | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente); suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 0 (nessun finding Codex) | 15-19 |
-| 21 | Inventario tecnico pagine pubbliche | open | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | — | 8/8 (audit) + 3/3 (comando); più ampia (PublicPages\|Category\|Article\|ContentCluster): 1542/1542 (1 fallimento pre-esistente non correlato) | 0 (nessun finding Codex ricevuto finora) | — |
+| 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
 | 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
@@ -166,6 +166,20 @@ pubbliche di default — `categoria` ha quindi sempre un esempio subito
 dopo `migrate:fresh`, a differenza di articolo/autore/percorso (nessun
 dato di base). Comportamento intenzionale del repository, non un bug:
 testato esplicitamente invece di essere assunto.
+
+Finding Codex (P2, PR #569): il campione categoria interrogava solo la
+tabella `categories` (`Category::scopePubliclyVisible()`), ma una
+categoria legacy presente SOLO in `config('laboratorio.categories')`
+(nessuna riga DB, es. dopo la cancellazione di una categoria di base mai
+usata) resta comunque raggiungibile su `/categoria/{slug}` —
+`ArticleController::category()` non fa mai `abort(404)` quando la
+categoria non esiste in DB. Corretto riusando
+`Category::publicOptions()` (già l'unica fonte di verità per "quali
+slug categoria sono davvero pubblici oggi", DB-visibili PIÙ il
+fallback legacy solo-config) invece di una query DB-only che avrebbe
+segnalato erroneamente "nessun esempio" quando una pagina categoria era
+invece genuinamente raggiungibile; aggiunto un test di regressione
+dedicato.
 
 ### 20 — Report read-only deploy readiness
 
