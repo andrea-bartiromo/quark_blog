@@ -56,7 +56,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | merged | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | `85ecea9` | 10/10 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics): 187/187 (817 assert.) | 1 reale (fixato P1: l'audit incrementava le analytics reali di visualizzazione articolo a ogni esecuzione) | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | merged | [#571](https://github.com/andrea-bartiromo/quark_blog/pull/571) | 38c6654 | 13/13 (audit) + 5/5 (comando); PublicPages+Console: 258/258 (819 assert., 3 skip.); suite completa: 4348 (4345 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali, tutti corretti — 404 accettato senza verificare che l'articolo non sia più pubblicato; 302 accettato al pari di 301; redirect verso l'articolo sbagliato non rilevato; confronto canonical sempre sul self-URL invece di `metaCanonicalUrl()`; `--json` non rifletteva i findings nell'exit code) | 21 |
 | 24 | Registro interno aggregato 404 | merged | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | 5ce3263 | 10/10 (tracker) + 5/5 (integrazione end-to-end) + 4/4 (comando); suite completa: 4367 (4364 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali — 4 corretti: chiave path_hash sha256 invece di path troncato/case-insensitive; scrittura mai rilanciata; middleware globale sulla risposta finale invece dell'hook su render() per coprire i 404 espliciti da controller; 1 accettato e documentato: l'esclusione redazionale non copre un path che non corrisponde a nessuna rotta — un fix generale (Route::fallback()) è stato tentato e scartato dopo aver riprodotto una regressione peggiore, rottura della corretta individuazione dei verbi alternativi di Laravel/405) | 23 |
-| 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
+| 25 | Audit link interni rotti / esterni irraggiungibili | open | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | — | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); più ampia (Unit\|InternalLink*\|PublicPages\|Console): 1196/1196 (2681 assert., 3 skip.) | 0 (nessun finding Codex ricevuto finora) | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | pending | — | — | — | — | 21 |
 | 27 | Baseline performance lab | pending | — | — | — | — | 21 |
 | 28 | Test browser navigazione tastiera | pending | — | — | — | — | 21 |
@@ -134,6 +134,31 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 25 — Audit link interni (oltre articolo) ed esterni irraggiungibili
+
+Ispezione preliminare: `App\Services\InternalLinking\InternalLinkAuditService`
+(`content:internal-link-audit`) classifica già ogni collegamento
+`/articolo/{slug}` tra articoli — inclusi quelli rotti (`'missing'`),
+con risoluzione dei redirect di slug più accurata di una richiesta
+HTTP. Resta scoperto ogni ALTRO collegamento: verso
+categoria/percorso/pagine statiche (interno, mai verificato per
+raggiungibilità reale) e verso siti esterni (mai tracciati). Gap
+genuino, nessuna duplicazione dell'audit `/articolo/` esistente.
+
+`App\Services\LinkHealth\ArticleLinkExtractor` estrae ogni `<a href>`
+dal corpo e lo classifica interno/esterno per host.
+`App\Services\LinkHealth\LinkReachabilityAuditService`: gli interni
+(diversi da `/articolo/`) sono verificati con lo stesso GET in-process
+di `InProcessPageFetcher` (Cantiere 22/23, nessuna vera chiamata di
+rete); gli esterni richiedono una vera richiesta HTTP in uscita
+(stesso pattern già in produzione in `ProjectTaskGithubSyncService`),
+**mai di default** — solo con `--check-external` esplicito, perché
+lenta e non deterministica (un sito di terzi può essere giù o
+bloccare l'IP del server); qualunque eccezione di rete è trattata
+come "irraggiungibile", mai rilanciata. Comando
+`php artisan content:link-reachability-audit` (`--limit=`,
+`--check-external`, `--json`).
 
 ### 24 — Registro interno aggregato 404
 
