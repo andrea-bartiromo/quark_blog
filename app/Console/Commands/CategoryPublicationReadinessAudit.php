@@ -12,19 +12,23 @@ class CategoryPublicationReadinessAudit extends Command
     protected $signature = 'category:publication-readiness
         {--json : Restituisce il risultato in formato JSON invece del report testuale}';
 
-    protected $description = 'Fotografa le categorie programmate che rischiano di aprirsi incomplete (sola lettura, sicuro in produzione)';
+    protected $description = 'Fotografa le categorie non ancora pubbliche che rischiano di aprirsi incomplete (sola lettura, sicuro in produzione)';
 
     protected $help = <<<'HELP'
         Obiettivo
         ---------
-        Prompt 4 (pianificazione categorie). Esclusivamente in lettura:
-        nessuna scrittura su database, nessuna categoria pubblicata o
-        modificata — sicuro da eseguire in qualunque momento, anche in
-        produzione.
+        Prompt 4 (pianificazione categorie); esteso dal Cantiere 13 del
+        programma Kairus 100 cantieri per coprire anche le bozze, non solo
+        le categorie programmate (stessa estensione già applicata dal
+        Cantiere 12 alla checklist nell'elenco admin). Esclusivamente in
+        lettura: nessuna scrittura su database, nessuna categoria
+        pubblicata o modificata — sicuro da eseguire in qualunque momento,
+        anche in produzione.
 
-        Per ogni categoria con status "scheduled" (Category::STATUS_SCHEDULED),
-        verifica se rischia di aprirsi incompleta quando la data di
-        pubblicazione (Europe/Rome) sarà raggiunta:
+        Per ogni categoria non ancora pubblicamente visibile (bozza o
+        programmata — vedi Category::isPubliclyVisible()), verifica se
+        rischia di aprirsi incompleta quando verrà attivata o quando la
+        data di pubblicazione (Europe/Rome) sarà raggiunta:
         - descrizione mancante;
         - immagine mancante;
         - colore badge mancante;
@@ -41,15 +45,16 @@ class CategoryPublicationReadinessAudit extends Command
 
     public function handle(CategoryPublicationReadiness $readiness): int
     {
-        $categories = Category::query()
-            ->where('status', Category::STATUS_SCHEDULED)
-            ->ordered()
-            ->get();
+        $categories = Category::ordered()
+            ->get()
+            ->reject(fn (Category $category) => $category->isPubliclyVisible())
+            ->values();
 
         $reports = $categories->map(fn (Category $category) => [
             'category_id' => $category->id,
             'name' => $category->name,
             'slug' => $category->slug,
+            'status' => $category->status,
             'scheduled_at' => optional($category->publishedAtForEditors())->format('Y-m-d H:i'),
             'findings' => $readiness->evaluate($category)['findings'],
         ])->values();
@@ -71,19 +76,24 @@ class CategoryPublicationReadinessAudit extends Command
     private function renderTextReport($reports): void
     {
         $this->newLine();
-        $this->line('<fg=cyan;options=bold>READINESS CATEGORIE PROGRAMMATE — KAIRUS</>');
+        $this->line('<fg=cyan;options=bold>READINESS CATEGORIE NON PUBBLICHE — KAIRUS</>');
         $this->line('(sola lettura — nessuna modifica applicata)');
         $this->newLine();
 
         if ($reports->isEmpty()) {
-            $this->info('Nessuna categoria programmata al momento.');
+            $this->info('Nessuna categoria bozza o programmata al momento.');
 
             return;
         }
 
         foreach ($reports as $r) {
             $this->line("<fg=cyan;options=bold>#{$r['category_id']} — {$r['name']}</> (<fg=gray>{$r['slug']}</>)");
-            $this->line("  Programmata per: {$r['scheduled_at']} (Europe/Rome)");
+
+            if ($r['status'] === Category::STATUS_SCHEDULED) {
+                $this->line("  Programmata per: {$r['scheduled_at']} (Europe/Rome)");
+            } else {
+                $this->line('  Stato: Bozza');
+            }
 
             if ($r['findings'] === []) {
                 $this->line('  <fg=green>Nessuna criticità rilevata.</>');
@@ -99,7 +109,7 @@ class CategoryPublicationReadinessAudit extends Command
         $withFindings = $reports->filter(fn ($r) => $r['findings'] !== [])->count();
 
         $this->line('<fg=cyan;options=bold>Riepilogo</>');
-        $this->line('  Categorie programmate: '.$reports->count());
+        $this->line('  Categorie non pubbliche (bozza o programmata): '.$reports->count());
         $this->line("  Con almeno una criticità: {$withFindings}");
     }
 }

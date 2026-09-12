@@ -17,6 +17,12 @@ use Tests\TestCase;
  * (ContentClusterHealth). Copre sia il servizio (riusato anche
  * dall'anteprima nell'editor admin, Prompt 3) sia il comando Artisan
  * category:publication-readiness.
+ *
+ * Cantiere 13 (programma 100-cantieri Kairus): il comando è stato esteso
+ * per coprire anche le categorie in bozza, non solo quelle programmate —
+ * stessa estensione già applicata dal Cantiere 12 alla checklist
+ * nell'elenco admin (reject(isPubliclyVisible()) invece di
+ * where(status, scheduled)).
  */
 class CategoryPublicationReadinessTest extends TestCase
 {
@@ -85,9 +91,20 @@ class CategoryPublicationReadinessTest extends TestCase
         $this->assertSame([], $result['findings']);
     }
 
-    public function test_artisan_command_lists_only_scheduled_categories_and_their_findings(): void
+    public function test_artisan_command_lists_scheduled_and_draft_categories_but_not_published(): void
     {
+        // Nomi senza sottostringhe in comune tra loro: expectsOutputToContain()
+        // consuma la prima riga di output che contiene la stringa cercata, quindi
+        // due nomi in relazione di sottostringa (es. "Radar" dentro "Bozza Radar")
+        // farebbero "rubare" la riga sbagliata alla prima asserzione, facendo
+        // fallire la seconda anche se il comando si comporta correttamente.
         $this->scheduledCategory(['name' => 'Radar', 'slug' => 'radar']);
+        Category::create([
+            'name' => 'Bussola Incompleta',
+            'slug' => 'bussola-incompleta',
+            'is_active' => true,
+            'status' => Category::STATUS_DRAFT,
+        ]);
         Category::create([
             'name' => 'Già Pubblica',
             'slug' => 'gia-pubblica',
@@ -98,6 +115,7 @@ class CategoryPublicationReadinessTest extends TestCase
         $this->artisan('category:publication-readiness')
             ->assertExitCode(0)
             ->expectsOutputToContain('Radar')
+            ->expectsOutputToContain('Bussola Incompleta')
             ->doesntExpectOutputToContain('Già Pubblica');
     }
 

@@ -41,7 +41,7 @@ L'editor di categoria mostra un'anteprima di sola lettura (stato effettivo, data
 
 ## Readiness audit (Prompt 4)
 
-`App\Services\CategoryPublicationReadiness` (riusato sia dall'anteprima admin sia dal comando) segnala, senza mai bloccare: descrizione/immagine/colore mancanti, nessun articolo pubblicato/programmato assegnato, nessun Percorso collegato. Comando Artisan di sola lettura: `php artisan category:publication-readiness` (opzione `--json`), limitato alle categorie `status=scheduled`. Copertura: `tests/Feature/CategoryPublicationReadinessTest.php`.
+`App\Services\CategoryPublicationReadiness` (riusato sia dall'anteprima admin sia dal comando) segnala, senza mai bloccare: descrizione/immagine/colore mancanti, nessun articolo pubblicato/programmato assegnato, nessun Percorso collegato. Comando Artisan di sola lettura: `php artisan category:publication-readiness` (opzione `--json`). Esteso dal Cantiere 13 (programma Kairus 100 cantieri) per coprire ogni categoria non ancora pubblicamente visibile (bozza o programmata, `reject(isPubliclyVisible())`), non più solo `status=scheduled` — stessa estensione già applicata dal Cantiere 12 alla checklist nell'elenco admin. Copertura: `tests/Feature/CategoryPublicationReadinessTest.php`.
 
 ## Non-esposizione (Prompt 2)
 
