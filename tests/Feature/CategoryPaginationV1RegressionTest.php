@@ -162,15 +162,23 @@ class CategoryPaginationV1RegressionTest extends TestCase
             $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
         }
 
-        $response = $this->get(route('categoria', ['slug' => 'energia', 'source' => 'newsletter']));
+        $pageOne = $this->get(route('categoria', ['slug' => 'energia', 'source' => 'newsletter']));
 
-        $response->assertOk();
-        $response->assertViewHas('articles', fn ($paginator) => $paginator->nextPageUrl() === route('categoria', [
+        $pageOne->assertOk();
+        $pageOne->assertViewHas('articles', fn ($paginator) => $paginator->nextPageUrl() === route('categoria', [
             'slug' => 'energia',
             'source' => 'newsletter',
             'page' => 2,
         ]));
-        $response->assertSee('href="'.route('categoria', ['slug' => 'energia', 'source' => 'newsletter']).'"', false);
+
+        $pageTwo = $this->get(route('categoria', [
+            'slug' => 'energia',
+            'source' => 'newsletter',
+            'page' => 2,
+        ]));
+
+        $pageTwo->assertOk();
+        $pageTwo->assertSee('href="'.route('categoria', ['slug' => 'energia', 'source' => 'newsletter']).'"', false);
     }
 
     public function test_category_page_seo_is_canonical_on_page_one_and_self_referential_from_page_two(): void
@@ -179,16 +187,18 @@ class CategoryPaginationV1RegressionTest extends TestCase
             $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
         }
 
+        $categoryLabel = Category::options(false)['energia'];
+
         $pageOne = $this->get(route('categoria', ['slug' => 'energia', 'utm_source' => 'test']));
         $pageOne->assertOk();
-        $pageOne->assertSee('<title>Energia — '.config('laboratorio.name').'</title>', false);
+        $pageOne->assertSee('<title>'.$categoryLabel.' — '.config('laboratorio.name').'</title>', false);
         $pageOne->assertSee('<link rel="canonical" href="'.route('categoria', 'energia').'">', false);
         $pageOne->assertDontSee('Pagina 1', false);
 
         $pageTwo = $this->get(route('categoria', ['slug' => 'energia', 'page' => 2, 'utm_source' => 'test']));
         $pageTwo->assertOk();
-        $pageTwo->assertSee('<title>Energia — Pagina 2 — '.config('laboratorio.name').'</title>', false);
-        $pageTwo->assertSee('content="Tutti gli articoli di Kairus su Energia: scienza, tecnologia e innovazione spiegate in modo moderno. Pagina 2."', false);
+        $pageTwo->assertSee('<title>'.$categoryLabel.' — Pagina 2 — '.config('laboratorio.name').'</title>', false);
+        $pageTwo->assertSee('content="Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno. Pagina 2."', false);
         $pageTwo->assertSee('<link rel="canonical" href="'.route('categoria', ['slug' => 'energia', 'page' => 2]).'">', false);
     }
 
