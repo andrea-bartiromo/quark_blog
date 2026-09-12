@@ -20,8 +20,8 @@ class NewsletterReconfirmationProcessTest extends TestCase
         return Newsletter::create([
             'email' => $email,
             'confirmed' => false,
-            'token' => str_repeat('a', 64),
-            'unsubscribe_token' => str_repeat('b', 32),
+            'token' => \Illuminate\Support\Str::random(64),
+            'unsubscribe_token' => \Illuminate\Support\Str::random(32),
         ]);
     }
 
