@@ -59,7 +59,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 25 | Audit link interni rotti / esterni irraggiungibili | merged | [#573](https://github.com/andrea-bartiromo/quark_blog/pull/573) | 9b30160 | 7/7 (estrattore) + 10/10 (audit) + 5/5 (comando); suite completa: 4389 (4386 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 0 (nessun finding Codex) | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
 | 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
-| 28 | Test browser navigazione tastiera | pending | — | — | — | — | 21 |
+| 28 | Test browser navigazione tastiera | open | — | — | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js) | — | 21 |
 | 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
 | 31 | Severità e presa in carico audit | pending | — | — | — | — | 30 |
@@ -134,6 +134,29 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 28 — Test browser navigazione tastiera
+
+Ispezione preliminare: Cantiere I (`docs/PUBLIC_A11Y_RESPONSIVE_HANDOFF.md`)
+aveva gia' verificato skip-link e anello di focus visibile con
+un'ispezione manuale una tantum, poi corretto "14 controlli senza
+anello di focus visibile dedicato" via CSS (`.kairus-focusable:focus-visible`
+in `public/css/editorial-system.css`). `tests/browser/public-regression.spec.js`
+copre gia' il focus-trap da tastiera di due componenti specifici (modale
+newsletter, lightbox articolo) — nessuna duplicazione li' . Nessun test
+automatico esisteva pero' per l'attraversamento con Tab dell'intera
+pagina ne' per lo skip-link stesso: gap genuino.
+
+`tests/browser/keyboard-navigation.spec.js` (nuovo) verifica, sulle
+stesse sei superfici/fixture deterministica di `public-regression.spec.js`
+(riusa l'inventario del Cantiere 21, `PublicPageInventory`): (1) lo
+skip-link e' il primo elemento raggiungibile con Tab e attivandolo
+(Enter) sposta il focus su `#main-content`; (2) proseguendo con Tab
+(fino a 25 pressioni, campione ampio e deterministico) nessun elemento
+focalizzato e visibile e' privo di un indicatore di focus visibile
+(`outline` o `box-shadow` diverso da `none`) — l'invariante che
+avrebbe intercettato il bug dei "14 controlli" gia' corretto
+manualmente in Cantiere I, ora sotto regressione automatica.
 
 ### 27 — Laboratorio prestazioni ripetibile (baseline performance lab)
 
