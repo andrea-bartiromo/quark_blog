@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -78,5 +79,78 @@ class RssFeedDiscoveryTest extends TestCase
 
         $this->assertStringNotContainsString('logo.png', $imageUrl);
         $this->assertFileExists(public_path($relativePath));
+    }
+
+    /**
+     * Cantiere 9 (programma 100-cantieri Kairus): audit "categorie non
+     * pubbliche isolate ovunque" — SeoController::feed() usa
+     * Category::options(false) (non publicOptions()) per il tag
+     * <category>, deliberatamente: qui è un'etichetta testuale su un
+     * articolo già pubblicato (Article::published() filtra la query),
+     * mai un link cliccabile. Una categoria disattivata DOPO la
+     * pubblicazione dell'articolo deve continuare a mostrare il proprio
+     * nome nel feed, non sparire né mostrare lo slug grezzo.
+     */
+    public function test_feed_category_label_survives_the_categorys_own_deactivation(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        Category::where('slug', 'intelligenza-artificiale')->delete();
+        Category::create([
+            'name' => 'Intelligenza Artificiale',
+            'slug' => 'intelligenza-artificiale',
+            'is_active' => true,
+            'status' => Category::STATUS_PUBLISHED,
+        ]);
+
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo di prova feed categoria disattivata',
+            'slug' => 'articolo-feed-categoria-disattivata-'.uniqid(),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Corpo articolo di prova.</p>',
+            'category' => 'intelligenza-artificiale',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        Category::where('slug', 'intelligenza-artificiale')->update(['is_active' => false]);
+
+        $xml = $this->get(route('feed'))->getContent();
+
+        $this->assertStringContainsString('<category>Intelligenza Artificiale</category>', $xml);
+        $this->assertStringContainsString($article->title, $xml);
+    }
+
+    /**
+     * Come sopra, per news-sitemap.xml (<news:genres>): stessa
+     * convenzione di etichetta testuale, mai un link.
+     */
+    public function test_news_sitemap_genre_label_survives_the_categorys_own_deactivation(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        Category::where('slug', 'intelligenza-artificiale')->delete();
+        Category::create([
+            'name' => 'Intelligenza Artificiale',
+            'slug' => 'intelligenza-artificiale',
+            'is_active' => true,
+            'status' => Category::STATUS_PUBLISHED,
+        ]);
+
+        Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo di prova news-sitemap categoria disattivata',
+            'slug' => 'articolo-news-sitemap-categoria-disattivata-'.uniqid(),
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Corpo articolo di prova.</p>',
+            'category' => 'intelligenza-artificiale',
+            'status' => 'published',
+            'published_at' => now()->subHour(),
+        ]);
+
+        Category::where('slug', 'intelligenza-artificiale')->update(['is_active' => false]);
+
+        $xml = $this->get(route('news-sitemap'))->getContent();
+
+        $this->assertStringContainsString('<news:genres>Intelligenza Artificiale</news:genres>', $xml);
     }
 }
