@@ -52,7 +52,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 18 | Preflight storage persistente release | merged | [#566](https://github.com/andrea-bartiromo/quark_blog/pull/566) | `c16a496` | 9/9 (20 assert.); Deploy*: 124/124 (473 assert., 1 skip pre-esistente) | 1 reale (fixato: percorso relativo non veniva riconosciuto come "dentro" la release) | — |
 | 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
 | 20 | Report read-only deploy readiness | merged | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | `1fd4bac` | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente); suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 0 (nessun finding Codex) | 15-19 |
-| 21 | Inventario tecnico pagine pubbliche | pending | — | — | — | — | — |
+| 21 | Inventario tecnico pagine pubbliche | open | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | — | 8/8 (audit) + 3/3 (comando); più ampia (PublicPages\|Category\|Article\|ContentCluster): 1542/1542 (1 fallimento pre-esistente non correlato) | 0 (nessun finding Codex ricevuto finora) | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
 | 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
@@ -134,6 +134,38 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 21 — Inventario tecnico pagine pubbliche
+
+Ispezione preliminare: nessun catalogo unico elencava tutti i tipi di
+pagina pubblica di Kairus — esistevano solo due elenchi parziali e a
+scopo specifico. `docs/PUBLIC_SURFACES_QA_MATRIX.md` (7 superfici,
+scope volutamente ristretto a un audit di accessibilità già concluso,
+esclude autore/turing/header-footer-ticker "di proposito").
+`SeoController::staticSitemapPages()` (elenco statico solo per
+sitemap.xml, non pensato per essere iterato, non copre
+categoria/articolo/percorso). Nessuno dei due è la fonte di verità che
+serve ai Cantieri 22-29 (tutti dipendono da 21): iterare sugli stessi
+tipi di pagina con un URL di esempio realmente raggiungibile in questo
+ambiente. Gap genuino, non "già coperto".
+
+Aggiunto `App\Services\PublicPages\PublicPageInventory` + il comando
+`php artisan pages:inventory`: 14 pagine statiche + 5 capitoli Turing
+(solo quando `config('turing.chapters_public')` è abilitato — riflette
+cosa è DAVVERO raggiungibile ora) + 4 tipi dinamici (categoria,
+articolo, autore, percorso), risolti riusando le stesse query/scope di
+visibilità pubblica già in uso altrove (`Article::scopePublished()`,
+`Category::scopePubliclyVisible()`, `ContentCluster::scopePubliclyVisible()`)
+— mai una condizione duplicata. `sample_url` è `null` quando nessun
+record pubblico esiste ancora: stato legittimo, non un errore. Sola
+lettura: non crea, modifica o pubblica mai alcun contenuto.
+
+Scoperta in fase di test: la migration `create_categories_table` semina
+7 categorie di base (`config('laboratorio.categories')`), tutte
+pubbliche di default — `categoria` ha quindi sempre un esempio subito
+dopo `migrate:fresh`, a differenza di articolo/autore/percorso (nessun
+dato di base). Comportamento intenzionale del repository, non un bug:
+testato esplicitamente invece di essere assunto.
 
 ### 20 — Report read-only deploy readiness
 
