@@ -41,7 +41,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
 | 9 | Categorie non pubbliche isolate ovunque | merged | [#556](https://github.com/andrea-bartiromo/quark_blog/pull/556) | `1ab7b6c` | 34/34 (112 assert.) | 0 gap reali (audit completo) | — |
-| 10 | Test integrazione visibilità temporale categorie | pending | — | — | — | — | 9 |
+| 10 | Test integrazione visibilità temporale categorie | in_progress | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | — | 37/37 (106 assert.) | 0 | 9 |
 | 11 | Preview admin categorie bozza/programmate | pending | — | — | — | — | 9 |
 | 12 | Checklist admin attivazione categoria | pending | — | — | — | — | 11 |
 | 13 | Comando category:publication-audit | pending | — | — | — | — | 9 |
@@ -134,6 +134,28 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 10 — Test integrazione visibilità temporale categorie
+
+Ispezione preliminare: `CategoryScheduledPublicationTest.php` (già
+esistente, 19 test) copre già in modo esaustivo ogni superficie pubblica
+a istanti di tempo fissi e isolati (bozza, programmata futura,
+programmata all'istante esatto, disattivata, pubblicata — una fixture
+diversa per ciascun caso). Mancava un test che facesse attraversare
+realmente il tempo a UNA sola categoria, verificata prima e dopo
+l'istante di apertura sulle stesse superfici — a differenza degli
+articoli (`ScheduledArticleVisibilityTest::test_full_lifecycle_...`, che
+deve eseguire `articles:publish-scheduled`), `Category::scopePubliclyVisible()`
+calcola la visibilità dal vivo (`published_at <= now()`) senza mai
+modificare la colonna `status`: nessun comando batch esiste o serve per
+le categorie.
+
+Nuovo `tests/Feature/CategoryTemporalVisibilityIntegrationTest.php`: una
+categoria, un solo test, orologio virtuale (`Carbon::setTestNow`) fatto
+avanzare oltre l'istante di apertura senza eseguire alcun comando —
+verificata invisibile (pagina 404, assente da home/notizie/sitemap) prima
+e visibile ovunque dopo, con `status` rimasto `scheduled` in entrambi i
+momenti (prova esplicita che nessuna transizione di stato è necessaria).
 
 ### 9 — Categorie non pubbliche isolate ovunque
 
