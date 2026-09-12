@@ -106,7 +106,7 @@
         @if ($page == $paginator->currentPage())
           <span class="pagination__item pagination__item--current" aria-current="page">{{ $page }}</span>
         @else
-          <a class="pagination__item" href="{{ $url }}" aria-label="Vai a pagina {{ $page }}">{{ $page }}</a>
+          <a class="pagination__item" href="{{ $page === 1 && isset($firstPageUrl) ? $firstPageUrl : $url }}" aria-label="Vai a pagina {{ $page }}">{{ $page }}</a>
         @endif
       @endforeach
     @endif
