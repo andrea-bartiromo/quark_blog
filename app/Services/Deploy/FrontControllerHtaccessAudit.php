@@ -19,18 +19,19 @@ namespace App\Services\Deploy;
  * male) venga segnalata qui, prima che qualcuno la copi manualmente in
  * `public_html` seguendo il runbook stesso.
  *
- * Verifica solo la PRESENZA dei pattern attesi (sola lettura, mai
- * scrittura): non interpreta la sintassi di mod_rewrite, non garantisce
- * che le regole producano il comportamento corretto una volta caricate
- * da Apache — quella garanzia resta con la verifica via curl già
+ * Verifica solo la PRESENZA dei pattern attesi su righe ATTIVE (sola
+ * lettura, mai scrittura): non interpreta la sintassi di mod_rewrite, non
+ * garantisce che le regole producano il comportamento corretto una volta
+ * caricate da Apache — quella garanzia resta con la verifica via curl già
  * documentata nel runbook, eseguibile solo contro l'host reale.
  */
 class FrontControllerHtaccessAudit
 {
     /**
      * Ogni voce: un'etichetta leggibile e un pattern la cui assenza in
-     * public/.htaccess indica una direttiva critica persa. I pattern
-     * sono sottostringhe letterali (non regex): bastano a rilevare una
+     * public/.htaccess (dopo aver scartato i commenti — vedi
+     * stripComments()) indica una direttiva critica persa. I pattern sono
+     * sottostringhe letterali (non regex): bastano a rilevare una
      * rimozione o una riscrittura macroscopica senza accoppiarsi alla
      * formattazione esatta (indentazione, spazi) del file.
      *
@@ -42,10 +43,26 @@ class FrontControllerHtaccessAudit
         'Blocco accesso a .git' => 'RewriteRule ^\.git - [F,L]',
         'Blocco accesso a storage/' => 'RewriteRule ^storage/ - [F,L]',
         'Blocco accesso a bootstrap/cache/' => 'RewriteRule ^bootstrap/cache/ - [F,L]',
-        'Blocco file sensibili aggiuntivi (FilesMatch)' => '<FilesMatch',
+        // Finding Codex (P1, PR #563): il tag generico <FilesMatch da solo
+        // è soddisfatto anche dai due blocchi di cache statica più avanti
+        // nel file — rimuovere QUESTO blocco (estensioni sensibili +
+        // Deny from all) lascerebbe comunque il marker "presente" altrove.
+        // L'espressione delle estensioni è invece specifica di questo
+        // unico blocco.
+        'Blocco file sensibili aggiuntivi (estensioni .sql/.bak/ecc.)' => '\.(env|log|sqlite|sh|bak|config|dist|fla|inc|ini|log|psd|sh|sql|swp|tar|gz)$',
         'Front controller (rewrite verso index.php)' => 'RewriteRule ^ index.php [L]',
+        // Finding Codex (P2, PR #563): senza questa condizione, il rewrite
+        // sopra farebbe passare da Laravel anche i file statici già
+        // esistenti (CSS, JS, immagini) — la condizione !-d da sola non è
+        // distintiva (ricorre identica anche nel blocco "Redirect
+        // Trailing Slashes" più sopra nello stesso file), quindi non
+        // aggiungerebbe protezione reale; !-f invece compare solo qui.
+        'Front controller: i file statici esistenti non passano da index.php (!-f)' => 'RewriteCond %{REQUEST_FILENAME} !-f',
         'Header X-Content-Type-Options' => 'X-Content-Type-Options',
         'Header X-Frame-Options' => 'X-Frame-Options',
+        // Finding Codex (P2, PR #563): il runbook elenca Referrer-Policy
+        // insieme agli altri due header di sicurezza, ma mancava qui.
+        'Header Referrer-Policy' => 'Referrer-Policy',
     ];
 
     /**
@@ -73,7 +90,7 @@ class FrontControllerHtaccessAudit
             ];
         }
 
-        $contents = (string) file_get_contents($path);
+        $contents = self::stripComments((string) file_get_contents($path));
 
         $missing = [];
         foreach (self::REQUIRED_MARKERS as $label => $marker) {
@@ -88,5 +105,21 @@ class FrontControllerHtaccessAudit
             'exists' => true,
             'missing' => $missing,
         ];
+    }
+
+    /**
+     * Finding Codex (P1, PR #563): una direttiva disattivata commentandola
+     * (es. "# RewriteRule ^\.env$ - [F,L]") lascia comunque il testo del
+     * marker nel file grezzo — Apache la ignora, ma il controllo per
+     * sottostringa no. Scarta tutto ciò che segue un "#" su ogni riga
+     * prima di cercare i marker: nessuna direttiva di questo file usa "#"
+     * per altro (nessun valore contiene "#").
+     */
+    private static function stripComments(string $contents): string
+    {
+        return implode("\n", array_map(
+            static fn (string $line): string => explode('#', $line, 2)[0],
+            explode("\n", $contents)
+        ));
     }
 }
