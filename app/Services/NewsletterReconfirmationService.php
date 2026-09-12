@@ -275,9 +275,18 @@ class NewsletterReconfirmationService
 
     public function eligibleForExpiredCleanup(): Collection
     {
+        $maxAttempts = (int) config('newsletter.reconfirmation.max_attempts');
+        $waitDays = (int) config('newsletter.reconfirmation.delete_after_last_reminder_days');
+
         return Newsletter::pending()
-            ->whereHas('reconfirmations', function ($query): void {
-                $query->havingRaw('COUNT(*) >= ?', [(int) config('newsletter.reconfirmation.max_attempts')]);
+            ->with('reconfirmations')
+            ->get()
+            ->filter(function (Newsletter $subscriber) use ($maxAttempts, $waitDays): bool {
+                $last = $subscriber->reconfirmations->sortBy('sent_at')->last();
+
+                return $subscriber->reconfirmations->count() >= $maxAttempts
+                    && $last !== null
+                    && $last->sent_at->clone()->addDays($waitDays)->isPast();
             })
             ->pluck('id');
     }
