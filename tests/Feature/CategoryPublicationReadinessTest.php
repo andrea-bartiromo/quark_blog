@@ -119,6 +119,33 @@ class CategoryPublicationReadinessTest extends TestCase
             ->doesntExpectOutputToContain('Già Pubblica');
     }
 
+    /**
+     * Finding Codex (P2, PR #560): `isPubliclyVisible()` ritorna false per
+     * qualunque status quando `is_active=false`, quindi `reject()` include
+     * anche le categorie disattivate — che possono avere status
+     * "published" o "scheduled". Senza tenerne conto, una categoria
+     * disattivata veniva presentata come se stesse per aprirsi
+     * (programmata) o come bozza, mentre è semplicemente spenta. Corretto
+     * riusando `Category::effectiveVisibilityLabel()` (stessa etichetta
+     * già mostrata nell'elenco admin) invece di dedurre lo stato dal solo
+     * campo `status`.
+     */
+    public function test_a_disabled_published_category_is_reported_as_disabled_not_draft(): void
+    {
+        Category::create([
+            'name' => 'Categoria Spenta',
+            'slug' => 'categoria-spenta',
+            'is_active' => false,
+            'status' => Category::STATUS_PUBLISHED,
+        ]);
+
+        $this->artisan('category:publication-readiness')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Categoria Spenta')
+            ->expectsOutputToContain('Stato: Disattivata')
+            ->doesntExpectOutputToContain('Stato: Bozza');
+    }
+
     public function test_artisan_command_json_output_is_valid_and_read_only(): void
     {
         $category = $this->scheduledCategory();

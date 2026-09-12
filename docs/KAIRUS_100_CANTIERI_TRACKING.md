@@ -154,6 +154,16 @@ mostrare. Nessuna modifica al comando `--json` esistente a parte l'aggiunta
 del campo `status` (retrocompatibile, additivo). Aggiornati test esistenti
 e `docs/CATEGORY_SCHEDULING_V1_SPEC.md`.
 
+Finding Codex (P2, PR #560): `reject(isPubliclyVisible())` include anche
+le categorie DISATTIVATE (`is_active=false`, qualunque status), non solo
+bozze e programmate — `isPubliclyVisible()` torna false per is_active=false
+a prescindere dallo status. La resa testuale originale distingueva solo
+scheduled/bozza, quindi una categoria disattivata con status
+published/scheduled veniva presentata come se stesse per aprirsi. Corretto
+riusando `Category::effectiveVisibilityLabel()` (stessa etichetta già in
+uso nell'elenco admin: Disattivata/Bozza/Programmata/Pubblica) invece di
+dedurre lo stato dal solo campo `status`.
+
 Nessun nuovo comando creato: rinominare o duplicare
 `category:publication-readiness` avrebbe rotto la copertura di test/doc
 già esistente senza alcun beneficio — è la stessa identica responsabilità,

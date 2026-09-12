@@ -25,10 +25,10 @@ class CategoryPublicationReadinessAudit extends Command
         pubblicata o modificata — sicuro da eseguire in qualunque momento,
         anche in produzione.
 
-        Per ogni categoria non ancora pubblicamente visibile (bozza o
-        programmata — vedi Category::isPubliclyVisible()), verifica se
-        rischia di aprirsi incompleta quando verrà attivata o quando la
-        data di pubblicazione (Europe/Rome) sarà raggiunta:
+        Per ogni categoria non ancora pubblicamente visibile (bozza,
+        programmata o disattivata — vedi Category::isPubliclyVisible()),
+        verifica se rischia di aprirsi incompleta quando verrà attivata o
+        quando la data di pubblicazione (Europe/Rome) sarà raggiunta:
         - descrizione mancante;
         - immagine mancante;
         - colore badge mancante;
@@ -55,6 +55,15 @@ class CategoryPublicationReadinessAudit extends Command
             'name' => $category->name,
             'slug' => $category->slug,
             'status' => $category->status,
+            'is_active' => $category->is_active,
+            // Riusa la stessa etichetta già mostrata nell'elenco admin
+            // (Category::effectiveVisibilityLabel()): "status" da solo non
+            // basta perché una categoria disattivata (is_active=false) può
+            // avere qualunque status — senza questo, una categoria
+            // programmata o pubblicata ma disattivata verrebbe presentata
+            // come se stesse per aprirsi, mentre è semplicemente spenta
+            // (finding Codex su questa PR).
+            'visibility_label' => $category->effectiveVisibilityLabel(),
             'scheduled_at' => optional($category->publishedAtForEditors())->format('Y-m-d H:i'),
             'findings' => $readiness->evaluate($category)['findings'],
         ])->values();
@@ -81,7 +90,7 @@ class CategoryPublicationReadinessAudit extends Command
         $this->newLine();
 
         if ($reports->isEmpty()) {
-            $this->info('Nessuna categoria bozza o programmata al momento.');
+            $this->info('Nessuna categoria non pubblica al momento.');
 
             return;
         }
@@ -89,10 +98,10 @@ class CategoryPublicationReadinessAudit extends Command
         foreach ($reports as $r) {
             $this->line("<fg=cyan;options=bold>#{$r['category_id']} — {$r['name']}</> (<fg=gray>{$r['slug']}</>)");
 
-            if ($r['status'] === Category::STATUS_SCHEDULED) {
+            if ($r['visibility_label'] === 'Programmata') {
                 $this->line("  Programmata per: {$r['scheduled_at']} (Europe/Rome)");
             } else {
-                $this->line('  Stato: Bozza');
+                $this->line("  Stato: {$r['visibility_label']}");
             }
 
             if ($r['findings'] === []) {
@@ -109,7 +118,7 @@ class CategoryPublicationReadinessAudit extends Command
         $withFindings = $reports->filter(fn ($r) => $r['findings'] !== [])->count();
 
         $this->line('<fg=cyan;options=bold>Riepilogo</>');
-        $this->line('  Categorie non pubbliche (bozza o programmata): '.$reports->count());
+        $this->line('  Categorie non pubbliche: '.$reports->count());
         $this->line("  Con almeno una criticità: {$withFindings}");
     }
 }
