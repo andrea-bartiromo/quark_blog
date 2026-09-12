@@ -46,14 +46,30 @@ test('la CTA newsletter compare dopo la terza card ed è raggiungibile da tastie
     await expect(ctaListItem).toHaveAttribute('role', 'presentation');
 
     const emailInput = cta.locator('#category-newsletter-email');
-    await emailInput.focus();
+
+    // Navigazione reale da tastiera (mai focus() programmatico, che in
+    // Chromium non attiva sempre :focus-visible e farebbe passare il test
+    // anche senza il fix del Cantiere 3 — finding Codex su questa PR):
+    // premi Tab finché l'elemento attivo non è l'input email.
+    let reached = false;
+    for (let i = 0; i < 60 && !reached; i++) {
+        await page.keyboard.press('Tab');
+        reached = await emailInput.evaluate(el => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
     await expect(emailInput).toBeFocused();
 
-    // kairus-focusable:focus-visible applica un outline visibile — verifica
-    // che lo stile calcolato non sia "none" quando l'elemento ha il focus
-    // da tastiera (a differenza dell'assenza di stile prima del Cantiere 3).
-    const outlineStyle = await emailInput.evaluate(el => getComputedStyle(el).outlineStyle);
-    expect(outlineStyle).not.toBe('none');
+    // Verifica una firma specifica della regola condivisa
+    // .kairus-focusable:focus-visible (outline 3px solid, offset 2px —
+    // editorial-system.css, Missione 14), non un generico "non è none" che
+    // combacerebbe anche con l'outline di default del browser.
+    const outline = await emailInput.evaluate(el => {
+        const style = getComputedStyle(el);
+        return { width: style.outlineWidth, offset: style.outlineOffset, styleName: style.outlineStyle };
+    });
+    expect(outline.styleName).toBe('solid');
+    expect(outline.width).toBe('3px');
+    expect(outline.offset).toBe('2px');
 });
 
 test('il blocco "Continua a esplorare" mostra Più letti e categorie correlate', async ({ page }) => {
@@ -83,3 +99,24 @@ test('il blocco "Continua a esplorare" collassa a una colonna sotto i 900px', as
     const pageOverflows = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(pageOverflows).toBe(false);
 });
+
+/**
+ * Cantiere 6, finding Codex: il test precedente a 390px non esercita il
+ * confine reale del breakpoint (900px, editorial-system.css). Una
+ * regressione che spostasse la soglia a un valore qualsiasi sopra 390px
+ * (ma sotto 900px) resterebbe verde. Qui si fissa il contratto esatto:
+ * a 899px una colonna, a 901px due colonne.
+ */
+for (const boundary of [
+    { width: 899, expectedColumns: 1 },
+    { width: 901, expectedColumns: 2 },
+]) {
+    test(`il blocco "Continua a esplorare" ha ${boundary.expectedColumns} colonna/e a ${boundary.width}px`, async ({ page }) => {
+        await page.setViewportSize({ width: boundary.width, height: 900 });
+        await page.goto(categoryPath, { waitUntil: 'domcontentloaded' });
+
+        const grid = page.locator('.kairus-continue-exploring__grid');
+        const columns = await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        expect(columns).toBe(boundary.expectedColumns);
+    });
+}
