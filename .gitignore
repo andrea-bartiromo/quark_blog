@@ -32,3 +32,4 @@ database/database.sqlite
 /test-results
 /playwright-report
 /playwright.local.config.js
+/docs/performance-lab/

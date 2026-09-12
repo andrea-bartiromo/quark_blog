@@ -105,6 +105,12 @@ async function measureOnce(browser, url, width) {
     const page = await context.newPage();
 
     await page.goto(url, { waitUntil: 'load' });
+    // Piccola attesa dopo 'load': in Chromium headless le entry di paint
+    // (first-paint/first-contentful-paint) a volte non sono ancora
+    // disponibili nel preciso istante in cui l'evento 'load' si dispara —
+    // senza questa attesa risulterebbero nulle in modo intermittente,
+    // non perche' il paint non sia avvenuto.
+    await page.waitForTimeout(100);
 
     const metrics = await page.evaluate(() => {
         const [nav] = performance.getEntriesByType('navigation');
