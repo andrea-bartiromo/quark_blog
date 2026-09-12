@@ -213,6 +213,19 @@ php artisan deploy:asset-drift || fail "Public asset drift detected between the 
 # App\Services\Deploy\PersistentStoragePreflight.
 php artisan deploy:verify-persistent-storage || true
 
+# Cantiere 19 (programma 100-cantieri Kairus): `backup:database-v2` è
+# manuale/opt-in (nessuno scheduler lo esegue automaticamente — vedi
+# routes/console.php e docs/DEPLOYMENT.md, che qualifica come decisione
+# ingegneristica distinta e deliberatamente vagliata l'idea di
+# pianificarlo automaticamente). Questa verifica non crea, pianifica né
+# elimina mai alcun backup: segnala soltanto — di sola informazione, mai
+# `|| fail` — se esiste già un backup MariaDB valido e, quando
+# DB_BACKUP_MAX_AGE_HOURS è configurato, se il più recente è troppo
+# vecchio, cosicché un rilascio esistente e funzionante non inizi
+# improvvisamente a essere bloccato da una policy di backup mai stata un
+# requisito fin qui — vedi App\Services\Deploy\MariaDbBackupHealthAudit.
+php artisan deploy:verify-database-backup || true
+
 # Record the exact successful code revision only after all deploy checks and
 # cache operations complete. These files contain metadata only, never secrets.
 printf '%s\n' "$ACTUAL_SHA" > REVISION

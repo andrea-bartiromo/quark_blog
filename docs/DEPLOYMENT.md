@@ -64,6 +64,21 @@ The release registry above is one instance of a broader class of risk: **any** p
 
 `App\Services\Deploy\PersistentStoragePreflight` (`php artisan deploy:verify-persistent-storage`) checks both paths and reports any that resolve inside this release's own directory. **Informational only** — `deploy.sh` calls it without `|| fail` (same principle as `release:record-registry`): an existing, working production `.env` must never suddenly start blocking deploys over a configuration that was never a hard requirement until now. Review its warning and set `DB_BACKUP_DIRECTORY` (and `DEPLOY_RELEASE_REGISTRY_PATH`, if using the release registry) to a path outside `~/kairus_app` — see `.env.production.example`.
 
+## Database backup health check (Cantiere 19, programma Kairus 100 cantieri)
+
+The preflight above only checks *where* a configured backup directory resolves — it says nothing about whether a valid backup actually exists there, or how old it is. Since `backup:database-v2` remains manual/opt-in (see "Database and backup ordering" above: no scheduler runs it, `deploy.sh` does not call it), an operator who forgets to run it has had no automated signal at all.
+
+`App\Services\Deploy\MariaDbBackupHealthAudit` (`php artisan deploy:verify-database-backup`) is a **read-only** check: it never creates, schedules, or deletes any backup. It scans `config('backup.v2.directory')` for artifact/metadata pairs whose recorded SHA-256 and size still match the file on disk (the same integrity check `MariaDbBackupService::isKnownGoodPair()` uses when applying retention), and reports:
+
+- **not applicable** — the current `database.default` connection is not `mysql`/`mariadb` (Backup V2 only supports those; nothing to check on SQLite dev/test environments);
+- **no valid backup found** — the directory has no artifact/metadata pair that passes the integrity check;
+- **stale** — a valid backup exists, but is older than `DB_BACKUP_MAX_AGE_HOURS`, when that variable is set;
+- **ok** — a valid, non-stale backup exists.
+
+`DB_BACKUP_MAX_AGE_HOURS` is deliberately opt-in, like `DB_BACKUP_RETENTION`: because Backup V2 has no fixed schedule, this repository cannot guess what cadence counts as "too old" for a given deployment, so the staleness check is skipped entirely (only existence is reported) until an operator sets that threshold explicitly — see `.env.production.example`.
+
+**Informational only** — `deploy.sh` calls it without `|| fail`, right after `deploy:verify-persistent-storage`: it must never start blocking an existing, working deploy over a backup policy that was never a hard requirement until now. Wiring Backup V2 *creation* into the deploy pipeline remains, as stated above, a distinct and deliberately gated engineering decision — this check only ever reads what already exists.
+
 ## What stays SQLite
 
 SQLite is intentionally retained for local development, PHPUnit and the deterministic Playwright/browser environment. Do not replace those uses merely because production uses MariaDB/MySQL.
