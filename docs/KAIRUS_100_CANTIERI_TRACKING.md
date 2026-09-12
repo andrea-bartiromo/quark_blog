@@ -33,7 +33,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
 | 1 | Nuovo flusso UX pagine categoria | merged | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | `a5af463` | 172/172 (1049 assert.) | 1 reale (fixato: allowlist newsletter `source=category`) | — |
-| 2 | Chip categorie → componente Blade accessibile | in_progress | [#553](https://github.com/andrea-bartiromo/quark_blog/pull/553) | — | 166/166 (1087 assert.) | 0 | 1 |
+| 2 | Chip categorie → componente Blade accessibile | merged | [#553](https://github.com/andrea-bartiromo/quark_blog/pull/553) | `83446de` | 35/35 (1267 assert.) | 2 reali (fixati: landmark aria duplicato; classe non-kairus in components/kairus/) | 1 |
 | 3 | Newsletter categorie → CTA contestuale | pending | — | — | — | — | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | pending | — | — | — | — | 1, 4 |
@@ -155,6 +155,19 @@ variabile locale (`$topicChipOptions`) nel blocco `@php` esistente di
 `notizie.blade.php` prima di passarlo al componente — zero query in più
 rispetto a prima dell'estrazione. `categoria.blade.php` non era a
 rischio: passava già una variabile, non una chiamata di funzione.
+
+Due finding reali emersi in review/CI (nessuno bloccante per più di un
+giro): (1) Codex (P2) — il nuovo `<nav aria-label="Argomenti">` del
+chip-row collideva con l'omonimo landmark del topic-cloud in
+`components/sidebar.blade.php`, incluso dalla stessa pagina — due
+landmark "nav" indistinguibili per screen reader. Rinominato in
+"Filtra per argomento". (2) CI —
+`KairusEditorialFoundationsIsolationTest` impone che ogni componente in
+`resources/views/components/kairus/` usi solo classi prefissate
+`kairus-` (isolamento deliberato dal tema "public"); il componente
+riusa `.public-pill-row`/`.active` di `public-premium.css`, quindi
+appartiene ai componenti condivisi non-Kairus — spostato in
+`resources/views/components/topic-chips.blade.php` (`x-topic-chips`).
 
 ### 1 — Nuovo flusso UX pagine categoria
 
