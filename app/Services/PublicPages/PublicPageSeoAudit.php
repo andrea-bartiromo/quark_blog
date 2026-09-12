@@ -2,10 +2,6 @@
 
 namespace App\Services\PublicPages;
 
-use Illuminate\Contracts\Http\Kernel as HttpKernel;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
-
 /**
  * Cantiere 22 (programma 100-cantieri Kairus). Prima di questo servizio,
  * ogni test di canonical/SEO/JSON-LD copriva UN singolo tipo di pagina
@@ -17,10 +13,11 @@ use Symfony\Component\HttpFoundation\Response;
  * pagina, lo stesso insieme di fatti HTTP-level che prima si controllava
  * solo caso per caso.
  *
- * Sola lettura: ogni richiesta è un GET in-process (stesso meccanismo di
- * `Illuminate\Foundation\Testing\Concerns\MakesHttpRequests::call()` —
- * `HttpKernel::handle()` + `terminate()` — mai una vera chiamata di rete
- * in uscita), non modifica mai alcun contenuto.
+ * Sola lettura: ogni richiesta è un GET in-process tramite
+ * `InProcessPageFetcher` (Cantiere 23: estratto qui da questa stessa
+ * classe perché anche gli audit successivi che verificano più pagine
+ * reali ne hanno bisogno, mai una sua duplicazione), non modifica mai
+ * alcun contenuto.
  *
  * Verifiche eseguite per ogni pagina con un `sample_url` risolto (una
  * pagina dinamica senza alcun esempio pubblico — vedi
@@ -53,7 +50,10 @@ class PublicPageSeoAudit
      */
     private const EXPECTS_JSON_LD_KEYS = ['home', 'categoria', 'articolo', 'percorso', 'percorsi_index', 'autore'];
 
-    public function __construct(private readonly PublicPageInventory $inventory) {}
+    public function __construct(
+        private readonly PublicPageInventory $inventory,
+        private readonly InProcessPageFetcher $fetcher,
+    ) {}
 
     /**
      * @return list<array{
@@ -97,7 +97,7 @@ class PublicPageSeoAudit
             return $base;
         }
 
-        $response = $this->fetch($page['sample_url']);
+        $response = $this->fetcher->fetch($page['sample_url']);
         $status = $response->getStatusCode();
         $base['checked'] = true;
         $base['http_status'] = $status;
@@ -146,23 +146,6 @@ class PublicPageSeoAudit
         $base['findings'] = $findings;
 
         return $base;
-    }
-
-    private function fetch(string $url): Response
-    {
-        $kernel = app(HttpKernel::class);
-        $request = Request::create($url, 'GET');
-        // Finding Codex (P1, PR #570): senza questo marcatore,
-        // ArticleController::show() non ha modo di distinguere questa
-        // richiesta da una visita reale — ogni esecuzione dell'audit
-        // incrementerebbe silenziosamente le analytics reali
-        // dell'articolo campione. Vedi il guard su X-Kairus-Internal-Audit
-        // in ArticleController::show().
-        $request->headers->set('X-Kairus-Internal-Audit', '1');
-        $response = $kernel->handle($request);
-        $kernel->terminate($request, $response);
-
-        return $response;
     }
 
     private function matchesNonEmpty(string $html, string $pattern): bool
