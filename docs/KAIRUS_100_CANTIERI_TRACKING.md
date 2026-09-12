@@ -55,7 +55,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | merged | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | `85ecea9` | 10/10 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics): 187/187 (817 assert.) | 1 reale (fixato P1: l'audit incrementava le analytics reali di visualizzazione articolo a ogni esecuzione) | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | merged | [#571](https://github.com/andrea-bartiromo/quark_blog/pull/571) | 38c6654 | 13/13 (audit) + 5/5 (comando); PublicPages+Console: 258/258 (819 assert., 3 skip.); suite completa: 4348 (4345 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali, tutti corretti — 404 accettato senza verificare che l'articolo non sia più pubblicato; 302 accettato al pari di 301; redirect verso l'articolo sbagliato non rilevato; confronto canonical sempre sul self-URL invece di `metaCanonicalUrl()`; `--json` non rifletteva i findings nell'exit code) | 21 |
-| 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
+| 24 | Registro interno aggregato 404 | open | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | — | 7/7 (tracker) + 2/2 (integrazione end-to-end) + 4/4 (comando); più ampia (PublicPages\|Console\|HttpsCanonicalization\|RobotsSitemapDiscovery): 287/287 (906 assert., 3 skip.) | 0 (nessun finding Codex ricevuto finora) | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | pending | — | — | — | — | 21 |
 | 27 | Baseline performance lab | pending | — | — | — | — | 21 |
@@ -134,6 +134,27 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 24 — Registro interno aggregato 404
+
+Ispezione preliminare: nessun registro dei 404 reali esisteva prima di
+questa PR (verificato — nessuna tabella, nessun modello, nessun hook in
+`bootstrap/app.php`). Il Cantiere 23 verifica attivamente un insieme
+NOTO di URL attesi; questo registro cattura invece i 404 realmente
+incontrati dal traffico pubblico, aggregati per path (un record per
+path con contatore, mai una riga per hit), così un editore può scoprire
+link rotti che nessun audit conosceva in anticipo. Gap genuino.
+
+Aggiunto `App\Services\PublicPages\NotFoundHitTracker::recordHit()`,
+agganciato in `bootstrap/app.php` al `render()` esistente di
+`HttpException` per il 404 (unico punto già usato per la vista di
+errore). Esclude le stesse due categorie di traffico già escluse
+altrove in questa famiglia: richieste con l'header
+`X-Kairus-Internal-Audit` (Cantiere 22/23 — un audit visita
+deliberatamente vecchi slug che rispondono 404 come esito corretto) e
+traffico redazionale autenticato (`User::canAccessRedazione()`, come
+`ArticleViewTrackingService`). Comando
+`php artisan pages:not-found-registry` (`--limit=`, `--json`).
 
 ### 23 — Audit 404/redirect/canonical incoerenti
 
