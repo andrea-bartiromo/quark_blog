@@ -54,7 +54,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 20 | Report read-only deploy readiness | merged | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | `1fd4bac` | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente); suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 0 (nessun finding Codex) | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | merged | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | `85ecea9` | 10/10 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics): 187/187 (817 assert.) | 1 reale (fixato P1: l'audit incrementava le analytics reali di visualizzazione articolo a ogni esecuzione) | 21 |
-| 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
+| 23 | Audit 404/redirect/canonical incoerenti | open | [#571](https://github.com/andrea-bartiromo/quark_blog/pull/571) | — | 8/8 (audit) + 4/4 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics\|ArticleSlugRedirect\|InternalLinkAudit): 247/247 (977 assert.) | 0 (nessun finding Codex ricevuto finora) | 21 |
 | 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | pending | — | — | — | — | 21 |
@@ -134,6 +134,42 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 23 — Audit 404/redirect/canonical incoerenti
+
+Ispezione preliminare: `PublicPageSeoAudit` (Cantiere 22) verifica UN
+solo esempio per ciascun tipo di pagina — sufficiente per accorgersi
+che il TIPO di pagina è rotto, mai per scoprire che un singolo
+articolo/categoria/percorso reale tra i tanti ha un problema. Il
+meccanismo di redirect esistente (`ArticleSlugRedirect`, popolato
+automaticamente da `Article::booted()`) copre SOLO gli articoli —
+categoria e percorso rinominati restituiscono un 404 diretto, nessun
+redirect — e non era mai stato verificato oltre la sua stessa logica
+applicativa. Nessuna aggregazione/log dei 404 esiste ancora (quello è
+esplicitamente il Cantiere 24, che dipende da questo). Gap genuino, non
+"già coperto".
+
+Estratto `App\Services\PublicPages\InProcessPageFetcher` da
+`PublicPageSeoAudit` (refactor, nessun cambio di comportamento,
+verificato dai test invariati di Cantiere 22): entrambi gli audit
+hanno bisogno dello stesso GET in-process con il marcatore
+`X-Kairus-Internal-Audit` (PR #570) — mai una duplicazione.
+
+Aggiunto `App\Services\PublicPages\RedirectAndCanonicalIntegrityAudit`
++ il comando `php artisan pages:redirect-canonical-audit`
+(`--limit=`, `--json`):
+- `auditRedirects()`: per ogni vecchio slug articolo con un redirect
+  registrato, verifica che risolva in uno dei due soli esiti previsti
+  dal contratto di `ArticleController::show()` — un 301 verso
+  l'articolo corrente con canonical di arrivo auto-riferito, oppure un
+  404 quando l'articolo non è più pubblicato (comportamento corretto e
+  documentato, MAI un finding). Qualunque altro esito è un'incoerenza
+  reale.
+- `auditCanonicalConsistency()`: estende il controllo di
+  auto-riferimento del canonical a OGNI categoria e percorso
+  raggiungibili e agli articoli più recenti (limite configurabile,
+  default 50 — un sito con centinaia di articoli non deve rischiare
+  un'esecuzione di minuti per un controllo senza parametri).
 
 ### 22 — Audit HTTP/canonical/robots/SEO/JSON-LD
 
