@@ -79,6 +79,27 @@ class ArticleController extends Controller
             $page === 1 ? [] : ['page' => $page],
         ));
 
+        // Blocco "Continua a esplorare" (Cantiere 1, programma 100-cantieri
+        // Kairus): tre articoli tra i più letti, mai un duplicato di quelli
+        // già mostrati in questa stessa pagina di griglia — altrimenti un
+        // lettore che ha appena scorso 6 card vedrebbe una di quelle stesse
+        // sei ripetuta subito sotto come "consigliata".
+        $mostRead = Article::published()
+            ->whereNotIn('id', $articles->pluck('id'))
+            ->orderByDesc('views')
+            ->limit(3)
+            ->get(['title', 'slug', 'category', 'read_minutes']);
+
+        // Chip Argomenti + categorie correlate: SOLO categorie genuinamente
+        // pubbliche (Category::publicOptions(), la stessa già usata dal
+        // pill-row di notizie.blade.php) — mai la lista di $categories sopra,
+        // che include anche bozza/programmata/disattivata per il solo
+        // controllo 404. $categoryLabelOptions invece riusa $categories
+        // già recuperata (nessuna query aggiuntiva): i badge di "Più letti"
+        // devono restare leggibili anche per una categoria nel frattempo
+        // disattivata, stessa semantica già in components/sidebar.blade.php.
+        $publicCategoryOptions = Category::publicOptions();
+
         return view('categoria', [
             'slug' => $slug,
             'categoryModel' => $categoryModel,
@@ -95,6 +116,9 @@ class ArticleController extends Controller
             'firstPageUrl' => $pageUrl(1),
             'previousPageUrl' => $articles->onFirstPage() ? null : $pageUrl($articles->currentPage() - 1),
             'nextPageUrl' => $articles->hasMorePages() ? $pageUrl($articles->currentPage() + 1) : null,
+            'mostRead' => $mostRead,
+            'categoryOptions' => $publicCategoryOptions,
+            'categoryLabelOptions' => $categories,
         ]);
     }
 

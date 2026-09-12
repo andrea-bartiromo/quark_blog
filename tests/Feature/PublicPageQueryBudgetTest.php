@@ -151,6 +151,16 @@ class PublicPageQueryBudgetTest extends TestCase
      * Category::options() con activeOnly=true per la navigazione, distinto
      * dal Category::options(false) del controller categoria. Le semantiche
      * sono diverse e il costo aggiuntivo resta una sola query per pagina.
+     *
+     * Budget +2 ulteriori (Cantiere 1, programma 100-cantieri Kairus: nuovo
+     * flusso UX pagine categoria): 'mostRead' è ora realmente consumata dal
+     * blocco "Continua a esplorare" (una query bounded, sempre 3 righe al
+     * massimo, indipendente dal numero di articoli pubblicati) e la pagina
+     * chiama Category::publicOptions() per i chip "Argomenti" + le
+     * categorie correlate a fine pagina — stessa chiamata già usata da
+     * notizie.blade.php per il proprio pill-row, qui spostata nel
+     * controller. Entrambe le query restano O(1): non crescono con il
+     * numero di articoli né di categorie mostrate nel ciclo.
      */
     public function test_category_page_query_count_is_within_the_post_fix_budget(): void
     {
@@ -158,7 +168,7 @@ class PublicPageQueryBudgetTest extends TestCase
 
         $count = $this->queryCountFor(route('categoria', 'energia'));
 
-        $this->assertLessThanOrEqual(8, $count);
+        $this->assertLessThanOrEqual(10, $count);
     }
 
     public function test_notizie_page_still_shows_the_correct_category_label_per_article(): void

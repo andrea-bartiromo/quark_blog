@@ -1673,3 +1673,98 @@
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* =============================================================================
+   Programma 100 cantieri Kairus — Cantiere 1: nuovo flusso UX categoria
+   ========================================================================== */
+
+/* ---- Newsletter CTA a metà griglia (dopo la terza card) -------------------
+   <li> dedicato dentro .public-card-grid (repeat(auto-fit,minmax(260px,1fr))
+   in public-premium.css): senza grid-column l'elemento occuperebbe una sola
+   colonna come una card qualunque. Visivamente distinta sia dal popup
+   (components/newsletter-popup.blade.php, un dialog separato) sia dal band
+   scuro .public-feature-band usato sopra per "Dentro {categoria}" — qui una
+   superficie chiara (--kairus-surface-sage) per non ripetere lo stesso
+   trattamento visivo due volte nella stessa pagina. */
+.kairus-category-newsletter-slot {
+  grid-column: 1 / -1;
+}
+
+.kairus-category-newsletter {
+  background: var(--kairus-surface-sage);
+  border-radius: 26px;
+  padding: var(--kairus-space-md) var(--kairus-space-lg);
+}
+
+.kairus-category-newsletter h2 {
+  font-family: var(--kairus-font-display);
+  font-size: var(--kairus-text-xl);
+  line-height: var(--kairus-leading-tight);
+  margin: var(--kairus-space-2xs) 0 0;
+  color: var(--kairus-ink);
+}
+
+.kairus-category-newsletter p {
+  margin: var(--kairus-space-2xs) 0 0;
+  color: var(--kairus-ink-soft);
+  max-width: 56ch;
+}
+
+.kairus-category-newsletter__form {
+  display: flex;
+  gap: var(--kairus-space-xs);
+  flex-wrap: wrap;
+  margin-top: var(--kairus-space-sm);
+}
+
+.kairus-category-newsletter__form input[type="email"] {
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid var(--kairus-line-strong);
+  border-radius: 14px;
+  padding: var(--kairus-space-xs) var(--kairus-space-sm);
+  font-size: var(--kairus-text-base);
+  background: var(--kairus-surface-raised);
+  color: var(--kairus-ink);
+}
+
+.kairus-category-newsletter__form button {
+  border: 0;
+  border-radius: 14px;
+  padding: var(--kairus-space-xs) var(--kairus-space-md);
+  font-weight: 700;
+  background: var(--kairus-teal);
+  color: var(--kairus-surface-raised);
+  cursor: pointer;
+}
+
+.kairus-category-newsletter__form button:hover {
+  background: var(--kairus-teal-deep);
+}
+
+/* ---- Blocco finale "Continua a esplorare" ---------------------------------
+   Due colonne (Più letti / Altre categorie) che si impilano sotto i 900px,
+   stessa soglia già usata per .kairus-sidebar-layout in questo file. */
+.kairus-continue-exploring {
+  margin-top: var(--kairus-space-xl);
+}
+
+.kairus-continue-exploring__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--kairus-space-lg);
+}
+
+.kairus-continue-exploring__most-read h3,
+.kairus-continue-exploring__related-categories h3 {
+  font-family: var(--kairus-font-display);
+  font-size: var(--kairus-text-md);
+  margin: 0 0 var(--kairus-space-sm);
+  color: var(--kairus-ink);
+}
+
+@media (max-width: 900px) {
+  .kairus-continue-exploring__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
