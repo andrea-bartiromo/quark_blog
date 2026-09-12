@@ -41,7 +41,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
 | 9 | Categorie non pubbliche isolate ovunque | merged | [#556](https://github.com/andrea-bartiromo/quark_blog/pull/556) | `1ab7b6c` | 34/34 (112 assert.) | 0 gap reali (audit completo) | — |
-| 10 | Test integrazione visibilità temporale categorie | in_progress | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | — | 37/37 (106 assert.) | 0 | 9 |
+| 10 | Test integrazione visibilità temporale categorie | merged | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | `d005ad1` | 37/37 (106 assert.) | 0 | 9 |
 | 11 | Preview admin categorie bozza/programmate | pending | — | — | — | — | 9 |
 | 12 | Checklist admin attivazione categoria | pending | — | — | — | — | 11 |
 | 13 | Comando category:publication-audit | pending | — | — | — | — | 9 |
