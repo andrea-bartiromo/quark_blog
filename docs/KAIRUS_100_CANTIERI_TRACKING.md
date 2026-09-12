@@ -47,7 +47,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 13 | Comando category:publication-audit | merged | [#560](https://github.com/andrea-bartiromo/quark_blog/pull/560) | `d2dfd6e` | 5/5 (14 assert.); Category*: 245/245 (831 assert.) | 1 reale (fixato: categorie disattivate riportate come Bozza/Programmata invece di Disattivata) | 9 |
 | 14 | Test comando audit categorie | merged | [#561](https://github.com/andrea-bartiromo/quark_blog/pull/561) | `678f9b3` | 6/6 (15 assert.); Category*: 251/251 (846 assert.) | 1 reale (fixato: test ordinamento verificava solo lo spareggio per nome, non sort_order) | 13 |
 | 15 | Runbook cPanel + front controller pubblico | merged | [#562](https://github.com/andrea-bartiromo/quark_blog/pull/562) | `3a70b5e` | N/A (solo documentazione); Pint pulito | 3 reali (fixati: cadenza cron mancante, probe rewrite con -I inconcludente, esempio front controller senza il path di maintenance.php) | — |
-| 16 | Gate deploy integrità front controller | in_progress | — | — | — | — | 15 |
+| 16 | Gate deploy integrità front controller | merged | [#563](https://github.com/andrea-bartiromo/quark_blog/pull/563) | `a73aff8` | 10/10 audit (23 assert.); Deploy*: 112/112 (439 assert., 1 skip pre-esistente) | 4 reali (fixati: marker FilesMatch generico, direttive commentate non rilevate, front controller senza condizione !-f, Referrer-Policy mancante) | 15 |
 | 17 | Test deploy reale release senza .git (REVISION) | pending | — | — | — | — | 16 |
 | 18 | Preflight storage persistente release | pending | — | — | — | — | — |
 | 19 | Verifica automatica backup MariaDB | pending | — | — | — | — | — |
@@ -159,6 +159,21 @@ cosa questo gate NON copre: verifica solo il file git-tracked di questa
 release, mai la copia realmente servita da `~/public_html/.htaccess` —
 resta fuori dalla portata di questo repository, come già dichiarato in
 `docs/DEPLOYMENT.md`.
+
+Finding Codex (4, PR #563), tutti reali: (1, P1) il marker generico
+`<FilesMatch` era soddisfatto anche dai due blocchi di cache statica più
+avanti nel file, quindi rimuovere SOLO il blocco delle estensioni
+sensibili non veniva rilevato — sostituito con l'espressione delle
+estensioni stessa, specifica di quel blocco; (2, P1) una direttiva
+disattivata con `#` lasciava comunque il testo del marker nel file
+grezzo — aggiunto lo scarto dei commenti prima della ricerca; (3, P2) il
+front controller era verificato solo sulla riga finale del rewrite —
+aggiunta la condizione `!-f` (l'unica delle due condizioni davvero
+distintiva, dato che `!-d` ricorre identica altrove nello stesso file);
+(4, P2) `Referrer-Policy`, elencato dal runbook tra gli header critici,
+non era tra i marker richiesti. Tutti corretti nello stesso PR con 4
+nuovi test di regressione dedicati; `get_review_comments` rate-limited,
+risposta via commento generale sulla PR invece che sui singoli thread.
 
 ### 15 — Runbook cPanel + front controller pubblico
 
