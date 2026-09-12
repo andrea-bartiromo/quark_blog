@@ -17,6 +17,12 @@
     : route('categoria', $slug))
 
 @section('head')
+{{-- Cantiere 11: difesa in profondità — la rotta di anteprima è già
+     staff-only (auth+editor), ma un noindex esplicito replica qui la
+     stessa garanzia già data a ogni vista admin (layouts/admin.blade.php)
+     nel caso, remoto, in cui il layout pubblico venga mai servito senza
+     quel gate. --}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
 @if($previousPageUrl)<link rel="prev" href="{{ $previousPageUrl }}">@endif
 @if($nextPageUrl)<link rel="next" href="{{ $nextPageUrl }}">@endif
 @include('collections.partials.structured-data', ['collectionName' => $categoryLabel])
@@ -37,6 +43,20 @@
     "solo token" su entrambe, invece di far dipendere la scelta del
     componente da un dato mutevole.
 --}}
+@if($previewMode ?? false)
+{{--
+    Cantiere 11 (programma 100-cantieri Kairus): banner di sola anteprima,
+    visibile solo quando Admin\CategoryController::preview() passa
+    previewMode=true — mai sulla pagina pubblica reale (ArticleController::
+    category() non imposta mai questa variabile). Stile inline, non in
+    public-premium.css/editorial-system.css: quei fogli sono caricati su
+    OGNI pagina pubblica, e questo banner non deve mai pesare lì.
+--}}
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — questa pagina categoria non è ancora pubblica.
+</div>
+@endif
+
 <div class="public-shell">
   <div class="container container--wide">
 

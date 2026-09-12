@@ -48,6 +48,13 @@
         <a href="{{ route('categoria', $category->slug) }}" target="_blank" rel="noopener">{{ route('categoria', $category->slug) }}</a>
       @else
         <code>{{ route('categoria', $category->slug) }}</code> — non ancora raggiungibile (risponde 404 finché la categoria non diventa pubblica)
+        ·
+        {{--
+            Cantiere 11 (programma 100-cantieri Kairus): anteprima di sola
+            lettura della stessa pagina, senza attendere l'attivazione —
+            Admin\CategoryController::preview(), staff-only.
+        --}}
+        <a href="{{ route('admin.categories.preview', $category) }}" target="_blank" rel="noopener">Vedi anteprima →</a>
       @endif
     </p>
     @if(! empty($readiness['findings']))

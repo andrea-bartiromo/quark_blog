@@ -42,7 +42,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
 | 9 | Categorie non pubbliche isolate ovunque | merged | [#556](https://github.com/andrea-bartiromo/quark_blog/pull/556) | `1ab7b6c` | 34/34 (112 assert.) | 0 gap reali (audit completo) | — |
 | 10 | Test integrazione visibilità temporale categorie | merged | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | `d005ad1` | 37/37 (106 assert.) | 0 | 9 |
-| 11 | Preview admin categorie bozza/programmate | pending | — | — | — | — | 9 |
+| 11 | Preview admin categorie bozza/programmate | in_progress | [#558](https://github.com/andrea-bartiromo/quark_blog/pull/558) | — | 240/240 (814 assert.) | 0 | 9 |
 | 12 | Checklist admin attivazione categoria | pending | — | — | — | — | 11 |
 | 13 | Comando category:publication-audit | pending | — | — | — | — | 9 |
 | 14 | Test comando audit categorie | pending | — | — | — | — | 13 |
@@ -134,6 +134,28 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 11 — Preview admin categorie bozza/programmate
+
+Ispezione preliminare: `categories-edit.blade.php` aveva già un pannello
+"Anteprima pubblicazione" (`CategoryPublicationReadiness`), ma solo
+testuale — stato effettivo, checklist di readiness, URL pubblico mostrato
+come `<code>` non cliccabile finché non pubblico. Nessun modo di vedere
+davvero come apparirebbe la pagina categoria prima dell'attivazione: gap
+genuino, non coperto da nulla di esistente.
+
+Estratta la logica di `ArticleController::category()` (griglia paginata,
+"Più letti", chip Argomenti) in un nuovo servizio condiviso
+`CategoryDiscoveryPageData` (mai una query duplicata: la categoria già
+risolta dal chiamante viene passata, non ri-recuperata). Nuova rotta
+staff-only `admin.categories.preview` (dentro il gruppo `auth`+`editor`
+già esistente) che riusa la STESSA vista pubblica `categoria.blade.php`
+con gli STESSI dati, saltando deliberatamente `isPubliclyVisible()` —
+mai una vista duplicata che rischierebbe di divergere da quella reale.
+Banner "Anteprima amministrativa" + `noindex,nofollow` (difesa in
+profondità, oltre al gate di autenticazione) visibili solo quando
+`previewMode=true`, mai sulla pagina pubblica reale. Link "Vedi
+anteprima →" aggiunto al pannello esistente in `categories-edit.blade.php`.
 
 ### 10 — Test integrazione visibilità temporale categorie
 

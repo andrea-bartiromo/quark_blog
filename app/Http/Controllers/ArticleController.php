@@ -12,6 +12,7 @@ use App\Services\ArticlePrimarySourcesParser;
 use App\Services\ArticleRelatedService;
 use App\Services\ArticleRevisionTransparencyService;
 use App\Services\ArticleViewTrackingService;
+use App\Services\CategoryDiscoveryPageData;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
 use Illuminate\Http\Request;
@@ -29,12 +30,9 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function category(Request $request, string $slug)
+    public function category(Request $request, string $slug, CategoryDiscoveryPageData $pageData)
     {
         $categoryModel = Category::where('slug', $slug)->first();
-        $categories = Category::options(false);
-
-        abort_unless($categoryModel || array_key_exists($slug, $categories), 404);
 
         // Una categoria presente in DB (bozza/programmata futura/disattivata)
         // non è mai raggiungibile dalla sua pagina pubblica — vedi
@@ -42,27 +40,6 @@ class ArticleController extends Controller
         // config (nessuna riga DB) restano raggiungibili come prima: non
         // sono mai state coperte dalla pianificazione.
         if ($categoryModel && ! $categoryModel->isPubliclyVisible()) {
-            abort(404);
-        }
-
-        $articles = Article::published()
-            ->where(function ($query) use ($slug) {
-                $query->where('category', $slug)
-                    ->orWhereHas('secondaryCategories', fn ($secondaryQuery) => $secondaryQuery->where('categories.slug', $slug));
-            })
-            ->orderByDesc('id')
-            ->with('author')
-            // Sei card sono la misura editoriale della griglia pubblica:
-            // abbastanza per scoprire, senza trasformare l'archivio in una
-            // lista infinita. withQueryString() conserva eventuali filtri
-            // già presenti nei link HTML della navigazione.
-            ->paginate(6)
-            ->withQueryString();
-
-        // Anche una categoria senza articoli ha una sola pagina valida:
-        // ?page=2 (o maggiore) deve essere un vero 404, mai una griglia
-        // vuota con HTTP 200.
-        if ($articles->currentPage() > $articles->lastPage()) {
             abort(404);
         }
 
@@ -79,47 +56,11 @@ class ArticleController extends Controller
             $page === 1 ? [] : ['page' => $page],
         ));
 
-        // Blocco "Continua a esplorare" (Cantiere 1, programma 100-cantieri
-        // Kairus): tre articoli tra i più letti, mai un duplicato di quelli
-        // già mostrati in questa stessa pagina di griglia — altrimenti un
-        // lettore che ha appena scorso 6 card vedrebbe una di quelle stesse
-        // sei ripetuta subito sotto come "consigliata".
-        $mostRead = Article::published()
-            ->whereNotIn('id', $articles->pluck('id'))
-            ->orderByDesc('views')
-            ->limit(3)
-            ->get(['title', 'slug', 'category', 'read_minutes']);
+        $data = $pageData->build($request, $slug, $categoryModel, $pageUrl);
 
-        // Chip Argomenti + categorie correlate: SOLO categorie genuinamente
-        // pubbliche (Category::publicOptions(), la stessa già usata dal
-        // pill-row di notizie.blade.php) — mai la lista di $categories sopra,
-        // che include anche bozza/programmata/disattivata per il solo
-        // controllo 404. $categoryLabelOptions invece riusa $categories
-        // già recuperata (nessuna query aggiuntiva): i badge di "Più letti"
-        // devono restare leggibili anche per una categoria nel frattempo
-        // disattivata, stessa semantica già in components/sidebar.blade.php.
-        $publicCategoryOptions = Category::publicOptions();
+        abort_if($data === null, 404);
 
-        return view('categoria', [
-            'slug' => $slug,
-            'categoryModel' => $categoryModel,
-            'categoryLabel' => $categoryModel?->name ?? $categories[$slug],
-            'categoryDescription' => $categoryModel?->description,
-            'categoryImage' => $categoryModel?->image,
-            'category' => $slug,
-
-            // Discovery multi-categoria: la pagina mostra gli articoli che
-            // hanno questa categoria come principale oppure come secondaria.
-            // whereHas() usa EXISTS e quindi non duplica le righe anche se
-            // un articolo soddisfacesse entrambe le condizioni.
-            'articles' => $articles,
-            'firstPageUrl' => $pageUrl(1),
-            'previousPageUrl' => $articles->onFirstPage() ? null : $pageUrl($articles->currentPage() - 1),
-            'nextPageUrl' => $articles->hasMorePages() ? $pageUrl($articles->currentPage() + 1) : null,
-            'mostRead' => $mostRead,
-            'categoryOptions' => $publicCategoryOptions,
-            'categoryLabelOptions' => $categories,
-        ]);
+        return view('categoria', $data);
     }
 
     public function show(Request $request, string $slug)

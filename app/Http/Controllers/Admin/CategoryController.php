@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Category;
+use App\Services\CategoryDiscoveryPageData;
 use App\Services\CategoryPublicationReadiness;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
@@ -41,6 +42,41 @@ class CategoryController extends Controller
         return view('admin.categories', [
             'categories' => Category::ordered()->withCount('articles')->get(),
         ]);
+    }
+
+    /**
+     * Cantiere 11 (programma 100-cantieri Kairus): anteprima di sola
+     * lettura per una categoria bozza/programmata/disattivata, riservata
+     * allo staff (dentro il gruppo di rotte auth+editor). Riusa la STESSA
+     * vista pubblica categoria.blade.php con gli STESSI dati di
+     * ArticleController::category() (via CategoryDiscoveryPageData), per
+     * evitare che anteprima e pagina reale divergano nel tempo — l'unica
+     * differenza è che qui il controllo isPubliclyVisible() viene
+     * deliberatamente saltato, ed è la vista stessa a mostrare un banner
+     * "anteprima" quando riceve previewMode=true.
+     */
+    public function preview(Request $request, Category $category, CategoryDiscoveryPageData $pageData)
+    {
+        // 'category' rimosso oltre a 'page': è la route key stessa (vedi
+        // ArticleController::category(), che per lo stesso motivo rimuove
+        // 'slug'). Senza questo, un ?category=<altro-id> nella query string
+        // sopravvivrebbe all'array_merge sotto e vincerebbe su
+        // $category->id, facendo puntare i link di paginazione/prev/next
+        // all'anteprima di UN'ALTRA categoria (finding Codex su questa PR).
+        $paginationQuery = $request->query();
+        unset($paginationQuery['page'], $paginationQuery['category']);
+
+        $pageUrl = static fn (int $page): string => route('admin.categories.preview', array_merge(
+            ['category' => $category->id],
+            $paginationQuery,
+            $page === 1 ? [] : ['page' => $page],
+        ));
+
+        $data = $pageData->build($request, $category->slug, $category, $pageUrl);
+
+        abort_if($data === null, 404);
+
+        return view('categoria', $data + ['previewMode' => true]);
     }
 
     public function store(Request $request)
