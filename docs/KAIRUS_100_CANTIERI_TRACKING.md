@@ -40,7 +40,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 6 | Test feature/browser composizione categorie | merged | [#555](https://github.com/andrea-bartiromo/quark_blog/pull/555) | `b68695e` | 16/16 PHPUnit (56 assert.) + 6 browser (verdi in CI reale, "Chromium public regression") | 2 reali (fixati: focus programmatico non tastiera reale; breakpoint 900px non testato al confine) | 1-5 |
 | 7 | Query budget categorie anti-N+1 | covered-by-existing | — | — | vedi nota | 0 | 1-5 |
 | 8 | Audit canonical/SEO/OG/paginazione categorie | covered-by-existing | — | — | 36/36 (176 assert.) | 0 | 1 |
-| 9 | Categorie non pubbliche isolate ovunque | in_progress | — | — | — | — | — |
+| 9 | Categorie non pubbliche isolate ovunque | in_progress | [#556](https://github.com/andrea-bartiromo/quark_blog/pull/556) | — | 34/34 (112 assert.) | 0 gap reali (audit completo) | — |
 | 10 | Test integrazione visibilità temporale categorie | pending | — | — | — | — | 9 |
 | 11 | Preview admin categorie bozza/programmate | pending | — | — | — | — | 9 |
 | 12 | Checklist admin attivazione categoria | pending | — | — | — | — | 11 |
