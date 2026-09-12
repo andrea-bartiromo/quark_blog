@@ -28,24 +28,55 @@ const routes = {
 // — non serve visitarli tutti per verificare l'invariante (skip-link
 // funzionante, nessun elemento senza indicatore di focus visibile), un
 // campione ampio e deterministico basta ed evita un test troppo lento.
-const MAX_TAB_PRESSES = 25;
+// Piu' alto del necessario per coprire anche header/ticker/category-bar,
+// che precedono <main> nel DOM (vedi layouts/app.blade.php) e che la
+// traversata copre fin dal primo Tab (Codex, PR #576, P2).
+const MAX_TAB_PRESSES = 35;
+
+// Marca ogni nodo visitato con un attributo dedicato invece di confrontare
+// tag/classe/id del giro precedente: card ripetute con la stessa classe e
+// nessun id (es. griglia trending della home) sarebbero indistinguibili da
+// un vero loop, troncando la traversata dopo la prima (Codex, PR #576, P2).
+const VISITED_MARKER = 'data-kairus-tab-visited';
 
 async function describeFocusedElement(page) {
-    return page.evaluate(() => {
+    return page.evaluate(marker => {
         const el = document.activeElement;
         if (!el || el === document.body) {
             return null;
         }
 
-        const style = window.getComputedStyle(el);
+        const alreadyVisited = el.hasAttribute(marker);
+        el.setAttribute(marker, 'true');
+
+        // L'indicatore di focus deve essere un cambiamento visibile causato
+        // dal focus stesso, non una scia (es. box-shadow permanente di una
+        // card) che risulterebbe presente anche senza focus (Codex, PR #576,
+        // P2): si confronta lo stile a fuoco con quello subito dopo blur(),
+        // poi si ripristina il focus sullo stesso nodo per non alterare la
+        // sequenza di tabulazione.
+        const focusedStyle = window.getComputedStyle(el);
+        const focusedOutline = `${focusedStyle.outlineStyle} ${focusedStyle.outlineWidth} ${focusedStyle.outlineColor}`;
+        const focusedShadow = focusedStyle.boxShadow;
+
+        el.blur();
+        const blurredStyle = window.getComputedStyle(el);
+        const blurredOutline = `${blurredStyle.outlineStyle} ${blurredStyle.outlineWidth} ${blurredStyle.outlineColor}`;
+        const blurredShadow = blurredStyle.boxShadow;
+        el.focus({ preventScroll: true });
+
+        const hasVisibleFocusIndicator =
+            (focusedStyle.outlineStyle !== 'none' && focusedOutline !== blurredOutline) || focusedShadow !== blurredShadow;
+
         return {
             tag: el.tagName,
             className: el.className,
             id: el.id,
-            hasVisibleFocusIndicator: style.outlineStyle !== 'none' || style.boxShadow !== 'none',
+            alreadyVisited,
+            hasVisibleFocusIndicator,
             isVisible: el.getClientRects().length > 0,
         };
-    });
+    }, VISITED_MARKER);
 }
 
 for (const [surface, path] of Object.entries(routes)) {
@@ -68,15 +99,11 @@ for (const [surface, path] of Object.entries(routes)) {
         test(`${surface}: attraversando la pagina con Tab nessun elemento focalizzato e' privo di un indicatore di focus visibile`, async ({ page }) => {
             await page.goto(path);
 
-            // Il primo Tab raggiunge lo skip-link (coperto dal test sopra):
-            // qui si riparte dal contenuto principale, cosi' da verificare i
-            // controlli reali della pagina (header, corpo, footer), non solo
-            // lo skip-link stesso.
-            await page.keyboard.press('Tab');
-            await page.keyboard.press('Enter');
-
+            // Traversata dall'inizio pagina (primo Tab incluso): raggiunge
+            // anche header/ticker/category-bar, che precedono <main> nel DOM
+            // e che una traversata avviata dopo l'attivazione dello
+            // skip-link non potrebbe mai coprire (Codex, PR #576, P2).
             const withoutIndicator = [];
-            let previous = null;
 
             for (let i = 0; i < MAX_TAB_PRESSES; i++) {
                 await page.keyboard.press('Tab');
@@ -88,17 +115,16 @@ for (const [surface, path] of Object.entries(routes)) {
                     break;
                 }
 
-                if (previous && previous.tag === focused.tag && previous.className === focused.className && previous.id === focused.id) {
-                    // Stesso elemento del giro precedente: la sequenza si e'
-                    // chiusa in loop, non serve continuare a premere Tab.
+                if (focused.alreadyVisited) {
+                    // Tornati su un nodo DOM gia' marcato in questo stesso
+                    // giro (identita' reale, non solo tag/classe/id uguali):
+                    // la sequenza si e' chiusa in loop.
                     break;
                 }
 
                 if (focused.isVisible && !focused.hasVisibleFocusIndicator) {
                     withoutIndicator.push(`${focused.tag}${focused.id ? `#${focused.id}` : ''}${focused.className ? `.${String(focused.className).trim().replace(/\s+/g, '.')}` : ''}`);
                 }
-
-                previous = focused;
             }
 
             expect(withoutIndicator, `Elementi focalizzabili senza indicatore di focus visibile: ${withoutIndicator.join(', ')}`).toEqual([]);
