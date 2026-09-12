@@ -218,4 +218,56 @@ class WcagInternalAuditTest extends TestCase
 
         $this->assertSame([], $results[0]['findings']);
     }
+
+    /**
+     * Codex (PR #577, P2): la sola presenza dell'attributo aria-labelledby
+     * non basta — se punta a un id inesistente (o vuoto) il controllo
+     * resta comunque senza nome accessibile.
+     */
+    public function test_a_link_with_an_aria_labelledby_pointing_to_a_missing_id_is_a_finding(): void
+    {
+        $this->fakeInventory('http://example.test/prova');
+        $this->fakeFetcher(str_replace(
+            '<a href="/altro">Continua a leggere</a>',
+            '<a href="/altro" aria-labelledby="non-esiste"></a>',
+            self::COMPLIANT_HTML
+        ));
+
+        $results = app(WcagInternalAudit::class)->audit();
+
+        $this->assertContains('1 link/pulsante senza nome accessibile (nessun testo, aria-label o aria-labelledby) (WCAG 2.4.4/4.1.2).', $results[0]['findings']);
+    }
+
+    public function test_a_link_with_an_aria_labelledby_pointing_to_a_real_id_is_not_a_finding(): void
+    {
+        $this->fakeInventory('http://example.test/prova');
+        $this->fakeFetcher(str_replace(
+            '<a href="/altro">Continua a leggere</a>',
+            '<span id="etichetta-altro">Approfondisci</span><a href="/altro" aria-labelledby="etichetta-altro"></a>',
+            self::COMPLIANT_HTML
+        ));
+
+        $results = app(WcagInternalAudit::class)->audit();
+
+        $this->assertSame([], $results[0]['findings']);
+    }
+
+    /**
+     * Codex (PR #577, P2): textContent non include gli alt dei
+     * discendenti — un link solo-immagine con un alt descrittivo ha
+     * comunque un nome accessibile reale, non deve risultare un finding.
+     */
+    public function test_an_image_only_link_with_a_descriptive_alt_is_not_a_finding(): void
+    {
+        $this->fakeInventory('http://example.test/prova');
+        $this->fakeFetcher(str_replace(
+            '<a href="/altro">Continua a leggere</a>',
+            '<a href="/altro"><img src="/icona.svg" alt="Continua a leggere"></a>',
+            self::COMPLIANT_HTML
+        ));
+
+        $results = app(WcagInternalAudit::class)->audit();
+
+        $this->assertSame([], $results[0]['findings']);
+    }
 }

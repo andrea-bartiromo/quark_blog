@@ -3,6 +3,7 @@
 namespace App\Services\PublicPages;
 
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 
 /**
@@ -90,9 +91,16 @@ class WcagInternalAudit
     private function auditHtml(string $html): array
     {
         $dom = new DOMDocument;
-        libxml_use_internal_errors(true);
+        // libxml_use_internal_errors() e' un'impostazione a livello di
+        // intero processo PHP, non locale a questo parsing: senza
+        // ripristinare il valore precedente, ogni parsing DOM successivo
+        // nello stesso processo (es. nella suite PHPUnit) resterebbe con
+        // gli errori silenziosamente bufferizzati invece del comportamento
+        // del chiamante originario (Codex, PR #577, P2).
+        $previousErrorSetting = libxml_use_internal_errors(true);
         $dom->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
         libxml_clear_errors();
+        libxml_use_internal_errors($previousErrorSetting);
         $xpath = new DOMXPath($dom);
 
         $findings = [];
@@ -183,16 +191,63 @@ class WcagInternalAudit
     {
         $count = 0;
         foreach ($xpath->query('//a[@href] | //button') as $control) {
-            $text = trim($control->textContent);
-            $ariaLabel = trim($control->getAttribute('aria-label'));
-            $ariaLabelledby = trim($control->getAttribute('aria-labelledby'));
-
-            if ($text === '' && $ariaLabel === '' && $ariaLabelledby === '') {
+            if ($this->accessibleName($control, $xpath) === '') {
                 $count++;
             }
         }
 
         return $count;
+    }
+
+    /**
+     * Calcolo semplificato ma corretto del "nome accessibile" (non
+     * l'algoritmo completo accname, sufficiente per stabilire se un
+     * controllo ha o non ha un nome): un `aria-labelledby` che punta a un
+     * id inesistente o vuoto non deve contare come nome presente (prima
+     * versione, Codex PR #577 P2: bastava la sola presenza
+     * dell'attributo), e un link solo-immagine con `alt` non deve
+     * risultare senza nome solo perche' `textContent` non include gli
+     * `alt` dei discendenti.
+     */
+    private function accessibleName(DOMElement $control, DOMXPath $xpath): string
+    {
+        $text = trim($control->textContent);
+        if ($text !== '') {
+            return $text;
+        }
+
+        $ariaLabel = trim($control->getAttribute('aria-label'));
+        if ($ariaLabel !== '') {
+            return $ariaLabel;
+        }
+
+        $labelledBy = trim($control->getAttribute('aria-labelledby'));
+        if ($labelledBy !== '') {
+            $labelParts = [];
+            foreach (preg_split('/\s+/', $labelledBy) as $id) {
+                if ($id === '') {
+                    continue;
+                }
+
+                $referenced = $xpath->query('//*[@id='.$this->xpathLiteral($id).']')->item(0);
+                if ($referenced !== null && trim($referenced->textContent) !== '') {
+                    $labelParts[] = trim($referenced->textContent);
+                }
+            }
+
+            if ($labelParts !== []) {
+                return implode(' ', $labelParts);
+            }
+        }
+
+        foreach ($xpath->query('.//img[@alt]', $control) as $img) {
+            $alt = trim($img->getAttribute('alt'));
+            if ($alt !== '') {
+                return $alt;
+            }
+        }
+
+        return '';
     }
 
     /**
