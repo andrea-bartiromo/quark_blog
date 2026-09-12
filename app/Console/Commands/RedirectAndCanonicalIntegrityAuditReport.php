@@ -27,16 +27,16 @@ class RedirectAndCanonicalIntegrityAuditReport extends Command
         $redirects = $audit->auditRedirects();
         $canonicals = $audit->auditCanonicalConsistency($limit);
 
+        $anyFindings = $this->hasAnyFindings($redirects) || $this->hasAnyFindings($canonicals);
+
         if ($this->option('json')) {
             $this->line(json_encode(['redirects' => $redirects, 'canonical_consistency' => $canonicals], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-            return self::SUCCESS;
+            return $anyFindings ? self::FAILURE : self::SUCCESS;
         }
 
         $this->renderRedirects($redirects);
         $this->renderCanonicals($canonicals, $limit);
-
-        $anyFindings = $this->hasAnyFindings($redirects) || $this->hasAnyFindings($canonicals);
 
         return $anyFindings ? self::FAILURE : self::SUCCESS;
     }

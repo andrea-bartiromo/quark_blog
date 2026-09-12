@@ -75,15 +75,26 @@ class RedirectAndCanonicalIntegrityAudit
             'findings' => [],
         ];
 
+        $target = Article::published()->find($redirect->article_id);
+
         // Un vecchio slug il cui articolo non è più pubblicato risponde
         // correttamente 404 (ArticleController::show() non reindirizza
         // mai verso un articolo non pubblicamente visibile): stato
-        // atteso e documentato, mai un finding.
+        // atteso e documentato, mai un finding — ma SOLO se l'articolo di
+        // destinazione è davvero non più pubblicato: un 404 mentre
+        // l'articolo è ancora pubblicato è una regressione reale.
         if ($status === 404) {
+            if ($target !== null) {
+                $result['findings'][] = "Il vecchio slug risponde 404, ma l'articolo #{$redirect->article_id} è ancora pubblicato (dovrebbe reindirizzare a {$target->slug}).";
+            }
+
             return $result;
         }
 
-        if (! in_array($status, [301, 302], true)) {
+        // Il contratto di ArticleController::show() emette sempre e solo
+        // un redirect 301 (mai 302): un 302 indicherebbe una regressione
+        // da redirect permanente a temporaneo.
+        if ($status !== 301) {
             $result['findings'][] = "Stato HTTP inatteso per un vecchio slug con redirect registrato: {$status} (atteso 301 verso l'articolo corrente, o 404 se non più pubblicato).";
 
             return $result;
@@ -96,6 +107,19 @@ class RedirectAndCanonicalIntegrityAudit
             return $result;
         }
 
+        if ($target === null) {
+            $result['findings'][] = "Redirect 301 verso {$location}, ma l'articolo #{$redirect->article_id} non è (più) pubblicato.";
+
+            return $result;
+        }
+
+        $expectedTarget = route('articolo', ['slug' => $target->slug]);
+        if (rtrim($location, '/') !== rtrim($expectedTarget, '/')) {
+            $result['findings'][] = "Il redirect porta a {$location} invece che all'articolo corrente {$expectedTarget}.";
+
+            return $result;
+        }
+
         $targetResponse = $this->fetcher->fetch($location);
         $targetStatus = $targetResponse->getStatusCode();
         if ($targetStatus !== 200) {
@@ -104,7 +128,7 @@ class RedirectAndCanonicalIntegrityAudit
             return $result;
         }
 
-        $canonical = $this->selfCanonicalMismatch($location, (string) $targetResponse->getContent());
+        $canonical = $this->selfCanonicalMismatch($target->metaCanonicalUrl(), (string) $targetResponse->getContent());
         if ($canonical !== null) {
             $result['findings'][] = "Il canonical della destinazione del redirect non corrisponde all'URL di arrivo: {$canonical}.";
         }
@@ -120,7 +144,7 @@ class RedirectAndCanonicalIntegrityAudit
         $results = [];
 
         foreach (Article::published()->take($articleLimit)->get() as $article) {
-            $results[] = $this->auditSingleUrl('articolo', route('articolo', ['slug' => $article->slug]));
+            $results[] = $this->auditArticleUrl($article);
         }
 
         foreach (array_keys(Category::publicOptions()) as $slug) {
@@ -132,6 +156,38 @@ class RedirectAndCanonicalIntegrityAudit
         }
 
         return $results;
+    }
+
+    /**
+     * Come auditSingleUrl(), ma il canonical atteso per un articolo non è
+     * sempre il proprio self-URL: Article::metaCanonicalUrl() restituisce
+     * l'override esplicito `canonical_url` quando presente (campo reale,
+     * fillable, già gestito da articolo.blade.php). Confrontare sempre col
+     * self-URL produrrebbe un falso positivo per ogni articolo con un
+     * canonical_url legittimamente diverso.
+     *
+     * @return array{type: string, url: string, http_status: int, findings: list<string>}
+     */
+    private function auditArticleUrl(Article $article): array
+    {
+        $url = route('articolo', ['slug' => $article->slug]);
+        $response = $this->fetcher->fetch($url);
+        $status = $response->getStatusCode();
+
+        $result = ['type' => 'articolo', 'url' => $url, 'http_status' => $status, 'findings' => []];
+
+        if ($status !== 200) {
+            $result['findings'][] = "Stato HTTP inatteso: {$status} (atteso 200 per una pagina considerata pubblicamente raggiungibile).";
+
+            return $result;
+        }
+
+        $mismatch = $this->selfCanonicalMismatch($article->metaCanonicalUrl(), (string) $response->getContent());
+        if ($mismatch !== null) {
+            $result['findings'][] = $mismatch;
+        }
+
+        return $result;
     }
 
     /**

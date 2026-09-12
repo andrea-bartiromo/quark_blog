@@ -83,6 +83,95 @@ class RedirectAndCanonicalIntegrityAuditTest extends TestCase
         $this->assertSame([], $redirects[0]['findings']);
     }
 
+    /**
+     * Codex (PR #571): un 404 mentre l'articolo di destinazione è ANCORA
+     * pubblicato è una regressione reale (il redirect avrebbe dovuto
+     * esistere/funzionare), mai uno stato sano — a differenza del caso
+     * sopra, dove l'articolo non è più pubblicato.
+     */
+    public function test_a_404_while_the_target_article_is_still_published_is_flagged(): void
+    {
+        $article = $this->publishedArticle(['slug' => 'slug-vecchio-404-fantasma']);
+        $article->update(['slug' => 'slug-nuovo-404-fantasma']);
+
+        $fake = new class extends InProcessPageFetcher
+        {
+            public function fetch(string $url): Response
+            {
+                return new Response('non trovato', 404);
+            }
+        };
+        $this->app->instance(InProcessPageFetcher::class, $fake);
+
+        $redirects = app(RedirectAndCanonicalIntegrityAudit::class)->auditRedirects();
+
+        $this->assertCount(1, $redirects);
+        $this->assertNotSame([], $redirects[0]['findings']);
+        $this->assertStringContainsString('404', $redirects[0]['findings'][0]);
+    }
+
+    /**
+     * Codex (PR #571): il contratto di ArticleController::show() emette
+     * sempre e solo un 301 verso l'articolo corrente. Un 302 è una
+     * regressione (redirect permanente diventato temporaneo), mai un esito
+     * accettabile al pari del 301.
+     */
+    public function test_a_302_redirect_is_flagged_instead_of_accepted_like_a_301(): void
+    {
+        $article = $this->publishedArticle(['slug' => 'slug-vecchio-302']);
+        $article->update(['slug' => 'slug-nuovo-302']);
+
+        $fake = new class extends InProcessPageFetcher
+        {
+            public function fetch(string $url): Response
+            {
+                return new Response('', 302, ['Location' => route('articolo', ['slug' => 'slug-nuovo-302'])]);
+            }
+        };
+        $this->app->instance(InProcessPageFetcher::class, $fake);
+
+        $redirects = app(RedirectAndCanonicalIntegrityAudit::class)->auditRedirects();
+
+        $this->assertCount(1, $redirects);
+        $this->assertNotSame([], $redirects[0]['findings']);
+        $this->assertStringContainsString('302', $redirects[0]['findings'][0]);
+    }
+
+    /**
+     * Codex (PR #571): un redirect 301 verso un URL che non corrisponde
+     * all'articolo effettivamente registrato per quel vecchio slug (es. un
+     * altro articolo pubblicato) è un'incoerenza reale, anche se la
+     * destinazione stessa risponde 200 con un canonical corretto.
+     */
+    public function test_a_redirect_to_the_wrong_article_is_flagged(): void
+    {
+        $article = $this->publishedArticle(['slug' => 'slug-vecchio-5']);
+        $article->update(['slug' => 'slug-nuovo-5']);
+        $altro = $this->publishedArticle(['slug' => 'un-altro-articolo-pubblicato']);
+
+        $fake = new class extends InProcessPageFetcher
+        {
+            public function fetch(string $url): Response
+            {
+                if (str_contains($url, 'slug-vecchio-5')) {
+                    return new Response('', 301, ['Location' => route('articolo', ['slug' => 'un-altro-articolo-pubblicato'])]);
+                }
+
+                return new Response(
+                    '<link rel="canonical" href="'.route('articolo', ['slug' => 'un-altro-articolo-pubblicato']).'">',
+                    200
+                );
+            }
+        };
+        $this->app->instance(InProcessPageFetcher::class, $fake);
+
+        $redirects = app(RedirectAndCanonicalIntegrityAudit::class)->auditRedirects();
+
+        $this->assertCount(1, $redirects);
+        $this->assertNotSame([], $redirects[0]['findings']);
+        $this->assertStringContainsString('slug-nuovo-5', $redirects[0]['findings'][0]);
+    }
+
     public function test_a_redirect_with_an_unexpected_target_status_is_flagged(): void
     {
         $article = $this->publishedArticle(['slug' => 'slug-vecchio-3']);
@@ -93,7 +182,7 @@ class RedirectAndCanonicalIntegrityAuditTest extends TestCase
             public function fetch(string $url): Response
             {
                 if (str_contains($url, 'slug-vecchio-3')) {
-                    return new Response('', 301, ['Location' => 'https://kairus.it/articolo/slug-nuovo-3']);
+                    return new Response('', 301, ['Location' => route('articolo', ['slug' => 'slug-nuovo-3'])]);
                 }
 
                 // La destinazione del redirect risponde in modo inatteso.
@@ -119,7 +208,7 @@ class RedirectAndCanonicalIntegrityAuditTest extends TestCase
             public function fetch(string $url): Response
             {
                 if (str_contains($url, 'slug-vecchio-4')) {
-                    return new Response('', 301, ['Location' => 'https://kairus.it/articolo/slug-nuovo-4']);
+                    return new Response('', 301, ['Location' => route('articolo', ['slug' => 'slug-nuovo-4'])]);
                 }
 
                 return new Response('<link rel="canonical" href="https://kairus.it/articolo/un-altro-slug">', 200);
@@ -132,6 +221,47 @@ class RedirectAndCanonicalIntegrityAuditTest extends TestCase
         $this->assertCount(1, $redirects);
         $this->assertNotSame([], $redirects[0]['findings']);
         $this->assertStringContainsString('canonical', $redirects[0]['findings'][0]);
+    }
+
+    /**
+     * Codex (PR #571): Article::metaCanonicalUrl() restituisce l'override
+     * esplicito canonical_url quando presente — la pagina di arrivo del
+     * redirect lo rende correttamente (articolo.blade.php), quindi il
+     * confronto va fatto contro metaCanonicalUrl(), mai contro il
+     * self-URL, altrimenti ogni articolo con un canonical_url legittimo
+     * produce un falso positivo.
+     */
+    public function test_a_redirect_landing_on_an_article_with_a_legitimate_canonical_override_has_no_findings(): void
+    {
+        $article = $this->publishedArticle([
+            'slug' => 'slug-vecchio-override',
+            'canonical_url' => 'https://kairus.it/articolo/canonical-override-legittimo',
+        ]);
+        $article->update(['slug' => 'slug-nuovo-override']);
+
+        $redirects = app(RedirectAndCanonicalIntegrityAudit::class)->auditRedirects();
+
+        $this->assertCount(1, $redirects);
+        $this->assertSame([], $redirects[0]['findings']);
+    }
+
+    /**
+     * Codex (PR #571): stesso principio della verifica sul redirect —
+     * confrontare sempre col self-URL invece che con metaCanonicalUrl()
+     * produce un falso positivo per ogni articolo con un canonical_url
+     * legittimamente diverso dal proprio self-URL.
+     */
+    public function test_article_canonical_check_respects_a_legitimate_canonical_url_override(): void
+    {
+        $this->publishedArticle([
+            'canonical_url' => 'https://kairus.it/articolo/canonical-override-consistency',
+        ]);
+
+        $results = app(RedirectAndCanonicalIntegrityAudit::class)->auditCanonicalConsistency();
+        $articoli = collect($results)->where('type', 'articolo')->values();
+
+        $this->assertCount(1, $articoli);
+        $this->assertSame([], $articoli[0]['findings']);
     }
 
     public function test_canonical_consistency_checks_every_reachable_category_and_percorso(): void
