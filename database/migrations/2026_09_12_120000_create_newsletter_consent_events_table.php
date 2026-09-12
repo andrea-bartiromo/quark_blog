@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamp('occurred_at');
             $table->timestamps();
 
-            $table->index(['newsletter_id', 'event_type', 'occurred_at']);
+            $table->index(['newsletter_id', 'event_type', 'occurred_at'], 'nce_sub_event_at_idx');
         });
     }
 
