@@ -3,6 +3,7 @@
 namespace Tests\Feature\PublicPages;
 
 use App\Models\Article;
+use App\Models\ArticleView;
 use App\Models\User;
 use App\Services\PublicPages\PublicPageSeoAudit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,7 +68,7 @@ class PublicPageSeoAuditTest extends TestCase
     public function test_articolo_and_autore_samples_pass_every_check_once_a_published_article_exists(): void
     {
         $author = User::factory()->create(['role' => 'author']);
-        Article::create([
+        $article = Article::create([
             'user_id' => $author->id,
             'title' => 'Un articolo pubblicato per audit SEO',
             'slug' => 'un-articolo-pubblicato-per-audit-seo',
@@ -78,6 +79,7 @@ class PublicPageSeoAuditTest extends TestCase
             'published_at' => now()->subDay(),
             'read_minutes' => 3,
             'verification_status' => 'unverified',
+            'views' => 0,
         ]);
 
         $pages = collect(app(PublicPageSeoAudit::class)->audit())->keyBy('key');
@@ -90,6 +92,41 @@ class PublicPageSeoAuditTest extends TestCase
         }
 
         $this->assertGreaterThan(0, $pages['articolo']['json_ld_blocks']);
+    }
+
+    /**
+     * Finding Codex (P1, PR #570): senza un modo per
+     * ArticleController::show() di distinguere il GET in-process
+     * dell'audit da una visita reale, ogni esecuzione dell'audit (pensato
+     * per essere di sola lettura e ripetibile a piacere) avrebbe
+     * silenziosamente incrementato le analytics reali dell'articolo
+     * campione — sia il contatore lifetime sia il log per-pageview.
+     */
+    public function test_auditing_an_article_never_increments_its_real_view_analytics(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $article = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo per verifica non contaminazione analytics',
+            'slug' => 'articolo-verifica-non-contaminazione-analytics',
+            'excerpt' => 'Sommario',
+            'body' => '<p>Corpo.</p>',
+            'category' => 'fisica',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'read_minutes' => 3,
+            'verification_status' => 'unverified',
+            'views' => 0,
+        ]);
+
+        app(PublicPageSeoAudit::class)->audit();
+        // Un secondo giro (l'audit è pensato per essere eseguito quante
+        // volte si vuole): se il marcatore non funzionasse, ogni
+        // esecuzione aggiungerebbe un'altra view.
+        app(PublicPageSeoAudit::class)->audit();
+
+        $this->assertSame(0, $article->fresh()->views);
+        $this->assertSame(0, ArticleView::where('article_id', $article->id)->count());
     }
 
     /**

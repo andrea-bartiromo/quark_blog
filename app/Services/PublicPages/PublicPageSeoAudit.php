@@ -152,6 +152,13 @@ class PublicPageSeoAudit
     {
         $kernel = app(HttpKernel::class);
         $request = Request::create($url, 'GET');
+        // Finding Codex (P1, PR #570): senza questo marcatore,
+        // ArticleController::show() non ha modo di distinguere questa
+        // richiesta da una visita reale — ogni esecuzione dell'audit
+        // incrementerebbe silenziosamente le analytics reali
+        // dell'articolo campione. Vedi il guard su X-Kairus-Internal-Audit
+        // in ArticleController::show().
+        $request->headers->set('X-Kairus-Internal-Audit', '1');
         $response = $kernel->handle($request);
         $kernel->terminate($request, $response);
 

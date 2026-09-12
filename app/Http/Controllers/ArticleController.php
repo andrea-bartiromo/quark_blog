@@ -90,11 +90,23 @@ class ArticleController extends Controller
 
         $sessionKey = 'article_viewed_'.$article->id;
 
+        // Finding Codex (P1, PR #570): App\Services\PublicPages\PublicPageSeoAudit
+        // (Cantiere 22) e App\Services\PublicPages\PublicPageInventory
+        // (Cantiere 21) raggiungono questa stessa azione con un vero GET
+        // in-process per verificare la pagina — senza questo controllo,
+        // ogni esecuzione dell'audit (pensato per essere di sola lettura,
+        // ripetibile a piacere) incrementerebbe silenziosamente le
+        // analytics reali di un articolo pubblicato. Marcatore esplicito e
+        // deterministico impostato solo dall'audit stesso — non
+        // un'euristica sullo User-Agent (il progetto ne esclude
+        // esplicitamente, vedi il docblock di ArticleViewTrackingService).
+        $isInternalAudit = $request->headers->has('X-Kairus-Internal-Audit');
+
         // Il flag di sessione viene impostato solo quando la view è stata
         // davvero registrata: se restasse impostato anche per traffico
         // interno mai contato, potrebbe in teoria mascherare una
         // successiva view pubblica genuina nella stessa sessione.
-        if (! session()->has($sessionKey) && app(ArticleViewTrackingService::class)->recordView($article)) {
+        if (! $isInternalAudit && ! session()->has($sessionKey) && app(ArticleViewTrackingService::class)->recordView($article)) {
             session()->put($sessionKey, true);
         }
 
@@ -144,7 +156,9 @@ class ArticleController extends Controller
                     ['slug' => $continuation->slug, 'cd_src' => $article->id]
                 );
 
-                app(ContinuationAnalyticsService::class)->recordImpression($article, $continuation);
+                if (! $isInternalAudit) {
+                    app(ContinuationAnalyticsService::class)->recordImpression($article, $continuation);
+                }
             }
 
             if ($request->hasValidSignature() && $request->filled('cd_src')) {
