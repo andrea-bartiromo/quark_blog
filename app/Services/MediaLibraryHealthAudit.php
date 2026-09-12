@@ -33,7 +33,13 @@ class MediaLibraryHealthAudit
     {
         $maxSize = $maxRecommendedSizeBytes ?? (int) config('media.audit_max_size_bytes', self::DEFAULT_MAX_RECOMMENDED_SIZE_BYTES);
 
-        $webpReport = $this->webpAudit->audit();
+        // measureActual: false — questo audit usa solo relative_path dai
+        // candidati e da missing_media_files, mai le stime di dimensione
+        // WebP: lasciarlo al default (true) convertirebbe realmente ogni
+        // candidato JPEG/PNG in un WebP temporaneo solo per scartarne il
+        // risultato, con un costo che cresce linearmente con ogni file
+        // non ancora ottimizzato della libreria (Codex, PR #574).
+        $webpReport = $this->webpAudit->audit(['measureActual' => false]);
         $nonOptimalDiskNames = array_column($webpReport['candidates']['files'], 'relative_path');
         $missingDiskNames = $webpReport['missing_media_files'];
 
