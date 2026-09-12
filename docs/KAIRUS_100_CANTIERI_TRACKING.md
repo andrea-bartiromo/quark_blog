@@ -44,7 +44,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 10 | Test integrazione visibilità temporale categorie | merged | [#557](https://github.com/andrea-bartiromo/quark_blog/pull/557) | `d005ad1` | 37/37 (106 assert.) | 0 | 9 |
 | 11 | Preview admin categorie bozza/programmate | merged | [#558](https://github.com/andrea-bartiromo/quark_blog/pull/558) | `6ddfd56` | 241/241 (817 assert.) | 1 reale (fixato: route key `category` non rimossa dalla query string in preview()) | 9 |
 | 12 | Checklist admin attivazione categoria | merged | [#559](https://github.com/andrea-bartiromo/quark_blog/pull/559) | `1068d4b` | 66/66 (212 assert.) | 1 reale (fixato: fixture di test "pronta" falso positivo — matchava il nome categoria, non il badge) | 11 |
-| 13 | Comando category:publication-audit | pending | — | — | — | — | 9 |
+| 13 | Comando category:publication-audit | in_progress | — | — | — | — | 9 |
 | 14 | Test comando audit categorie | pending | — | — | — | — | 13 |
 | 15 | Runbook cPanel + front controller pubblico | pending | — | — | — | — | — |
 | 16 | Gate deploy integrità front controller | pending | — | — | — | — | 15 |
@@ -134,6 +134,40 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 13 — Comando category:publication-audit
+
+Ispezione preliminare: `category:publication-readiness` (Prompt 4) esisteva
+già come comando Artisan di sola lettura, ma era limitato alle categorie
+`status=scheduled` — le bozze non comparivano affatto nel report, anche se
+la stessa categoria di bozza incompleta era ormai già segnalata sia
+nell'editor (Prompt 3) sia nell'elenco admin (Cantiere 12). Interpretato
+"category:publication-audit" come lo stesso comando esistente, la cui
+copertura andava allineata a quella già raggiunta altrove: gap genuino
+(comportamento deliberatamente diverso, non "già coperto").
+
+Cambiato il comando da `where(status, scheduled)` a
+`reject(isPubliclyVisible())` (stessa condizione già usata dal Cantiere
+12), aggiunto un campo `status` a ogni riga del report (testo e JSON) e
+adattata la resa testuale: una bozza non ha una data di programmazione da
+mostrare. Nessuna modifica al comando `--json` esistente a parte l'aggiunta
+del campo `status` (retrocompatibile, additivo). Aggiornati test esistenti
+e `docs/CATEGORY_SCHEDULING_V1_SPEC.md`.
+
+Finding Codex (P2, PR #560): `reject(isPubliclyVisible())` include anche
+le categorie DISATTIVATE (`is_active=false`, qualunque status), non solo
+bozze e programmate — `isPubliclyVisible()` torna false per is_active=false
+a prescindere dallo status. La resa testuale originale distingueva solo
+scheduled/bozza, quindi una categoria disattivata con status
+published/scheduled veniva presentata come se stesse per aprirsi. Corretto
+riusando `Category::effectiveVisibilityLabel()` (stessa etichetta già in
+uso nell'elenco admin: Disattivata/Bozza/Programmata/Pubblica) invece di
+dedurre lo stato dal solo campo `status`.
+
+Nessun nuovo comando creato: rinominare o duplicare
+`category:publication-readiness` avrebbe rotto la copertura di test/doc
+già esistente senza alcun beneficio — è la stessa identica responsabilità,
+solo con lo scope corretto.
 
 ### 12 — Checklist admin attivazione categoria
 
