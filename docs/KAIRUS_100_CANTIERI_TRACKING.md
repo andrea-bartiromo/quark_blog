@@ -55,7 +55,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
 | 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | merged | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | `85ecea9` | 10/10 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo\|ArticleViewTracking\|ContinuationAnalytics): 187/187 (817 assert.) | 1 reale (fixato P1: l'audit incrementava le analytics reali di visualizzazione articolo a ogni esecuzione) | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | merged | [#571](https://github.com/andrea-bartiromo/quark_blog/pull/571) | 38c6654 | 13/13 (audit) + 5/5 (comando); PublicPages+Console: 258/258 (819 assert., 3 skip.); suite completa: 4348 (4345 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali, tutti corretti — 404 accettato senza verificare che l'articolo non sia più pubblicato; 302 accettato al pari di 301; redirect verso l'articolo sbagliato non rilevato; confronto canonical sempre sul self-URL invece di `metaCanonicalUrl()`; `--json` non rifletteva i findings nell'exit code) | 21 |
-| 24 | Registro interno aggregato 404 | open | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | — | 7/7 (tracker) + 2/2 (integrazione end-to-end) + 4/4 (comando); più ampia (PublicPages\|Console\|HttpsCanonicalization\|RobotsSitemapDiscovery): 287/287 (906 assert., 3 skip.) | 0 (nessun finding Codex ricevuto finora) | 23 |
+| 24 | Registro interno aggregato 404 | merged | [#572](https://github.com/andrea-bartiromo/quark_blog/pull/572) | 5ce3263 | 10/10 (tracker) + 5/5 (integrazione end-to-end) + 4/4 (comando); suite completa: 4367 (4364 passed + 3 fallimenti pre-esistenti non correlati, stessi già confermati su main pulito) | 5 (Codex, tutti reali — 4 corretti: chiave path_hash sha256 invece di path troncato/case-insensitive; scrittura mai rilanciata; middleware globale sulla risposta finale invece dell'hook su render() per coprire i 404 espliciti da controller; 1 accettato e documentato: l'esclusione redazionale non copre un path che non corrisponde a nessuna rotta — un fix generale (Route::fallback()) è stato tentato e scartato dopo aver riprodotto una regressione peggiore, rottura della corretta individuazione dei verbi alternativi di Laravel/405) | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | pending | — | — | — | — | 21 |
 | 27 | Baseline performance lab | pending | — | — | — | — | 21 |
@@ -146,15 +146,44 @@ path con contatore, mai una riga per hit), così un editore può scoprire
 link rotti che nessun audit conosceva in anticipo. Gap genuino.
 
 Aggiunto `App\Services\PublicPages\NotFoundHitTracker::recordHit()`,
-agganciato in `bootstrap/app.php` al `render()` esistente di
-`HttpException` per il 404 (unico punto già usato per la vista di
-errore). Esclude le stesse due categorie di traffico già escluse
-altrove in questa famiglia: richieste con l'header
-`X-Kairus-Internal-Audit` (Cantiere 22/23 — un audit visita
-deliberatamente vecchi slug che rispondono 404 come esito corretto) e
-traffico redazionale autenticato (`User::canAccessRedazione()`, come
-`ArticleViewTrackingService`). Comando
-`php artisan pages:not-found-registry` (`--limit=`, `--json`).
+agganciato tramite `App\Http\Middleware\RecordNotFoundHits` (middleware
+globale del kernel che controlla lo status della risposta FINALE, non
+un hook sull'eccezione — vedi finding Codex sotto). Esclude le stesse
+due categorie di traffico già escluse altrove in questa famiglia:
+richieste con l'header `X-Kairus-Internal-Audit` (Cantiere 22/23 — un
+audit visita deliberatamente vecchi slug che rispondono 404 come esito
+corretto) e traffico redazionale autenticato
+(`User::canAccessRedazione()`, come `ArticleViewTrackingService`).
+Comando `php artisan pages:not-found-registry` (`--limit=`, `--json`).
+
+**5 finding Codex, tutti verificati contro il codice reale (PR #572):**
+1. Chiave unica `path` (troncata a 255) → `path_hash` (sha256 del path
+   COMPLETO): evita sia la collisione case-insensitive di MariaDB
+   (`utf8mb4_unicode_ci`) sia il merge di path lunghi con lo stesso
+   prefisso troncato.
+2. `recordHit()` avvolge ora la scrittura in try/catch (mai rilanciata,
+   solo loggata): un registro osservativo non può trasformare un 404
+   genuino in un 500.
+3. Hook su `render()` di `HttpException` → middleware globale
+   (`RecordNotFoundHits`) che controlla lo status della risposta
+   finale: copre anche i 404 restituiti direttamente da un controller
+   via `->setStatusCode(404)` (`CommunicationUnsubscribeController`),
+   mai visti dall'hook originale.
+4. (stesso fix del punto 1) path >255 byte non più troncati prima
+   dell'hashing.
+5. **Accettato e documentato, non corretto**: l'esclusione redazionale
+   non copre un path che non corrisponde a NESSUNA rotta (il routing
+   lancia il 404 prima che il gruppo `web`/`StartSession` sia mai
+   eseguito, verificato empiricamente con un probe temporaneo). Un fix
+   generale (`Route::fallback()` nel gruppo `web`) è stato tentato e
+   SCARTATO dopo aver riprodotto concretamente una regressione peggiore:
+   un fallback GET rompe la corretta individuazione dei verbi
+   alternativi di Laravel, trasformando ogni 405 dell'app in un 404
+   (confermato su `AnalyticsExclusionControllerTest`). Impatto
+   accettato: un link mal digitato da un redattore autenticato verso un
+   path del tutto inesistente può comparire nel registro — rumore
+   minimo e autoreferenziale, mai una corruzione di analytics o
+   contenuti reali come nel finding P1 del Cantiere 22.
 
 ### 23 — Audit 404/redirect/canonical incoerenti
 
