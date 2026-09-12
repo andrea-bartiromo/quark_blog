@@ -30,8 +30,15 @@ class DeployVerifyDatabaseBackup extends Command
         }
 
         if ($report['latest'] === null) {
-            $this->warn("Nessun backup MariaDB valido trovato in {$report['directory']}.");
+            $this->warn("Nessun backup MariaDB valido trovato in {$report['directory']} per l'identità database corrente.");
             $this->line("Eseguire 'php artisan backup:database-v2' manualmente prima di procedere (vedi docs/DEPLOYMENT.md).");
+
+            return self::FAILURE;
+        }
+
+        if ($report['max_age_invalid']) {
+            $this->warn('DB_BACKUP_MAX_AGE_HOURS è configurato ma non è un intero positivo valido: il controllo di staleness non può essere applicato.');
+            $this->line('Correggere DB_BACKUP_MAX_AGE_HOURS nel .env di produzione (vedi .env.production.example).');
 
             return self::FAILURE;
         }
