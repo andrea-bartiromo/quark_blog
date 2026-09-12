@@ -58,8 +58,8 @@
       <div class="author-premium-hero__avatar" aria-hidden="{{ $author->photo ? 'false' : 'true' }}">
         @if($author->photo)
           <x-responsive-image
-              disk-name="{{ $author->photo }}"
-              alt="{{ $author->name }}"
+              :disk-name="$author->photo"
+              :alt="$author->name"
               sizes="(max-width: 980px) 104px, 118px"
               loading="eager"
           />
@@ -121,10 +121,10 @@
             <a href="{{ route('articolo', $article->slug) }}" class="public-result-card">
               <figure class="public-result-card__media">
                 <x-responsive-image
-                    disk-name="{{ $article->cover_image ?? 'placeholder-1.svg' }}"
-                    alt="{{ $article->title }}"
+                    :disk-name="$article->cover_image ?? 'placeholder-1.svg'"
+                    :alt="$article->title"
                     sizes="180px"
-                    onerror-src="{{ asset('assets/img/placeholder-1.svg') }}"
+                    :onerror-src="asset('assets/img/placeholder-1.svg')"
                 />
               </figure>
 
