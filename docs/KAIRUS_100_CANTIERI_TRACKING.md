@@ -60,7 +60,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 26 | Audit media (mancanti/alt/peso/formati/crediti) | merged | [#574](https://github.com/andrea-bartiromo/quark_blog/pull/574) | 9052d4f | 10/10 (audit) + 3/3 (comando); più ampia (Media): 479/479 (1644 assert.) | 1 reale (fixato: measureActual non disattivato verso MediaWebpAuditService, causando conversioni WebP reali e sprecate per ogni candidato) | 21 |
 | 27 | Baseline performance lab | merged | [#575](https://github.com/andrea-bartiromo/quark_blog/pull/575) | `4652984` | N/A (nessun file PHP toccato); 4390 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`); validazione end-to-end reale: 18/18 combinazioni superficie/viewport misurate con successo (vedi docs/PERFORMANCE_LAB_BASELINE.md) | 3 (tutti reali, tutti corretti: isolamento traffico terze parti, validazione risposta, verifica ownership server) | 21 |
 | 28 | Test browser navigazione tastiera | merged | [#576](https://github.com/andrea-bartiromo/quark_blog/pull/576) | `bfa4d83` | 12/12 (nuovo tests/browser/keyboard-navigation.spec.js); suite completa: 4390 passed, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 (tutti reali, tutti corretti: traversata partiva dopo skip-link, loop-detection su tag/classe/id anziche' identita' reale, indicatore di focus non confrontato con lo stato senza focus) | 21 |
-| 29 | Audit WCAG interno | pending | — | — | — | — | 21 |
+| 29 | Audit WCAG interno | open | — | — | 14/14 (servizio) + 6/6 (comando, incl. 2 regressioni reali) | — | 21 |
 | 30 | Dashboard admin Salute pubblica | pending | — | — | — | — | 22-29 |
 | 31 | Severità e presa in carico audit | pending | — | — | — | — | 30 |
 | 32 | Report articoli con carenze editoriali | pending | — | — | — | — | 30 |
@@ -134,6 +134,39 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 29 — Audit WCAG interno
+
+Ispezione preliminare: `docs/PUBLIC_A11Y_RESPONSIVE_HANDOFF.md` (Cantiere
+I, programma precedente e distinto) e' un audit MANUALE una tantum,
+limitato a 7 superfici deliberatamente scelte, mai ripetibile
+automaticamente — nessun servizio PHP esistente verifica contrasto/
+heading/landmark/alt/nome-accessibile in `app/`. `PublicPageInventory`
+(Cantiere 21) copre invece 18 pagine, incluse 9 (redazione, chi-siamo,
+contatti, privacy, cookie, termini, rettifiche, metodologia, autore)
+mai controllate manualmente: gap genuino, non duplicazione.
+
+`App\Services\PublicPages\WcagInternalAudit` (nuovo) itera l'intero
+inventario via `InProcessPageFetcher` (stesso pattern di
+`RedirectAndCanonicalIntegrityAudit`) e verifica staticamente (senza
+browser — `tests/browser/keyboard-navigation.spec.js`, Cantiere 28,
+copre gia' il comportamento REALE da tastiera): `<html lang>`,
+esattamente un `<h1>`, nessun salto di livello heading, landmark
+`header`/`main`/`footer`, skip-link che punta a un id realmente
+esistente, `<img>` con attributo `alt` (anche vuoto per contenuto
+decorativo), nome accessibile su ogni link/pulsante. Comando
+`pages:wcag-audit`.
+
+Eseguito per davvero, ha trovato 2 regressioni genuine (mai finding
+Codex, scoperte dall'audit stesso), entrambe corrette nella stessa PR:
+(1) pagina Contatti con salto h1→h3 (nessun h2 intermedio) — corretto
+h3→h2, CSS `.premium-widget` esteso per non alterare la resa visiva;
+(2) la home priva di QUALUNQUE `<h1>` quando non esiste ancora un
+articolo pubblicato (`$featured` nullo — stato legittimo, es. sito
+appena installato): l'unico h1 viveva dentro
+`home/partials/hero-trending.blade.php`, interamente condizionato a
+`@if($featured)` — corretto con un `<h1 class="sr-only">` di fallback,
+visibile solo in quello stato esatto.
 
 ### 28 — Test browser navigazione tastiera
 

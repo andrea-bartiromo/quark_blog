@@ -87,7 +87,7 @@
       <aside class="premium-side-list">
         <section class="premium-widget">
           <span class="premium-widget__kicker">Risposte</span>
-          <h3>Tempi medi</h3>
+          <h2>Tempi medi</h2>
           <div class="premium-info-list">
             @foreach([
               ['Segnalazioni errori', '24 ore'],
@@ -105,7 +105,7 @@
 
         <section class="premium-widget">
           <span class="premium-widget__kicker">Link utili</span>
-          <h3>Altre opzioni</h3>
+          <h2>Altre opzioni</h2>
           <div class="premium-link-list">
             <a href="{{ route('rettifiche') }}">🔄 Richiedere una rettifica</a>
             <a href="{{ route('pubblicita') }}">📢 Pubblicità e sponsorizzazioni</a>

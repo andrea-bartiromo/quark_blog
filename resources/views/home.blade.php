@@ -111,6 +111,20 @@ SVG;
     query — $homePaths resta la stessa variabile calcolata da
     HomeController::index().
 --}}
+@unless($featured)
+  {{--
+      Cantiere 29 (programma 100-cantieri Kairus): home/partials/hero-trending.blade.php
+      contiene l'UNICO <h1> della home, ma solo dentro un @if($featured) —
+      un sito appena installato o senza articoli pubblicati (stato
+      legittimo, non un errore) restava allora senza alcun <h1>, un salto
+      dell'intera gerarchia heading rilevato dal nuovo audit WCAG
+      (WcagInternalAudit) su un database di test vuoto. Nessun cambiamento
+      visivo quando esiste un articolo in evidenza: questo fallback compare
+      solo nell'esatto stato in cui la sezione con l'h1 reale non
+      renderizza affatto.
+  --}}
+  <h1 class="sr-only">{{ config('laboratorio.name') }}</h1>
+@endunless
 @include('home.partials.hero-trending')
 
 <div class="container container--wide kairus-page-shell">
