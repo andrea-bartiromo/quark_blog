@@ -188,10 +188,11 @@ class CategoryPaginationV1RegressionTest extends TestCase
         }
 
         $categoryLabel = Category::options(false)['energia'];
+        $escapedCategoryLabel = e($categoryLabel);
 
         $pageOne = $this->get(route('categoria', ['slug' => 'energia', 'utm_source' => 'test']));
         $pageOne->assertOk();
-        $pageOne->assertSee('<title>'.$categoryLabel.' — '.config('laboratorio.name').'</title>', false);
+        $pageOne->assertSee('<title>'.$escapedCategoryLabel.' — '.config('laboratorio.name').'</title>', false);
         $pageOne->assertSee('<link rel="canonical" href="'.route('categoria', 'energia').'">', false);
         $pageOne->assertDontSee('Pagina 1', false);
 
