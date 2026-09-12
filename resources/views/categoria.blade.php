@@ -157,9 +157,17 @@
               (mai su una pagina da 1-3 articoli, dove non c'è nulla da
               "interrompere"). grid-column:1/-1 (editorial-system.css) la
               fa occupare l'intera riga della griglia.
+
+              Cantiere 3: role="presentation" su questo <li> — non è un
+              articolo come gli altri <li> del <ul>, ed è l'unico modo per
+              non far annunciare a chi naviga con screen reader un elenco
+              di "N articoli" che in realtà ne contiene N-1 più un modulo
+              di iscrizione. Il contenuto resta comunque raggiungibile:
+              newsletter-cta.blade.php è un <section> con nome accessibile
+              proprio (landmark "region"), non un elemento nascosto.
           --}}
           @if($loop->iteration === 3 && ! $loop->last)
-          <li class="kairus-category-newsletter-slot">
+          <li class="kairus-category-newsletter-slot" role="presentation">
             @include('categories.partials.newsletter-cta')
           </li>
           @endif

@@ -126,6 +126,50 @@ class CategoryDiscoveryFlowTest extends TestCase
         $this->assertSame(4, $totalCards);
     }
 
+    /**
+     * Cantiere 3 (programma 100-cantieri Kairus): il <li> che ospita la CTA
+     * newsletter non è un articolo come gli altri <li> del <ul> — senza
+     * role="presentation" chi naviga con screen reader sentirebbe annunciare
+     * un elenco di N articoli che in realtà ne contiene N-1 più un modulo di
+     * iscrizione. Il contenuto resta comunque raggiungibile: la CTA è un
+     * <section> con nome accessibile proprio (landmark "region").
+     */
+    public function test_newsletter_cta_list_item_is_marked_presentational_and_the_cta_keeps_its_own_landmark(): void
+    {
+        for ($i = 0; $i < 4; $i++) {
+            $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
+        }
+
+        $response = $this->get(route('categoria', 'energia'));
+
+        $response->assertOk();
+        $response->assertSee('<li class="kairus-category-newsletter-slot" role="presentation">', false);
+        $response->assertSee('<section class="kairus-category-newsletter" aria-labelledby="category-newsletter-heading">', false);
+        $response->assertSee('<h2 id="category-newsletter-heading">', false);
+    }
+
+    /**
+     * Cantiere 3: input e bottone del form devono avere lo stesso
+     * trattamento :focus-visible (classe "kairus-focusable", vedi
+     * editorial-system.css Missione 14) già usato da ogni altro elemento
+     * interattivo del design system Kairus — mancante nella prima versione
+     * introdotta dal Cantiere 1.
+     */
+    public function test_newsletter_cta_form_controls_have_the_shared_focus_visible_treatment(): void
+    {
+        for ($i = 0; $i < 4; $i++) {
+            $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
+        }
+
+        $response = $this->get(route('categoria', 'energia'));
+        $content = $response->getContent();
+
+        $response->assertOk();
+        // Input email + bottone submit: due elementi interattivi, entrambi
+        // con la classe condivisa.
+        $this->assertSame(2, substr_count($content, 'class="kairus-focusable"'));
+    }
+
     public function test_newsletter_cta_is_absent_when_the_page_has_three_or_fewer_articles(): void
     {
         for ($i = 0; $i < 3; $i++) {

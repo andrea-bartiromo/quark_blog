@@ -34,7 +34,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 |---|---|---|---|---|---|---|---|
 | 1 | Nuovo flusso UX pagine categoria | merged | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | `a5af463` | 172/172 (1049 assert.) | 1 reale (fixato: allowlist newsletter `source=category`) | — |
 | 2 | Chip categorie → componente Blade accessibile | merged | [#553](https://github.com/andrea-bartiromo/quark_blog/pull/553) | `83446de` | 35/35 (1267 assert.) | 2 reali (fixati: landmark aria duplicato; classe non-kairus in components/kairus/) | 1 |
-| 3 | Newsletter categorie → CTA contestuale | pending | — | — | — | — | 1 |
+| 3 | Newsletter categorie → CTA contestuale | in_progress | [#554](https://github.com/andrea-bartiromo/quark_blog/pull/554) | — | 75/75 (1768 assert.) | 0 | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | pending | — | — | — | — | 1, 4 |
 | 6 | Test feature/browser composizione categorie | pending | — | — | — | — | 1-5 |
@@ -134,6 +134,27 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 3 — Newsletter categorie → CTA contestuale
+
+Ispezione preliminare: il Cantiere 1 aveva già introdotto il meccanismo di
+base (CTA dopo la terza card, `source="category"`, form funzionante e
+testato) — la nota lasciata in quel commit rimandava esplicitamente al
+Cantiere 3 la "distinzione visiva/di accessibilità". Nessuna duplicazione:
+questo cantiere completa esattamente ciò che era stato deliberatamente
+rimandato.
+
+Due correzioni reali, non solo estetiche: (1) il `<li>` che ospita la CTA
+dentro il `<ul>` della griglia articoli non è un articolo — senza
+`role="presentation"` chi naviga con screen reader sentirebbe annunciare
+un elenco di N articoli che in realtà ne contiene N-1 più un modulo di
+iscrizione; il contenuto resta comunque raggiungibile perché la CTA è
+diventata un `<section aria-labelledby="...">` con nome accessibile
+proprio (landmark "region"), non un `<div>` generico. (2) input e bottone
+del form non avevano il trattamento `:focus-visible` (classe condivisa
+`kairus-focusable`) già usato da ogni altro elemento interattivo del
+design system Kairus (article-card, path-card, path-step) — aggiunto per
+coerenza.
 
 ### 2 — Chip categorie → componente Blade accessibile
 
