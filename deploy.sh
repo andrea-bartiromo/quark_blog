@@ -123,6 +123,18 @@ php artisan deploy:verify-cache-paths || fail "Cached config paths do not match 
 echo "Verifying every scheduled command in routes/console.php is actually registered by Artisan in this exact release."
 php artisan deploy:verify-scheduled-commands || fail "Scheduled command verification failed — see output above. This is the exact newsletter:reconfirmation-cleanup incident class: refusing to deploy."
 
+# docs/CPANEL_FRONT_CONTROLLER_RUNBOOK.md (Cantiere 16, programma
+# Kairus 100 cantieri): public/.htaccess è la parte del livello
+# Apache/cPanel che questo repository può verificare in CI, perché è
+# l'unico file git-tracked — a differenza di ~/public_html/index.php e
+# ~/public_html/.htaccess (le copie realmente servite, fuori dalla
+# portata di qualunque comando qui). Blocca il rilascio se una modifica
+# ha rimosso una direttiva critica (blocco .env/.git, front controller,
+# header di sicurezza) prima che un operatore la copi in public_html
+# seguendo il runbook stesso.
+echo "Verifying public/.htaccess still contains every critical directive documented in docs/CPANEL_FRONT_CONTROLLER_RUNBOOK.md."
+php artisan deploy:verify-front-controller || fail "public/.htaccess is missing one or more critical directives — see output above and docs/CPANEL_FRONT_CONTROLLER_RUNBOOK.md."
+
 # Causa reale confermata sull'host di produzione (dopo #541): la release
 # in esecuzione non era un checkout Git e il suo vendor/ — con
 # classmap-authoritative attivo, collegato da un'altra directory — non

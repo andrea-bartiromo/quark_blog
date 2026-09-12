@@ -424,6 +424,30 @@ class DeploymentSafetyTest extends TestCase
     }
 
     /**
+     * Cantiere 16 (programma 100-cantieri Kairus, dipende dal Cantiere 15 —
+     * vedi docs/CPANEL_FRONT_CONTROLLER_RUNBOOK.md): stesso pattern già
+     * verificato sopra per deploy:verify-scheduled-commands — il gate
+     * deve girare dopo il refresh cache e prima che la release sia
+     * altrimenti finalizzata.
+     */
+    public function test_production_deploy_verifies_the_front_controller_htaccess_via_a_dedicated_gate_command(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('php artisan deploy:verify-front-controller', $script);
+
+        $cachePosition = strpos($script, 'php artisan view:cache');
+        $gatePosition = strpos($script, 'php artisan deploy:verify-front-controller');
+        $chmodPosition = strpos($script, 'chmod -R 755 storage bootstrap/cache');
+
+        $this->assertNotFalse($cachePosition);
+        $this->assertNotFalse($gatePosition);
+        $this->assertNotFalse($chmodPosition);
+        $this->assertGreaterThan($cachePosition, $gatePosition, 'The front-controller gate must run after the same cache refresh a real release goes through.');
+        $this->assertLessThan($chmodPosition, $gatePosition, 'The front-controller gate must run before the release is otherwise finalized.');
+    }
+
+    /**
      * Causa reale confermata sull'host di produzione dopo #541:
      * ~/kairus_app non era un checkout Git e il suo vendor/ — collegato
      * da altrove, con classmap-authoritative — non conteneva affatto
