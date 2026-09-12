@@ -39,8 +39,22 @@ class CategoryController extends Controller
             ]);
         }
 
+        // Cantiere 12 (programma 100-cantieri Kairus): checklist di
+        // attivazione visibile direttamente nell'elenco, non solo dopo
+        // aver aperto "Modifica" su una singola categoria — un editor che
+        // scorre la lista deve poter individuare a colpo d'occhio quali
+        // categorie non ancora pubbliche sono davvero pronte prima di
+        // attivarle. Calcolata SOLO per le categorie non ancora
+        // pubblicamente visibili: una già pubblica non ha più senso
+        // "verificarla prima di attivarla".
+        $categories = Category::ordered()->withCount('articles')->get();
+        $readinessByCategory = $categories
+            ->reject(fn (Category $category) => $category->isPubliclyVisible())
+            ->mapWithKeys(fn (Category $category) => [$category->id => $this->readiness->evaluate($category)]);
+
         return view('admin.categories', [
-            'categories' => Category::ordered()->withCount('articles')->get(),
+            'categories' => $categories,
+            'readinessByCategory' => $readinessByCategory,
         ]);
     }
 
