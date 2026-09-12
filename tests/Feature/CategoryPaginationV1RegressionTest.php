@@ -198,8 +198,8 @@ class CategoryPaginationV1RegressionTest extends TestCase
 
         $pageTwo = $this->get(route('categoria', ['slug' => 'energia', 'page' => 2, 'utm_source' => 'test']));
         $pageTwo->assertOk();
-        $pageTwo->assertSee('<title>'.$categoryLabel.' — Pagina 2 — '.config('laboratorio.name').'</title>', false);
-        $pageTwo->assertSee('content="Tutti gli articoli di Kairus su '.$categoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno. Pagina 2."', false);
+        $pageTwo->assertSee('<title>'.$escapedCategoryLabel.' — Pagina 2 — '.config('laboratorio.name').'</title>', false);
+        $pageTwo->assertSee('content="Tutti gli articoli di Kairus su '.$escapedCategoryLabel.': scienza, tecnologia e innovazione spiegate in modo moderno. Pagina 2."', false);
         $pageTwo->assertSee('<link rel="canonical" href="'.route('categoria', ['slug' => 'energia', 'page' => 2]).'">', false);
     }
 
