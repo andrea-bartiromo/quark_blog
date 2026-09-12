@@ -33,7 +33,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
 | 1 | Nuovo flusso UX pagine categoria | merged | [#552](https://github.com/andrea-bartiromo/quark_blog/pull/552) | `a5af463` | 172/172 (1049 assert.) | 1 reale (fixato: allowlist newsletter `source=category`) | — |
-| 2 | Chip categorie → componente Blade accessibile | pending | — | — | — | — | 1 |
+| 2 | Chip categorie → componente Blade accessibile | in_progress | [#553](https://github.com/andrea-bartiromo/quark_blog/pull/553) | — | 166/166 (1087 assert.) | 0 | 1 |
 | 3 | Newsletter categorie → CTA contestuale | pending | — | — | — | — | 1 |
 | 4 | Più letti → 3 articoli, esclusi duplicati pagina | pending | — | — | — | — | 1 |
 | 5 | Blocco unitario "Continua a esplorare" | pending | — | — | — | — | 1, 4 |
@@ -134,6 +134,27 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 2 — Chip categorie → componente Blade accessibile
+
+Ispezione preliminare: il markup del chip-row "Argomenti" era duplicato tra
+`notizie.blade.php` (categoria corrente sempre "Tutti") e `categoria.blade.php`
+(Cantiere 1). Estratto in `x-kairus.topic-chips` (`options`, `current`).
+
+Finding tecnico scoperto durante l'estrazione (non un bug applicativo, un
+comportamento di compilazione Blade): passare un'espressione dinamica
+(una chiamata di funzione, es. `Category::publicOptions()`) direttamente
+come attributo `:options="..."` di un componente anonimo la fa valutare
+DUE volte dal template compilato (una per costruire i dati del
+componente, una per `$component->withAttributes()`), raddoppiando query
+o altri side-effect. Confermato con `DB::getQueryLog()` +
+`(new Exception())->getTraceAsString()` temporanei in
+`Category::publicOptions()`, che hanno mostrato due chiamate dallo stesso
+file compilato a righe diverse. Corretto calcolando il valore in una
+variabile locale (`$topicChipOptions`) nel blocco `@php` esistente di
+`notizie.blade.php` prima di passarlo al componente — zero query in più
+rispetto a prima dell'estrazione. `categoria.blade.php` non era a
+rischio: passava già una variabile, non una chiamata di funzione.
 
 ### 1 — Nuovo flusso UX pagine categoria
 

@@ -23,6 +23,13 @@
     // volta per ciascun articolo della pagina — fino a 12 query identiche
     // per singola richiesta a /notizie, invece di una sola.
     $categoryOptions = \App\Models\Category::options(false);
+
+    // Cantiere 2 (programma 100-cantieri Kairus): calcolato qui, non
+    // inline nell'attributo del componente sotto — Blade valuta due volte
+    // l'espressione di un attributo dinamico passato a un componente
+    // anonimo (una per costruire i dati del componente, una per
+    // $component->withAttributes()), raddoppiando altrimenti questa query.
+    $topicChipOptions = \App\Models\Category::publicOptions();
 @endphp
 
 @section('content')
@@ -51,12 +58,14 @@
       </x-slot:meta>
     </x-kairus.page-header>
 
-    <div class="public-pill-row">
-      <a href="{{ route('notizie') }}" class="active">Tutti</a>
-      @foreach(\App\Models\Category::publicOptions() as $slug => $label)
-        <a href="{{ route('categoria', $slug) }}">{{ $label }}</a>
-      @endforeach
-    </div>
+    {{--
+        Cantiere 2 (programma 100-cantieri Kairus): componente condiviso con
+        categoria.blade.php (x-topic-chips). $topicChipOptions (sopra)
+        è Category::publicOptions() come prima — mai $categoryOptions, che è
+        la lista completa usata solo per le etichette badge in riga 77 più
+        sotto.
+    --}}
+    <x-topic-chips :options="$topicChipOptions" />
 
     <div class="public-premium-layout kairus-sidebar-layout">
       <section>
