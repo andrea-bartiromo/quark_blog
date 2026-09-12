@@ -53,7 +53,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 19 | Verifica automatica backup MariaDB | merged | [#567](https://github.com/andrea-bartiromo/quark_blog/pull/567) | `9673d98` | 12/12 (audit) + 5/5 (comando), 38 assert.; suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 3 reali (fixati: filtro per identityHash mancante, hash di tutta la storia backup invece del solo candidato più recente, soglia età invalida ignorata silenziosamente) | — |
 | 20 | Report read-only deploy readiness | merged | [#568](https://github.com/andrea-bartiromo/quark_blog/pull/568) | `1fd4bac` | 4/4 (8 assert.); Deploy*: 146/146 (526 assert., 1 skip pre-esistente); suite CI completa verde (1 fallimento pre-esistente ContentClusterAutoLifecycleCompletionTest:231, identico e non bloccante) | 0 (nessun finding Codex) | 15-19 |
 | 21 | Inventario tecnico pagine pubbliche | merged | [#569](https://github.com/andrea-bartiromo/quark_blog/pull/569) | `09cba8d` | 12/12 (audit) + 3/3 (comando); più ampia (PublicPages\|Category): 261/261 (893 assert.) | 1 reale (fixato: campione categoria ignorava il fallback legacy solo-config di Category::publicOptions()) | — |
-| 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | pending | — | — | — | — | 21 |
+| 22 | Audit HTTP/canonical/robots/SEO/JSON-LD | open | [#570](https://github.com/andrea-bartiromo/quark_blog/pull/570) | — | 8/8 (audit) + 2/2 (comando); più ampia (PublicPages\|Canonical\|StructuredData\|Seo): 176/176 (786 assert.) | 0 (nessun finding Codex ricevuto finora) | 21 |
 | 23 | Audit 404/redirect/canonical incoerenti | pending | — | — | — | — | 21 |
 | 24 | Registro interno aggregato 404 | pending | — | — | — | — | 23 |
 | 25 | Audit link interni rotti / esterni irraggiungibili | pending | — | — | — | — | 21 |
@@ -134,6 +134,38 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 22 — Audit HTTP/canonical/robots/SEO/JSON-LD
+
+Ispezione preliminare: ogni test canonical/SEO/JSON-LD esistente
+(`ArchivePaginationCanonicalTest`, `HomeStructuredDataTest`,
+`ArticleStructuredDataTest`, `CollectionPageStructuredDataTest`,
+`ContentClusterStructuredDataTest`, `AuthorStructuredDataTest`,
+`RobotsSitemapDiscoveryTest`) copre UN singolo tipo di pagina
+hardcoded, mai una generalizzazione su tutti i tipi. `SeoController`
+gestisce solo sitemap/feed. `SeoMetadataQualityAuditService` (Mission
+15) è un audit content-level per-Articolo (stringhe statiche), mai
+HTTP-level, mai su altri tipi di pagina. Gap genuino, ora colmabile
+grazie al catalogo del Cantiere 21.
+
+Aggiunto `App\Services\PublicPages\PublicPageSeoAudit` + il comando
+`php artisan pages:seo-audit`: per ogni tipo di pagina con un
+`sample_url` disponibile, un vero GET in-process (stesso meccanismo di
+`MakesHttpRequests::call()`, mai una vera chiamata di rete) verifica
+stato HTTP, title/description non vuoti, canonical presente e
+auto-riferimento, JSON-LD solo per i tipi che hanno già un partial
+dedicato (home, categoria, articolo, percorso, percorsi index, autore —
+mai un'aspettativa inventata sulle pagine statiche/di utilità). Il meta
+robots è riportato ma mai giudicato (noindex può essere una scelta
+editoriale legittima).
+
+Scoperta reale durante i test, documentata ma non corretta in questo
+cantiere (resta una decisione SEO/editoriale, non una correzione
+automatica — "il sistema prepara/verifica/propone"):
+`resources/views/ricerca.blade.php` e
+`resources/views/cookie.blade.php` non impostano mai
+`@section('canonical', ...)`, a differenza di ogni altra pagina
+statica.
 
 ### 21 — Inventario tecnico pagine pubbliche
 
