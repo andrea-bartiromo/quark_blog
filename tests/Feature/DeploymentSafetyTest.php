@@ -289,6 +289,48 @@ class DeploymentSafetyTest extends TestCase
     }
 
     /**
+     * Cantiere 18 (programma 100-cantieri Kairus): stessa esigenza già
+     * coperta sopra per il registro rilasci, per la variabile del backup
+     * MariaDB — un operatore che segue solo questo file come checklist di
+     * configurazione deve poter scoprire anche DB_BACKUP_DIRECTORY.
+     */
+    public function test_production_environment_example_documents_the_backup_directory_variable(): void
+    {
+        $env = file_get_contents(base_path('.env.production.example'));
+
+        $this->assertIsString($env);
+        $this->assertStringContainsString('DB_BACKUP_DIRECTORY', $env);
+    }
+
+    /**
+     * Cantiere 18 (programma 100-cantieri Kairus): con lo schema a
+     * directory separate + switch di symlink, un percorso pensato per
+     * sopravvivere tra un rilascio e l'altro ma lasciato dentro la
+     * directory di release corrente verrebbe perduto in silenzio al
+     * deploy successivo. Solo informativo — mai `|| fail`, stesso
+     * principio già in uso per release:record-registry: un .env di
+     * produzione già esistente e funzionante non deve iniziare
+     * improvvisamente a bloccare i rilasci per una configurazione mai
+     * stata un requisito fin qui.
+     */
+    public function test_production_deploy_checks_persistent_storage_paths_without_ever_blocking(): void
+    {
+        $script = $this->deployScript();
+
+        $this->assertStringContainsString('php artisan deploy:verify-persistent-storage || true', $script);
+
+        $assetDriftPosition = strpos($script, 'php artisan deploy:asset-drift');
+        $preflightPosition = strpos($script, 'php artisan deploy:verify-persistent-storage');
+        $revisionWritePosition = strpos($script, "printf '%s\\n' \"\$ACTUAL_SHA\" > REVISION");
+
+        $this->assertNotFalse($assetDriftPosition);
+        $this->assertNotFalse($preflightPosition);
+        $this->assertNotFalse($revisionWritePosition);
+        $this->assertGreaterThan($assetDriftPosition, $preflightPosition, 'The persistent-storage preflight must run after the other release checks.');
+        $this->assertLessThan($revisionWritePosition, $preflightPosition, 'The persistent-storage preflight must run before REVISION/DEPLOY_INFO are written, like every other check.');
+    }
+
+    /**
      * Prompt 7 (programma 100-prompt Kairus): release:record-registry
      * deve girare come ultimissimo passo, dopo che REVISION/DEPLOY_INFO
      * sono già stati scritti — non è un gate, non deve mai poter

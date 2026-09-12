@@ -58,6 +58,12 @@ php artisan release:registry
 
 Exits `0` always; prints a table of every registered revision with its earliest `deployed`/`verified`/`measured` timestamp, or an explanatory message when the registry is disabled or empty. `--json` returns the same data as JSON for tooling.
 
+## Persistent storage preflight (Cantiere 18, programma Kairus 100 cantieri)
+
+The release registry above is one instance of a broader class of risk: **any** path meant to survive across releases, but left pointing inside the current release directory, is silently lost the moment the next deploy's symlink switch retires this directory. Database backups (`config('backup.v2.directory')`, `DB_BACKUP_DIRECTORY`) are the other checked instance — unlike the release registry, the backup directory always has a default (`storage_path('backups/mariadb')`), which is itself inside the release directory, so a production `.env` that never overrides it would silently lose every MariaDB backup — and the 7-copy retention documented in `docs/STORAGE_AUDIT.md` — on the very next deploy.
+
+`App\Services\Deploy\PersistentStoragePreflight` (`php artisan deploy:verify-persistent-storage`) checks both paths and reports any that resolve inside this release's own directory. **Informational only** — `deploy.sh` calls it without `|| fail` (same principle as `release:record-registry`): an existing, working production `.env` must never suddenly start blocking deploys over a configuration that was never a hard requirement until now. Review its warning and set `DB_BACKUP_DIRECTORY` (and `DEPLOY_RELEASE_REGISTRY_PATH`, if using the release registry) to a path outside `~/kairus_app` — see `.env.production.example`.
+
 ## What stays SQLite
 
 SQLite is intentionally retained for local development, PHPUnit and the deterministic Playwright/browser environment. Do not replace those uses merely because production uses MariaDB/MySQL.
