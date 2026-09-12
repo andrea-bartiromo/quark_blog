@@ -12,6 +12,14 @@
  * che aveva rimandato questo lavoro per mancanza di un browser
  * affidabile in quella sessione — non piu' il caso qui).
  *
+ * Complementare (non un doppione) a scripts/cwv-baseline.mjs — vedi
+ * docs/CWV_BASELINE_RUNNER.md e docs/PERFORMANCE_LAB.md per il
+ * confronto. A differenza di quello strumento, blocca ogni richiesta
+ * di terze parti prima della navigazione: in questo ambiente
+ * sandboxato Google Fonts fallisce con ERR_CONNECTION_RESET e il
+ * retry/backoff del browser domina 'load' su ogni pagina in modo
+ * identico, mascherando qualunque differenza reale first-party.
+ *
  * Sola lettura: nessuna scrittura sull'applicazione. Avvia un proprio
  * `php artisan serve` (mai il server di produzione), lo interroga con
  * richieste GET reali, lo termina alla fine. L'unico output persistito
@@ -31,6 +39,7 @@ import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -51,8 +60,45 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(__dirname);
 
 const HOST = '127.0.0.1';
-const PORT = 8199; // Porta dedicata, diversa da quella di playwright.config.js (8000): non deve mai competere con un `test:browser` in corso sulla stessa macchina.
-const BASE_URL = `http://${HOST}:${PORT}`;
+
+/**
+ * Porta libera scelta a runtime (mai una fissa, es. 8199): un valore
+ * fisso rischierebbe di trovare un server GIA' in ascolto (un'altra
+ * esecuzione di questo stesso script, o un servizio non correlato) —
+ * waitForServer() accetterebbe quella risposta come "pronta" senza
+ * sapere che non e' il server appena avviato da questo processo
+ * (Codex, PR #575).
+ */
+async function findFreePort() {
+    return new Promise((resolve, reject) => {
+        const probe = createServer();
+        probe.unref();
+        probe.on('error', reject);
+        probe.listen(0, HOST, () => {
+            const { port } = probe.address();
+            probe.close(() => resolve(port));
+        });
+    });
+}
+
+/**
+ * Host di terze parti visti caricare risorse dalle superfici pubbliche
+ * (Google Fonts, Google Tag Manager/Analytics, TinyMCE, jsDelivr — vedi
+ * SecurityHeaders Content-Security-Policy). In questo ambiente
+ * sandboxato una richiesta a fonts.googleapis.com fallisce con
+ * ERR_CONNECTION_RESET e il retry/backoff del browser blocca 'load'
+ * per ~12-13 secondi su OGNI pagina in modo pressoche' identico — un
+ * artefatto d'ambiente gia' diagnosticato e documentato in
+ * docs/CWV_BASELINE_RUNNER.md per scripts/cwv-baseline.mjs, non un
+ * problema dell'applicazione (Codex, PR #575, P1). Bloccare qui ogni
+ * richiesta cross-origin rispetto a BASE_URL isola la misura al solo
+ * first-party, coerente con lo scopo dello strumento (confrontare
+ * QUESTA applicazione prima/dopo, non la raggiungibilita' di servizi
+ * di terzi che nessuna PR di questo repository puo' cambiare).
+ */
+function isThirdParty(requestUrl, baseUrl) {
+    return new URL(requestUrl).origin !== new URL(baseUrl).origin;
+}
 
 // Stesse route e larghezze di tests/browser/public-regression.spec.js:
 // stessa fixture deterministica (BrowserTestSeeder), cosi' un confronto
@@ -86,9 +132,26 @@ function median(values) {
     return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-async function waitForServer(url, timeoutMs) {
+/**
+ * Attende che BASE_URL risponda, ma abbandona subito se il processo
+ * `php artisan serve` appena avviato è già uscito (porta occupata da
+ * qualcos'altro, PHP mancante, ecc.) invece di continuare a interrogare
+ * una risposta che potrebbe provenire da un servizio non correlato
+ * (Codex, PR #575, P2) — con una porta scelta a runtime questo resta
+ * comunque un controllo di sicurezza in più, non l'unica difesa.
+ */
+async function waitForServer(url, timeoutMs, serverProcess) {
     const deadline = Date.now() + timeoutMs;
+    let serverExited = false;
+    serverProcess.once('exit', () => {
+        serverExited = true;
+    });
+
     while (Date.now() < deadline) {
+        if (serverExited) {
+            throw new Error('Il processo php artisan serve è terminato prima di rispondere.');
+        }
+
         try {
             const response = await fetch(url);
             if (response.status < 500) return;
@@ -100,11 +163,27 @@ async function waitForServer(url, timeoutMs) {
     throw new Error(`Il server di sviluppo non ha risposto entro ${timeoutMs}ms su ${url}`);
 }
 
-async function measureOnce(browser, url, width) {
+async function measureOnce(browser, baseUrl, url, width) {
     const context = await browser.newContext({ viewport: { width, height: VIEWPORT_HEIGHT } });
+
+    // Isola la misura al solo first-party (vedi isThirdParty()): mai una
+    // vera richiesta di rete verso un dominio esterno da questo script.
+    await context.route('**/*', route => {
+        if (isThirdParty(route.request().url(), baseUrl)) {
+            return route.abort();
+        }
+
+        return route.continue();
+    });
+
     const page = await context.newPage();
 
-    await page.goto(url, { waitUntil: 'load' });
+    const response = await page.goto(url, { waitUntil: 'load' });
+    if (!response || !response.ok()) {
+        await context.close();
+        throw new Error(`${url} ha risposto con stato ${response?.status() ?? 'nessuna risposta'}: campione scartato, non registrato come valido.`);
+    }
+
     // Piccola attesa dopo 'load': in Chromium headless le entry di paint
     // (first-paint/first-contentful-paint) a volte non sono ancora
     // disponibili nel preciso istante in cui l'evento 'load' si dispara —
@@ -136,17 +215,20 @@ async function measureOnce(browser, url, width) {
 async function main() {
     const args = parseArgs(process.argv.slice(2));
 
-    console.log(`Avvio del server di sviluppo su ${BASE_URL} (mai il server di produzione)...`);
-    const server = spawn('php', ['artisan', 'serve', `--host=${HOST}`, `--port=${PORT}`, '--no-reload'], {
+    const port = await findFreePort();
+    const baseUrl = `http://${HOST}:${port}`;
+
+    console.log(`Avvio del server di sviluppo su ${baseUrl} (mai il server di produzione)...`);
+    const server = spawn('php', ['artisan', 'serve', `--host=${HOST}`, `--port=${port}`, '--no-reload'], {
         cwd: repoRoot,
         stdio: 'ignore',
     });
 
     let browser;
-    const report = { collected_at: new Date().toISOString(), base_url: BASE_URL, runs_per_surface: args.runs, surfaces: [] };
+    const report = { collected_at: new Date().toISOString(), base_url: baseUrl, runs_per_surface: args.runs, surfaces: [] };
 
     try {
-        await waitForServer(BASE_URL, 20_000);
+        await waitForServer(baseUrl, 20_000, server);
         browser = await chromium.launch({ executablePath: resolveChromiumExecutable() });
 
         for (const [surfaceName, path] of Object.entries(SURFACES)) {
@@ -154,7 +236,7 @@ async function main() {
                 const samples = [];
                 for (let i = 0; i < args.runs; i++) {
                     // eslint-disable-next-line no-await-in-loop
-                    samples.push(await measureOnce(browser, `${BASE_URL}${path}`, width));
+                    samples.push(await measureOnce(browser, baseUrl, `${baseUrl}${path}`, width));
                 }
 
                 const medians = {};

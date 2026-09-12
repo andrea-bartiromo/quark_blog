@@ -15,6 +15,16 @@ colma entrambi i gap: Chromium/Playwright sono già presenti nel
 progetto (`tests/browser/*.spec.js`), e questo script li riusa per
 produrre una misura ogni volta che serve, non una tantum.
 
+Esiste già anche `scripts/cwv-baseline.mjs` (vedi
+`docs/CWV_BASELINE_RUNNER.md`), che cattura LCP/CLS/INP reali per una
+singola pagina passata via variabili d'ambiente. Questo laboratorio è
+complementare, non un doppione: misura un set fisso di sei superfici
+insieme (non una alla volta), riusa la fixture deterministica invece di
+richiedere un URL manuale, e — a differenza di `cwv-baseline.mjs`,
+che usa `waitUntil: 'networkidle'` ed è quindi esposto alla stessa
+contaminazione — blocca ogni richiesta di terze parti prima della
+navigazione (vedi sotto).
+
 ## Uso
 
 ```
@@ -32,9 +42,25 @@ php artisan migrate:fresh --force
 php artisan db:seed --class="Database\Seeders\BrowserTestSeeder" --force
 ```
 
-Lo script avvia un proprio `php artisan serve` su una porta dedicata
-(8199, mai quella di `test:browser`), lo interroga, lo termina alla
-fine. Non tocca mai un server già in esecuzione né dati di produzione.
+Lo script avvia un proprio `php artisan serve` su una porta libera
+scelta a runtime (mai una fissa: eviterebbe di confondersi con un
+server già in ascolto su quella porta), lo interroga, lo termina alla
+fine — verificando anche che il processo appena avviato non sia già
+uscito prima di considerare il server "pronto". Non tocca mai un
+server già in esecuzione né dati di produzione.
+
+Ogni navigazione blocca esplicitamente qualunque richiesta verso un
+'origin' diverso da quello dell'app (Google Fonts, Google
+Tag Manager/Analytics, TinyMCE, jsDelivr, ecc.): in questo ambiente
+sandboxato una richiesta a `fonts.googleapis.com` fallisce con
+`ERR_CONNECTION_RESET` e il retry/backoff del browser blocca l'evento
+`load` per 12-13 secondi su ogni pagina (vedi
+`docs/CWV_BASELINE_RUNNER.md`) — un artefatto d'ambiente, non
+dell'applicazione. Bloccare le richieste di terze parti isola la
+misura al solo first-party. Una navigazione la cui risposta HTTP non è
+`ok()` (errore applicativo, non ambientale) scarta il campione con un
+errore esplicito invece di registrare un tempo "riuscito" per una
+pagina rotta.
 
 ## Cosa misura
 
