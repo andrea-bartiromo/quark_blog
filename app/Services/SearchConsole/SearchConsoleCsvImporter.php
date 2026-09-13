@@ -2,6 +2,7 @@
 
 namespace App\Services\SearchConsole;
 
+use App\Models\SearchConsoleImportCoverage;
 use App\Models\SearchConsoleQuery;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,14 @@ use Illuminate\Support\Str;
  *
  * L'import è idempotente per periodo: un secondo import dello stesso
  * intervallo sostituisce le righe precedenti.
+ *
+ * Cantiere 1 (programma "Kairus Organic Discovery"): ogni import registra
+ * anche la propria copertura effettiva — property, tipo di report
+ * (query_only/query_page, dedotto dalla presenza della colonna pagina),
+ * righe importate, query assegnate/non assegnate, pagine osservate — via
+ * SearchConsoleImportCoverageService, nella stessa transazione dell'unica
+ * fonte di verità (search_console_queries). Nessuna chiamata OAuth/API:
+ * origin resta sempre 'manual_csv' in questo cantiere.
  */
 class SearchConsoleCsvImporter
 {
@@ -65,13 +74,15 @@ class SearchConsoleCsvImporter
     ];
 
     public function __construct(
-        private readonly SearchConsoleQueryArticleMatcher $matcher
+        private readonly SearchConsoleQueryArticleMatcher $matcher,
+        private readonly SearchConsoleImportCoverageService $coverage,
     ) {}
 
     public function import(
         string $filePath,
         CarbonInterface $periodStart,
-        CarbonInterface $periodEnd
+        CarbonInterface $periodEnd,
+        ?string $property = null,
     ): SearchConsoleImportResult {
         $handle = fopen($filePath, 'r');
 
@@ -183,11 +194,27 @@ class SearchConsoleCsvImporter
                 );
             }
 
+            $reportType = isset($columnIndex['page'])
+                ? SearchConsoleImportCoverage::REPORT_TYPE_QUERY_PAGE
+                : SearchConsoleImportCoverage::REPORT_TYPE_QUERY_ONLY;
+
+            $pagesObservedCount = count(array_unique(array_filter(
+                array_column($rows, 'page_url'),
+                fn (string $pageUrl) => $pageUrl !== ''
+            )));
+
+            $resolvedProperty = $this->coverage->resolveProperty($property);
+
             DB::transaction(
                 function () use (
                     $rows,
                     $periodStart,
-                    $periodEnd
+                    $periodEnd,
+                    $reportType,
+                    $pagesObservedCount,
+                    $resolvedProperty,
+                    $importBatch,
+                    $matched
                 ) {
                     SearchConsoleQuery::query()
                         ->whereDate(
@@ -203,6 +230,18 @@ class SearchConsoleCsvImporter
                     foreach (array_chunk($rows, 500) as $chunk) {
                         SearchConsoleQuery::query()->insert($chunk);
                     }
+
+                    $this->coverage->record([
+                        'property' => $resolvedProperty,
+                        'period_start' => $periodStart,
+                        'period_end' => $periodEnd,
+                        'report_type' => $reportType,
+                        'row_count' => count($rows),
+                        'matched_count' => $matched,
+                        'unmatched_count' => count($rows) - $matched,
+                        'pages_observed_count' => $pagesObservedCount,
+                        'import_batch' => $importBatch,
+                    ]);
                 }
             );
 
@@ -212,6 +251,8 @@ class SearchConsoleCsvImporter
                 unmatched: count($rows) - $matched,
                 errors: $errors,
                 importBatch: $importBatch,
+                property: $resolvedProperty,
+                reportType: $reportType,
             );
         } finally {
             fclose($handle);

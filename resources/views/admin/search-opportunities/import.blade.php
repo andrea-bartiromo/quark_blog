@@ -45,6 +45,15 @@
         <input type="date" name="period_end" value="{{ old('period_end') }}" required class="form-input">
       </div>
 
+      <div class="form-group">
+        <label class="form-label" for="property">Property (opzionale)</label>
+        <input type="text" id="property" name="property" value="{{ old('property') }}" class="form-input"
+               placeholder="{{ config('search-console.default_property') ?: config('app.url') }}">
+        <p style="color:var(--admin-muted);font-size:.78rem;margin-top:.35rem;">
+          Il sito verificato in Search Console da cui proviene l'export. Se lasciato vuoto viene usato il default sopra.
+        </p>
+      </div>
+
       <button type="submit" class="btn btn--primary">Importa</button>
     </form>
   </div>

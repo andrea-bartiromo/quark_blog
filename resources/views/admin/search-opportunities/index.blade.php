@@ -40,6 +40,42 @@
     @endif
   </p>
 
+  @if($coverage->isNotEmpty())
+    <details open style="margin-bottom:1.25rem;">
+      <summary style="cursor:pointer;font-size:.82rem;color:#374151;">Copertura dati ({{ $coverage->count() }})</summary>
+      <div style="overflow-x:auto;margin-top:.6rem;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th scope="col">Property</th>
+              <th scope="col">Periodo</th>
+              <th scope="col">Tipo report</th>
+              <th scope="col">Righe</th>
+              <th scope="col">Assegnate</th>
+              <th scope="col">Non assegnate</th>
+              <th scope="col">Pagine osservate</th>
+              <th scope="col">Importato il</th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($coverage as $row)
+              <tr>
+                <td>{{ $row->property }}</td>
+                <td>{{ $row->period_start->format('d/m/Y') }} – {{ $row->period_end->format('d/m/Y') }}</td>
+                <td>{{ $row->report_type === \App\Models\SearchConsoleImportCoverage::REPORT_TYPE_QUERY_PAGE ? 'Query + Pagina' : 'Query' }}</td>
+                <td>{{ number_format($row->row_count) }}</td>
+                <td>{{ number_format($row->matched_count) }}</td>
+                <td>{{ number_format($row->unmatched_count) }}</td>
+                <td>{{ number_format($row->pages_observed_count) }}</td>
+                <td>{{ $row->imported_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    </details>
+  @endif
+
   @if($importHistory !== [])
     <details style="margin-bottom:1.25rem;">
       <summary style="cursor:pointer;font-size:.82rem;color:#374151;">Cronologia import ({{ count($importHistory) }})</summary>

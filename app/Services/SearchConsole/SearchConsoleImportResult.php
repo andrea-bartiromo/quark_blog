@@ -14,5 +14,7 @@ readonly class SearchConsoleImportResult
         public int $unmatched,
         public array $errors,
         public string $importBatch,
+        public ?string $property = null,
+        public ?string $reportType = null,
     ) {}
 }

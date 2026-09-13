@@ -3,6 +3,7 @@
 namespace Tests\Feature\SearchConsole;
 
 use App\Models\Article;
+use App\Models\SearchConsoleImportCoverage;
 use App\Models\SearchConsoleQuery;
 use App\Models\User;
 use App\Services\SearchConsole\SearchConsoleCsvImporter;
@@ -196,5 +197,96 @@ class SearchConsoleCsvImporterTest extends TestCase
             $row->position,
             0.00001
         );
+    }
+
+    // Cantiere 1 (programma "Kairus Organic Discovery"): copertura effettiva
+    // (property, tipo di report, righe/assegnate/non assegnate/pagine
+    // osservate) registrata dallo stesso import, mai una seconda passata.
+
+    public function test_records_import_coverage_with_property_report_type_and_counts(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        Article::create([
+            'user_id' => $author->id,
+            'title' => 'Onde gravitazionali',
+            'slug' => 'onde-gravitazionali',
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $csv = "query,page,clicks,impressions,ctr,position\n"
+            ."onde gravitazionali,https://kairus.it/articolo/onde-gravitazionali,12,300,4.00%,3.5\n"
+            ."fisica quantistica,https://kairus.it/notizie,2,150,1.33%,15.2\n";
+
+        $path = $this->writeCsv($csv);
+        $result = app(SearchConsoleCsvImporter::class)->import(
+            $path,
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-07'),
+            'https://kairus.it/',
+        );
+
+        $this->assertSame('https://kairus.it/', $result->property);
+        $this->assertSame(SearchConsoleImportCoverage::REPORT_TYPE_QUERY_PAGE, $result->reportType);
+
+        $coverage = SearchConsoleImportCoverage::query()->firstOrFail();
+        $this->assertSame('https://kairus.it/', $coverage->property);
+        $this->assertSame(SearchConsoleImportCoverage::REPORT_TYPE_QUERY_PAGE, $coverage->report_type);
+        $this->assertSame(2, $coverage->row_count);
+        $this->assertSame(1, $coverage->matched_count);
+        $this->assertSame(1, $coverage->unmatched_count);
+        $this->assertSame(2, $coverage->pages_observed_count);
+        $this->assertSame(SearchConsoleImportCoverage::ORIGIN_MANUAL_CSV, $coverage->origin);
+    }
+
+    public function test_query_only_export_is_recorded_with_query_only_report_type_and_no_pages_observed(): void
+    {
+        $csv = implode("\n", [
+            'Query più frequenti,Clic,Impressioni,CTR,Posizione',
+            'kairus,1,43,2.33%,2.44',
+        ]);
+
+        $path = $this->writeCsv($csv);
+        app(SearchConsoleCsvImporter::class)->import($path, Carbon::parse('2026-07-28'), Carbon::parse('2026-08-24'));
+
+        $coverage = SearchConsoleImportCoverage::query()->firstOrFail();
+        $this->assertSame(SearchConsoleImportCoverage::REPORT_TYPE_QUERY_ONLY, $coverage->report_type);
+        $this->assertSame(0, $coverage->pages_observed_count);
+        $this->assertSame(0, $coverage->matched_count);
+        $this->assertSame(1, $coverage->unmatched_count);
+    }
+
+    public function test_property_defaults_when_not_specified(): void
+    {
+        config(['search-console.default_property' => 'https://esempio-default.it']);
+
+        $csv = "query,clicks,impressions,ctr,position\ntest,1,50,2%,3\n";
+        $path = $this->writeCsv($csv);
+        app(SearchConsoleCsvImporter::class)->import($path, Carbon::parse('2026-08-01'), Carbon::parse('2026-08-07'));
+
+        $this->assertSame('https://esempio-default.it', SearchConsoleImportCoverage::query()->firstOrFail()->property);
+    }
+
+    public function test_reimporting_the_same_period_and_property_updates_coverage_instead_of_duplicating(): void
+    {
+        $importer = app(SearchConsoleCsvImporter::class);
+
+        $importer->import(
+            $this->writeCsv("query,page,clicks,impressions,ctr,position\nvecchia query,https://kairus.it/notizie,1,10,1%,5\n"),
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-07'),
+            'https://kairus.it/',
+        );
+        $importer->import(
+            $this->writeCsv("query,page,clicks,impressions,ctr,position\nnuova query,https://kairus.it/notizie,2,20,2%,4\n"),
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-07'),
+            'https://kairus.it/',
+        );
+
+        $this->assertSame(1, SearchConsoleImportCoverage::query()->count());
+        $this->assertSame(1, SearchConsoleImportCoverage::query()->firstOrFail()->row_count);
     }
 }

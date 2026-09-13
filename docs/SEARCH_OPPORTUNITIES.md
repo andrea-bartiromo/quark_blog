@@ -80,6 +80,30 @@ tabella filtrabile per tipo, mostra sempre l'ultimo periodo importato con
 un confronto automatico contro il periodo immediatamente precedente
 disponibile (necessario solo per `rising_query`). Nessun grafico.
 
+## Copertura e baseline (Cantiere 1, programma "Kairus Organic Discovery")
+
+Ogni import registra anche la propria **copertura effettiva** in
+`search_console_import_coverage` (una riga per property/periodo/tipo di
+report, upsert — mai uno storico di ogni singolo import): property
+(opzionale nel form, default `search-console.default_property` o
+`config('app.url')`), tipo di report (`query_only` o `query_page`, dedotto
+dalla presenza della colonna pagina), righe importate, query assegnate/non
+assegnate a un articolo, pagine osservate, origine (`manual_csv`, l'unica
+possibile finché non esiste un'integrazione API). Visibile in
+`/admin/search-opportunities` sotto "Copertura dati", distinta dalla
+"Cronologia import" (che resta lo storico grezzo per singolo import di
+`SearchConsoleFreshnessService`).
+
+`/admin/search-console-baseline` espone inoltre un report read-only per
+periodo selezionabile: totali clic/impression/CTR/posizione media (CTR e
+posizione ricalcolati dalle somme del periodo, non una media delle medie),
+top landing page organiche, query non-brand (escluse per sottostringa
+configurabile in `config('search-console.brand_terms')`, default il nome
+del sito) e i conteggi delle opportunità già scorate da
+`SearchOpportunityScoringService` (CTR basso, posizione 11-20, nessuna
+landing page forte) — mai ricalcolate. Dispositivo e Paese sono dichiarati
+esplicitamente non disponibili: nessun export CSV supportato li contiene.
+
 ## Limiti dichiarati di questa v1
 
 - Nessuna ingestione automatica/API — solo import manuale CSV.
@@ -89,3 +113,5 @@ disponibile (necessario solo per `rising_query`). Nessun grafico.
   dato Kairus.
 - Nessuna persistenza di storico oltre i periodi effettivamente importati
   (nessun job schedulato).
+- Nessun dato per dispositivo o Paese (Cantiere 1): richiederebbe
+  un'integrazione API che questo programma non implementa ancora.

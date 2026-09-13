@@ -4,6 +4,7 @@ namespace App\Services\SearchConsole;
 
 use App\Models\SearchConsoleQuery;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Missione 34 (secondo batch autonomo KAIRUS, Fase D — Editorial
@@ -71,5 +72,27 @@ class SearchConsoleFreshnessService
                 'row_count' => (int) $row->row_count,
             ])
             ->all();
+    }
+
+    /**
+     * Cantiere 1 (programma "Kairus Organic Discovery"): estratto da
+     * SearchOpportunityController::availablePeriods() (comportamento
+     * invariato) perché anche SearchConsoleBaselineReportController deve
+     * elencare gli stessi periodi disponibili — mai una seconda query che
+     * ridefinisca la stessa regola.
+     *
+     * @return Collection<int, array{period_start:string,period_end:string}>
+     */
+    public function availablePeriods(): Collection
+    {
+        return SearchConsoleQuery::query()
+            ->selectRaw('period_start, period_end')
+            ->distinct()
+            ->orderByDesc('period_start')
+            ->get()
+            ->map(fn ($row) => [
+                'period_start' => $row->period_start,
+                'period_end' => $row->period_end,
+            ]);
     }
 }
