@@ -67,7 +67,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 33 | Audit heading Fonti/Fonti primarie duplicati | merged | [#580](https://github.com/andrea-bartiromo/quark_blog/pull/580) | `530753a` | 111/111 (EditorialQualityCheckerTest, 104 esistenti + 7 nuovi); suite completa: 4445 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: DUPLICATE_SOURCES_HEADING_TAGS escludeva h1, formato di blocco reale nell'editor admin, mentre ArticleManualSourcesDetector riconosce già h1-h6) | — |
 | 34 | Regressione pannello fonti auto vs manuali | merged | [#581](https://github.com/andrea-bartiromo/quark_blog/pull/581) | `726329b` | 23/23 (nuova suite ArticlePrimarySourcesPanelReconciliationTest + ArticlePublicPrimarySourcesTest + ArticleManualSourcesDetectorTest, 49 assert.); più ampia (Article\*+EditorialQuality): 304/304 (854 assert.); CI: 5/6 check verdi, 1 (PHP 8.4) con 2 fallimenti pre-esistenti non correlati (ContentClusterAutoLifecycleCompletionTest:231, noto; PublicSurfaceResponsiveImageTest riga 189, flake Faker/escaping su nome autore con apostrofo — nessuno dei due nel codice toccato da questa PR, che modifica solo test) | 1 reale (fixato: la heading manuale nel test di coesistenza era messa PRIMA del delimitatore `---`, quindi già dentro $mainBody — non distingueva una regressione di ArticleController::show() che passasse $mainBody invece dell'intero $article->body ad hasManualSourcesSection(); spostata dopo il delimitatore) | 33 |
 | 35 | Admin baseline mensile, denominatori separati | merged | [#582](https://github.com/andrea-bartiromo/quark_blog/pull/582) | `bb51bc3` | 33/33 (nuova suite PublicHealthBaselineService + comando + estensione controller, 108 assert.); più ampia (PublicPages+Admin PublicHealthDashboard+Console): 339/339 (3 skip pre-esistenti); suite CI completa: 4462 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `firstOrNew()+save()` per riga non atomico — un'invocazione manuale del comando sovrapposta a quella schedulata poteva violare il vincolo di unicità domain+period; sostituito con `upsert()`, stesso pattern già in uso in ContentClusterSuggestionService) | 30 |
-| 36 | Checklist certificazione primo piano editoriale | open PR | [#583](https://github.com/andrea-bartiromo/quark_blog/pull/583) | — | 168/168 (nuova suite servizio+comando+display); più ampia (Admin Article\*+EditorialQuality+Console): 521/521 (3 skip pre-esistenti) | in verifica | 30-35 |
+| 36 | Checklist certificazione primo piano editoriale | merged | [#583](https://github.com/andrea-bartiromo/quark_blog/pull/583) | `f31a999` | 22/22 (nuova suite servizio+comando+display, 49 assert.); più ampia (Admin Article\*+EditorialQuality+Console): 529/529 (3 skip pre-esistenti); suite CI completa: 4483 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: la certificazione controllava solo `status==='published'`, non lo stesso predicato di `Article::scopePublished()` — `published_at<=now()` incluso — usato davvero da `HomeController`; il comando `articles:featured-certification-audit` sommava query per articolo, corretto precalcolando indice titoli duplicati + eager-load autore + set "in evidenza visibili", stesso pattern di EditorialQualityAuditService) | 30-35 |
 | 37 | Report pubblicazioni programmate 30gg | pending | — | — | — | — | — |
 | 38 | Modello interno "Cosa sappiamo davvero" | pending | — | — | — | — | — |
 | 39 | Campi/validazioni Trust | pending | — | — | — | — | 38 |
@@ -134,6 +134,51 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 36 — Checklist certificazione primo piano editoriale
+
+Ispezione preliminare (agente di ricerca dedicato): "primo piano" è
+`Article::featured` ("in evidenza", hero homepage — `HomeController::
+index()` legge `Article::published()->featured()->first()`), oggi una
+semplice checkbox admin senza alcuna verifica: un articolo può essere
+segnato "in evidenza" a prescindere dal suo esito `EditorialQualityChecker`
+(FAIL essenziali inclusi), dal suo stato di pubblicazione, o da quanti
+altri articoli sono anch'essi marcati "in evidenza" (nessun ordinamento
+esplicito nella query). `EditorialQualityChecker` e la pagina
+`admin.editorial-quality` non hanno mai gestito questo collegamento — un
+gap reale, confermato non duplicare nulla di esistente.
+
+Nuovo `FeaturedArticleCertificationService` (stesso pattern non
+bloccante di `CategoryPublicationReadiness`, Cantiere 12): tre
+segnalazioni mai bloccanti — `NOT_PUBLISHED`, `QUALITY_INCOMPLETE`/
+`QUALITY_ATTENTION` (letti dall'`EditorialQualityReport` già calcolato
+per l'articolo, mai ricalcolato), `MULTIPLE_FEATURED`. Mostrato
+nell'editor admin solo per un articolo già "in evidenza"
+(`partials/featured-certification.blade.php`) + comando di sola lettura
+`articles:featured-certification-audit` (stesso pattern di
+`category:publication-readiness`). Corretto anche
+`ArticleDiscoveryController` (sottoclasse di `ArticleController`, bound
+al suo posto in `AppServiceProvider` per **tutte** le route
+`admin.articles.*`) per passare la nuova dipendenza al costruttore del
+genitore — altrimenti ogni pagina admin articoli sarebbe andata 500.
+
+Codex (PR #583, 2 finding reali, corretti): (1) la certificazione
+controllava solo `status==='published'`, non lo stesso identico
+predicato di `Article::scopePublished()` (`published_at<=now()`
+incluso) usato davvero da `HomeController` — un articolo "pubblicato"
+con data futura veniva certificato pronto pur non essendo ancora
+visibile, e contava erroneamente come concorrente per
+`MULTIPLE_FEATURED`; aggiunto `FeaturedArticleCertificationService::
+isPubliclyVisible()`, un solo predicato condiviso. (2) il comando
+`articles:featured-certification-audit` sommava query per articolo
+(titolo duplicato dentro `EditorialQualityChecker`, autore lazy-loaded,
+un altro `exists()` per `MULTIPLE_FEATURED`) proprio nel caso che
+esiste per diagnosticare (molte righe "in evidenza"); corretto
+precalcolando tutto una volta per l'intero batch, stesso identico
+pattern già in uso in `EditorialQualityAuditService`. Entrambi
+verificati temporaneamente ripristinando il codice precedente (i nuovi
+test falliscono nel modo previsto — incluso un conteggio query 11→38
+con 12 articoli in evidenza — e passano con il fix). Merge `f31a999`.
 
 ### 35 — Admin baseline mensile, denominatori separati
 
