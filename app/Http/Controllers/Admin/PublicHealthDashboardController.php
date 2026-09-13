@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditFindingStatus;
 use App\Services\PublicPages\AuditFindingStatusService;
+use App\Services\PublicPages\PublicHealthBaselineService;
 use App\Services\PublicPages\PublicHealthDashboardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,19 +25,33 @@ use Illuminate\View\View;
  * "ignorato" per singolo finding, stesso pattern già in produzione per
  * SearchOpportunityController::updateStatus(). Nessuna correzione
  * automatica del finding stesso: solo uno stato assegnato a mano.
+ *
+ * Cantiere 35: aggiunge il confronto "vs mese scorso" per dominio,
+ * letto da PublicHealthBaselineService — solo lettura, nessuna
+ * registrazione qui (quella è compito esclusivo del comando schedulato
+ * public-health:record-monthly-baseline).
  */
 class PublicHealthDashboardController extends Controller
 {
     public function __construct(
         private readonly PublicHealthDashboardService $dashboard,
         private readonly AuditFindingStatusService $findingStatuses,
+        private readonly PublicHealthBaselineService $baselines,
     ) {}
 
     public function index(): View
     {
+        $snapshot = $this->dashboard->snapshot();
+
+        $trends = collect(PublicHealthDashboardService::REAL_DOMAIN_KEYS)
+            ->mapWithKeys(fn (string $key) => [
+                $key => $this->baselines->trendFor($key, $snapshot['domains'][$key]),
+            ]);
+
         return view('admin.public-health-dashboard', [
-            'snapshot' => $this->dashboard->snapshot(),
+            'snapshot' => $snapshot,
             'statusOptions' => AuditFindingStatus::statusOptions(),
+            'trends' => $trends,
         ]);
     }
 
