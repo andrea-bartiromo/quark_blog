@@ -104,6 +104,42 @@ del sito) e i conteggi delle opportunità già scorate da
 landing page forte) — mai ricalcolate. Dispositivo e Paese sono dichiarati
 esplicitamente non disponibili: nessun export CSV supportato li contiene.
 
+## Decisione editoriale tracciabile (Cantiere 4, programma "Kairus Organic Discovery")
+
+Ogni opportunità può ricevere una **decisione editoriale** — mai un'azione
+automatica — in `search_opportunity_decisions` (una riga per
+`opportunity_key`, la stessa identità stabile `type|query|page_url` già
+usata da `SearchOpportunityStatus`): aggiorna un articolo esistente, crea
+un brief per un nuovo articolo, segnala una sovrapposizione con un
+articolo esistente ("fusione"), oppure ignora con una motivazione
+obbligatoria. Chi/quando/motivazione sono sempre registrati.
+
+- **Aggiorna articolo esistente / sovrapposizione**: collega un
+  `article_id` esistente — mai una modifica al contenuto o alla
+  pubblicazione dell'articolo stesso.
+- **Crea brief**: crea un `ProjectTask` di tipo `publication` nel progetto
+  editoriale predefinito attivo (`Project::defaultEditorial()`), **senza
+  alcun articolo collegato** — mai un `Article` creato automaticamente.
+  Se nessun progetto editoriale predefinito è configurato, la decisione
+  fallisce esplicitamente (fail-closed) invece di crearne uno al volo.
+- **Ignora**: richiede sempre una motivazione.
+
+**Baseline e misurazione a 28/90 giorni**: alla primissima decisione per
+un'opportunità, le metriche correnti (clic/impression/CTR/posizione)
+vengono catturate come baseline — mai ricalcolate da decisioni
+successive sulla stessa opportunità. Il comando
+`php artisan search-opportunities:measure-outcomes` (sola lettura, nessuna
+chiamata esterna, eseguibile manualmente in qualunque momento) cerca poi
+la stessa opportunità nei dati Search Console attualmente disponibili una
+volta trascorsi 28 e 90 giorni dal baseline, registrando l'esito osservato.
+Un'opportunità non più presente nei dati attuali resta semplicemente non
+misurata: mai un valore indovinato.
+
+**Storico append-only**: ogni cambiamento di decisione produce una riga in
+`search_opportunity_decision_histories` (mai un update — stesso schema di
+`ProjectActivityLog`): azione, valore precedente/nuovo, motivazione, chi,
+quando. Nessuna riga viene mai modificata o cancellata dall'applicazione.
+
 ## Limiti dichiarati di questa v1
 
 - Nessuna ingestione automatica/API — solo import manuale CSV.
@@ -115,3 +151,8 @@ esplicitamente non disponibili: nessun export CSV supportato li contiene.
   (nessun job schedulato).
 - Nessun dato per dispositivo o Paese (Cantiere 1): richiederebbe
   un'integrazione API che questo programma non implementa ancora.
+- Il comando `search-opportunities:measure-outcomes` (Cantiere 4) non è
+  schedulato automaticamente in questa v1: va eseguito manualmente (o
+  aggiunto a `routes/console.php` con `Schedule::command(...)` da chi
+  gestisce l'ambiente) finché non esiste una decisione esplicita di
+  automatizzarlo.

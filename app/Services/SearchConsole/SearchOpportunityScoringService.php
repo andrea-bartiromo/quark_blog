@@ -4,6 +4,7 @@ namespace App\Services\SearchConsole;
 
 use App\Models\SearchConsoleQuery;
 use App\Models\SearchZeroResultQuery;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -76,6 +77,37 @@ class SearchOpportunityScoringService
     private const EXPECTED_CTR_11_20 = 0.01;
 
     private const EXPECTED_CTR_BEYOND_20 = 0.005;
+
+    /**
+     * Composizione condivisa (Cantiere 4, "Kairus Organic Discovery") tra
+     * ogni chiamante che ha bisogno dell'intero elenco di opportunità
+     * "attuali" — SearchOpportunityController::index() e
+     * SearchOpportunityDecisionService (registrazione decisione, misura
+     * esito a 28/90 giorni) — mai una seconda implementazione della
+     * stessa regola. Le opportunità da ricerca interna a zero risultati
+     * non dipendono da un periodo Search Console (Missione 32): vengono
+     * sempre incluse, anche senza alcun periodo disponibile.
+     *
+     * @param  array{period_start:string,period_end:string}|null  $latestPeriod
+     * @param  array{period_start:string,period_end:string}|null  $previousPeriod
+     * @return Collection<int, SearchOpportunity>
+     */
+    public function currentOpportunities(?array $latestPeriod, ?array $previousPeriod = null): Collection
+    {
+        $opportunities = $latestPeriod
+            ? $this->forPeriod(
+                Carbon::parse($latestPeriod['period_start']),
+                Carbon::parse($latestPeriod['period_end']),
+                $previousPeriod ? Carbon::parse($previousPeriod['period_start']) : null,
+                $previousPeriod ? Carbon::parse($previousPeriod['period_end']) : null,
+            )
+            : collect();
+
+        return $opportunities
+            ->merge($this->internalZeroResultOpportunities($opportunities))
+            ->sortByDesc(fn (SearchOpportunity $o) => $o->score)
+            ->values();
+    }
 
     /**
      * @return Collection<int, SearchOpportunity>

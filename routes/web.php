@@ -295,6 +295,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
     Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
     Route::post('/search-opportunities/stato', [SearchOpportunityController::class, 'updateStatus'])->name('search-opportunities.update-status');
+    // Cantiere 4 (programma "Kairus Organic Discovery"): decisione
+    // editoriale tracciabile per opportunità — mai un'azione automatica.
+    Route::post('/search-opportunities/decisione', [SearchOpportunityController::class, 'recordDecision'])->name('search-opportunities.record-decision');
 
     Route::get('/search-console-baseline', [SearchConsoleBaselineReportController::class, 'index'])->name('search-console-baseline-report');
 
