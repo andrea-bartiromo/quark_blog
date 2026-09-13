@@ -44,7 +44,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
-| 1 | Baseline e affidabilità dei dati Search Console | in_progress | — | — | in corso | — | — |
+| 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
 | 2 | Profilo editoriale di ricerca per articolo | pending | — | — | — | — | 1 |
 | 3 | Prontezza organica e scoperta interna | pending | — | — | — | — | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
@@ -76,3 +76,28 @@ Aggiunto:
   conteggi delle opportunità già scorate (mai ricalcolate).
 - Dispositivo/Paese dichiarati esplicitamente non disponibili (nessun
   export CSV supportato li contiene).
+
+Codex (PR #586, 2 finding reali, corretti): (1) `SearchConsoleImportCoverageService::record()`
+aggiornava solo la riga di copertura per la property/tipo di report appena
+importati, ma `SearchConsoleCsvImporter::import()` sostituisce
+`search_console_queries` per l'intero periodo indipendentemente da questi
+due campi — una reimportazione con property o tipo di report diversi
+lasciava quindi in admin una riga di copertura "corrente" che descriveva
+dati ormai cancellati; `record()` ora rimuove prima ogni riga di copertura
+dello stesso periodo che non corrisponde alla nuova property/tipo di
+report. (2) le card di conteggio opportunità in
+`admin.search-console-baseline` linkavano sempre ad
+`admin.search-opportunities`, che mostra solo l'ultimo periodo disponibile:
+selezionando un periodo storico il link portava a dati di un periodo
+diverso da quello mostrato; ora sono link solo per l'ultimo periodo, un
+conteggio non cliccabile con avviso per un periodo storico. Entrambi
+verificati con `git stash` (i nuovi test falliscono senza il fix, passano
+con il fix).
+
+Durante l'attesa della review, il Cantiere 37 (programma "100 cantieri
+Kairus") è stato mergiato su `main`, toccando `routes/web.php` e
+`resources/views/layouts/admin.blade.php` nelle stesse zone (entrambi
+aggiungono una voce di navigazione in "Analisi"): conflitto reale
+risolto con un merge commit (mai un rebase/force-push), verificato
+riepilogando entrambe le variabili booleane di apertura del gruppo nav e
+rieseguendo la suite combinata (137/137). Merge `bfc3893`.
