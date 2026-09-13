@@ -46,7 +46,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 |---|---|---|---|---|---|---|---|
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
-| 3 | Prontezza organica e scoperta interna | in_progress | — | — | vedi nota | — | 1, 2 |
+| 3 | Prontezza organica e scoperta interna | in_progress | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | — | vedi nota | — | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
