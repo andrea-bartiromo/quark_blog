@@ -45,15 +45,67 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
-| 2 | Profilo editoriale di ricerca per articolo | in_progress | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | — | in verifica | — | 1 |
+| 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
 | 3 | Prontezza organica e scoperta interna | pending | — | — | — | — | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
-| 6 | Salute di indicizzazione e sitemap | pending | — | — | — | — | 3 |
+| 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
 
 ## Note per cantiere
+
+### Cantiere 6 — Salute di indicizzazione e sitemap (covered-by-existing)
+
+Merge `bc34dc0` (PR #587, "feat: audit read-only della salute d'indicizzazione"),
+implementato e mergiato direttamente da Andrea Bartiromo, fuori da questa
+sessione — scoperto post-merge durante la sincronizzazione di `main` dopo
+il Cantiere 2. Copre esattamente lo scopo del Cantiere 6: import CSV
+dell'export Coverage/Indicizzazione reale di Search Console
+(`SearchConsoleCoverageCsvImporter`, tabelle `search_console_coverage_imports`/
+`_issues`, distinte dalle tabelle Performance del Cantiere 1 — sono due
+report Search Console diversi, mai fusi), un audit locale senza rete
+dell'eleggibilità pubblica di ogni URL importato
+(`SearchConsoleCoverageUrlEligibility::audit()`: pubblico/non pubblico,
+HTTP status, canonical dichiarata, robots, presenza in sitemap — nessuna
+richiesta a Google, nessuna azione automatica), e una classificazione
+read-only per riga (`expected`/`review`/`fix`/`intentional_exclusion`/
+`editorial_review`) con motivazione testuale, mai un punteggio opaco.
+Pagina admin `/admin/salute-indicizzazione`. Verificato che l'intera
+suite combinata Cantiere 1+2+questo lavoro passa insieme (250/250) prima
+di proseguire. Nessuna azione richiesta da questa sessione: il cantiere
+resta chiuso, non verrà riaperto né duplicato da un cantiere futuro.
+
+### Cantiere 2 — Profilo editoriale di ricerca per articolo
+
+Nuova tabella `article_search_profiles` (1:1 con `articles`, mai letta da
+alcuna pagina pubblica): intento primario, query primaria/secondarie,
+domande dei lettori, tipo di contenuto, livello del lettore, data e nota
+dell'ultima revisione editoriale, ambito/limiti delle evidenze. Endpoint
+dedicato (`Admin\ArticleSearchProfileController`), separato dal
+costruttore di `ArticleController` per non dover toccare anche
+`ArticleDiscoveryController` (sua sottoclasse, bound in
+`AppServiceProvider` per tutte le route `admin.articles.*`). Avviso di
+collisione non bloccante quando la query primaria normalizzata coincide
+con quella di un altro articolo (`ArticleSearchProfileCollisionService`,
+stessa normalizzazione già in uso in `ConceptDuplicateAuditService`,
+duplicata deliberatamente per lo stesso motivo di bounded context
+distinti già documentato lì). Bozze di suggerimento ricavate solo
+localmente da titolo/estratto/heading del corpo, mai scritte senza un
+clic esplicito "Usa" — stesso principio già seguito da
+`article-seo-fallback-script.blade.php`.
+
+Codex non ha mai avviato una review su questa PR (`get_reviews` vuoto,
+nessun commento di riepilogo comparso): nessun finding da correggere. Due
+check CI (`uneditable/uneditable`, `mariadb-content-clusters`) sono
+falliti senza log diagnosticabili e senza alcuna relazione col diff di
+questa PR (stesso identico workflow verde sia sul commit base sia
+sull'ultimo push a `main`); commentato una volta sulla PR, nessun
+rilancio possibile (permessi insufficienti). PHP 8.4 ha fallito solo sul
+flake pre-esistente canonico (riga 231), commentato una volta. Durante
+l'attesa, l'utente ha mergiato direttamente il Cantiere 6 (vedi sopra) —
+verificata l'assenza di conflitti reali, suite combinata 250/250. Merge
+`f896ee2`.
 
 ### Cantiere 1 — Baseline e affidabilità dei dati Search Console
 
