@@ -119,6 +119,10 @@
       @include('partials.featured-certification', ['featuredCertification' => $featuredCertification])
     @endif
 
+    @if($article && isset($searchProfile))
+      @include('partials.article-search-profile', ['article' => $article, 'searchProfile' => $searchProfile, 'searchProfileCollisions' => $searchProfileCollisions])
+    @endif
+
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria principale *</div>
       <select class="form-select" name="category" required>
@@ -567,6 +571,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (typeof window.kairusRefreshSeoFallbackPreview === 'function') {
           window.kairusRefreshSeoFallbackPreview();
         }
+        if (typeof window.kairusRefreshSearchProfileSuggestions === 'function') {
+          window.kairusRefreshSearchProfileSuggestions();
+        }
         if (typeof window.kairusNotifyArticleFormChanged === 'function') {
           window.kairusNotifyArticleFormChanged();
         }
@@ -702,5 +709,6 @@ document.addEventListener('DOMContentLoaded', function () {
 @include('partials.char-counter-script')
 @include('partials.article-read-minutes-script')
 @include('partials.article-seo-fallback-script')
+@include('partials.article-search-profile-suggestions-script')
 @include('partials.article-autosave-script')
 @endsection

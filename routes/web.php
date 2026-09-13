@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AnalyticsExclusionController;
 use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleDiscoveryAuditController;
 use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
+use App\Http\Controllers\Admin\ArticleSearchProfileController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
@@ -174,6 +175,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     Route::post('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'linkConcept'])->name('articles.concepts.link');
     Route::delete('/articoli/{article}/concetti/{concept}', [AdminArticleController::class, 'unlinkConcept'])->name('articles.concepts.unlink');
+
+    // Cantiere 2 (programma "Kairus Organic Discovery"): profilo di ricerca editoriale
+    Route::put('/articoli/{article}/profilo-ricerca', [ArticleSearchProfileController::class, 'update'])->name('articles.search-profile.update');
 
     // Content Graph — Concetti
     Route::get('/concetti', [ConceptController::class, 'index'])->name('concepts.index');
