@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DashboardDataExportController;
 use App\Http\Controllers\Admin\DiscoverReadinessController;
 use App\Http\Controllers\Admin\EditorialOperationsDashboardController;
+use App\Http\Controllers\Admin\EditorialOpportunityDecisionController;
 use App\Http\Controllers\Admin\EditorialQualityAuditController;
 use App\Http\Controllers\Admin\InternalLinkAuditController;
 use App\Http\Controllers\Admin\MediaController;
@@ -339,6 +340,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // composto dagli audit esistenti sopra, mai un punteggio opaco.
     Route::get('/ricerca-organica', [OrganicDiscoveryReadinessController::class, 'index'])->name('organic-discovery-readiness');
     Route::get('/ricerca-organica/{article}', [OrganicDiscoveryReadinessController::class, 'show'])->name('organic-discovery-readiness.show');
+    Route::get('/decisioni-editoriali-seo', [EditorialOpportunityDecisionController::class, 'index'])->name('editorial-opportunity-decisions');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
