@@ -68,7 +68,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 34 | Regressione pannello fonti auto vs manuali | merged | [#581](https://github.com/andrea-bartiromo/quark_blog/pull/581) | `726329b` | 23/23 (nuova suite ArticlePrimarySourcesPanelReconciliationTest + ArticlePublicPrimarySourcesTest + ArticleManualSourcesDetectorTest, 49 assert.); più ampia (Article\*+EditorialQuality): 304/304 (854 assert.); CI: 5/6 check verdi, 1 (PHP 8.4) con 2 fallimenti pre-esistenti non correlati (ContentClusterAutoLifecycleCompletionTest:231, noto; PublicSurfaceResponsiveImageTest riga 189, flake Faker/escaping su nome autore con apostrofo — nessuno dei due nel codice toccato da questa PR, che modifica solo test) | 1 reale (fixato: la heading manuale nel test di coesistenza era messa PRIMA del delimitatore `---`, quindi già dentro $mainBody — non distingueva una regressione di ArticleController::show() che passasse $mainBody invece dell'intero $article->body ad hasManualSourcesSection(); spostata dopo il delimitatore) | 33 |
 | 35 | Admin baseline mensile, denominatori separati | merged | [#582](https://github.com/andrea-bartiromo/quark_blog/pull/582) | `bb51bc3` | 33/33 (nuova suite PublicHealthBaselineService + comando + estensione controller, 108 assert.); più ampia (PublicPages+Admin PublicHealthDashboard+Console): 339/339 (3 skip pre-esistenti); suite CI completa: 4462 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `firstOrNew()+save()` per riga non atomico — un'invocazione manuale del comando sovrapposta a quella schedulata poteva violare il vincolo di unicità domain+period; sostituito con `upsert()`, stesso pattern già in uso in ContentClusterSuggestionService) | 30 |
 | 36 | Checklist certificazione primo piano editoriale | merged | [#583](https://github.com/andrea-bartiromo/quark_blog/pull/583) | `f31a999` | 22/22 (nuova suite servizio+comando+display, 49 assert.); più ampia (Admin Article\*+EditorialQuality+Console): 529/529 (3 skip pre-esistenti); suite CI completa: 4483 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: la certificazione controllava solo `status==='published'`, non lo stesso predicato di `Article::scopePublished()` — `published_at<=now()` incluso — usato davvero da `HomeController`; il comando `articles:featured-certification-audit` sommava query per articolo, corretto precalcolando indice titoli duplicati + eager-load autore + set "in evidenza visibili", stesso pattern di EditorialQualityAuditService) | 30-35 |
-| 37 | Report pubblicazioni programmate 30gg | open PR | [#584](https://github.com/andrea-bartiromo/quark_blog/pull/584) | — | 13/13 (nuovo servizio + controller); più ampia (EditorialOperations+AdminNavigation): 180/180 | in verifica | — |
+| 37 | Report pubblicazioni programmate 30gg | merged | [#584](https://github.com/andrea-bartiromo/quark_blog/pull/584) | `f0e64d0` | 13/13 (nuovo servizio + controller, 36 assert.); più ampia (EditorialOperations+AdminNavigation): 170/170 (705 assert.); suite CI completa: 4501 passed, 12 skipped, 3 pre-esistenti non correlati (`ContentClusterAutoLifecycleCompletionTest.php:192`, `ProjectModelTest`/`ProjectTaskControllerTest` github-sync) | 0 (nessun finding Codex) | 30-35 |
 | 38 | Modello interno "Cosa sappiamo davvero" | pending | — | — | — | — | — |
 | 39 | Campi/validazioni Trust | pending | — | — | — | — | 38 |
 | 40 | Preview non indicizzabile pilot Trust | pending | — | — | — | — | 39 |
@@ -134,6 +134,28 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 37 — Report pubblicazioni programmate 30gg
+
+Ispezione preliminare (agente di ricerca dedicato): `editorial:scheduled-certification`
+(`CertifyScheduledArticles`) già certificava in sola lettura, con logica
+corretta e già testata, gli articoli programmati in una finestra futura
+configurabile (`--days`, 1-31, default 14) — ma solo da riga di comando,
+mai da una pagina web. La dashboard "Operazioni editoriali" mostra "Da
+pubblicare" senza alcun limite temporale a 30 giorni. Nessuna duplicazione:
+la certificazione stessa non è stata riscritta, solo estratta.
+
+Estratta la query/certificazione (comportamento invariato) in un nuovo
+`ScheduledArticlesCertificationService`; `CertifyScheduledArticles` ora
+delega qui — verificato rieseguendo `CertifyScheduledArticlesCommandTest`
+senza modificarlo (3/3 passed, prova che l'estrazione non ha cambiato
+nulla di osservabile). Nuova pagina `admin.scheduled-publications-report`
+("Pubblicazioni programmate", voce di menu in "Analisi" accanto a
+"Operazioni editoriali"): stessa identica certificazione, finestra di 30
+giorni come default fisso (non configurabile da UI, per restare nel
+perimetro di questo cantiere).
+
+Nessun finding Codex (PR #584). Merge `f0e64d0`.
 
 ### 36 — Checklist certificazione primo piano editoriale
 
