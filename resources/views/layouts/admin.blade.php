@@ -117,6 +117,7 @@
       $isSearchOpportunities = request()->routeIs('admin.search-opportunities*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
+      $isScheduledPublicationsReport = request()->routeIs('admin.scheduled-publications-report*');
       $isEditorialQuality = request()->routeIs('admin.editorial-quality*');
       $isPublicHealth = request()->routeIs('admin.public-health*');
       $isInternalLinkAudit = request()->routeIs('admin.internal-link-audit*');
@@ -140,7 +141,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -194,6 +195,7 @@
 
       <x-admin.nav-group label="Analisi" :open="$analisiOpen">
         <x-admin.nav-link :route="route('admin.editorial-operations')" :active="$isEditorialOperations" icon="🧮">Operazioni editoriali</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.scheduled-publications-report')" :active="$isScheduledPublicationsReport" icon="🗓️">Pubblicazioni programmate</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.editorial-quality')" :active="$isEditorialQuality" icon="🩺">Qualità editoriale</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.public-health')" :active="$isPublicHealth" icon="🌐">Salute pubblica</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.internal-link-audit')" :active="$isInternalLinkAudit" icon="🌉">Link interni</x-admin.nav-link>
