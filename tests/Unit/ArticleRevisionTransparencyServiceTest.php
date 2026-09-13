@@ -7,6 +7,7 @@ use App\Models\ArticleRevision;
 use App\Models\User;
 use App\Services\ArticleRevisionTransparencyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ArticleRevisionTransparencyServiceTest extends TestCase
@@ -145,5 +146,115 @@ class ArticleRevisionTransparencyServiceTest extends TestCase
         $result = $this->service()->lastEditorialUpdate($article);
 
         $this->assertSame($secondRevisionTime->format('Y-m-d H:i:s'), $result->format('Y-m-d H:i:s'));
+    }
+
+    // ── lastEditorialUpdates() (variante batch, Cantiere 3) ──
+
+    public function test_batch_variant_matches_the_single_article_variant_for_a_genuine_change(): void
+    {
+        $article = $this->publishedArticle();
+        $revisionTime = $article->published_at->clone()->addDays(3);
+
+        ArticleRevision::create([
+            'article_id' => $article->id,
+            'title' => 'Titolo prima della correzione',
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => 'published',
+            'created_at' => $revisionTime,
+        ]);
+
+        $result = $this->service()->lastEditorialUpdates(collect([$article]));
+
+        $this->assertTrue($result->has($article->id));
+        $this->assertSame($revisionTime->format('Y-m-d H:i:s'), $result->get($article->id)->format('Y-m-d H:i:s'));
+    }
+
+    public function test_batch_variant_ignores_a_status_only_revision_like_the_single_article_variant(): void
+    {
+        $article = $this->publishedArticle();
+
+        ArticleRevision::create([
+            'article_id' => $article->id,
+            'title' => $article->title,
+            'excerpt' => $article->excerpt,
+            'body' => $article->body,
+            'category' => $article->category,
+            'status' => 'review',
+            'created_at' => $article->published_at->clone()->addHour(),
+        ]);
+
+        $result = $this->service()->lastEditorialUpdates(collect([$article]));
+
+        $this->assertFalse($result->has($article->id));
+    }
+
+    /**
+     * Regressione Codex (PR #589): l'implementazione precedente eseguiva
+     * `ArticleRevision::query()->whereIn('article_id', ...)->get()` senza
+     * alcun filtro su created_at/published_at — caricando quindi TUTTE le
+     * revisioni di ogni articolo (incluse quelle pre-pubblicazione, con il
+     * loro `body` longText) prima di filtrare in PHP. Non basta contare le
+     * query (entrambe le versioni ne eseguono un numero costante): la
+     * regressione è nella FORMA della query, non nel conteggio — quindi si
+     * verifica che nessuna query effettivamente eseguita sia un
+     * `select * from article_revisions where article_id in (...)` senza
+     * alcuna restrizione, e che la query che carica il `body` prenda
+     * esplicitamente una singola revisione per articolo (article_id +
+     * created_at), mai l'intera cronologia.
+     */
+    public function test_no_query_selects_the_full_unfiltered_revision_history(): void
+    {
+        $article = $this->publishedArticle();
+
+        // 10 revisioni pre-pubblicazione (mai qualificanti) + 3
+        // qualificanti dopo la pubblicazione.
+        for ($i = 0; $i < 10; $i++) {
+            ArticleRevision::create([
+                'article_id' => $article->id,
+                'title' => 'Bozza '.$i,
+                'excerpt' => $article->excerpt,
+                'body' => $article->body,
+                'category' => $article->category,
+                'status' => 'draft',
+                'created_at' => $article->published_at->clone()->subDays(10 - $i),
+            ]);
+        }
+
+        for ($i = 0; $i < 3; $i++) {
+            ArticleRevision::create([
+                'article_id' => $article->id,
+                'title' => 'Titolo prima della correzione '.$i,
+                'excerpt' => $article->excerpt,
+                'body' => $article->body,
+                'category' => $article->category,
+                'status' => 'published',
+                'created_at' => $article->published_at->clone()->addHours($i + 1),
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $result = $this->service()->lastEditorialUpdates(collect([$article]));
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        $this->assertTrue($result->has($article->id));
+
+        foreach ($queries as $sql) {
+            $isUnfilteredFullHistorySelect = str_contains($sql, 'select * from "article_revisions" where')
+                && ! str_contains($sql, 'created_at');
+
+            $this->assertFalse(
+                $isUnfilteredFullHistorySelect,
+                "Query senza alcun filtro su created_at, carica l'intera cronologia: {$sql}"
+            );
+        }
+
+        $bodyLoadingQuery = collect($queries)->first(fn (string $sql) => str_contains($sql, 'select *'));
+        $this->assertNotNull($bodyLoadingQuery);
+        $this->assertStringContainsString('"article_id" = ?', $bodyLoadingQuery);
+        $this->assertStringContainsString('"created_at" = ?', $bodyLoadingQuery);
     }
 }

@@ -124,6 +124,7 @@
       $isPublicHealth = request()->routeIs('admin.public-health*');
       $isInternalLinkAudit = request()->routeIs('admin.internal-link-audit*');
       $isArticleDiscoveryAudit = request()->routeIs('admin.article-discovery-audit*');
+      $isOrganicDiscoveryReadiness = request()->routeIs('admin.organic-discovery-readiness*');
       $isActivity      = request()->routeIs('admin.activity');
       $isNewsletterPrev = request()->routeIs('admin.newsletter.preview');
       $isProfile       = request()->routeIs('admin.profile*');
@@ -143,7 +144,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit || $isOrganicDiscoveryReadiness;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -202,6 +203,7 @@
         <x-admin.nav-link :route="route('admin.public-health')" :active="$isPublicHealth" icon="🌐">Salute pubblica</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.internal-link-audit')" :active="$isInternalLinkAudit" icon="🌉">Link interni</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.article-discovery-audit')" :active="$isArticleDiscoveryAudit" icon="🧭">Discovery articoli</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.organic-discovery-readiness')" :active="$isOrganicDiscoveryReadiness" icon="🌱">Ricerca organica</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-baseline-report')" :active="$isSearchConsoleBaselineReport" icon="📈">Baseline Search Console</x-admin.nav-link>

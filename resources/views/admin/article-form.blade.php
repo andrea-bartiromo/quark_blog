@@ -119,6 +119,10 @@
       @include('partials.featured-certification', ['featuredCertification' => $featuredCertification])
     @endif
 
+    @if($article && isset($organicDiscoveryPreview))
+      @include('partials.organic-discovery-readiness-preview', ['article' => $article, 'organicDiscoveryPreview' => $organicDiscoveryPreview])
+    @endif
+
     @if($article && isset($searchProfile))
       @include('partials.article-search-profile', ['article' => $article, 'searchProfile' => $searchProfile, 'searchProfileCollisions' => $searchProfileCollisions])
     @endif
