@@ -29,6 +29,7 @@ use App\Services\ArticleRevisionService;
 use App\Services\ContentGraph\ConceptSuggestionService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
+use App\Services\EditorialQuality\FeaturedArticleCertificationService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
@@ -67,6 +68,7 @@ class ArticleController extends Controller
         private readonly ContentGraphService $contentGraph,
         private readonly ConceptSuggestionService $conceptSuggestions,
         private readonly ArticleRevisionService $revisionService,
+        private readonly FeaturedArticleCertificationService $featuredCertification,
     ) {}
 
     public function index(Request $request)
@@ -542,11 +544,19 @@ class ArticleController extends Controller
                 ->get();
         }
 
+        $qualityReport = $this->qualityChecker->check($article);
+
         return view('admin.article-form', [
             'article' => $article,
             'categories' => Category::options(),
             'linkSuggestions' => $article->proposedLinkSuggestions(),
-            'qualityReport' => $this->qualityChecker->check($article),
+            'qualityReport' => $qualityReport,
+            // Cantiere 36: rilevante solo per un articolo già "in
+            // evidenza" — la vista mostra il riquadro solo in quel caso
+            // (vedi partials/featured-certification.blade.php).
+            'featuredCertification' => $article->featured
+                ? $this->featuredCertification->evaluate($article, $qualityReport)
+                : null,
             'conceptLinks' => $conceptLinks,
             'availableConcepts' => $availableConcepts,
             'conceptSearch' => $conceptSearch,

@@ -115,6 +115,10 @@
       @include('partials.editorial-quality-gate', ['qualityReport' => $qualityReport])
     @endif
 
+    @if($article && isset($featuredCertification))
+      @include('partials.featured-certification', ['featuredCertification' => $featuredCertification])
+    @endif
+
     <div style="background:var(--color-white);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;">
       <div style="font-family:var(--font-ui);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">Categoria principale *</div>
       <select class="form-select" name="category" required>
