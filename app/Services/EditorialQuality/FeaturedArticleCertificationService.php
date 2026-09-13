@@ -29,18 +29,19 @@ class FeaturedArticleCertificationService
     public const FINDING_MULTIPLE_FEATURED = 'MULTIPLE_FEATURED';
 
     /**
+     * @param  bool|null  $anotherPublishedFeaturedArticleExists  Precalcolato UNA VOLTA da chi audita più articoli in un colpo solo (FeaturedArticleCertificationAudit) — evita una query per articolo (Codex, PR #583, P2). Se null (uso standalone, es. l'editor di UN SOLO articolo), la query viene eseguita qui — stesso pattern di EditorialQualityChecker::check()'s $duplicateTitleIndex.
      * @return array{findings: list<string>, ready: bool}
      */
-    public function evaluate(Article $article, EditorialQualityReport $qualityReport): array
+    public function evaluate(Article $article, EditorialQualityReport $qualityReport, ?bool $anotherPublishedFeaturedArticleExists = null): array
     {
         $findings = collect();
 
         // HomeController::index() legge Article::published()->featured()
-        // ->first(): un articolo "in evidenza" ma non ancora pubblicato non
-        // apparirà mai come hero finché non lo è — un segnale editoriale,
-        // non un errore (stessa distinzione già in
+        // ->first(): un articolo "in evidenza" ma non ancora visibile
+        // pubblicamente non apparirà mai come hero finché non lo è — un
+        // segnale editoriale, non un errore (stessa distinzione già in
         // CategoryPublicationReadiness::evaluate()).
-        if ($article->status !== Article::STATUS_PUBLISHED) {
+        if (! self::isPubliclyVisible($article)) {
             $findings->push(self::FINDING_NOT_PUBLISHED);
         }
 
@@ -56,7 +57,10 @@ class FeaturedArticleCertificationService
         // ordine di query, non per scelta editoriale) apparirà come hero
         // — un'ambiguità reale, stesso principio già segnalato per le
         // heading "Fonti" duplicate nel corpo (Cantiere 33).
-        if ($this->anotherPublishedFeaturedArticleExists($article)) {
+        $multipleFeatured = $anotherPublishedFeaturedArticleExists
+            ?? $this->anotherPublishedFeaturedArticleExists($article);
+
+        if ($multipleFeatured) {
             $findings->push(self::FINDING_MULTIPLE_FEATURED);
         }
 
@@ -66,12 +70,28 @@ class FeaturedArticleCertificationService
         ];
     }
 
+    /**
+     * Stesso identico predicato di Article::scopePublished() (usato da
+     * HomeController::index() per scegliere l'hero) — mai un secondo
+     * criterio "quasi uguale" che possa disallinearsi in futuro (Codex,
+     * PR #583, P2): uno stato "pubblicato" con una published_at futura
+     * non è ancora visibile pubblicamente, quindi non ancora davvero "in
+     * evidenza".
+     */
+    public static function isPubliclyVisible(Article $article): bool
+    {
+        return $article->status === Article::STATUS_PUBLISHED
+            && $article->published_at !== null
+            && $article->published_at->lte(now());
+    }
+
     private function anotherPublishedFeaturedArticleExists(Article $article): bool
     {
         return Article::query()
             ->where('id', '!=', $article->id)
             ->where('featured', true)
             ->where('status', Article::STATUS_PUBLISHED)
+            ->where('published_at', '<=', now())
             ->exists();
     }
 

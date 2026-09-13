@@ -8,6 +8,7 @@ use App\Services\EditorialQuality\EditorialQualityChecker;
 use App\Services\EditorialQuality\EditorialQualityCheckResult;
 use App\Services\EditorialQuality\EditorialQualityReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -114,5 +115,52 @@ class FeaturedArticleCertificationAuditCommandTest extends TestCase
         $this->article(['featured' => true]);
 
         $this->artisan('articles:featured-certification-audit', ['--json' => true])->assertExitCode(0);
+    }
+
+    public function test_flags_a_future_dated_published_featured_article_as_not_published(): void
+    {
+        $this->fakeQualityChecker(EditorialQualityReport::LEVEL_READY);
+        $this->article(['featured' => true, 'published_at' => now()->addDay(), 'title' => 'Programmato ma già "pubblicato"']);
+
+        $this->artisan('articles:featured-certification-audit')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Non ancora pubblicato');
+    }
+
+    /**
+     * Codex (PR #583, P2): con più righe "in evidenza" le query per
+     * articolo (titolo duplicato, autore, un altro exists() per
+     * MULTIPLE_FEATURED) crescevano linearmente — stesso identico
+     * pattern di test già in uso in EditorialQualityAuditPerformanceTest.
+     * Usa il checker REALE (non finto): il fake bypassa del tutto
+     * duplicateTitleCheck(), rendendo il conteggio query privo di senso.
+     */
+    public function test_the_query_count_does_not_grow_linearly_with_the_number_of_featured_articles(): void
+    {
+        for ($i = 0; $i < 3; $i++) {
+            $this->article(['featured' => true, 'title' => 'Articolo in evidenza '.$i, 'slug' => 'articolo-in-evidenza-'.$i]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->artisan('articles:featured-certification-audit')->assertExitCode(0);
+        $countWith3 = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        for ($i = 3; $i < 12; $i++) {
+            $this->article(['featured' => true, 'title' => 'Articolo in evidenza '.$i, 'slug' => 'articolo-in-evidenza-'.$i]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->artisan('articles:featured-certification-audit')->assertExitCode(0);
+        $countWith12 = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(
+            $countWith3,
+            $countWith12,
+            "Con 3 articoli in evidenza: {$countWith3} query. Con 12: {$countWith12}. Devono coincidere."
+        );
     }
 }

@@ -85,6 +85,21 @@ class FeaturedArticleCertificationServiceTest extends TestCase
         $this->assertContains(FeaturedArticleCertificationService::FINDING_NOT_PUBLISHED, $result['findings']);
     }
 
+    public function test_a_published_but_future_dated_featured_article_is_flagged_not_published(): void
+    {
+        // Codex (PR #583, P2): status="published" da solo non basta —
+        // HomeController::index() usa Article::published(), che richiede
+        // ANCHE published_at <= now(). Un articolo "pubblicato" con una
+        // data futura non è ancora visibile, quindi non è davvero pronto
+        // per il primo piano.
+        $article = $this->article(['published_at' => now()->addDay()]);
+
+        $result = $this->service()->evaluate($article, $this->reportAtLevel($article->id, EditorialQualityReport::LEVEL_READY));
+
+        $this->assertFalse($result['ready']);
+        $this->assertContains(FeaturedArticleCertificationService::FINDING_NOT_PUBLISHED, $result['findings']);
+    }
+
     public function test_an_incomplete_quality_report_is_flagged(): void
     {
         $article = $this->article();
@@ -138,5 +153,36 @@ class FeaturedArticleCertificationServiceTest extends TestCase
 
         $this->assertTrue($result['ready']);
         $this->assertNotContains(FeaturedArticleCertificationService::FINDING_MULTIPLE_FEATURED, $result['findings']);
+    }
+
+    public function test_a_future_dated_published_featured_article_does_not_count_toward_multiple_featured(): void
+    {
+        $article = $this->article();
+        $this->article(['title' => 'In evidenza ma non ancora visibile', 'published_at' => now()->addDay()]);
+
+        $result = $this->service()->evaluate($article, $this->reportAtLevel($article->id, EditorialQualityReport::LEVEL_READY));
+
+        $this->assertTrue($result['ready']);
+        $this->assertNotContains(FeaturedArticleCertificationService::FINDING_MULTIPLE_FEATURED, $result['findings']);
+    }
+
+    public function test_a_precomputed_another_featured_flag_is_used_instead_of_querying(): void
+    {
+        $article = $this->article();
+
+        $readyResult = $this->service()->evaluate(
+            $article,
+            $this->reportAtLevel($article->id, EditorialQualityReport::LEVEL_READY),
+            anotherPublishedFeaturedArticleExists: false,
+        );
+        $this->assertTrue($readyResult['ready']);
+
+        $flaggedResult = $this->service()->evaluate(
+            $article,
+            $this->reportAtLevel($article->id, EditorialQualityReport::LEVEL_READY),
+            anotherPublishedFeaturedArticleExists: true,
+        );
+        $this->assertFalse($flaggedResult['ready']);
+        $this->assertContains(FeaturedArticleCertificationService::FINDING_MULTIPLE_FEATURED, $flaggedResult['findings']);
     }
 }

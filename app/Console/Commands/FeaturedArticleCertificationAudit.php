@@ -25,10 +25,27 @@ class FeaturedArticleCertificationAudit extends Command
 
     public function handle(EditorialQualityChecker $qualityChecker, FeaturedArticleCertificationService $certification): int
     {
-        $articles = Article::query()->where('featured', true)->orderBy('id')->get();
+        // Codex (PR #583, P2): con più righe "in evidenza" — proprio il
+        // caso anomalo che questo comando esiste per diagnosticare — le
+        // query per articolo si sommavano (titolo duplicato dentro
+        // EditorialQualityChecker, autore lazy-loaded, un altro exists()
+        // per MULTIPLE_FEATURED). Stesso identico pattern già in uso in
+        // EditorialQualityAuditService per lo stesso identico N+1.
+        $duplicateTitleIndex = Article::query()
+            ->pluck('title')
+            ->map(fn (?string $title) => mb_strtolower(trim((string) $title), 'UTF-8'))
+            ->countBy()
+            ->all();
 
-        $reports = $articles->map(function (Article $article) use ($qualityChecker, $certification) {
-            $qualityReport = $qualityChecker->check($article);
+        $articles = Article::query()->where('featured', true)->with('author:id')->orderBy('id')->get();
+
+        $visiblyFeaturedIds = $articles
+            ->filter(fn (Article $article) => FeaturedArticleCertificationService::isPubliclyVisible($article))
+            ->pluck('id');
+
+        $reports = $articles->map(function (Article $article) use ($qualityChecker, $certification, $duplicateTitleIndex, $visiblyFeaturedIds) {
+            $qualityReport = $qualityChecker->check($article, $duplicateTitleIndex);
+            $anotherVisibleFeaturedExists = $visiblyFeaturedIds->contains(fn (int $id) => $id !== $article->id);
 
             return [
                 'article_id' => $article->id,
@@ -36,7 +53,7 @@ class FeaturedArticleCertificationAudit extends Command
                 'slug' => $article->slug,
                 'status' => $article->status,
                 'quality_level' => $qualityReport->levelLabel(),
-                'findings' => $certification->evaluate($article, $qualityReport)['findings'],
+                'findings' => $certification->evaluate($article, $qualityReport, $anotherVisibleFeaturedExists)['findings'],
             ];
         })->values();
 
