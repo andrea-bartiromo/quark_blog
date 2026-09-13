@@ -105,7 +105,16 @@ class EditorialOpportunityDecisionService
         }
 
         if (($readiness['state'] ?? null) === OrganicDiscoveryReadinessService::STATE_BLOCKED) {
-            return [self::HIGH, 'L’opportunità ha evidenza Search Console e l’articolo presenta blocchi di readiness.', 'Completare prima i requisiti editoriali e di scoperta indicati in Ricerca organica.'];
+            $reason = 'L’opportunità ha evidenza Search Console e l’articolo presenta blocchi di readiness.';
+
+            if (in_array($opportunity->type, [
+                SearchOpportunityScoringService::TYPE_GOOD_POSITION_LOW_CTR,
+                SearchOpportunityScoringService::TYPE_HIGH_IMPRESSION_LOW_CTR,
+            ], true)) {
+                $reason .= ' Il CTR debole rispetto alla posizione osservata rafforza la priorità editoriale.';
+            }
+
+            return [self::HIGH, $reason, 'Completare prima i requisiti editoriali e di scoperta indicati in Ricerca organica; poi rivalutare intento, titolo, description e collegamenti pertinenti.'];
         }
 
         if (in_array($opportunity->type, [
