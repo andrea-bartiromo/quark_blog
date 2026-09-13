@@ -27,8 +27,17 @@ class PublicHealthBaselineService
      * Registra (o aggiorna, se già presente per lo stesso mese) una riga
      * di baseline per ciascuno dei sei domini reali. Idempotente: una
      * seconda esecuzione nello stesso mese aggiorna la riga esistente
-     * invece di duplicarla — stesso principio di
-     * AuditFindingStatusService::setStatus() (firstOrNew + save).
+     * invece di duplicarla.
+     *
+     * Codex (PR #582, P2): firstOrNew()+save() per riga non è atomico —
+     * lo scheduler (routes/console.php) protegge solo le run schedulate
+     * tra loro (withoutOverlapping()), non un'invocazione manuale diretta
+     * del comando che si sovrapponga a una schedulata. Due processi che
+     * trovano entrambi "non esiste ancora" per lo stesso domain/period
+     * tenterebbero entrambi un INSERT, e il secondo violerebbe il
+     * vincolo di unicità. upsert() (stesso pattern già in uso in
+     * ContentClusterSuggestionService) è un'unica query atomica lato
+     * database, mai una race a livello applicativo.
      *
      * @param  array<string, array<string, mixed>>  $snapshotDomains  lo snapshot['domains'] di PublicHealthDashboardService::snapshot()
      * @return array<string, PublicHealthBaseline>
@@ -37,28 +46,35 @@ class PublicHealthBaselineService
     {
         $period ??= Carbon::now()->format('Y-m');
         $recordedAt = Carbon::now();
-        $recorded = [];
 
-        foreach (PublicHealthDashboardService::REAL_DOMAIN_KEYS as $key) {
-            $domain = $snapshotDomains[$key];
-
-            $baseline = PublicHealthBaseline::query()->firstOrNew([
+        $rows = collect(PublicHealthDashboardService::REAL_DOMAIN_KEYS)
+            ->map(fn (string $key) => [
                 'domain' => $key,
                 'period' => $period,
-            ]);
-            $baseline->finding_count = $domain['finding_count'];
-            $baseline->open_count = $domain['open_count'];
-            $baseline->dismissed_count = $domain['dismissed_count'];
-            $baseline->high_open_count = $domain['high_open_count'];
-            $baseline->checked_count = $domain['checked_count'] ?? null;
-            $baseline->total_count = $domain['total_count'] ?? null;
-            $baseline->recorded_at = $recordedAt;
-            $baseline->save();
+                'finding_count' => $snapshotDomains[$key]['finding_count'],
+                'open_count' => $snapshotDomains[$key]['open_count'],
+                'dismissed_count' => $snapshotDomains[$key]['dismissed_count'],
+                'high_open_count' => $snapshotDomains[$key]['high_open_count'],
+                'checked_count' => $snapshotDomains[$key]['checked_count'] ?? null,
+                'total_count' => $snapshotDomains[$key]['total_count'] ?? null,
+                'recorded_at' => $recordedAt,
+                'created_at' => $recordedAt,
+                'updated_at' => $recordedAt,
+            ])
+            ->all();
 
-            $recorded[$key] = $baseline;
-        }
+        PublicHealthBaseline::query()->upsert(
+            $rows,
+            ['domain', 'period'],
+            ['finding_count', 'open_count', 'dismissed_count', 'high_open_count', 'checked_count', 'total_count', 'recorded_at', 'updated_at'],
+        );
 
-        return $recorded;
+        return PublicHealthBaseline::query()
+            ->where('period', $period)
+            ->whereIn('domain', PublicHealthDashboardService::REAL_DOMAIN_KEYS)
+            ->get()
+            ->keyBy('domain')
+            ->all();
     }
 
     /**
