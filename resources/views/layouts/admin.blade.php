@@ -115,6 +115,7 @@
       $isSocialDistribution = request()->routeIs('admin.social-distribution*');
       $isStats         = request()->routeIs('admin.stats*');
       $isSearchOpportunities = request()->routeIs('admin.search-opportunities*');
+      $isSearchConsoleBaselineReport = request()->routeIs('admin.search-console-baseline-report*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
       $isEditorialQuality = request()->routeIs('admin.editorial-quality*');
@@ -140,7 +141,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSecondRead || $isEditorialOperations || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSecondRead || $isEditorialOperations || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -200,6 +201,7 @@
         <x-admin.nav-link :route="route('admin.article-discovery-audit')" :active="$isArticleDiscoveryAudit" icon="🧭">Discovery articoli</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.search-console-baseline-report')" :active="$isSearchConsoleBaselineReport" icon="📈">Baseline Search Console</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
       </x-admin.nav-group>
 

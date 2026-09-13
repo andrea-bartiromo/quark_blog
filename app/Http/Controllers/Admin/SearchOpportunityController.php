@@ -4,16 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ImportSearchConsoleCsvRequest;
-use App\Models\SearchConsoleQuery;
 use App\Models\SearchOpportunityStatus;
 use App\Services\SearchConsole\SearchConsoleCsvImporter;
 use App\Services\SearchConsole\SearchConsoleFreshnessService;
+use App\Services\SearchConsole\SearchConsoleImportCoverageService;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
 use App\Services\SearchConsole\SearchOpportunityStatusService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class SearchOpportunityController extends Controller
@@ -22,11 +21,12 @@ class SearchOpportunityController extends Controller
         private readonly SearchOpportunityScoringService $scoring,
         private readonly SearchOpportunityStatusService $statuses,
         private readonly SearchConsoleFreshnessService $freshness,
+        private readonly SearchConsoleImportCoverageService $coverage,
     ) {}
 
     public function index(Request $request): View
     {
-        $periods = $this->availablePeriods();
+        $periods = $this->freshness->availablePeriods();
         $typeOptions = $this->typeOptions();
         $statusOptions = SearchOpportunityStatus::statusOptions();
 
@@ -97,6 +97,10 @@ class SearchOpportunityController extends Controller
             // idempotenti-per-periodo), mai mostrata finora, solo l'ultimo
             // periodo disponibile lo era tramite $periods sopra.
             'importHistory' => $this->freshness->importHistory(),
+            // Cantiere 1 (programma "Kairus Organic Discovery"): copertura
+            // effettiva per property/periodo/tipo di report — distinta
+            // dalla cronologia grezza per singolo import qui sopra.
+            'coverage' => $this->coverage->all(),
         ]);
     }
 
@@ -123,6 +127,7 @@ class SearchOpportunityController extends Controller
             $request->file('csv')->getRealPath(),
             Carbon::parse($request->input('period_start')),
             Carbon::parse($request->input('period_end')),
+            $request->input('property'),
         );
 
         if ($result->imported === 0) {
@@ -136,22 +141,6 @@ class SearchOpportunityController extends Controller
         }
 
         return redirect()->route('admin.search-opportunities')->with('status', $message);
-    }
-
-    /**
-     * @return Collection<int, array{period_start:string,period_end:string}>
-     */
-    private function availablePeriods()
-    {
-        return SearchConsoleQuery::query()
-            ->selectRaw('period_start, period_end')
-            ->distinct()
-            ->orderByDesc('period_start')
-            ->get()
-            ->map(fn ($row) => [
-                'period_start' => $row->period_start,
-                'period_end' => $row->period_end,
-            ]);
     }
 
     private function typeOptions(): array

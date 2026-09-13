@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\PublicHealthDashboardController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\SearchConsoleBaselineReportController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
 use App\Http\Controllers\Admin\SecondReadAnalyticsController;
@@ -287,6 +288,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
     Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
     Route::post('/search-opportunities/stato', [SearchOpportunityController::class, 'updateStatus'])->name('search-opportunities.update-status');
+
+    // Baseline Search Console (Cantiere 1, programma "Kairus Organic Discovery")
+    Route::get('/search-console-baseline', [SearchConsoleBaselineReportController::class, 'index'])->name('search-console-baseline-report');
 
     // Second read (Growth S2 — "Continua da qui")
     Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');
