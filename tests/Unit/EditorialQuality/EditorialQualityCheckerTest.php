@@ -1053,6 +1053,33 @@ class EditorialQualityCheckerTest extends TestCase
     }
 
     /**
+     * Codex (PR #580, P2): l'editor TinyMCE dell'admin
+     * (resources/views/admin/article-form.blade.php, "Titolo 1=h1")
+     * espone h1 come formato di blocco valido nel corpo — un h1
+     * "Fonti"/"Fonti primarie" è un caso reale, non teorico. Prima del
+     * fix, DUPLICATE_SOURCES_HEADING_TAGS conteneva solo h2-h4 (ereditato
+     * da SOURCES_HEADING_TAGS) e questo test avrebbe contato zero
+     * heading invece di due, mancando un duplicato reale che
+     * App\Services\ArticleManualSourcesDetector (h1-h6) riconoscerebbe.
+     */
+    public function test_two_h1_sources_headings_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h1>Fonti</h1>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <h1>Fonti primarie</h1>
+                <ul><li>Stanford Encyclopedia of Philosophy, The Turing Test.</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+        $this->assertSame(2, $result->details['heading_count'] ?? null);
+    }
+
+    /**
      * Etichette diverse ma equivalenti ("Fonti" e "Bibliografia") sono
      * trattate come lo stesso tipo di sezione da sourcesCheck() —
      * coerentemente, contano entrambe ai fini del duplicato.

@@ -98,6 +98,20 @@ class EditorialQualityChecker
         'fonti principali', 'fonti primarie',
     ];
 
+    /**
+     * Codex (PR #580, P2): SOURCES_HEADING_TAGS (h2-h4) esclude h1, ma
+     * l'editor TinyMCE dell'admin (resources/views/admin/article-form.blade.php,
+     * "Titolo 1=h1") lo espone come formato di blocco valido nel corpo —
+     * un h1 "Fonti"/"Fonti primarie" è quindi un caso reale, non
+     * teorico. App\Services\ArticleManualSourcesDetector (che questo
+     * controllo deve restare coerente con esso, essendo la stessa
+     * nozione di "sezione fonti manuale") riconosce già h1-h6. Un
+     * elenco SEPARATO da SOURCES_HEADING_TAGS, per lo stesso motivo di
+     * DUPLICATE_SOURCES_HEADING_LABELS sopra: mai alterare l'esito di
+     * sourcesCheck(), già coperto da 104 test esistenti.
+     */
+    private const DUPLICATE_SOURCES_HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
     /** Lunghezza minima di un elemento di elenco perché conti come voce bibliografica sostanziale (vedi elementIsSubstantialSource()). */
     private const MIN_SOURCE_LIST_ITEM_LENGTH = 8;
 
@@ -585,7 +599,7 @@ class EditorialQualityChecker
                 continue;
             }
 
-            if (in_array(strtolower($node->tagName), self::SOURCES_HEADING_TAGS, true)
+            if (in_array(strtolower($node->tagName), self::DUPLICATE_SOURCES_HEADING_TAGS, true)
                 && $this->isDuplicateCheckSourcesHeadingLabel($node->textContent)) {
                 $count++;
             }
