@@ -35,6 +35,7 @@ use App\Services\MediaRetirementService;
 use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
+use App\Services\SearchProfile\ArticleSearchProfileCollisionService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -513,7 +514,7 @@ class ArticleController extends Controller
             ]);
     }
 
-    public function edit(Request $request, Article $article)
+    public function edit(Request $request, Article $article, ArticleSearchProfileCollisionService $searchProfileCollisions)
     {
         // Content Graph × Article Editor integration (Mission 05): letture
         // sempre tramite ContentGraphService::conceptsForArticle(), mai una
@@ -567,6 +568,14 @@ class ArticleController extends Controller
             // esistente più sotto.
             'conceptSuggestions' => $this->conceptSuggestions->suggestForArticle($article),
             'socialPublications' => $socialPublications,
+            // Cantiere 2 (programma "Kairus Organic Discovery"): profilo
+            // di ricerca editoriale facoltativo + eventuali articoli con
+            // la stessa query primaria normalizzata (avviso, mai un gate).
+            'searchProfile' => $article->searchProfile,
+            'searchProfileCollisions' => $searchProfileCollisions->collidingArticles(
+                $article,
+                $article->searchProfile?->primary_query,
+            ),
         ]);
     }
 

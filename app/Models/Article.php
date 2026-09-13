@@ -204,6 +204,15 @@ class Article extends Model
         return $this->hasMany(ArticleView::class);
     }
 
+    /**
+     * Cantiere 2 (programma "Kairus Organic Discovery"): profilo di
+     * ricerca editoriale facoltativo, mai letto da alcuna pagina pubblica.
+     */
+    public function searchProfile()
+    {
+        return $this->hasOne(ArticleSearchProfile::class);
+    }
+
     public function projects()
     {
         return $this->belongsToMany(Project::class, 'project_article')->withTimestamps();
