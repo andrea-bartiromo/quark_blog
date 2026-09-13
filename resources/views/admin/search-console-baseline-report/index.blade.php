@@ -129,19 +129,34 @@
       </div>
     @endif
 
+    @php
+      // Codex (PR #586, P2, reale): admin.search-opportunities mostra
+      // sempre l'ultimo periodo disponibile (SearchOpportunityController
+      // non supporta ancora la selezione di un periodo storico) — un link
+      // di drill-down qui porterebbe a dati di un periodo diverso da
+      // quello selezionato in questa pagina, se non è l'ultimo. Il
+      // conteggio resta comunque corretto e visibile, solo non cliccabile.
+      $canDrillDownToLatestPeriod = $selectedIndex === 0;
+    @endphp
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
-      <a href="{{ route('admin.search-opportunities', ['tipo' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_HIGH_IMPRESSION_LOW_CTR]) }}" class="admin-card" style="padding:1rem;display:block;">
-        <p style="color:var(--admin-muted);font-size:.78rem;margin:0 0 .25rem;">Molte impression, CTR basso</p>
-        <p style="font-size:1.4rem;font-weight:600;margin:0;">{{ count($report['high_impression_low_ctr']) }}</p>
-      </a>
-      <a href="{{ route('admin.search-opportunities', ['tipo' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NEAR_PAGE_ONE]) }}" class="admin-card" style="padding:1rem;display:block;">
-        <p style="color:var(--admin-muted);font-size:.78rem;margin:0 0 .25rem;">Posizione 11–20</p>
-        <p style="font-size:1.4rem;font-weight:600;margin:0;">{{ count($report['near_page_one']) }}</p>
-      </a>
-      <a href="{{ route('admin.search-opportunities', ['tipo' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE]) }}" class="admin-card" style="padding:1rem;display:block;">
-        <p style="color:var(--admin-muted);font-size:.78rem;margin:0 0 .25rem;">Nessuna landing page forte</p>
-        <p style="font-size:1.4rem;font-weight:600;margin:0;">{{ count($report['no_strong_landing_page']) }}</p>
-      </a>
+      @foreach([
+        ['type' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_HIGH_IMPRESSION_LOW_CTR, 'label' => 'Molte impression, CTR basso', 'count' => count($report['high_impression_low_ctr'])],
+        ['type' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NEAR_PAGE_ONE, 'label' => 'Posizione 11–20', 'count' => count($report['near_page_one'])],
+        ['type' => \App\Services\SearchConsole\SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE, 'label' => 'Nessuna landing page forte', 'count' => count($report['no_strong_landing_page'])],
+      ] as $card)
+        @if($canDrillDownToLatestPeriod)
+          <a href="{{ route('admin.search-opportunities', ['tipo' => $card['type']]) }}" class="admin-card" style="padding:1rem;display:block;">
+            <p style="color:var(--admin-muted);font-size:.78rem;margin:0 0 .25rem;">{{ $card['label'] }}</p>
+            <p style="font-size:1.4rem;font-weight:600;margin:0;">{{ $card['count'] }}</p>
+          </a>
+        @else
+          <div class="admin-card" style="padding:1rem;">
+            <p style="color:var(--admin-muted);font-size:.78rem;margin:0 0 .25rem;">{{ $card['label'] }}</p>
+            <p style="font-size:1.4rem;font-weight:600;margin:0;">{{ $card['count'] }}</p>
+            <p style="color:var(--admin-faint);font-size:.72rem;margin:.35rem 0 0;">Vai al periodo più recente per aprire il dettaglio.</p>
+          </div>
+        @endif
+      @endforeach
     </div>
 
   @endif

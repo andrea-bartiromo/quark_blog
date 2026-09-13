@@ -59,6 +59,25 @@ class SearchConsoleImportCoverageService
     {
         $importedAt = Carbon::now();
 
+        /*
+         * SearchConsoleCsvImporter::import() sostituisce le righe di
+         * search_console_queries per l'intero period_start/period_end,
+         * indipendentemente da property o tipo di report (nessun filtro
+         * su queste colonne nella sua query di cancellazione). Una riga
+         * di copertura già registrata per questo stesso periodo ma con
+         * una property o un tipo di report diversi descrive quindi dati
+         * che non esistono più: va rimossa, altrimenti l'admin la
+         * mostrerebbe ancora come "corrente" insieme alla nuova.
+         */
+        SearchConsoleImportCoverage::query()
+            ->whereDate('period_start', $data['period_start']->toDateString())
+            ->whereDate('period_end', $data['period_end']->toDateString())
+            ->where(function ($query) use ($data) {
+                $query->where('property', '!=', $data['property'])
+                    ->orWhere('report_type', '!=', $data['report_type']);
+            })
+            ->delete();
+
         SearchConsoleImportCoverage::query()->upsert([
             [
                 'property' => $data['property'],

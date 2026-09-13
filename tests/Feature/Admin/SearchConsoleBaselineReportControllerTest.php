@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\SearchConsoleQuery;
 use App\Models\User;
+use App\Services\SearchConsole\SearchOpportunityScoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -86,6 +87,35 @@ class SearchConsoleBaselineReportControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee('periodo vecchio');
         $response->assertDontSee('periodo nuovo');
+    }
+
+    // Codex (PR #586, P2, reale): admin.search-opportunities mostra sempre
+    // l'ultimo periodo disponibile, non quello selezionato qui — un link
+    // di drill-down su un periodo storico porterebbe quindi a dati di un
+    // periodo diverso da quello mostrato. Le card restano solo conteggi
+    // (non link) quando il periodo selezionato non è l'ultimo.
+    public function test_opportunity_counts_are_not_drill_down_links_for_an_older_period(): void
+    {
+        $this->row(['period_start' => '2026-07-01', 'period_end' => '2026-07-07', 'query' => 'periodo vecchio', 'position' => 13.0, 'impressions' => 50]);
+        $this->row(['period_start' => '2026-08-01', 'period_end' => '2026-08-07', 'query' => 'periodo nuovo']);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.search-console-baseline-report', ['periodo' => 1]));
+
+        $response->assertOk();
+        $response->assertDontSee(route('admin.search-opportunities', ['tipo' => SearchOpportunityScoringService::TYPE_NEAR_PAGE_ONE]), false);
+        $response->assertSee('Vai al periodo più recente');
+    }
+
+    public function test_opportunity_counts_are_drill_down_links_for_the_latest_period(): void
+    {
+        $this->row(['period_start' => '2026-08-01', 'period_end' => '2026-08-07', 'query' => 'query recente', 'position' => 13.0, 'impressions' => 50]);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.search-console-baseline-report'));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.search-opportunities', ['tipo' => SearchOpportunityScoringService::TYPE_NEAR_PAGE_ONE]), false);
     }
 
     public function test_viewing_the_report_performs_no_mutation(): void
