@@ -11,6 +11,7 @@ use App\Services\ArticleRevisionService;
 use App\Services\ContentGraph\ConceptSuggestionService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\EditorialQuality\EditorialQualityChecker;
+use App\Services\EditorialQuality\FeaturedArticleCertificationService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
@@ -40,6 +41,7 @@ class ArticleDiscoveryController extends ArticleController
         ContentGraphService $contentGraph,
         ConceptSuggestionService $conceptSuggestions,
         ArticleRevisionService $revisionService,
+        FeaturedArticleCertificationService $featuredCertification,
     ) {
         parent::__construct(
             $imageService,
@@ -53,6 +55,7 @@ class ArticleDiscoveryController extends ArticleController
             $contentGraph,
             $conceptSuggestions,
             $revisionService,
+            $featuredCertification,
         );
     }
 
