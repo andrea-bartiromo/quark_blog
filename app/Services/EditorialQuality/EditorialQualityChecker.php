@@ -78,6 +78,40 @@ class EditorialQualityChecker
     /** Livelli di heading accettati come apertura di una sezione fonti nel corpo (stesso h2/h3 già usato da structureCheck(), esteso a h4 per sottosezioni annidate). */
     private const SOURCES_HEADING_TAGS = ['h2', 'h3', 'h4'];
 
+    /**
+     * Cantiere 33 (programma 100-cantieri Kairus). Unione di
+     * SOURCES_HEADING_LABELS (sopra) e delle etichette riconosciute da
+     * App\Services\ArticleManualSourcesDetector::isSourcesHeading()
+     * ('fonti principali', 'fonti primarie') — quel servizio esiste per
+     * uno scopo distinto (sopprimere il pannello pubblico "Fonti
+     * primarie" quando il corpo ne contiene già una versione manuale),
+     * ma riconosce varianti dell'etichetta che SOURCES_HEADING_LABELS non
+     * copre. Un elenco SEPARATO (non un'estensione di
+     * SOURCES_HEADING_LABELS) perché duplicateSourcesHeadingCheck() sotto
+     * risponde a una domanda diversa da sourcesCheck() — "quante sezioni
+     * fonti ci sono nel corpo?" contro "ce n'è almeno una?" — e allargare
+     * silenziosamente SOURCES_HEADING_LABELS cambierebbe anche l'esito di
+     * sourcesCheck() per articoli già coperti dai 104 test esistenti.
+     */
+    private const DUPLICATE_SOURCES_HEADING_LABELS = [
+        'fonti', 'fonte', 'sources', 'riferimenti', 'bibliografia',
+        'fonti principali', 'fonti primarie',
+    ];
+
+    /**
+     * Codex (PR #580, P2): SOURCES_HEADING_TAGS (h2-h4) esclude h1, ma
+     * l'editor TinyMCE dell'admin (resources/views/admin/article-form.blade.php,
+     * "Titolo 1=h1") lo espone come formato di blocco valido nel corpo —
+     * un h1 "Fonti"/"Fonti primarie" è quindi un caso reale, non
+     * teorico. App\Services\ArticleManualSourcesDetector (che questo
+     * controllo deve restare coerente con esso, essendo la stessa
+     * nozione di "sezione fonti manuale") riconosce già h1-h6. Un
+     * elenco SEPARATO da SOURCES_HEADING_TAGS, per lo stesso motivo di
+     * DUPLICATE_SOURCES_HEADING_LABELS sopra: mai alterare l'esito di
+     * sourcesCheck(), già coperto da 104 test esistenti.
+     */
+    private const DUPLICATE_SOURCES_HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
     /** Lunghezza minima di un elemento di elenco perché conti come voce bibliografica sostanziale (vedi elementIsSubstantialSource()). */
     private const MIN_SOURCE_LIST_ITEM_LENGTH = 8;
 
@@ -110,6 +144,7 @@ class EditorialQualityChecker
             $this->indexabilityCheck($article),
             $this->structureCheck($article, $wordCount),
             $this->sourcesCheck($article),
+            $this->duplicateSourcesHeadingCheck($article),
             $this->internalLinksCheck($article),
             $this->duplicateTitleCheck($article, $duplicateTitleIndex),
             $this->authorCheck($article),
@@ -492,6 +527,100 @@ class EditorialQualityChecker
         }
 
         return $this->warning('sources_present', 'Fonti', EditorialQualityCheckResult::CATEGORY_SOURCES, EditorialQualityCheckResult::IMPORTANCE_RECOMMENDED, 'Nessuna fonte identificabile per questo articolo.');
+    }
+
+    /**
+     * Cantiere 33 (programma 100-cantieri Kairus). sourcesCheck() sopra
+     * risponde solo "c'è almeno una sezione fonti?" — mai quante ce ne
+     * sono. Un corpo con DUE (o più) heading riconosciute come sezione
+     * fonti (stessa etichetta ripetuta, es. due "Fonti", o etichette
+     * diverse ma equivalenti, es. "Fonti" e "Bibliografia") è quasi
+     * sempre un errore editoriale — un copia-incolla di template
+     * lasciato due volte, o una vecchia sezione mai rimossa dopo averne
+     * scritta una nuova — mai una scelta intenzionale nota in questo
+     * dominio. Sola lettura, mai una correzione automatica: solo un
+     * WARNING che segnala quante sezioni sono state trovate.
+     */
+    private function duplicateSourcesHeadingCheck(Article $article): EditorialQualityCheckResult
+    {
+        $count = $this->countSourcesHeadingsInBody((string) $article->body);
+
+        if ($count <= 1) {
+            return $this->pass(
+                'duplicate_sources_heading',
+                'Sezioni fonti duplicate',
+                EditorialQualityCheckResult::CATEGORY_SOURCES,
+                EditorialQualityCheckResult::IMPORTANCE_RECOMMENDED,
+                $count === 0
+                    ? 'Nessuna heading di sezione fonti nel corpo (verificato separatamente da "Fonti").'
+                    : 'Una sola sezione fonti nel corpo.',
+            );
+        }
+
+        return $this->warning(
+            'duplicate_sources_heading',
+            'Sezioni fonti duplicate',
+            EditorialQualityCheckResult::CATEGORY_SOURCES,
+            EditorialQualityCheckResult::IMPORTANCE_RECOMMENDED,
+            "{$count} sezioni \"Fonti\"/\"Fonti primarie\" nel corpo dell'articolo — probabile duplicato editoriale da unificare.",
+            ['heading_count' => $count],
+        );
+    }
+
+    /**
+     * Stessa tecnica di parsing di hasStructuredSourcesSectionInBody()
+     * (solo i figli diretti del wrapper, mai heading annidate in
+     * strutture più profonde — coerente con il markup piatto prodotto
+     * dall'editor), ma CONTA ogni heading corrispondente invece di
+     * fermarsi alla prima.
+     */
+    private function countSourcesHeadingsInBody(string $html): int
+    {
+        if (trim($html) === '') {
+            return 0;
+        }
+
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->loadHTML('<?xml encoding="UTF-8"><div>'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+
+        $wrapper = $dom->getElementsByTagName('div')->item(0);
+
+        if ($wrapper === null) {
+            return 0;
+        }
+
+        $count = 0;
+
+        foreach ($wrapper->childNodes as $node) {
+            if (! $node instanceof DOMElement) {
+                continue;
+            }
+
+            if (in_array(strtolower($node->tagName), self::DUPLICATE_SOURCES_HEADING_TAGS, true)
+                && $this->isDuplicateCheckSourcesHeadingLabel($node->textContent)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Stessa normalizzazione di isSourcesHeadingLabel() sotto, ma
+     * confrontata contro DUPLICATE_SOURCES_HEADING_LABELS (l'unione più
+     * ampia) invece di SOURCES_HEADING_LABELS — vedi il commento su
+     * quella costante per il perché sono due elenchi separati.
+     */
+    private function isDuplicateCheckSourcesHeadingLabel(string $text): bool
+    {
+        $normalized = str_replace("\xc2\xa0", ' ', $text);
+        $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? $normalized;
+        $normalized = mb_strtolower(trim($normalized, " \t\n\r\0\x0B:："), 'UTF-8');
+
+        return in_array($normalized, self::DUPLICATE_SOURCES_HEADING_LABELS, true);
     }
 
     /**

@@ -1003,6 +1003,149 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame(R::STATUS_WARNING, $result->status);
     }
 
+    // ── Sezioni fonti duplicate (Cantiere 33, programma 100-cantieri Kairus) ──
+
+    public function test_a_single_sources_heading_does_not_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    public function test_no_sources_heading_at_all_does_not_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle();
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
+    /**
+     * Due heading "Fonti" identiche nello stesso corpo — il caso più
+     * comune di errore editoriale che questo controllo esiste per
+     * scoprire (un template copiato due volte, o una vecchia sezione mai
+     * rimossa).
+     */
+    public function test_two_identical_fonti_headings_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <p>'.str_repeat('Altro testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Stanford Encyclopedia of Philosophy, The Turing Test.</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+        $this->assertSame(2, $result->details['heading_count'] ?? null);
+    }
+
+    /**
+     * Codex (PR #580, P2): l'editor TinyMCE dell'admin
+     * (resources/views/admin/article-form.blade.php, "Titolo 1=h1")
+     * espone h1 come formato di blocco valido nel corpo — un h1
+     * "Fonti"/"Fonti primarie" è un caso reale, non teorico. Prima del
+     * fix, DUPLICATE_SOURCES_HEADING_TAGS conteneva solo h2-h4 (ereditato
+     * da SOURCES_HEADING_TAGS) e questo test avrebbe contato zero
+     * heading invece di due, mancando un duplicato reale che
+     * App\Services\ArticleManualSourcesDetector (h1-h6) riconoscerebbe.
+     */
+    public function test_two_h1_sources_headings_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h1>Fonti</h1>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <h1>Fonti primarie</h1>
+                <ul><li>Stanford Encyclopedia of Philosophy, The Turing Test.</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+        $this->assertSame(2, $result->details['heading_count'] ?? null);
+    }
+
+    /**
+     * Etichette diverse ma equivalenti ("Fonti" e "Bibliografia") sono
+     * trattate come lo stesso tipo di sezione da sourcesCheck() —
+     * coerentemente, contano entrambe ai fini del duplicato.
+     */
+    public function test_a_fonti_heading_and_a_bibliografia_heading_together_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <h2>Bibliografia</h2>
+                <ul><li>Rossi, M., Introduzione alla relatività, Zanichelli (2015).</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+        $this->assertSame(2, $result->details['heading_count'] ?? null);
+    }
+
+    /**
+     * "Fonti primarie" — etichetta riconosciuta da
+     * App\Services\ArticleManualSourcesDetector ma NON da
+     * SOURCES_HEADING_LABELS (sourcesCheck() sopra) — deve comunque
+     * contare qui: il cantiere è nominato esplicitamente
+     * "Fonti/Fonti primarie duplicati".
+     */
+    public function test_a_fonti_heading_and_a_fonti_primarie_heading_together_warn_about_duplicates(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <h3>Fonti primarie</h3>
+                <ul><li>Stanford Encyclopedia of Philosophy, The Turing Test.</li></ul>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_WARNING, $result->status);
+        $this->assertSame(2, $result->details['heading_count'] ?? null);
+    }
+
+    /**
+     * Una heading annidata più in profondità (non figlia diretta del
+     * corpo) non deve contare due volte la stessa sezione — stessa
+     * cautela di hasStructuredSourcesSectionInBody(), che scandisce solo
+     * i figli diretti.
+     */
+    public function test_a_narrative_mention_of_fonti_inside_a_paragraph_is_not_a_heading_and_does_not_count(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <h3>Fonti</h3>
+                <ul><li>Alan M. Turing, Computing Machinery and Intelligence, Mind (1950).</li></ul>
+                <p>Le fonti utilizzate per questo articolo sono elencate sopra.</p>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'duplicate_sources_heading');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+    }
+
     // ── Autore / categoria / pubblicazione ──
 
     public function test_a_missing_category_fails(): void
