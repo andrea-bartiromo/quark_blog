@@ -46,7 +46,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 |---|---|---|---|---|---|---|---|
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
-| 3 | Prontezza organica e scoperta interna | in_progress | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | — | vedi nota | — | 1, 2 |
+| 3 | Prontezza organica e scoperta interna | merged | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | `52d5a60` | 31/31 (OrganicDiscoveryReadinessService+Controller, 64 assert.) + 9/9 ArticleRevisionTransparencyService (16 assert.); suite CI completa: 4568/4569 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `lastEditorialUpdates()` caricava l'intera cronologia revisioni invece di filtrare lato DB) | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
@@ -55,7 +55,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 
 ## Note per cantiere
 
-### Cantiere 3 — Prontezza organica e scoperta interna (in_progress)
+### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
 `OrganicDiscoveryReadinessService` compone SOLO audit già esistenti (mai
 una regola ricalcolata): `ArticleDiscoveryAuditService` (percorsi/link in
@@ -99,9 +99,29 @@ articolo non pubblico, e la pagina di dettaglio risponde 404 per un
 articolo non pubblico (fail-closed, mai un tentativo di calcolare uno
 stato per contenuto non pubblico).
 
-Ancora da fare prima del merge: aprire la PR, eseguire Pint e la suite
-completa, gestire CI/Codex, mergiare, aggiornare questa riga con PR/SHA
-definitivi.
+Codex (PR #589, 1 finding reale P2, corretto): `ArticleRevisionTransparencyService::lastEditorialUpdates()`
+eseguiva `ArticleRevision::query()->whereIn('article_id', ...)->get()` senza
+alcun filtro su created_at/published_at — caricava quindi l'intera
+cronologia di ogni articolo (incluse le revisioni pre-pubblicazione e il
+loro `body` longText), un costo che cresceva con il volume storico di
+revisioni, non con il numero di articoli. Corretto calcolando i confini
+(prima/ultima revisione qualificante) lato DB con MIN/MAX tramite un join
+che esclude già le revisioni pre-pubblicazione, caricando il `body` solo
+per la singola revisione più vecchia di ciascun articolo. Verificato con
+`git stash`: il nuovo test fallisce sull'implementazione precedente
+(query `select * from article_revisions where article_id in (...)` senza
+alcun filtro) e passa con il fix. Il check CI `PHP 8.4` è fallito su ogni
+commit di questa PR solo per il flake pre-esistente canonico
+(`ContentClusterAutoLifecycleCompletionTest.php:231`), commentato una
+volta sulla PR insieme al fix Codex.
+
+Nota operativa: l'API GraphQL di GitHub (`get_review_comments`) è rimasta
+rate-limited per l'intera seconda metà di questa PR — non è stato quindi
+possibile rispondere/risolvere esplicitamente il singolo thread di review
+di Codex (il finding è comunque stato corretto, verificato, e riferito
+esplicitamente in un commento sulla PR prima del merge).
+
+Merge `52d5a60`.
 
 ### Cantiere 6 — Salute di indicizzazione e sitemap (covered-by-existing)
 
