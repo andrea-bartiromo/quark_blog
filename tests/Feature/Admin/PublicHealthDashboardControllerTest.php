@@ -3,8 +3,10 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\AuditFindingStatus;
+use App\Models\PublicHealthBaseline;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -19,6 +21,11 @@ use Tests\TestCase;
  * updateFindingStatus() — stesso pattern di
  * SearchOpportunityController::updateStatus() — provata separatamente
  * dalla sola visualizzazione, che resta senza effetti collaterali.
+ *
+ * Cantiere 35: il confronto "vs mese scorso" è solo lettura di
+ * PublicHealthBaseline (mai scritto da questa pagina — solo dal comando
+ * schedulato public-health:record-monthly-baseline): assente finché non
+ * esiste ancora una baseline per il mese precedente.
  */
 class PublicHealthDashboardControllerTest extends TestCase
 {
@@ -56,6 +63,36 @@ class PublicHealthDashboardControllerTest extends TestCase
         $response->assertSee('Accessibilità WCAG statica');
         $response->assertSee('Non aggregabili qui');
         $response->assertSee('Performance (Core Web Vitals)');
+    }
+
+    public function test_no_trend_is_shown_when_no_previous_baseline_exists(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.public-health'));
+
+        $response->assertOk();
+        $response->assertDontSee('vs '.Carbon::now()->subMonthNoOverflow()->format('Y-m'));
+    }
+
+    public function test_shows_a_trend_against_the_most_recent_previous_month_baseline(): void
+    {
+        $previousPeriod = Carbon::now()->subMonthNoOverflow()->format('Y-m');
+
+        PublicHealthBaseline::query()->create([
+            'domain' => 'seo',
+            'period' => $previousPeriod,
+            'finding_count' => 5,
+            'open_count' => 5,
+            'dismissed_count' => 0,
+            'high_open_count' => 2,
+            'checked_count' => 10,
+            'total_count' => 10,
+            'recorded_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.public-health'));
+
+        $response->assertOk();
+        $response->assertSee('vs '.$previousPeriod);
     }
 
     public function test_viewing_the_page_performs_no_mutation_no_matter_how_many_times_it_is_viewed(): void

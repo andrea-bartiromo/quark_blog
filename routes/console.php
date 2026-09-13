@@ -131,3 +131,14 @@ Schedule::command('project:sync-editorial-calendar --execute')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/projects-editorial-sync.log'));
+
+// ── Salute pubblica: baseline mensile ────────────────────────────
+// Il giorno 1 di ogni mese alle 5:00 — registra lo snapshot corrente dei
+// sei domini (Cantiere 30) come baseline per il confronto "vs mese
+// scorso" in admin.public-health (Cantiere 35). Idempotente: se rieseguito
+// più volte nello stesso mese aggiorna la riga esistente invece di
+// duplicarla.
+Schedule::command('public-health:record-monthly-baseline')
+    ->monthlyOn(1, '05:00')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/public-health-baseline.log'));

@@ -42,7 +42,7 @@
 @endphp
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
-  @foreach($available as $domain)
+  @foreach($available as $domainKey => $domain)
     <div class="admin-card" style="margin:0;">
       <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--admin-muted);">{{ $domain['label'] }}</div>
       <div style="font-size:1.9rem;font-weight:700;margin:.35rem 0;color:{{ $domain['open_count'] > 0 ? '#b91c1c' : '#059669' }};">{{ number_format($domain['open_count']) }}</div>
@@ -53,6 +53,19 @@
         @endif
         · <code style="font-size:.72rem;">{{ $domain['cli_hint'] }}</code>
       </span>
+      {{--
+          Cantiere 35 — confronto SOLO con la baseline precedente dello
+          STESSO dominio (mai un totale tra domini diversi: ognuno ha un
+          proprio universo di "verificati", vedi PublicHealthBaselineService).
+          Assente finché il comando schedulato non ha ancora registrato
+          almeno un mese precedente.
+      --}}
+      @if(($trends[$domainKey] ?? null) !== null)
+        @php $trend = $trends[$domainKey]; @endphp
+        <div style="font-size:.72rem;margin-top:.4rem;color:{{ $trend['open_count_delta'] > 0 ? '#b91c1c' : ($trend['open_count_delta'] < 0 ? '#059669' : 'var(--admin-muted)') }};">
+          {{ $trend['open_count_delta'] > 0 ? '+' : '' }}{{ $trend['open_count_delta'] }} vs {{ $trend['period'] }} ({{ $trend['previous_open_count'] }} aperti allora)
+        </div>
+      @endif
     </div>
   @endforeach
 </div>
