@@ -64,7 +64,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 30 | Dashboard admin Salute pubblica | merged | [#578](https://github.com/andrea-bartiromo/quark_blog/pull/578) | `ccd9bdf` | 4/4 (controller) + 4/4 (servizio); suite completa: 4420 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: `snapshot()` non ripristinava l'id di sessione condiviso dopo i fetch in-process, rischio di cookie di sessione errato/logout silenzioso lato editor; suggerimento CLI della card Media indicava un comando inesistente) | 22-29 |
 | 31 | Severità e presa in carico audit | merged | [#579](https://github.com/andrea-bartiromo/quark_blog/pull/579) | `f42157d` | 4/4 (AuditFindingStatusService) + 13/13 (servizio) + 8/8 (controller); suite completa: 4438 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 reali (fixati: severità SEO accedeva a `$r['url']` invece di `sample_url`, mai eseguito nei test esistenti per corto-circuito su http_status; conteggi aperti/ignorati del registro 404 calcolati solo sui 50 path mostrati invece che sull'intero registro; finding_key del registro 404 usava il path grezzo invece di path_hash, stesso rischio di collisione case-insensitive già risolto altrove per not_found_hits, PR #572) | 30 |
 | 32 | Report articoli con carenze editoriali | covered-by-existing | — | — | vedi nota | 0 | 30 |
-| 33 | Audit heading Fonti/Fonti primarie duplicati | open | [#580](https://github.com/andrea-bartiromo/quark_blog/pull/580) | — | 110/110 (EditorialQualityCheckerTest, 104 esistenti + 6 nuovi) | — | — |
+| 33 | Audit heading Fonti/Fonti primarie duplicati | merged | [#580](https://github.com/andrea-bartiromo/quark_blog/pull/580) | `530753a` | 111/111 (EditorialQualityCheckerTest, 104 esistenti + 7 nuovi); suite completa: 4445 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: DUPLICATE_SOURCES_HEADING_TAGS escludeva h1, formato di blocco reale nell'editor admin, mentre ArticleManualSourcesDetector riconosce già h1-h6) | — |
 | 34 | Regressione pannello fonti auto vs manuali | pending | — | — | — | — | 33 |
 | 35 | Admin baseline mensile, denominatori separati | pending | — | — | — | — | 30 |
 | 36 | Checklist certificazione primo piano editoriale | pending | — | — | — | — | 30-35 |
@@ -134,6 +134,32 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 33 — Audit heading Fonti/Fonti primarie duplicati
+
+Ispezione preliminare (agente di ricerca dedicato): `sourcesCheck()`
+esistente (EditorialQualityChecker) risponde solo "c'è almeno una
+sezione fonti?", mai "quante ce ne sono?" — nessun controllo esistente
+rilevava un corpo con due (o più) heading "Fonti"/"Fonti primarie"/
+varianti equivalenti, un errore editoriale reale (template copiato due
+volte, vecchia sezione mai rimossa). Nuovo 18° controllo
+`duplicate_sources_heading`: conta le heading riconosciute (unione di
+`SOURCES_HEADING_LABELS` e delle etichette di
+`ArticleManualSourcesDetector` — inclusa "Fonti primarie", nominata
+esplicitamente nel titolo di questo cantiere) e segnala WARNING quando
+ce ne sono 2+. `sourcesCheck()` resta invariato (elenco di etichette
+separato, mai un'estensione silenziosa che alterasse i 104 test
+esistenti). Nessuna nuova superficie: il controllo compare
+automaticamente nella pagina `admin.editorial-quality` (Cantiere 32).
+
+Codex (PR #580, 1 finding reale, corretto): `SOURCES_HEADING_TAGS`
+(h2-h4, riusato inizialmente) esclude h1, ma l'editor TinyMCE
+dell'admin espone "Titolo 1=h1" come formato di blocco reale nel
+corpo — un h1 "Fonti"/"Fonti primarie" è quindi un caso reale, mentre
+`ArticleManualSourcesDetector` riconosce già h1-h6 per la stessa
+nozione. Corretto con un nuovo elenco `DUPLICATE_SOURCES_HEADING_TAGS`
+(h1-h6), separato da `SOURCES_HEADING_TAGS` per lo stesso motivo.
+Merge `530753a`.
 
 ### 32 — Report articoli con carenze editoriali
 
