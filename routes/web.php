@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\ProjectPromptController;
 use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\PublicHealthDashboardController;
 use App\Http\Controllers\Admin\ReviewController;
+use App\Http\Controllers\Admin\ScheduledPublicationsReportController;
 use App\Http\Controllers\Admin\SearchConsoleBaselineReportController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
@@ -300,6 +301,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Editorial Operations Dashboard V1 (Mission 09)
     Route::get('/operazioni-editoriali', [EditorialOperationsDashboardController::class, 'index'])->name('editorial-operations');
+
+    // Report pubblicazioni programmate (Cantiere 37, programma 100-cantieri
+    // Kairus) — stessa certificazione di editorial:scheduled-certification,
+    // qui su una pagina web con finestra di default a 30 giorni.
+    Route::get('/pubblicazioni-programmate', [ScheduledPublicationsReportController::class, 'index'])->name('scheduled-publications-report');
 
     // Dashboard admin Salute pubblica — aggrega gli audit tecnici delle
     // pagine pubbliche (Cantiere 30, dipende dai Cantieri 22-29).
