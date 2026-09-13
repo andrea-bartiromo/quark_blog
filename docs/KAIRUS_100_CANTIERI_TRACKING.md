@@ -65,7 +65,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 31 | Severità e presa in carico audit | merged | [#579](https://github.com/andrea-bartiromo/quark_blog/pull/579) | `f42157d` | 4/4 (AuditFindingStatusService) + 13/13 (servizio) + 8/8 (controller); suite completa: 4438 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 3 reali (fixati: severità SEO accedeva a `$r['url']` invece di `sample_url`, mai eseguito nei test esistenti per corto-circuito su http_status; conteggi aperti/ignorati del registro 404 calcolati solo sui 50 path mostrati invece che sull'intero registro; finding_key del registro 404 usava il path grezzo invece di path_hash, stesso rischio di collisione case-insensitive già risolto altrove per not_found_hits, PR #572) | 30 |
 | 32 | Report articoli con carenze editoriali | covered-by-existing | — | — | vedi nota | 0 | 30 |
 | 33 | Audit heading Fonti/Fonti primarie duplicati | merged | [#580](https://github.com/andrea-bartiromo/quark_blog/pull/580) | `530753a` | 111/111 (EditorialQualityCheckerTest, 104 esistenti + 7 nuovi); suite completa: 4445 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: DUPLICATE_SOURCES_HEADING_TAGS escludeva h1, formato di blocco reale nell'editor admin, mentre ArticleManualSourcesDetector riconosce già h1-h6) | — |
-| 34 | Regressione pannello fonti auto vs manuali | open PR | [#581](https://github.com/andrea-bartiromo/quark_blog/pull/581) | — | 23/23 (nuova suite + ArticlePublicPrimarySourcesTest + ArticleManualSourcesDetectorTest); più ampia (Article\*+EditorialQuality): 304/304 (854 assert.) | in verifica | 33 |
+| 34 | Regressione pannello fonti auto vs manuali | merged | [#581](https://github.com/andrea-bartiromo/quark_blog/pull/581) | `726329b` | 23/23 (nuova suite ArticlePrimarySourcesPanelReconciliationTest + ArticlePublicPrimarySourcesTest + ArticleManualSourcesDetectorTest, 49 assert.); più ampia (Article\*+EditorialQuality): 304/304 (854 assert.); CI: 5/6 check verdi, 1 (PHP 8.4) con 2 fallimenti pre-esistenti non correlati (ContentClusterAutoLifecycleCompletionTest:231, noto; PublicSurfaceResponsiveImageTest riga 189, flake Faker/escaping su nome autore con apostrofo — nessuno dei due nel codice toccato da questa PR, che modifica solo test) | 1 reale (fixato: la heading manuale nel test di coesistenza era messa PRIMA del delimitatore `---`, quindi già dentro $mainBody — non distingueva una regressione di ArticleController::show() che passasse $mainBody invece dell'intero $article->body ad hasManualSourcesSection(); spostata dopo il delimitatore) | 33 |
 | 35 | Admin baseline mensile, denominatori separati | pending | — | — | — | — | 30 |
 | 36 | Checklist certificazione primo piano editoriale | pending | — | — | — | — | 30-35 |
 | 37 | Report pubblicazioni programmate 30gg | pending | — | — | — | — | — |
@@ -134,6 +134,51 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 100 | Vista operativa finale + runbook + roadmap successiva | pending | — | — | — | — | tutti |
 
 ## Note per cantiere
+
+### 34 — Regressione pannello fonti auto vs manuali
+
+Ispezione preliminare: `ArticlePublicPrimarySourcesTest` copriva già la
+presentazione isolata del pannello Fonti primarie strutturate
+(`Article::primary_sources`, via `<x-article.primary-sources>`) e un solo
+caso di coesistenza col blocco "Fonti" legacy — ma quel caso usava solo il
+delimitatore `---` nel corpo (testo libero, `<x-kairus.trust-panel>` in
+`body.blade.php`), mai una heading "Fonti"/"Fonti primarie" riconosciuta
+da `ArticleManualSourcesDetector`. La reale logica di soppressione in
+`articolo.blade.php` (`@unless($hasManualSourcesSection) <x-article.primary-sources>`)
+non aveva quindi mai un test che la eserciti davvero — un gap reale,
+non un duplicato di lavoro esistente.
+
+Nuovo `tests/Feature/ArticlePrimarySourcesPanelReconciliationTest.php`,
+5 casi: nessuna heading/nessun delimitatore (pannello mostrato, caso di
+controllo); heading manuale presente con `primary_sources` valorizzato o
+`null` (pannello soppresso in entrambi); solo delimitatore senza heading
+(entrambi i pannelli coesistono); heading **e** delimitatore insieme
+(pannello Fonti primarie soppresso, pannello legacy `---` mostrato
+comunque — perché `ArticleController::show()` passa l'intero
+`$article->body`, non `$mainBody`, ad `hasManualSourcesSection()`).
+Nessun codice applicativo toccato: solo test.
+
+Codex (PR #581, 1 finding reale, corretto): nel caso "heading e
+delimitatore insieme" la heading era messa PRIMA di `---`, quindi già
+dentro `$mainBody` — il test sarebbe passato comunque anche se
+`ArticleController::show()` fosse regredito a passare `$mainBody` invece
+dell'intero `$article->body`, non dimostrando la reale differenza fra i
+due input. Corretto spostando la heading DOPO il delimitatore (nella sola
+porzione "sources"). Merge `726329b`.
+
+CI su questa PR: 5/6 check verdi; il job "PHP 8.4" ha mostrato 2
+fallimenti, nessuno introdotto da questa PR (che modifica solo un file di
+test): il consueto `ContentClusterAutoLifecycleCompletionTest:231` e, per
+la prima volta in questo programma, `PublicSurfaceResponsiveImageTest`
+(riga 189) — verificato in codice: `User::factory()->create()` genera il
+nome autore con Faker non seedato, e quando produce un nome con
+apostrofo (es. "Issac O'Keefe") l'escaping Blade lo rende `&#039;` nella
+risposta reale, mentre il test asserisce l'apostrofo grezzo — un flake
+pre-esistente indipendente, in un file estraneo al dominio di questo
+cantiere (avatar autore, non Trust Layer/fonti). Tentato un re-run dei
+job falliti per confermare, negato con `403 Resource not accessible by
+integration` (nessun permesso da qui); documentato con un commento sulla
+PR invece di modificare quel test, fuori scope.
 
 ### 33 — Audit heading Fonti/Fonti primarie duplicati
 
