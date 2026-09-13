@@ -45,7 +45,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | # | Cantiere | Stato | PR | SHA merge | Test | Finding | Dipendenze |
 |---|---|---|---|---|---|---|---|
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
-| 2 | Profilo editoriale di ricerca per articolo | pending | — | — | — | — | 1 |
+| 2 | Profilo editoriale di ricerca per articolo | in_progress | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | — | in verifica | — | 1 |
 | 3 | Prontezza organica e scoperta interna | pending | — | — | — | — | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
