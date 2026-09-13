@@ -33,6 +33,7 @@ use App\Services\EditorialQuality\FeaturedArticleCertificationService;
 use App\Services\ImageService;
 use App\Services\MediaRetirementService;
 use App\Services\MediaService;
+use App\Services\OrganicDiscovery\OrganicDiscoveryReadinessService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
 use App\Services\SearchProfile\ArticleSearchProfileCollisionService;
@@ -514,8 +515,12 @@ class ArticleController extends Controller
             ]);
     }
 
-    public function edit(Request $request, Article $article, ArticleSearchProfileCollisionService $searchProfileCollisions)
-    {
+    public function edit(
+        Request $request,
+        Article $article,
+        ArticleSearchProfileCollisionService $searchProfileCollisions,
+        OrganicDiscoveryReadinessService $organicDiscoveryReadiness,
+    ) {
         // Content Graph × Article Editor integration (Mission 05): letture
         // sempre tramite ContentGraphService::conceptsForArticle(), mai una
         // seconda query ad-hoc su ArticleConcept — stessa fonte di verità
@@ -576,6 +581,10 @@ class ArticleController extends Controller
                 $article,
                 $article->searchProfile?->primary_query,
             ),
+            // Cantiere 3 (programma "Kairus Organic Discovery"): anteprima
+            // leggera non bloccante, mai il ricalcolo dell'intero audit
+            // aggregato (vedi il docblock di previewForArticle()).
+            'organicDiscoveryPreview' => $organicDiscoveryReadiness->previewForArticle($article, $qualityReport),
         ]);
     }
 

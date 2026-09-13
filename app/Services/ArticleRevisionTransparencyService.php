@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Models\ArticleRevision;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Presentation-only: decide SE e QUANDO mostrare "Aggiornato il" su un
@@ -61,6 +63,53 @@ class ArticleRevisionTransparencyService
         }
 
         return $qualifying->last()->created_at;
+    }
+
+    /**
+     * Stessa regola di lastEditorialUpdate() applicata in blocco a una
+     * collezione di articoli con UNA sola query invece di una per
+     * articolo. Introdotto dal Cantiere 3 "Kairus Organic Discovery"
+     * (OrganicDiscoveryReadinessService), primo chiamante che ha bisogno
+     * del segnale di freschezza su tutto il corpus pubblico in una volta
+     * sola — prima d'ora lastEditorialUpdate() veniva invocato solo per un
+     * singolo articolo alla volta (pagina pubblica dell'articolo).
+     *
+     * @param  Collection<int, Article>  $articles
+     * @return Collection<int, Carbon> chiavi = article_id, presenti SOLO
+     *                                 per gli articoli con un aggiornamento editoriale qualificante
+     *                                 (stesso significato di lastEditorialUpdate() !== null).
+     */
+    public function lastEditorialUpdates(Collection $articles): Collection
+    {
+        $published = $articles->filter(fn (Article $article) => $article->published_at !== null);
+
+        if ($published->isEmpty()) {
+            return collect();
+        }
+
+        $revisionsByArticle = ArticleRevision::query()
+            ->whereIn('article_id', $published->pluck('id'))
+            ->get()
+            ->groupBy('article_id');
+
+        return $published->mapWithKeys(function (Article $article) use ($revisionsByArticle) {
+            $qualifying = $revisionsByArticle->get($article->id, collect())
+                ->filter(fn ($revision) => $revision->created_at->gt($article->published_at))
+                ->sortBy('created_at')
+                ->values();
+
+            if ($qualifying->isEmpty()) {
+                return [$article->id => null];
+            }
+
+            $earliest = $qualifying->first();
+
+            if (! $this->contentDiffers($earliest, $article)) {
+                return [$article->id => null];
+            }
+
+            return [$article->id => $qualifying->last()->created_at];
+        })->filter();
     }
 
     private function contentDiffers($revision, Article $article): bool

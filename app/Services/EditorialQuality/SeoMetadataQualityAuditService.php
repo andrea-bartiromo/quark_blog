@@ -91,8 +91,16 @@ class SeoMetadataQualityAuditService
         ];
     }
 
-    /** @return array{status:string,reason:string,url:string} */
-    private function canonicalCheck(Article $article): array
+    /**
+     * Pubblico (Cantiere 3, "Kairus Organic Discovery"): funzione pura sul
+     * singolo articolo, senza alcuna dipendenza dal corpus — riusabile da
+     * OrganicDiscoveryReadinessService::previewForArticle() per
+     * un'anteprima economica su un solo articolo, senza dover rieseguire
+     * l'intero audit() sitewide.
+     *
+     * @return array{status:string,reason:string,url:string}
+     */
+    public function canonicalCheck(Article $article): array
     {
         $url = trim($article->metaCanonicalUrl());
         $scheme = parse_url($url, PHP_URL_SCHEME);

@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
+use App\Http\Controllers\Admin\OrganicDiscoveryReadinessController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProjectArticleLinkController;
 use App\Http\Controllers\Admin\ProjectCalendarController;
@@ -332,6 +333,12 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // Article Discovery Audit — standalone per non ricalcolare il corpus
     // ad ogni apertura di Operazioni editoriali (Missione 72).
     Route::get('/discovery-articoli', [ArticleDiscoveryAuditController::class, 'index'])->name('article-discovery-audit');
+
+    // Ricerca organica — Cantiere 3, programma "Kairus Organic Discovery":
+    // stato spiegabile per articolo (bloccato/da migliorare/pronto/misurato),
+    // composto dagli audit esistenti sopra, mai un punteggio opaco.
+    Route::get('/ricerca-organica', [OrganicDiscoveryReadinessController::class, 'index'])->name('organic-discovery-readiness');
+    Route::get('/ricerca-organica/{article}', [OrganicDiscoveryReadinessController::class, 'show'])->name('organic-discovery-readiness.show');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');

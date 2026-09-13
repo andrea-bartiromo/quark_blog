@@ -46,7 +46,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 |---|---|---|---|---|---|---|---|
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
-| 3 | Prontezza organica e scoperta interna | pending | — | — | — | — | 1, 2 |
+| 3 | Prontezza organica e scoperta interna | in_progress | — | — | vedi nota | — | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
@@ -54,6 +54,54 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
 
 ## Note per cantiere
+
+### Cantiere 3 — Prontezza organica e scoperta interna (in_progress)
+
+`OrganicDiscoveryReadinessService` compone SOLO audit già esistenti (mai
+una regola ricalcolata): `ArticleDiscoveryAuditService` (percorsi/link in
+entrata), `SeoMetadataQualityAuditService` (canonical/duplicati),
+`EditorialQualityChecker` (qualità complessiva), il profilo di ricerca del
+Cantiere 2, i dati Search Console del Cantiere 1. Per ogni articolo
+pubblico produce uno stato spiegabile — bloccato/da migliorare/pronto/
+misurato — con causa e azione suggerita per ogni finding (mai un
+punteggio opaco). "misurato" richiede "pronto" (zero finding) più una
+riga Search Console reale osservata per l'articolo nell'ultimo periodo
+importato.
+
+Due superfici admin nuove (`/admin/ricerca-organica` aggregata,
+`/admin/ricerca-organica/{article}` di dettaglio, entrambe read-only,
+eseguite solo aprendo la pagina) più un'anteprima leggera non bloccante
+integrata nella pagina di modifica articolo (`previewForArticle()`, MAI
+l'intero `auditAll()` del corpus — troppo costoso ad ogni apertura della
+pagina di un singolo articolo; copre solo i controlli economici per un
+solo articolo, dichiarando esplicitamente cosa non misura: percorsi di
+scoperta interna, duplicati di corpus, dati Search Console, presenza di
+dati strutturati).
+
+Estensioni minime a servizi esistenti (mai duplicazioni): resa `public`
+`SeoMetadataQualityAuditService::canonicalCheck()` (funzione pura sul
+singolo articolo, zero dipendenza dal corpus) e aggiunto
+`ArticleRevisionTransparencyService::lastEditorialUpdates()` (variante
+batch della regola già esistente, una query per l'intero corpus invece di
+una per articolo — necessaria perché questo è il primo chiamante che
+applica la regola di freschezza a più articoli insieme).
+
+Trovato e corretto in fase di test un vero N+1 auto-introdotto: senza
+eager-load esplicito di `author:id`, `EditorialQualityChecker::authorCheck()`
+(che legge `$article->author`) generava una query utente per articolo —
+verificato con `DB::enableQueryLog()` su un corpus di 20 vs 100 articoli
+(37 vs 117 query prima del fix, 37 vs 37 dopo), ora coperto da un test di
+query-budget permanente.
+
+Verificato rigorosamente (test dedicati): un articolo bozza o programmato
+non compare mai in `auditAll()`, `forArticle()` restituisce `null` per un
+articolo non pubblico, e la pagina di dettaglio risponde 404 per un
+articolo non pubblico (fail-closed, mai un tentativo di calcolare uno
+stato per contenuto non pubblico).
+
+Ancora da fare prima del merge: aprire la PR, eseguire Pint e la suite
+completa, gestire CI/Codex, mergiare, aggiornare questa riga con PR/SHA
+definitivi.
 
 ### Cantiere 6 — Salute di indicizzazione e sitemap (covered-by-existing)
 
