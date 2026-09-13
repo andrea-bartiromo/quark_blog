@@ -37,6 +37,7 @@ use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\PublicHealthDashboardController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\ScheduledPublicationsReportController;
+use App\Http\Controllers\Admin\SearchConsoleBaselineReportController;
 use App\Http\Controllers\Admin\SearchConsoleCoverageController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
 use App\Http\Controllers\Admin\SearchZeroResultDiagnosticsController;
@@ -289,6 +290,8 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/search-opportunities/importa', [SearchOpportunityController::class, 'importForm'])->name('search-opportunities.import-form');
     Route::post('/search-opportunities/importa', [SearchOpportunityController::class, 'import'])->name('search-opportunities.import');
     Route::post('/search-opportunities/stato', [SearchOpportunityController::class, 'updateStatus'])->name('search-opportunities.update-status');
+
+    Route::get('/search-console-baseline', [SearchConsoleBaselineReportController::class, 'index'])->name('search-console-baseline-report');
 
     // Coverage/Search Console: fotografia importata localmente e audit
     // read-only. Non chiama Google né modifica superfici pubbliche.
