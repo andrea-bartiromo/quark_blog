@@ -30,6 +30,7 @@ class NewsletterReconfirmationMail extends Mailable
         public readonly Newsletter $subscriber,
         public readonly string $confirmUrl,
         public readonly int $expiresInDays,
+        public readonly int $attemptNumber,
     ) {}
 
     public function envelope(): Envelope
@@ -51,7 +52,7 @@ class NewsletterReconfirmationMail extends Mailable
                     <p style='color:#6b7280;font-size:.82rem;margin:0;'>La scienza spiegata come si deve</p>
                 </div>
 
-                <h2 style='font-size:1.2rem;color:#111827;margin-bottom:.75rem;'>Un promemoria, senza impegno.</h2>
+                <h2 style='font-size:1.2rem;color:#111827;margin-bottom:.75rem;'>Promemoria {$this->attemptNumber} di 3, senza impegno.</h2>
 
                 <p style='color:#374151;line-height:1.7;margin-bottom:1rem;'>
                     Tempo fa hai lasciato la tua email per iscriverti a Kairus, ma non risulta
@@ -76,7 +77,7 @@ class NewsletterReconfirmationMail extends Mailable
 
                 <p style='color:#9ca3af;font-size:.72rem;text-align:center;margin:0;line-height:1.6;'>
                     Se non vuoi più ricevere questa newsletter non devi fare nulla: senza conferma
-                    l'iscrizione resta inattiva e verrà rimossa automaticamente.
+                    l'iscrizione resta inattiva e verrà rimossa automaticamente dopo l'ultimo promemoria.
                 </p>
             </div>
         ";

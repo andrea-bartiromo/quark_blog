@@ -83,6 +83,13 @@
               {{ $sub->reconfirmations->count() }}/{{ $maxReconfirmationAttempts }} solleciti inviati
             </div>
           @endif
+          @if($sub->consentEvents->isNotEmpty())
+            @php($lastConsentEvent = $sub->consentEvents->first())
+            <div style="font-size:.72rem;color:#6b7280;margin-top:.25rem;">
+              Audit: {{ str_replace('_', ' ', $lastConsentEvent->event_type) }}
+              · {{ $lastConsentEvent->occurred_at->format('d/m/Y H:i') }}
+            </div>
+          @endif
         </td>
         <td style="font-size:.82rem;color:#6b7280;">
           {{ $sub->created_at->format('d/m/Y H:i') }}

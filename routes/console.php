@@ -50,15 +50,13 @@ if (config('database.default') === 'sqlite') {
         ->appendOutputTo(storage_path('logs/backup.log'));
 }
 
-// ── Pulizia iscritti newsletter pendenti scaduti ─────────────────
-// Ogni giorno alle 4:30 — rimuove SOLO i pendenti già sollecitati
-// (NewsletterReconfirmationService::send(), azione admin manuale) il cui
-// token di riconferma è scaduto senza risposta. Mai un'attivazione
-// automatica, mai un pendente mai sollecitato toccato da questo comando.
-Schedule::command('newsletter:reconfirmation-cleanup')
-    ->dailyAt('04:30')
+// ── Riconferma newsletter ───────────────────────────────────────
+// Ogni ora: applica la timeline 0/10/20/30/40. Il comando ha locking
+// per riga; withoutOverlapping è solo una protezione addizionale.
+Schedule::command('newsletter:reconfirmation-process')
+    ->hourly()
     ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/newsletter-reconfirmation-cleanup.log'));
+    ->appendOutputTo(storage_path('logs/newsletter-reconfirmation-process.log'));
 
 // ── Pulizia cache ──────────────────────────────────────────────
 // Ogni domenica alle 3:00
