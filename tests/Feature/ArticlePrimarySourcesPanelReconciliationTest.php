@@ -108,15 +108,22 @@ class ArticlePrimarySourcesPanelReconciliationTest extends TestCase
 
     public function test_manual_heading_suppresses_primary_panel_while_legacy_delimiter_panel_still_shows(): void
     {
+        // La heading "Fonti" è messa DOPO il delimitatore `---`, quindi
+        // fuori da $mainBody: se ArticleController::show() regredisse a
+        // passare $mainBody invece dell'intero $article->body ad
+        // hasManualSourcesSection(), questo test lo scoprirebbe (a
+        // differenza di una heading messa prima del delimitatore, che
+        // sarebbe comunque dentro $mainBody e non distinguerebbe i due casi
+        // — finding Codex sulla review di questo cantiere).
         $article = $this->publishedArticle([
-            'body' => "<h2>Fonti</h2><p>Fonte manuale nel corpo.</p>\n---\nFonte legacy dopo il delimitatore.",
+            'body' => "<p>Corpo principale senza alcuna heading fonti.</p>\n---\n<h2>Fonti</h2>\nFonte legacy dopo il delimitatore.",
             'primary_sources' => 'https://example.com/fonte-primaria',
         ]);
 
         $response = $this->get(route('articolo', $article->slug));
 
         $response->assertOk();
-        $response->assertSee('Fonte manuale nel corpo.');
+        $response->assertSee('Corpo principale senza alcuna heading fonti.');
         $response->assertSee('Fonte legacy dopo il delimitatore.');
         $response->assertDontSee('id="article-primary-sources-heading"', false);
         $response->assertDontSee('href="https://example.com/fonte-primaria"', false);
