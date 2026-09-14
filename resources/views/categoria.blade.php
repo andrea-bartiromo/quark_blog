@@ -146,6 +146,30 @@
       @endif
     </section>
 
+    {{--
+        Cantiere 50 (programma "100 cantieri Kairus"): articolo "in
+        evidenza" scelto manualmente da un editore per QUESTA categoria
+        (Category::featured_article_id, admin/categories-edit.blade.php) —
+        asse ortogonale ad Article::featured (hero homepage sito-wide,
+        Cantiere 36). $featuredArticle arriva già filtrato per idoneità
+        da Category::featuredArticleForDisplay(): se null (nessuna
+        selezione, o l'articolo scelto non è più pubblicato/non è più di
+        questa categoria) questo blocco semplicemente non compare — zero
+        regressioni per ogni categoria esistente. Resta anche nella
+        griglia sottostante, mai escluso: stesso trattamento già in uso
+        per ContentCluster::pillar_article_id (Percorsi).
+    --}}
+    @if($featuredArticle)
+    <section class="public-feature-band" aria-labelledby="category-featured-title">
+      <span class="public-hero__kicker">In evidenza</span>
+      <h2 id="category-featured-title">{{ $featuredArticle->title }}</h2>
+      @if($featuredArticle->excerpt)
+        <p>{{ Str::limit($featuredArticle->excerpt, 200) }}</p>
+      @endif
+      <a href="{{ route('articolo', $featuredArticle->slug) }}">Leggi l'articolo →</a>
+    </section>
+    @endif
+
     <div class="public-premium-layout kairus-sidebar-layout">
       <section>
 

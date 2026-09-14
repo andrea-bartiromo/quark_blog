@@ -36,6 +36,17 @@ class CategoryController extends Controller
             return view('admin.categories-edit', [
                 'category' => $category,
                 'readiness' => $this->readiness->evaluate($category),
+                // Cantiere 50 (programma "100 cantieri Kairus"): candidati
+                // per il selettore "In evidenza" — solo articoli di QUESTA
+                // categoria (categoria principale), un tetto di 200 per non
+                // rendere il form inutilizzabile su una categoria molto
+                // popolata. featuredArticleForDisplay() applica comunque
+                // il vero controllo di idoneità lato pubblico, non questa
+                // lista: qui serve solo a comporre il menu a tendina.
+                'categoryArticles' => Article::where('category', $category->slug)
+                    ->orderByDesc('published_at')
+                    ->limit(200)
+                    ->get(['id', 'title', 'status']),
             ]);
         }
 
@@ -155,6 +166,7 @@ class CategoryController extends Controller
             'slug' => 'nullable|max:120|unique:categories,slug,'.$category?->id,
             'description' => 'nullable|max:500',
             'curator_note' => 'nullable|string|max:2000',
+            'featured_article_id' => 'nullable|integer|exists:articles,id',
             'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
             'remove_image' => 'nullable|boolean',
             'color' => 'nullable|max:20',

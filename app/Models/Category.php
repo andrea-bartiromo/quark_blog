@@ -23,6 +23,7 @@ class Category extends Model
         'slug',
         'description',
         'curator_note',
+        'featured_article_id',
         'image',
         'color',
         'sort_order',
@@ -34,6 +35,7 @@ class Category extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'featured_article_id' => 'integer',
         'published_at' => 'datetime',
     ];
 
@@ -70,6 +72,48 @@ class Category extends Model
     {
         return $this->belongsToMany(Article::class, 'article_category')
             ->withTimestamps();
+    }
+
+    /**
+     * Cantiere 50 (programma "100 cantieri Kairus"): selezione manuale
+     * di sola relazione — la riga grezza, senza alcuna verifica di
+     * idoneità (usata SOLO per popolare il form admin). La pagina
+     * pubblica deve sempre passare da featuredArticleForDisplay(), mai
+     * da questa direttamente.
+     */
+    public function featuredArticle()
+    {
+        return $this->belongsTo(Article::class, 'featured_article_id');
+    }
+
+    /**
+     * L'articolo "in evidenza" scelto da un editore, MA solo se resta
+     * davvero idoneo ADESSO: pubblicato (stesso predicato di
+     * Article::scopePublished(), non solo status==='published') e
+     * ancora effettivamente associato a questa categoria (principale o
+     * secondaria). Senza questa doppia verifica, un articolo scelto in
+     * evidenza che l'editore poi riporta in bozza, o la cui categoria
+     * viene cambiata, resterebbe "in evidenza" con un contenuto non più
+     * pertinente o non più pubblico — un vero leak editoriale, non solo
+     * un dato stantio. Stesso principio di
+     * ContentClusterPublicSequence per Percorso::pillar_article_id.
+     */
+    public function featuredArticleForDisplay(): ?Article
+    {
+        $article = $this->featuredArticle;
+
+        if (! $article || $article->status !== Article::STATUS_PUBLISHED) {
+            return null;
+        }
+
+        if ($article->published_at === null || $article->published_at->isFuture()) {
+            return null;
+        }
+
+        $belongsHere = $article->category === $this->slug
+            || $article->secondaryCategories()->where('categories.id', $this->id)->exists();
+
+        return $belongsHere ? $article : null;
     }
 
     public function publishedArticles()
