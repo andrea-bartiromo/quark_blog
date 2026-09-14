@@ -231,3 +231,27 @@ approvato o la decisione GO/NO-GO — resta puramente strumentazione
 interna sull'uso redazionale già ammesso, stesso principio "costruisci
 la macchina interna, mai il pubblico" già seguito senza escalation nei
 Cantieri 38-41.
+
+## Addendum — Cantiere 45 (programma "100 cantieri Kairus"), decisione esplicita
+
+Cantiere 45 ("Protocollo editoriale Trust documentato") è puramente
+documentazione: `docs/TRUST_LAYER_EDITORIAL_PROTOCOL.md` consolida in un
+protocollo passo-passo quanto B-39–B-45 qui sopra e i Cantieri 38-43
+hanno già specificato o costruito — nessun codice applicativo nuovo,
+nessuna migration, nessuna route. La tabella di tracking elenca "38-44"
+come dipendenza, ma un audit dedicato (agente di esplorazione, sola
+lettura) ha confermato che nessun codice del Cantiere 44 esiste ancora
+(nessuna migration/modello/controller/route per una decisione GO/NO-GO) —
+la label è la stessa convenzione conservativa già usata altrove nella
+tabella per l'intera catena di cantieri precedenti, non un blocco reale
+per un cantiere di sola documentazione.
+
+Non è stata considerata un'escalation `AskUserQuestion` necessaria, per
+lo stesso motivo del Cantiere 43: il protocollo riafferma esplicitamente
+che il NO-GO B-45 resta in vigore, non tenta di soddisfare nessuna delle
+tre condizioni mancanti, e descrive il passo 6 (decisione GO/NO-GO,
+Cantiere 44) come non ancora costruito e riservato a una propria
+escalation futura — mai anticipandolo. Un test di regressione dedicato
+(`TrustEditorialProtocolDriftTest`) verifica che il documento resti
+sincronizzato con le route e le classi reali del codebase, così che non
+possa silenziosamente divergere da quanto è davvero costruito.
