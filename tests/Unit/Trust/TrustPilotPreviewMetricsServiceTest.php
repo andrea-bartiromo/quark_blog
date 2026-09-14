@@ -6,6 +6,7 @@ use App\Models\TrustKnowledgeStatement;
 use App\Models\TrustKnowledgeStatementPreviewView;
 use App\Services\Trust\TrustPilotPreviewMetricsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -19,6 +20,22 @@ use Tests\TestCase;
 class TrustPilotPreviewMetricsServiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Stessa data di TrustPilotPreviewMetricsService::TRACKING_STARTED_AT
+     * (privata, quindi duplicata qui deliberatamente): i test che
+     * dipendono dal tempo devono ancorarsi a questa data via
+     * Carbon::setTestNow(), mai al "now" reale di esecuzione — altrimenti
+     * diventano fragili rispetto al giorno in cui girano (la costante
+     * coincide con "oggi" al momento di questo cantiere).
+     */
+    private const TRACKING_STARTED_AT = '2026-09-14 00:00:00';
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
     private function service(): TrustPilotPreviewMetricsService
     {
@@ -36,14 +53,14 @@ class TrustPilotPreviewMetricsServiceTest extends TestCase
 
     /**
      * created_at non è fillable (giustamente: è una data tecnica di riga,
-     * non un campo editoriale) — per simulare uno statement esistente da
-     * più di 7 giorni bisogna quindi forzarlo dopo la creazione, mai
-     * passarlo a create() (verrebbe silenziosamente scartato).
+     * non un campo editoriale) — per simulare una data di pubblicazione
+     * specifica bisogna quindi forzarla dopo la creazione, mai passarla a
+     * create() (verrebbe silenziosamente scartata).
      */
-    private function statementCreatedDaysAgo(int $days, array $overrides = []): TrustKnowledgeStatement
+    private function statementPublishedAt(Carbon $publishedAt, array $overrides = []): TrustKnowledgeStatement
     {
         $statement = $this->statement($overrides);
-        $statement->forceFill(['created_at' => now()->subDays($days)])->save();
+        $statement->forceFill(['created_at' => $publishedAt])->save();
 
         return $statement->fresh();
     }
@@ -66,9 +83,11 @@ class TrustPilotPreviewMetricsServiceTest extends TestCase
 
     public function test_aggregate_is_insufficient_data_before_seven_days_have_passed(): void
     {
+        Carbon::setTestNow(self::TRACKING_STARTED_AT);
         $statement = $this->statement();
         $this->service()->recordView($statement);
 
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(3));
         $metric = $this->service()->aggregateViewsFor($statement);
 
         $this->assertSame(TrustPilotPreviewMetricsService::STATE_INSUFFICIENT_DATA, $metric['state']);
@@ -76,10 +95,12 @@ class TrustPilotPreviewMetricsServiceTest extends TestCase
 
     public function test_aggregate_is_available_with_a_real_zero_count_after_seven_days(): void
     {
-        $statement = $this->statementCreatedDaysAgo(10);
+        $statement = $this->statementPublishedAt(Carbon::parse(self::TRACKING_STARTED_AT));
+
         // Nessuna view registrata: lo zero deve restare uno zero reale, non
         // "dati insufficienti" — stesso principio di
         // docs/DASHBOARD_DATA_EXPORT_V1.md.
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(10));
         $metric = $this->service()->aggregateViewsFor($statement);
 
         $this->assertSame(TrustPilotPreviewMetricsService::STATE_AVAILABLE, $metric['state']);
@@ -88,29 +109,108 @@ class TrustPilotPreviewMetricsServiceTest extends TestCase
 
     public function test_aggregate_counts_multiple_views_correctly_once_available(): void
     {
-        $statement = $this->statementCreatedDaysAgo(10);
-
+        $statement = $this->statementPublishedAt(Carbon::parse(self::TRACKING_STARTED_AT));
         $service = $this->service();
+
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(2));
         $service->recordView($statement);
         $service->recordView($statement);
         $service->recordView($statement);
 
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(10));
         $metric = $service->aggregateViewsFor($statement);
 
         $this->assertSame(TrustPilotPreviewMetricsService::STATE_AVAILABLE, $metric['state']);
         $this->assertSame(3, $metric['count']);
     }
 
+    /**
+     * Codex P2 (PR #602): una statement pubblicata (Cantiere 38-39) prima
+     * che questa strumentazione esistesse non deve mai risultare
+     * "available" solo per la sua anzianità — la raccolta dati reale
+     * inizia da TRACKING_STARTED_AT, non da statement.created_at.
+     */
+    public function test_a_statement_published_before_instrumentation_existed_starts_insufficient_data(): void
+    {
+        // Pubblicata 20 giorni prima del rollout: la finestra dei 30gg da
+        // pubblicazione si chiude 10 giorni DOPO il rollout, quindi una
+        // reale sovrapposizione di raccolta esiste (a differenza di uno
+        // statement così vecchio che l'intera finestra è già chiusa prima
+        // che la strumentazione esistesse — in quel caso non ci sono mai
+        // stati giorni di raccolta possibile, quindi resta correttamente
+        // "dati insufficienti" per sempre: fail-closed, mai uno zero finto).
+        $statement = $this->statementPublishedAt(Carbon::parse(self::TRACKING_STARTED_AT)->subDays(20));
+
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(3));
+        $metric = $this->service()->aggregateViewsFor($statement);
+
+        $this->assertSame(TrustPilotPreviewMetricsService::STATE_INSUFFICIENT_DATA, $metric['state']);
+    }
+
+    public function test_a_statement_published_before_instrumentation_existed_becomes_available_after_seven_real_tracking_days(): void
+    {
+        $statement = $this->statementPublishedAt(Carbon::parse(self::TRACKING_STARTED_AT)->subDays(20));
+
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(15));
+        $metric = $this->service()->aggregateViewsFor($statement);
+
+        $this->assertSame(TrustPilotPreviewMetricsService::STATE_AVAILABLE, $metric['state']);
+        $this->assertSame(0, $metric['count']);
+    }
+
+    /**
+     * Uno statement la cui intera finestra di 30gg da pubblicazione è già
+     * chiusa prima che questa strumentazione esistesse non ha mai avuto
+     * un solo giorno di raccolta possibile — deve restare "dati
+     * insufficienti" per sempre, mai un falso zero "available" (stesso
+     * principio fail-closed già in uso nel resto del programma).
+     */
+    public function test_a_statement_whose_window_closed_before_instrumentation_existed_stays_insufficient_data_forever(): void
+    {
+        $statement = $this->statementPublishedAt(Carbon::parse(self::TRACKING_STARTED_AT)->subDays(100));
+
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(365));
+        $metric = $this->service()->aggregateViewsFor($statement);
+
+        $this->assertSame(TrustPilotPreviewMetricsService::STATE_INSUFFICIENT_DATA, $metric['state']);
+    }
+
+    /**
+     * Codex P2 (PR #602): la finestra è "30 giorni da pubblicazione", non
+     * un conteggio che cresce all'infinito — una view oltre il trentesimo
+     * giorno non deve comparire nel conteggio.
+     */
+    public function test_a_view_recorded_after_the_thirty_day_window_is_excluded_from_the_count(): void
+    {
+        $publishedAt = Carbon::parse(self::TRACKING_STARTED_AT);
+        $statement = $this->statementPublishedAt($publishedAt);
+        $service = $this->service();
+
+        Carbon::setTestNow($publishedAt->copy()->addDays(5));
+        $service->recordView($statement);
+
+        Carbon::setTestNow($publishedAt->copy()->addDays(35));
+        $service->recordView($statement);
+
+        $metric = $service->aggregateViewsFor($statement);
+
+        $this->assertSame(1, $metric['count']);
+    }
+
     public function test_aggregate_for_many_does_not_grow_its_query_count_with_the_number_of_statements(): void
     {
         $service = $this->service();
         $statements = collect();
+        $publishedAt = Carbon::parse(self::TRACKING_STARTED_AT);
 
         foreach (range(1, 8) as $i) {
-            $statement = $this->statementCreatedDaysAgo(10, ['domanda' => "Domanda $i?"]);
+            $statement = $this->statementPublishedAt($publishedAt, ['domanda' => "Domanda $i?"]);
+            Carbon::setTestNow($publishedAt->copy()->addDays(2));
             $service->recordView($statement);
             $statements->push($statement);
         }
+
+        Carbon::setTestNow($publishedAt->copy()->addDays(10));
 
         DB::flushQueryLog();
         DB::enableQueryLog();
