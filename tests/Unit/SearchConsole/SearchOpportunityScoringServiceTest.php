@@ -336,4 +336,201 @@ class SearchOpportunityScoringServiceTest extends TestCase
             )
         );
     }
+
+    // ── Cantiere 5 ("Kairus Organic Discovery") — cannibalizzazione ────
+
+    private function publicArticle(string $slug): Article
+    {
+        $author = User::factory()->create(['role' => 'author']);
+
+        return Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo '.$slug,
+            'slug' => $slug,
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+        ]);
+    }
+
+    public function test_two_public_articles_receiving_impressions_for_the_same_query_are_flagged_as_cannibalization(): void
+    {
+        $second = $this->publicArticle('secondo-articolo');
+
+        $this->row([
+            'query' => 'query condivisa',
+            'page_url' => 'https://kairus.it/articolo/primo',
+            'article_id' => $this->matchedArticleId,
+            'impressions' => 30,
+            'clicks' => 2,
+        ]);
+        $this->row([
+            'query' => 'query condivisa',
+            'page_url' => 'https://kairus.it/articolo/secondo-articolo',
+            'article_id' => $second->id,
+            'impressions' => 10,
+            'clicks' => 1,
+        ]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertCount(1, $findings);
+        $finding = $findings->first();
+        $this->assertSame('query condivisa', $finding->query);
+        $this->assertCount(2, $finding->competitors);
+        $this->assertSame($this->matchedArticleId, $finding->primaryArticle->id);
+        $this->assertSame(30, $finding->competitors->first()['impressions']);
+        $this->assertSame($second->id, $finding->competitors->last()['article']->id);
+
+        $opportunities = app(SearchOpportunityScoringService::class)->forPeriod($this->periodStart, $this->periodEnd);
+        $cannibalization = $opportunities->firstWhere('type', SearchOpportunityScoringService::TYPE_SEARCH_CANNIBALIZATION);
+        $this->assertNotNull($cannibalization);
+        $this->assertSame(40, $cannibalization->impressions);
+        $this->assertSame(10.0, $cannibalization->score); // impression degli articoli non primari
+        $this->assertNull($cannibalization->pageUrl);
+    }
+
+    /**
+     * Codex, PR #592 (P1): l'identità dell'opportunità (type|query|pageUrl)
+     * deve restare stabile anche quando la classifica dei concorrenti
+     * cambia da un periodo all'altro — altrimenti una decisione già
+     * registrata (e la sua misurazione a 28/90gg) sparirebbe non appena un
+     * articolo diverso diventasse "primario".
+     */
+    public function test_the_cannibalization_opportunity_key_stays_stable_when_the_primary_article_changes(): void
+    {
+        $second = $this->publicArticle('chiave-stabile-secondo');
+
+        // Periodo 1: il primo articolo (matchedArticleId) e' il primario.
+        $this->row([
+            'query' => 'query classifica variabile',
+            'page_url' => 'https://kairus.it/articolo/primo',
+            'article_id' => $this->matchedArticleId,
+            'impressions' => 30,
+        ]);
+        $this->row([
+            'query' => 'query classifica variabile',
+            'page_url' => 'https://kairus.it/articolo/chiave-stabile-secondo',
+            'article_id' => $second->id,
+            'impressions' => 10,
+        ]);
+
+        $keyPeriod1 = app(SearchOpportunityScoringService::class)
+            ->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd)
+            ->first()->opportunity->key;
+
+        // Periodo 2: la classifica si inverte, il secondo articolo diventa primario.
+        $periodStart2 = Carbon::parse('2026-08-08');
+        $periodEnd2 = Carbon::parse('2026-08-14');
+        SearchConsoleQuery::create([
+            'query' => 'query classifica variabile', 'page_url' => 'https://kairus.it/articolo/primo', 'article_id' => $this->matchedArticleId,
+            'clicks' => 0, 'impressions' => 10, 'ctr' => 0, 'position' => 10,
+            'period_start' => $periodStart2, 'period_end' => $periodEnd2, 'import_batch' => 'p2', 'imported_at' => now(),
+        ]);
+        SearchConsoleQuery::create([
+            'query' => 'query classifica variabile', 'page_url' => 'https://kairus.it/articolo/chiave-stabile-secondo', 'article_id' => $second->id,
+            'clicks' => 0, 'impressions' => 30, 'ctr' => 0, 'position' => 5,
+            'period_start' => $periodStart2, 'period_end' => $periodEnd2, 'import_batch' => 'p2', 'imported_at' => now(),
+        ]);
+
+        $findingPeriod2 = app(SearchOpportunityScoringService::class)
+            ->cannibalizationFindingsForPeriod($periodStart2, $periodEnd2)
+            ->first();
+
+        $this->assertSame($second->id, $findingPeriod2->primaryArticle->id); // la classifica si e' davvero invertita
+        $this->assertSame($keyPeriod1, $findingPeriod2->opportunity->key);
+    }
+
+    public function test_cannibalization_position_is_weighted_by_impressions_not_a_plain_average(): void
+    {
+        $second = $this->publicArticle('posizione-pesata');
+
+        // Due righe per lo STESSO articolo nello stesso gruppo query: una
+        // media aritmetica darebbe (1+10)/2=5.5, quella pesata sulle
+        // impression da' un risultato molto piu' vicino a 10.
+        $this->row([
+            'query' => 'query posizione pesata',
+            'page_url' => 'https://kairus.it/articolo/primo',
+            'article_id' => $this->matchedArticleId,
+            'impressions' => 1,
+            'position' => 1,
+        ]);
+        $this->row([
+            'query' => 'query posizione pesata',
+            'page_url' => 'https://kairus.it/articolo/primo?utm_source=test',
+            'article_id' => $this->matchedArticleId,
+            'impressions' => 99,
+            'position' => 10,
+        ]);
+        $this->row([
+            'query' => 'query posizione pesata',
+            'page_url' => 'https://kairus.it/articolo/posizione-pesata',
+            'article_id' => $second->id,
+            'impressions' => 20,
+            'position' => 6,
+        ]);
+
+        $finding = app(SearchOpportunityScoringService::class)
+            ->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd)
+            ->first();
+
+        $primary = $finding->competitors->firstWhere('article.id', $this->matchedArticleId);
+        $this->assertEqualsWithDelta(9.9, $primary['position'], 0.05);
+    }
+
+    public function test_a_single_article_matched_to_a_query_is_not_flagged_as_cannibalization(): void
+    {
+        $this->row(['query' => 'query singola', 'impressions' => 50]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_cannibalization_requires_minimum_combined_evidence(): void
+    {
+        $second = $this->publicArticle('sotto-soglia');
+
+        $this->row(['query' => 'poca evidenza', 'article_id' => $this->matchedArticleId, 'impressions' => 5]);
+        $this->row(['query' => 'poca evidenza', 'article_id' => $second->id, 'impressions' => 5]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_a_non_public_competing_article_is_never_counted(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $draft = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Bozza',
+            'slug' => 'bozza-competitor',
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_DRAFT,
+            'published_at' => null,
+        ]);
+
+        $this->row(['query' => 'query con bozza', 'article_id' => $this->matchedArticleId, 'impressions' => 30]);
+        $this->row(['query' => 'query con bozza', 'article_id' => $draft->id, 'impressions' => 30]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_a_brand_query_is_never_flagged_as_cannibalization(): void
+    {
+        $second = $this->publicArticle('brand-competitor');
+        $brandQuery = mb_strtolower((string) config('app.name')).' guida';
+
+        $this->row(['query' => $brandQuery, 'article_id' => $this->matchedArticleId, 'impressions' => 50]);
+        $this->row(['query' => $brandQuery, 'article_id' => $second->id, 'impressions' => 50]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
 }

@@ -65,6 +65,7 @@ appena ce ne sono a sufficienza (nota anche nel codice).
 | `near_page_one` | posizione tra 10 e 20 | impression / posizione |
 | `no_strong_landing_page` | nessuna riga della query (aggregata su tutte le pagine nel periodo) corrisponde a un articolo, impression totali ≥ soglia | impression totali |
 | `rising_query` | richiede due periodi importati; impression periodo precedente ≥ 10, crescita > 50% | crescita percentuale |
+| `search_cannibalization` | due o più articoli pubblici distinti ricevono impression per la stessa query (normalizzata) nel periodo, impression totali ≥ soglia (Cantiere 5) | impression degli articoli non primari (quelle "a rischio" di frammentazione) |
 
 ## Import — idempotenza
 
@@ -140,11 +141,43 @@ misurata: mai un valore indovinato.
 `ProjectActivityLog`): azione, valore precedente/nuovo, motivazione, chi,
 quando. Nessuna riga viene mai modificata o cancellata dall'applicazione.
 
+## Cannibalizzazione di ricerca (Cantiere 5, programma "Kairus Organic Discovery")
+
+`SearchOpportunityScoringService::cannibalizationFindings()` individua
+articoli **pubblici** distinti che ricevono impression Search Console
+**reali** per la stessa query (normalizzata) nello stesso periodo —
+segnale osservato nei dati, distinto e più forte del controllo già
+esistente (e più leggero) su `ArticleSearchProfile::primary_query`
+dichiarato uguale tra due articoli
+(`ArticleSearchProfileCollisionService`/`EditorialOpportunityDecisionService`,
+non duplicato qui). Richiede la dimensione pagina (come
+`no_strong_landing_page`): senza `page_url` non si può sapere quale
+articolo abbia ricevuto l'impression. Un articolo non più pubblico (bozza,
+programmato) non entra mai nel conteggio, né come "primario" né come
+concorrente — fail-closed, mai un suggerimento di consolidamento verso un
+articolo non raggiungibile pubblicamente. Le query brand sono escluse
+(stessa configurazione `search-console.brand_terms`).
+
+Ogni gruppo trovato produce anche un'opportunità di tipo
+`search_cannibalization` (stessa identità `type|query|page_url`, articolo
+= il "probabile primario", quello con più impression) che compare
+automaticamente nell'elenco generale `/admin/search-opportunities` e
+partecipa alla stessa infrastruttura di decisione, baseline e misurazione
+a 28/90 giorni del Cantiere 4 — nessuna seconda struttura di persistenza.
+La pagina dedicata `/admin/cannibalizzazione-ricerca` mostra il dettaglio
+per-articolo (impression/clic/posizione di ciascun concorrente, non solo
+del primario) e un modulo che registra la decisione "Sovrapposizione con
+articolo esistente" (`merge`) tramite la stessa route di scrittura già
+esistente del Cantiere 4 — nessuna nuova azione automatica, la
+consolidazione/differenziazione resta sempre una scelta editoriale umana.
+
 ## Limiti dichiarati di questa v1
 
 - Nessuna ingestione automatica/API — solo import manuale CSV.
-- Nessuna cannibalizzazione rilevata (più pagine per la stessa query
-  vengono valutate riga per riga, non confrontate tra loro).
+- La cannibalizzazione (Cantiere 5) confronta solo query normalizzate
+  esattamente uguali tra articoli — mai un confronto semantico/fuzzy tra
+  query diverse ma equivalenti (stesso limite dichiarato già esistente in
+  `ArticleSearchProfileCollisionService`).
 - La curva CTR-atteso-per-posizione è un'assunzione di settore, non un
   dato Kairus.
 - Nessuna persistenza di storico oltre i periodi effettivamente importati

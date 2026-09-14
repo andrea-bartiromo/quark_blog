@@ -118,6 +118,7 @@
       $isSearchConsoleBaselineReport = request()->routeIs('admin.search-console-baseline-report*');
       $isSearchConsoleCoverage = request()->routeIs('admin.search-console-coverage*');
       $isEditorialOpportunityDecisions = request()->routeIs('admin.editorial-opportunity-decisions*');
+      $isSearchCannibalization = request()->routeIs('admin.search-cannibalization*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
       $isScheduledPublicationsReport = request()->routeIs('admin.scheduled-publications-report*');
@@ -145,7 +146,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isEditorialOpportunityDecisions || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit || $isOrganicDiscoveryReadiness;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isEditorialOpportunityDecisions || $isSearchCannibalization || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit || $isOrganicDiscoveryReadiness;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -208,6 +209,7 @@
         <x-admin.nav-link :route="route('admin.stats')" :active="$isStats" icon="📈">Statistiche</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-opportunities')" :active="$isSearchOpportunities" icon="🔎">Opportunità di ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.editorial-opportunity-decisions')" :active="$isEditorialOpportunityDecisions" icon="🧾">Decisioni SEO</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.search-cannibalization')" :active="$isSearchCannibalization" icon="🪞">Cannibalizzazione ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-baseline-report')" :active="$isSearchConsoleBaselineReport" icon="📈">Baseline Search Console</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-coverage')" :active="$isSearchConsoleCoverage" icon="🗺️">Salute indicizzazione</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>

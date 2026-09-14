@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\ProjectTaskController;
 use App\Http\Controllers\Admin\PublicHealthDashboardController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\ScheduledPublicationsReportController;
+use App\Http\Controllers\Admin\SearchCannibalizationController;
 use App\Http\Controllers\Admin\SearchConsoleBaselineReportController;
 use App\Http\Controllers\Admin\SearchConsoleCoverageController;
 use App\Http\Controllers\Admin\SearchOpportunityController;
@@ -344,6 +345,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/ricerca-organica', [OrganicDiscoveryReadinessController::class, 'index'])->name('organic-discovery-readiness');
     Route::get('/ricerca-organica/{article}', [OrganicDiscoveryReadinessController::class, 'show'])->name('organic-discovery-readiness.show');
     Route::get('/decisioni-editoriali-seo', [EditorialOpportunityDecisionController::class, 'index'])->name('editorial-opportunity-decisions');
+    // Cantiere 5 (programma "Kairus Organic Discovery"): cannibalizzazione
+    // di ricerca da dati Search Console reali — sola lettura, la
+    // risoluzione passa dalla route search-opportunities.record-decision
+    // già esistente sopra.
+    Route::get('/cannibalizzazione-ricerca', [SearchCannibalizationController::class, 'index'])->name('search-cannibalization');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');

@@ -48,7 +48,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
 | 3 | Prontezza organica e scoperta interna | merged | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | `52d5a60` | 31/31 (OrganicDiscoveryReadinessService+Controller, 64 assert.) + 9/9 ArticleRevisionTransparencyService (16 assert.); suite CI completa: 4568/4569 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `lastEditorialUpdates()` caricava l'intera cronologia revisioni invece di filtrare lato DB) | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | merged | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | `c4ba1ef` | 23/23 (SearchOpportunityDecisionService+Controller+comando misurazione, 76 assert.); suite di regressione mirata (SearchOpportunity+Progettazione): 360/362, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi su entrambi i tentativi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` riprodotto identico due volte su commit diversi — confermato pre-esistente, non correlato al diff | 5 reali, vedi nota | 1 |
-| 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
+| 5 | Cannibalizzazione di ricerca | in_progress | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | — | vedi nota | — | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
@@ -156,6 +156,86 @@ verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
 360/362, i 2 falliti sono i flake pre-esistenti già documentati
 (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
 relazione con questo diff.
+
+### Cantiere 5 — Cannibalizzazione di ricerca (in_progress)
+
+Ispezione pre-cantiere (agente Explore in background): il codice esistente
+copriva solo un controllo leggero e dichiarato ("due articoli hanno lo
+stesso `ArticleSearchProfile::primary_query`" — già in
+`ArticleSearchProfileCollisionService` e riusato da
+`EditorialOpportunityDecisionService`, quest'ultimo aggiunto direttamente
+da Andrea Bartiromo su `main` mentre la PR #590 del Cantiere 4 era ancora
+aperta, vedi nota di riconciliazione del Cantiere 4 sopra). Entrambi i
+servizi hanno un docblock che rimanda esplicitamente a questo cantiere per
+il segnale più forte: "la sovrapposizione più ampia tra query/domande
+secondarie e i dati Search Console resta compito del Cantiere 5". Nessuna
+duplicazione: il controllo esistente confronta solo testo dichiarato in
+redazione, mai osservato nei dati reali di Google.
+
+Aggiunto `SearchOpportunityScoringService::cannibalizationFindings()`
+(nuovo metodo, stesso file che già ospita tutta la logica di scoring delle
+opportunità — mai un secondo motore parallelo): raggruppa le righe
+Search Console del periodo per query normalizzata, tiene solo articoli
+**pubblici** (fail-closed: una bozza non entra mai nel conteggio, né come
+primario né come concorrente), esclude le query brand
+(`search-console.brand_terms`, stessa configurazione già esistente),
+richiede almeno 2 articoli distinti e impression totali ≥
+`MIN_IMPRESSIONS` (soglia riusata, non una nuova costante arbitraria).
+Ogni gruppo produce anche una `SearchOpportunity` di tipo
+`search_cannibalization` (articolo = il "probabile primario", quello con
+più impression) automaticamente inclusa in `currentOpportunities()` —
+compare quindi anche nell'elenco generale `/admin/search-opportunities` e
+la sua risoluzione ("Sovrapposizione con articolo esistente") passa dalla
+stessa infrastruttura di decisione/baseline/storico/misurazione a 28-90gg
+del Cantiere 4, **nessuna nuova tabella o struttura di persistenza**.
+
+Nuovo DTO `SearchCannibalizationFinding` (query, concorrenti ordinati per
+impression decrescenti con le proprie metriche individuali, articolo
+primario, l'opportunità condivisa) — necessario perché la singola
+`SearchOpportunity` esistente espone un solo articolo, mentre la pagina
+dedicata deve mostrare le metriche di *ciascun* concorrente, non solo del
+vincitore. Nuova pagina read-only `/admin/cannibalizzazione-ricerca`
+(`SearchCannibalizationController`), voce di navigazione "Cannibalizzazione
+ricerca" nel gruppo Analisi, form che registra la decisione riusando
+`admin.search-opportunities.record-decision` — nessuna nuova route di
+scrittura.
+
+Test: 5 nuovi in `SearchOpportunityScoringServiceTest` (cannibalizzazione
+rilevata con articolo primario corretto, singolo articolo non segnalato,
+evidenza combinata insufficiente non segnalata, articolo non pubblico mai
+conteggiato, query brand mai segnalata) — suite del file 21/21. 7 nuovi in
+`SearchCannibalizationControllerTest` (autorizzazione guest/autore/editor,
+stato vuoto, rilevamento reale, esclusione bozza, form di decisione) — tutti
+verdi. Suite di regressione mirata (SearchOpportunity+SearchConsole+
+SearchCannibalization+EditorialOpportunity+OrganicDiscovery+Progettazione):
+463/465, 2 pre-esistenti (`ProjectModelTest.php:235`,
+`ProjectTaskControllerTest.php:193`), nessuna relazione con questo diff.
+Pint pulito su tutti i file toccati.
+
+Suite completa post-implementazione: 4608/4623 passati, 3 falliti — tutti
+e tre i flake pre-esistenti già documentati
+(`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`,
+`ContentClusterAutoLifecycleCompletionTest.php:192`), nessuna relazione
+con questo diff. PR aperta: [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592).
+
+4 finding reali di Codex (commit `a806984`), tutti risolti: **P1**
+l'identità dell'opportunità (`type|query|pageUrl`) usava l'URL
+dell'articolo attualmente primario — se la classifica cambiava tra un
+periodo e l'altro, la decisione già registrata (e le sue misurazioni a
+28/90gg) sarebbe sparita; corretto con query normalizzata + `pageUrl`
+sempre `null` (la cannibalizzazione riguarda la query, non una pagina).
+Il modulo di decisione compariva anche su un periodo storico ma
+`recordDecision()` ricalcola sempre dal periodo più recente — l'invio
+sarebbe sempre fallito; ora il modulo compare solo sul periodo più
+recente. `search_cannibalization` mancava dal filtro per tipo del
+`SearchOpportunityController`. La posizione dei concorrenti era una media
+aritmetica semplice invece che pesata sulle impression (stesso principio
+già usato da `SearchConsoleBaselineReportService`). 4 test di regressione
+aggiunti; suite mirata 467/469 (2 pre-esistenti).
+
+Ancora da fare prima del merge: risolvere i thread di review (API
+GraphQL rate-limited al momento del fix, riprovare), verificare CI,
+mergiare, aggiornare questa riga con PR/SHA definitivi.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
