@@ -91,6 +91,27 @@
       <small style="color:#6b7280;">Opzionale, in prima persona: perché questa categoria esiste, cosa il lettore vi trova. Sostituisce il testo generico "Editorial Focus" sulla pagina pubblica solo se compilata.</small>
     </div>
 
+    {{--
+        Cantiere 50 (programma "100 cantieri Kairus"): selezione manuale
+        di un articolo "in evidenza" per QUESTA categoria — asse
+        ortogonale ad Article::featured (hero homepage sito-wide,
+        Cantiere 36). Compare sulla pagina pubblica solo se l'articolo
+        scelto resta davvero idoneo (Category::featuredArticleForDisplay()):
+        un articolo qui selezionato ma poi riportato in bozza, o spostato
+        in un'altra categoria, smette silenziosamente di comparire, senza
+        errori né azione ulteriore richiesta all'editore.
+    --}}
+    <div class="form-group">
+      <label class="form-label" for="featured_article_id">Articolo in evidenza</label>
+      <select id="featured_article_id" class="form-input" name="featured_article_id">
+        <option value="">Nessuno</option>
+        @foreach($categoryArticles as $article)
+          <option value="{{ $article->id }}" {{ (string) old('featured_article_id', $category->featured_article_id) === (string) $article->id ? 'selected' : '' }}>{{ $article->title }} — {{ $article->status }}</option>
+        @endforeach
+      </select>
+      <small style="color:#6b7280;">Opzionale. Solo articoli di questa categoria; resta "in evidenza" solo finché l'articolo scelto è pubblicato e appartiene ancora a questa categoria.</small>
+    </div>
+
     <div class="form-group">
       <label class="form-label">Immagine categoria</label>
       @if($category->image)

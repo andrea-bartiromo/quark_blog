@@ -95,6 +95,12 @@ class CategoryDiscoveryPageData
             'categoryLabel' => $categoryModel?->name ?? $categories[$slug],
             'categoryDescription' => $categoryModel?->description,
             'categoryImage' => $categoryModel?->image,
+            // Cantiere 50 (programma "100 cantieri Kairus"): mai l'articolo
+            // grezzo selezionato in admin (Category::featuredArticle) —
+            // solo la versione già filtrata per idoneità reale (pubblicato
+            // e ancora associato a questa categoria), vedi il docblock di
+            // featuredArticleForDisplay().
+            'featuredArticle' => $categoryModel?->featuredArticleForDisplay(),
             'category' => $slug,
 
             // Discovery multi-categoria: la pagina mostra gli articoli che
