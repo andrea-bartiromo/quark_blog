@@ -219,8 +219,8 @@
       </aside>
     </div>
 
-    @include('categories.partials.continue-exploring')
-
   </div>
+
+  @include('categories.partials.continue-exploring')
 </div>
 @endsection
