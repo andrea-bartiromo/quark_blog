@@ -9,15 +9,27 @@ use Illuminate\Database\Eloquent\Model;
  * Cantiere 38 (programma "100 cantieri Kairus"): modello interno
  * "Cosa sappiamo davvero" — la scomposizione strutturata (Domanda /
  * Consenso / Incertezza / Cosa manca) che il pilot non pubblico
- * docs/TRUST_LAYER_COSA_SAPPIAMO_DAVVERO_PILOT.md (missione B-40) ha
- * definito come template ma non ha mai reso in schema reale — quel
- * documento resta esplicitamente in NO-GO per una route/pagina pubblica
- * (nessuna migration finché una decisione editoriale umana esplicita non
- * arriva, si legga la missione B-45): questo cantiere costruisce SOLO il
- * modello interno che 39-44 estenderanno (campi/validazioni aggiuntive,
- * anteprima non indicizzabile, componente di consenso/incertezza, gate
- * di pubblicazione) — MAI una route pubblica, MAI un URL raggiungibile
- * fuori da `/admin`.
+ * docs/TRUST_LAYER_COSA_SAPPIAMO_DAVVERO_PILOT.md (missione B-40, un
+ * programma precedente e già completato) ha definito come template ma
+ * non ha mai reso in schema reale.
+ *
+ * Nota di scope, verificata esplicitamente contro un finding Codex reale
+ * su questo esatto punto (PR #595): la missione B-45 di quel documento
+ * dichiara NO-GO "il pilot manuale" — cioè la PUBBLICAZIONE di una pagina
+ * reale con contenuto editoriale reale a utenti reali — e ne condiziona
+ * l'apertura a tre blocchi tutti relativi alla pubblicazione (owner
+ * editoriale assegnato, contenuto sorgente approvato, merge del
+ * componente Fonti pubblico — quest'ultimo nel frattempo già avvenuto su
+ * `main` altrove). Questo cantiere non fa nessuna di quelle tre cose:
+ * costruisce SOLO il modello dati interno, vuoto, dietro autenticazione
+ * editor, MAI una route pubblica, MAI un URL raggiungibile fuori da
+ * `/admin`, MAI contenuto editoriale reale inserito da questo cantiere —
+ * esattamente la stessa categoria di "campo di lavoro interno" già
+ * esistente per `Article::verification_status`, mai sottoposto allo
+ * stesso gate. Cantieri 40-44 (anteprima non indicizzabile, componente di
+ * consenso/incertezza, gate di pubblicazione, decisione GO/NO-GO) restano
+ * il punto in cui il vero gate B-45 (owner/contenuto/decisione editoriale
+ * esplicita per la pubblicazione) si applica di nuovo, per intero.
  *
  * Deliberatamente distinto da:
  * - Article::verification_status/primary_sources — quello è un flag

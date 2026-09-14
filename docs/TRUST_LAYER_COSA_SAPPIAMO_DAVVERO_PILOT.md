@@ -112,3 +112,23 @@ mancanti, tutte non colmabili da questo cantiere:
 
 Nessuna route pubblica o migration verrà aperta finché queste condizioni
 non sono soddisfatte da una decisione editoriale umana esplicita.
+
+## Addendum — Cantiere 38 (programma "100 cantieri Kairus"), decisione esplicita
+
+Un finding Codex reale (PR #595) ha segnalato che questa frase, presa
+alla lettera, blocca ANCHE una migration puramente interna — non solo
+quella del pilot pubblico. Verificato esplicitamente e deciso dall'utente
+(non da questa sessione in autonomia): il NO-GO qui sopra resta valido
+per il "pilot manuale" (pubblicazione reale a utenti reali) e per
+qualunque route pubblica — nessuna delle tre condizioni mancanti è
+soddisfatta da Cantiere 38, che infatti non tenta di soddisfarle.
+Cantiere 38 ha aggiunto SOLO `TrustKnowledgeStatement`, un modello dati
+interno (`/admin`, dietro autenticazione editor, zero contenuto
+editoriale reale inserito) — la stessa categoria di campo di lavoro
+interno già esistente per `Article::verification_status`, mai sottoposta
+a questo gate. Il gate Trust Layer (terza condizione) è nel frattempo
+già stato soddisfatto altrove su `main` (merge del componente Fonti
+pubblico). Cantieri 40-44 restano il punto in cui l'intero gate B-45
+(owner assegnato, contenuto approvato, decisione editoriale esplicita di
+pubblicazione) torna ad applicarsi per intero, prima di qualunque route
+pubblica o contenuto editoriale reale.
