@@ -51,6 +51,7 @@ use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TopicalAuthorityController;
+use App\Http\Controllers\Admin\TrustKnowledgeStatementController;
 use App\Http\Controllers\Admin\TuringController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\ArticleController;
@@ -197,6 +198,16 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     Route::post('/concetti/{concept}/domande', [ConceptQuestionController::class, 'store'])->name('concepts.questions.store');
     Route::put('/concetti/{concept}/domande/{question}', [ConceptQuestionController::class, 'update'])->name('concepts.questions.update');
+
+    // Cantiere 38 (programma "100 cantieri Kairus"): modello interno
+    // "Cosa sappiamo davvero" — solo admin, mai una route pubblica (si
+    // legga il docblock di TrustKnowledgeStatement).
+    Route::get('/cosa-sappiamo-davvero', [TrustKnowledgeStatementController::class, 'index'])->name('trust-knowledge.index');
+    Route::get('/cosa-sappiamo-davvero/nuovo', [TrustKnowledgeStatementController::class, 'create'])->name('trust-knowledge.create');
+    Route::post('/cosa-sappiamo-davvero', [TrustKnowledgeStatementController::class, 'store'])->name('trust-knowledge.store');
+    Route::get('/cosa-sappiamo-davvero/{trustKnowledgeStatement}/modifica', [TrustKnowledgeStatementController::class, 'edit'])->name('trust-knowledge.edit');
+    Route::put('/cosa-sappiamo-davvero/{trustKnowledgeStatement}', [TrustKnowledgeStatementController::class, 'update'])->name('trust-knowledge.update');
+    Route::delete('/cosa-sappiamo-davvero/{trustKnowledgeStatement}', [TrustKnowledgeStatementController::class, 'destroy'])->name('trust-knowledge.destroy');
 
     // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
     Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');
