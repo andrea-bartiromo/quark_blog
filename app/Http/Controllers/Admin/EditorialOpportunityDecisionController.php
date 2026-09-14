@@ -29,10 +29,17 @@ class EditorialOpportunityDecisionController extends Controller
             $selected = $periods->first(fn (array $period) => $periodKey === $period['period_start'].'|'.$period['period_end']) ?? $selected;
         }
 
+        // decide() esegue OrganicDiscoveryReadinessService::auditAll() (audit
+        // dell'intero corpus di articoli pubblici) all'inizio, indipendente
+        // da quante opportunità gli vengono passate — mai chiamarlo quando
+        // non c'è alcun periodo selezionato (nessun import Search Console),
+        // altrimenti ogni apertura della pagina pagherebbe quell'audit
+        // costoso solo per mostrare "Nessun import disponibile" (Codex, PR
+        // #600).
         $opportunities = $selected
             ? $this->scoring->forPeriod(Carbon::parse($selected['period_start']), Carbon::parse($selected['period_end']))
             : collect();
-        $rows = $this->decisions->decide($opportunities);
+        $rows = $selected ? $this->decisions->decide($opportunities) : collect();
 
         // Cantiere UX "Collegamento diretto tra Decisioni SEO e Opportunità
         // di ricerca": decisioni umane già registrate per queste stesse
