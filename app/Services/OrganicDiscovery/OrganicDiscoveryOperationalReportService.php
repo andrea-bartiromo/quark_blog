@@ -123,17 +123,13 @@ class OrganicDiscoveryOperationalReportService
             ->groupBy('decision_type')
             ->pluck('total', 'decision_type');
 
-        $dueButUnmeasured28d = SearchOpportunityDecision::query()
-            ->whereNull('measured_28d_at')
-            ->whereNotNull('baseline_captured_at')
-            ->where('baseline_captured_at', '<=', now()->subDays(28))
-            ->count();
-
-        $dueButUnmeasured90d = SearchOpportunityDecision::query()
-            ->whereNull('measured_90d_at')
-            ->whereNotNull('baseline_captured_at')
-            ->where('baseline_captured_at', '<=', now()->subDays(90))
-            ->count();
+        // "Dovute ma non misurate" non basta: measureDueOutcomes() misura
+        // solo quelle per cui un periodo importato copre già l'orizzonte E
+        // l'opportunità è ancora tra quelle attualmente calcolabili — un
+        // conteggio che non distingue le due situazioni spingerebbe a
+        // rilanciare il comando anche per righe che restano bloccate
+        // finché non arriva un import più recente (Codex, PR #593).
+        $eligibility = $this->decisions->dueOutcomesEligibility();
 
         return [
             'total' => (int) $byType->sum(),
@@ -142,47 +138,86 @@ class OrganicDiscoveryOperationalReportService
                     $type => ['label' => $label, 'count' => (int) ($byType[$type] ?? 0)],
                 ])
                 ->all(),
-            'due_but_unmeasured_28d' => $dueButUnmeasured28d,
-            'due_but_unmeasured_90d' => $dueButUnmeasured90d,
-        ];
-    }
-
-    /** @return array<string, mixed> */
-    private function outcomesSummary(): array
-    {
-        return [
-            '28d' => $this->classifyOutcomes(
-                SearchOpportunityDecision::query()
-                    ->whereNotNull('measured_28d_at')
-                    ->get(['baseline_clicks', 'measured_28d_clicks'])
-                    ->map(fn (SearchOpportunityDecision $d) => [$d->baseline_clicks, $d->measured_28d_clicks])
-            ),
-            '90d' => $this->classifyOutcomes(
-                SearchOpportunityDecision::query()
-                    ->whereNotNull('measured_90d_at')
-                    ->get(['baseline_clicks', 'measured_90d_clicks'])
-                    ->map(fn (SearchOpportunityDecision $d) => [$d->baseline_clicks, $d->measured_90d_clicks])
-            ),
+            'runnable_28d' => $eligibility['runnable_28d'],
+            'blocked_28d' => $eligibility['blocked_28d'],
+            'runnable_90d' => $eligibility['runnable_90d'],
+            'blocked_90d' => $eligibility['blocked_90d'],
         ];
     }
 
     /**
-     * Classifica ogni decisione misurata confrontando i clic osservati con
-     * il baseline catturato alla decisione — unica metrica scelta perché è
-     * l'unica non ambigua da "migliorata/invariata/peggiorata" (CTR e
-     * posizione dipendono anche da impression che possono variare per
-     * ragioni indipendenti dalla decisione). Nessuna soglia di
-     * significatività: un solo clic in più conta già come "migliorata",
-     * dichiarato esplicitamente qui perché un redattore possa giudicare da
-     * solo se il numero è abbastanza per contare come segnale.
+     * Due metriche distinte, mai una sola: le decisioni collegate a una
+     * ricerca interna a zero risultati (TYPE_INTERNAL_ZERO_RESULT_SEARCH)
+     * hanno `clicks`/`ctr` sempre nulli o azzerati per costruzione
+     * (SearchOpportunityScoringService::internalZeroResultOpportunities()
+     * — il segnale reale è il conteggio di ricerche in `impressions`), e
+     * per quel tipo un valore più ALTO è un peggioramento, non un
+     * miglioramento (più ricerche senza risultati, non meno) — mescolarle
+     * con le opportunità "normali" le classificherebbe sempre come
+     * "invariate" o con la direzione sbagliata (Codex, PR #593).
      *
-     * @param  Collection<int, array{0:int,1:int}>  $pairs  [baseline_clicks, measured_clicks]
+     * Le opportunità "normali" confrontano il CTR osservato col baseline,
+     * non i clic grezzi: baseline e misurazione possono provenire da
+     * periodi Search Console di lunghezza diversa (l'importer non vincola
+     * la durata), quindi un totale di clic più alto può riflettere solo
+     * un periodo più lungo, non un miglioramento reale — il CTR è un
+     * tasso, già indipendente dalla lunghezza del periodo (Codex, PR #593).
+     *
+     * @return array<string, mixed>
+     */
+    private function outcomesSummary(): array
+    {
+        return [
+            '28d' => $this->classifyOutcomes($this->ctrPairs('measured_28d_at', 'measured_28d_ctr')),
+            '90d' => $this->classifyOutcomes($this->ctrPairs('measured_90d_at', 'measured_90d_ctr')),
+            'internal_zero_result_search' => [
+                '28d' => $this->classifyOutcomes(
+                    $this->internalZeroResultPairs('measured_28d_at', 'measured_28d_impressions'),
+                    higherIsBetter: false,
+                ),
+                '90d' => $this->classifyOutcomes(
+                    $this->internalZeroResultPairs('measured_90d_at', 'measured_90d_impressions'),
+                    higherIsBetter: false,
+                ),
+            ],
+        ];
+    }
+
+    /** @return Collection<int, array{0:float,1:float}> [baseline_ctr, measured_ctr] */
+    private function ctrPairs(string $measuredAtColumn, string $measuredCtrColumn): Collection
+    {
+        return SearchOpportunityDecision::query()
+            ->whereNotNull($measuredAtColumn)
+            ->whereNotNull('baseline_ctr')
+            ->whereNotNull($measuredCtrColumn)
+            ->where('opportunity_type', '!=', SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH)
+            ->get(['baseline_ctr', $measuredCtrColumn])
+            ->map(fn (SearchOpportunityDecision $d) => [(float) $d->baseline_ctr, (float) $d->{$measuredCtrColumn}]);
+    }
+
+    /** @return Collection<int, array{0:int,1:int}> [baseline_impressions, measured_impressions] — hit_count delle ricerche interne senza risultati */
+    private function internalZeroResultPairs(string $measuredAtColumn, string $measuredImpressionsColumn): Collection
+    {
+        return SearchOpportunityDecision::query()
+            ->whereNotNull($measuredAtColumn)
+            ->where('opportunity_type', SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH)
+            ->get(['baseline_impressions', $measuredImpressionsColumn])
+            ->map(fn (SearchOpportunityDecision $d) => [(int) $d->baseline_impressions, (int) $d->{$measuredImpressionsColumn}]);
+    }
+
+    /**
+     * Nessuna soglia di significatività: una sola unità di differenza
+     * conta già come "migliorata"/"peggiorata", dichiarato esplicitamente
+     * perché un redattore possa giudicare da solo se il numero è
+     * abbastanza per contare come segnale.
+     *
+     * @param  Collection<int, array{0:float|int,1:float|int}>  $pairs  [baseline, misurato]
      * @return array{measured:int, improved:int, flat:int, worse:int}
      */
-    private function classifyOutcomes(Collection $pairs): array
+    private function classifyOutcomes(Collection $pairs, bool $higherIsBetter = true): array
     {
-        $improved = $pairs->filter(fn (array $pair) => $pair[1] > $pair[0])->count();
-        $worse = $pairs->filter(fn (array $pair) => $pair[1] < $pair[0])->count();
+        $improved = $pairs->filter(fn (array $pair) => $higherIsBetter ? $pair[1] > $pair[0] : $pair[1] < $pair[0])->count();
+        $worse = $pairs->filter(fn (array $pair) => $higherIsBetter ? $pair[1] < $pair[0] : $pair[1] > $pair[0])->count();
         $flat = $pairs->count() - $improved - $worse;
 
         return [

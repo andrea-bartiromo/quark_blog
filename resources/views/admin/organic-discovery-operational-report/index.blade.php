@@ -50,21 +50,34 @@
     @foreach($snapshot['decisions']['by_type'] as $row)
       <p style="font-size:.82rem;margin:.2rem 0">{{ $row['label'] }}: <strong>{{ $row['count'] }}</strong></p>
     @endforeach
-    <p style="font-size:.82rem;margin:.4rem 0 .2rem;color:var(--admin-muted)">In attesa di misurazione (dovuta, non ancora eseguita)</p>
-    <p style="font-size:.82rem;margin:.2rem 0">A 28 giorni: <strong>{{ $snapshot['decisions']['due_but_unmeasured_28d'] }}</strong></p>
-    <p style="font-size:.82rem;margin:.2rem 0">A 90 giorni: <strong>{{ $snapshot['decisions']['due_but_unmeasured_90d'] }}</strong></p>
-    @if($snapshot['decisions']['due_but_unmeasured_28d'] > 0 || $snapshot['decisions']['due_but_unmeasured_90d'] > 0)
-      <p style="font-size:.76rem;color:var(--admin-muted);margin-top:.3rem">Esegui <code>php artisan search-opportunities:measure-outcomes</code> per aggiornarle (comando manuale, non schedulato in questa v1).</p>
+    <p style="font-size:.82rem;margin:.4rem 0 .2rem;color:var(--admin-muted)">In attesa di misurazione (baseline abbastanza vecchio, non ancora misurata)</p>
+    <p style="font-size:.82rem;margin:.2rem 0">
+      A 28 giorni: <strong>{{ $snapshot['decisions']['runnable_28d'] }}</strong> eseguibili ora
+      @if($snapshot['decisions']['blocked_28d'] > 0)
+        · <strong>{{ $snapshot['decisions']['blocked_28d'] }}</strong> bloccate (serve un import più recente o l'opportunità non è più tra quelle attuali)
+      @endif
+    </p>
+    <p style="font-size:.82rem;margin:.2rem 0">
+      A 90 giorni: <strong>{{ $snapshot['decisions']['runnable_90d'] }}</strong> eseguibili ora
+      @if($snapshot['decisions']['blocked_90d'] > 0)
+        · <strong>{{ $snapshot['decisions']['blocked_90d'] }}</strong> bloccate
+      @endif
+    </p>
+    @if($snapshot['decisions']['runnable_28d'] > 0 || $snapshot['decisions']['runnable_90d'] > 0)
+      <p style="font-size:.76rem;color:var(--admin-muted);margin-top:.3rem">Esegui <code>php artisan search-opportunities:measure-outcomes</code> per misurare quelle eseguibili (comando manuale, non schedulato in questa v1).</p>
     @endif
   </div>
 
   <div class="admin-card">
     <h2 style="font-size:.95rem;margin:0 0 .6rem">Esiti misurati</h2>
-    <p style="font-size:.78rem;color:var(--admin-muted);margin:0 0 .5rem">Confronto clic osservati vs baseline alla decisione. Nessuna soglia di significatività: anche un solo clic in più conta come "migliorata".</p>
+    <p style="font-size:.78rem;color:var(--admin-muted);margin:0 0 .5rem">Confronto CTR osservato vs baseline alla decisione (un tasso, non un totale: resta confrontabile anche tra periodi importati di lunghezza diversa). Nessuna soglia di significatività: anche un solo punto in più conta come "migliorata".</p>
     <p style="font-size:.82rem;margin:.4rem 0 .1rem"><strong>A 28 giorni</strong> ({{ $snapshot['outcomes']['28d']['measured'] }} misurate)</p>
     <p style="font-size:.82rem;margin:.1rem 0">Migliorate: <strong>{{ $snapshot['outcomes']['28d']['improved'] }}</strong> · Invariate: <strong>{{ $snapshot['outcomes']['28d']['flat'] }}</strong> · Peggiorate: <strong>{{ $snapshot['outcomes']['28d']['worse'] }}</strong></p>
     <p style="font-size:.82rem;margin:.4rem 0 .1rem"><strong>A 90 giorni</strong> ({{ $snapshot['outcomes']['90d']['measured'] }} misurate)</p>
     <p style="font-size:.82rem;margin:.1rem 0">Migliorate: <strong>{{ $snapshot['outcomes']['90d']['improved'] }}</strong> · Invariate: <strong>{{ $snapshot['outcomes']['90d']['flat'] }}</strong> · Peggiorate: <strong>{{ $snapshot['outcomes']['90d']['worse'] }}</strong></p>
+    <p style="font-size:.78rem;color:var(--admin-muted);margin:.7rem 0 .3rem">Ricerche interne senza risultati (metrica diversa: conteggio di ricerche, "migliorata" = diminuito)</p>
+    <p style="font-size:.82rem;margin:.1rem 0"><strong>28gg</strong> ({{ $snapshot['outcomes']['internal_zero_result_search']['28d']['measured'] }} misurate): migliorate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['28d']['improved'] }}</strong> · invariate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['28d']['flat'] }}</strong> · peggiorate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['28d']['worse'] }}</strong></p>
+    <p style="font-size:.82rem;margin:.1rem 0"><strong>90gg</strong> ({{ $snapshot['outcomes']['internal_zero_result_search']['90d']['measured'] }} misurate): migliorate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['90d']['improved'] }}</strong> · invariate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['90d']['flat'] }}</strong> · peggiorate <strong>{{ $snapshot['outcomes']['internal_zero_result_search']['90d']['worse'] }}</strong></p>
   </div>
 
 </div>

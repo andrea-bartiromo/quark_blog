@@ -60,58 +60,74 @@ class OrganicDiscoveryOperationalReportServiceTest extends TestCase
         $this->assertSame(25, $snapshot['search_console']['coverage']['total_unmatched_queries']);
     }
 
-    public function test_decisions_are_counted_by_type_and_due_unmeasured_decisions_are_flagged(): void
+    public function test_decisions_are_counted_by_type(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
         $article = $this->article();
 
-        // Decisione con baseline abbastanza vecchia da essere dovuta a
-        // 28gg ma non ancora misurata.
-        $this->decision($user, $article, [
-            'decision_type' => SearchOpportunityDecision::DECISION_UPDATE_ARTICLE,
-            'baseline_captured_at' => now()->subDays(30),
-        ]);
-        // Decisione già misurata a 28gg: non deve comparire tra le dovute.
-        $this->decision($user, $article, [
-            'decision_type' => SearchOpportunityDecision::DECISION_IGNORE,
-            'baseline_captured_at' => now()->subDays(40),
-            'measured_28d_at' => now(),
-            'measured_28d_clicks' => 5,
-        ], suffix: '2');
-        // Decisione troppo recente: non ancora dovuta.
-        $this->decision($user, $article, [
-            'decision_type' => SearchOpportunityDecision::DECISION_UPDATE_ARTICLE,
-            'baseline_captured_at' => now()->subDays(5),
-        ], suffix: '3');
+        $this->decision($user, $article, ['decision_type' => SearchOpportunityDecision::DECISION_UPDATE_ARTICLE]);
+        $this->decision($user, $article, ['decision_type' => SearchOpportunityDecision::DECISION_IGNORE], suffix: '2');
+        $this->decision($user, $article, ['decision_type' => SearchOpportunityDecision::DECISION_UPDATE_ARTICLE], suffix: '3');
 
         $snapshot = app(OrganicDiscoveryOperationalReportService::class)->snapshot();
 
         $this->assertSame(3, $snapshot['decisions']['total']);
         $this->assertSame(2, $snapshot['decisions']['by_type'][SearchOpportunityDecision::DECISION_UPDATE_ARTICLE]['count']);
         $this->assertSame(1, $snapshot['decisions']['by_type'][SearchOpportunityDecision::DECISION_IGNORE]['count']);
-        $this->assertSame(1, $snapshot['decisions']['due_but_unmeasured_28d']);
     }
 
-    public function test_outcomes_are_classified_by_comparing_measured_clicks_to_baseline(): void
+    /**
+     * Codex, PR #593 (P2): un conteggio "dovute" che non distingue le
+     * decisioni davvero eseguibili ORA da quelle bloccate (l'opportunità
+     * non è più tra quelle attuali) spingerebbe a rilanciare un comando
+     * che per queste ultime non risolverà mai nulla.
+     */
+    public function test_due_measurements_are_split_between_runnable_and_blocked(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        SearchZeroResultQuery::create(['normalized_query' => 'ancora attiva', 'hit_count' => 10]);
+        SearchZeroResultQuery::create(['normalized_query' => 'sparita', 'hit_count' => 10]);
+
+        $stillCurrent = app(SearchOpportunityScoringService::class)->currentOpportunities(null)->firstWhere('query', 'ancora attiva');
+        $vanishing = app(SearchOpportunityScoringService::class)->currentOpportunities(null)->firstWhere('query', 'sparita');
+
+        app(SearchOpportunityDecisionService::class)->record($stillCurrent, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, $editor);
+        app(SearchOpportunityDecisionService::class)->record($vanishing, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, $editor);
+
+        // La seconda query non ha più abbastanza ricerche: la sua
+        // opportunità sparisce da currentOpportunities(), pur restando
+        // "dovuta" per la misurazione.
+        SearchZeroResultQuery::where('normalized_query', 'sparita')->update(['hit_count' => 0]);
+
+        SearchOpportunityDecision::query()->update(['baseline_captured_at' => now()->subDays(30)]);
+
+        $snapshot = app(OrganicDiscoveryOperationalReportService::class)->snapshot();
+
+        $this->assertSame(1, $snapshot['decisions']['runnable_28d']);
+        $this->assertSame(1, $snapshot['decisions']['blocked_28d']);
+    }
+
+    public function test_outcomes_are_classified_by_comparing_measured_ctr_to_baseline(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
         $article = $this->article();
 
         $this->decision($user, $article, [
-            'baseline_clicks' => 10, 'baseline_captured_at' => now()->subDays(30),
-            'measured_28d_at' => now(), 'measured_28d_clicks' => 15,
+            'baseline_ctr' => 0.05, 'baseline_captured_at' => now()->subDays(30),
+            'measured_28d_at' => now(), 'measured_28d_ctr' => 0.08,
         ], suffix: 'up');
         $this->decision($user, $article, [
-            'baseline_clicks' => 10, 'baseline_captured_at' => now()->subDays(30),
-            'measured_28d_at' => now(), 'measured_28d_clicks' => 10,
+            'baseline_ctr' => 0.05, 'baseline_captured_at' => now()->subDays(30),
+            'measured_28d_at' => now(), 'measured_28d_ctr' => 0.05,
         ], suffix: 'flat');
         $this->decision($user, $article, [
-            'baseline_clicks' => 10, 'baseline_captured_at' => now()->subDays(30),
-            'measured_28d_at' => now(), 'measured_28d_clicks' => 4,
+            'baseline_ctr' => 0.05, 'baseline_captured_at' => now()->subDays(30),
+            'measured_28d_at' => now(), 'measured_28d_ctr' => 0.02,
         ], suffix: 'down');
         // Non ancora misurata: non deve contare in nessuna delle tre categorie.
         $this->decision($user, $article, [
-            'baseline_clicks' => 10, 'baseline_captured_at' => now()->subDays(5),
+            'baseline_ctr' => 0.05, 'baseline_captured_at' => now()->subDays(5),
         ], suffix: 'unmeasured');
 
         $snapshot = app(OrganicDiscoveryOperationalReportService::class)->snapshot();
@@ -121,6 +137,40 @@ class OrganicDiscoveryOperationalReportServiceTest extends TestCase
         $this->assertSame(1, $snapshot['outcomes']['28d']['flat']);
         $this->assertSame(1, $snapshot['outcomes']['28d']['worse']);
         $this->assertSame(0, $snapshot['outcomes']['90d']['measured']);
+    }
+
+    /**
+     * Codex, PR #593 (P1, due volte): le decisioni da ricerca interna a
+     * zero risultati hanno clic/CTR sempre nulli o azzerati per
+     * costruzione (il segnale reale è il conteggio in impressions) e, a
+     * differenza delle altre opportunità, un valore più ALTO è un
+     * peggioramento (più ricerche senza risultati), non un miglioramento.
+     * Devono restare fuori dal confronto CTR e usare la propria metrica
+     * con la direzione invertita.
+     */
+    public function test_internal_zero_result_search_outcomes_use_impressions_with_inverted_direction(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $this->zeroResultDecision($user, [
+            'baseline_impressions' => 10, 'baseline_captured_at' => now()->subDays(30),
+            'measured_28d_at' => now(), 'measured_28d_impressions' => 3,
+        ], suffix: 'meno-ricerche-fallite');
+        $this->zeroResultDecision($user, [
+            'baseline_impressions' => 10, 'baseline_captured_at' => now()->subDays(30),
+            'measured_28d_at' => now(), 'measured_28d_impressions' => 20,
+        ], suffix: 'piu-ricerche-fallite');
+
+        $snapshot = app(OrganicDiscoveryOperationalReportService::class)->snapshot();
+
+        // Nessuna delle due deve inquinare il confronto CTR delle
+        // opportunità "normali" (entrambe hanno baseline_ctr/measured_ctr
+        // nulli, mai popolati per questo tipo).
+        $this->assertSame(0, $snapshot['outcomes']['28d']['measured']);
+
+        $this->assertSame(2, $snapshot['outcomes']['internal_zero_result_search']['28d']['measured']);
+        $this->assertSame(1, $snapshot['outcomes']['internal_zero_result_search']['28d']['improved']); // meno ricerche fallite = migliorata
+        $this->assertSame(1, $snapshot['outcomes']['internal_zero_result_search']['28d']['worse']); // piu' ricerche fallite = peggiorata
     }
 
     public function test_current_opportunities_are_split_between_with_and_without_a_decision(): void
@@ -190,6 +240,22 @@ class OrganicDiscoveryOperationalReportServiceTest extends TestCase
             'opportunity_query' => 'query report',
             'decision_type' => SearchOpportunityDecision::DECISION_UPDATE_ARTICLE,
             'article_id' => $article->id,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ], $overrides));
+    }
+
+    private function zeroResultDecision(User $user, array $overrides, string $suffix = ''): SearchOpportunityDecision
+    {
+        $key = SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH.'|query zero risultati '.$suffix.uniqid().'|';
+
+        return SearchOpportunityDecision::create(array_merge([
+            'opportunity_key' => $key,
+            'opportunity_key_hash' => hash('sha256', $key),
+            'opportunity_type' => SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH,
+            'opportunity_query' => 'query zero risultati',
+            'decision_type' => SearchOpportunityDecision::DECISION_IGNORE,
+            'rationale' => 'Fixture.',
             'created_by' => $user->id,
             'updated_by' => $user->id,
         ], $overrides));

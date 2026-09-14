@@ -274,6 +274,44 @@ class SearchOpportunityDecisionServiceTest extends TestCase
     }
 
     /**
+     * Cantiere 7, per il report operativo (Codex, PR #593, P2): distingue
+     * le decisioni dovute che measureDueOutcomes() misurerebbe DAVVERO se
+     * eseguito ora ("eseguibili") da quelle che restano bloccate — nessun
+     * periodo copre ancora l'orizzonte, o l'opportunità non è più tra
+     * quelle attuali. Riusa esattamente le stesse condizioni di idoneità,
+     * mai una seconda regola.
+     */
+    public function test_due_outcomes_eligibility_distinguishes_runnable_from_blocked(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        SearchZeroResultQuery::create(['normalized_query' => 'query ancora attiva', 'hit_count' => 10]);
+        SearchZeroResultQuery::create(['normalized_query' => 'query sparita eligibility', 'hit_count' => 10]);
+
+        Carbon::setTestNow('2026-01-01 00:00:00');
+        $runnableOpportunity = app(SearchOpportunityScoringService::class)->currentOpportunities(null)->firstWhere('query', 'query ancora attiva');
+        $blockedOpportunity = app(SearchOpportunityScoringService::class)->currentOpportunities(null)->firstWhere('query', 'query sparita eligibility');
+
+        $this->service()->record($runnableOpportunity, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, $editor);
+        $this->service()->record($blockedOpportunity, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, $editor);
+
+        // La seconda query scende sotto soglia: la sua opportunità sparisce
+        // da currentOpportunities(), pur restando "dovuta".
+        SearchZeroResultQuery::query()->where('normalized_query', 'query sparita eligibility')->update(['hit_count' => 0]);
+
+        Carbon::setTestNow('2026-02-01 00:00:00');
+        $eligibility = $this->service()->dueOutcomesEligibility();
+
+        $this->assertSame(1, $eligibility['runnable_28d']);
+        $this->assertSame(1, $eligibility['blocked_28d']);
+
+        // measureDueOutcomes() conferma la stessa lettura: solo la
+        // decisione "eseguibile" viene davvero misurata.
+        $result = $this->service()->measureDueOutcomes();
+        $this->assertSame(1, $result['measured_28d']);
+    }
+
+    /**
      * Regressione Codex (PR #590, P2): senza eager-load, la vista che
      * legge ->article/->projectTask per ogni decisione genererebbe una
      * query per riga.
