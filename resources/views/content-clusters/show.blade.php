@@ -289,7 +289,22 @@
           <p>{{ $publishedStepCount }} {{ $publishedStepCount === 1 ? 'tappa disponibile' : 'tappe disponibili' }} · Percorso in aggiornamento</p>
           <p>Questo Percorso Kairus è ancora in evoluzione. Stiamo preparando nuovi capitoli per continuare l'esplorazione. Torna presto: la prossima tappa arriverà qui.</p>
           <p><em>Qui riprenderà il viaggio.</em></p>
-          @include('content-clusters.partials.subscribe-form', ['cluster' => $cluster])
+          @if($previewMode ?? false)
+            {{--
+                Cantiere 48 (programma "100 cantieri Kairus"): l'anteprima
+                admin usa route model binding semplice — raggiunge anche
+                un Percorso già pubblico "in aggiornamento", non solo il
+                pacchetto non pubblico per cui è pensata. Il form reale
+                sottostante invia una vera POST a percorsi.subscribe (una
+                vera email di conferma) — un'anteprima di SOLA lettura non
+                deve mai poter innescare un'azione di produzione, quindi
+                qui viene sempre sostituito da un avviso testuale, mai dal
+                form live (Codex, PR #606).
+            --}}
+            <p class="path-subscribe__error" role="alert">Iscrizione disabilitata in anteprima amministrativa.</p>
+          @else
+            @include('content-clusters.partials.subscribe-form', ['cluster' => $cluster])
+          @endif
         @else
           <p class="eyebrow">Continua l'esplorazione</p>
           <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>

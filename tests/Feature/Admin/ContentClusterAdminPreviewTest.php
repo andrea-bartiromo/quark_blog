@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Search\TrovaEntitySearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 /**
@@ -145,5 +146,101 @@ class ContentClusterAdminPreviewTest extends TestCase
         $response->assertOk();
         $response->assertSee('Anteprima amministrativa', false);
         $response->assertSee(route('percorsi.show', 'mente-e-comportamento'), false);
+    }
+
+    /**
+     * Codex, PR #606 (P1): l'anteprima admin non deve mai registrare
+     * traffico editoriale come traffico pubblico reale in GA4, anche
+     * sotto una configurazione production-like in cui una pagina
+     * pubblica comparabile caricherebbe regolarmente lo script gtag.js
+     * (AnalyticsExclusionService::shouldLoadAnalytics(), $previewMode).
+     */
+    public function test_the_preview_response_never_loads_analytics_even_under_production_like_config(): void
+    {
+        Config::set('app.env', 'production');
+        Config::set('analytics.enabled', null);
+        Config::set('analytics.measurement_id', 'G-TESTID123');
+
+        $article = Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Articolo per audit analytics anteprima',
+            'slug' => 'articolo-audit-analytics-anteprima',
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Corpo articolo di prova.</p>',
+            'category' => 'energia',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'read_minutes' => 3,
+        ]);
+        $publicCluster = ContentCluster::create([
+            'name' => 'Percorso Pubblico Per Analytics',
+            'slug' => 'percorso-pubblico-per-analytics',
+            'is_active' => true,
+            'short_description' => 'Breve',
+            'description' => 'Descrizione',
+        ]);
+        $publicCluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        $publicCluster->update(['pillar_article_id' => $article->id]);
+
+        $draftCluster = ContentCluster::create([
+            'name' => 'Percorso Non Pubblico Per Analytics',
+            'slug' => 'percorso-non-pubblico-per-analytics',
+            'is_active' => false,
+        ]);
+        $draftCluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+
+        $publicResponse = $this->get(route('percorsi.show', $publicCluster->slug));
+        $publicResponse->assertOk();
+        $publicResponse->assertSee('googletagmanager.com/gtag/js', false);
+
+        $previewResponse = $this->actingAs($this->editor())
+            ->get(route('admin.content-clusters.preview', $draftCluster));
+        $previewResponse->assertOk();
+        $previewResponse->assertDontSee('googletagmanager.com/gtag/js', false);
+    }
+
+    /**
+     * Codex, PR #606 (P2): l'anteprima admin usa route model binding
+     * semplice, quindi raggiunge anche un Percorso già "in aggiornamento"
+     * (non solo un pacchetto non pubblico) — in quel ramo la pagina
+     * pubblica reale mostra un vero form di iscrizione (POST verso
+     * percorsi.subscribe). L'anteprima, di sola lettura, deve sempre
+     * sostituirlo con un avviso statico, mai renderizzare il form live.
+     */
+    public function test_the_preview_response_never_renders_the_live_subscribe_form(): void
+    {
+        $article = Article::create([
+            'user_id' => $this->author()->id,
+            'title' => 'Articolo percorso in aggiornamento',
+            'slug' => 'articolo-percorso-in-aggiornamento',
+            'excerpt' => 'Sommario di prova.',
+            'body' => '<p>Corpo articolo di prova.</p>',
+            'category' => 'energia',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'read_minutes' => 3,
+        ]);
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso In Aggiornamento',
+            'slug' => 'percorso-in-aggiornamento',
+            'is_active' => true,
+            'short_description' => 'Breve',
+            'description' => 'Descrizione',
+            'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING,
+        ]);
+        $cluster->articles()->attach($article->id, ['position' => 10, 'is_primary' => true]);
+        $cluster->update(['pillar_article_id' => $article->id]);
+
+        $publicResponse = $this->get(route('percorsi.show', $cluster->slug));
+        $publicResponse->assertOk();
+        $publicResponse->assertSee('path-subscribe__form', false);
+        $publicResponse->assertSee(route('percorsi.subscribe', $cluster->slug), false);
+
+        $previewResponse = $this->actingAs($this->editor())
+            ->get(route('admin.content-clusters.preview', $cluster));
+        $previewResponse->assertOk();
+        $previewResponse->assertSee('Iscrizione disabilitata in anteprima amministrativa.');
+        $previewResponse->assertDontSee('path-subscribe__form', false);
+        $previewResponse->assertDontSee(route('percorsi.subscribe', $cluster->slug), false);
     }
 }

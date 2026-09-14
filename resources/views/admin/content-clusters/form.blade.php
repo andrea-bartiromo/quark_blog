@@ -120,6 +120,14 @@
               — {{ $cluster->publishAtForEditors()->format('d/m/Y H:i') }}
             @endif
           </span>
+          {{--
+              Cantiere 48 (programma "100 cantieri Kairus"): anteprima di
+              sola lettura della stessa pagina, senza attendere
+              l'attivazione — Admin\ContentClusterController::preview(),
+              staff-only. Stesso pattern del link "Vedi anteprima" già
+              presente per Category (Cantiere 11).
+          --}}
+          <a href="{{ route('admin.content-clusters.preview', $cluster) }}" target="_blank" rel="noopener">Vedi anteprima →</a>
         @endif
       </div>
 
