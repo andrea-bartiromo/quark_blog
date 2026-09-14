@@ -67,6 +67,15 @@ class ProvisionNonPublicContentClusterPackage extends Command
             'slug' => $slug,
             'is_active' => false,
             'sort_order' => 0,
+            // Un pacchetto appena creato, senza un solo articolo, non è
+            // mai "concluso": il default a livello di colonna è 'complete'
+            // (pensato per i Percorsi storici già completi al momento in
+            // cui lifecycle_status fu introdotta), che qui sarebbe
+            // sbagliato — una volta attivato da un editore mentre ancora
+            // scrive articoli, farebbe risultare acceptsPathSubscriptions()
+            // false e PathContinuationNotifier lo salterebbe, con l'UI
+            // pubblica che lo presenterebbe come concluso (Codex, PR #604).
+            'lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING,
         ]);
 
         $this->newLine();

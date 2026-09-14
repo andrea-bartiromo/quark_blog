@@ -48,6 +48,25 @@ class ProvisionNonPublicContentClusterPackageTest extends TestCase
         $this->assertFalse($cluster->isPubliclyVisible());
     }
 
+    /**
+     * Codex (PR #604): il default a livello di colonna per
+     * lifecycle_status è 'complete' — pensato per i Percorsi storici già
+     * completi al momento in cui la colonna fu introdotta. Un pacchetto
+     * appena creato, senza un solo articolo, non è mai "concluso": se
+     * ereditasse quel default, una volta attivato mentre l'editore
+     * ancora scrive articoli, acceptsPathSubscriptions() risulterebbe
+     * falso e PathContinuationNotifier lo salterebbe.
+     */
+    public function test_apply_sets_the_lifecycle_to_updating_not_the_column_default(): void
+    {
+        $this->artisan('content-clusters:provision-non-public-package mente-e-comportamento "Mente e comportamento" --apply')->assertSuccessful();
+
+        $cluster = ContentCluster::where('slug', 'mente-e-comportamento')->firstOrFail();
+
+        $this->assertSame(ContentCluster::LIFECYCLE_UPDATING, $cluster->lifecycle_status);
+        $this->assertTrue($cluster->isUpdating());
+    }
+
     public function test_running_it_twice_never_modifies_the_existing_package(): void
     {
         $this->artisan('content-clusters:provision-non-public-package mente-e-comportamento "Mente e comportamento" --apply')->assertSuccessful();
