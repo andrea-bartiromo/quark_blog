@@ -132,3 +132,36 @@ pubblico). Cantieri 40-44 restano il punto in cui l'intero gate B-45
 (owner assegnato, contenuto approvato, decisione editoriale esplicita di
 pubblicazione) torna ad applicarsi per intero, prima di qualunque route
 pubblica o contenuto editoriale reale.
+
+## Addendum — Cantiere 40 (programma "100 cantieri Kairus"), decisione esplicita
+
+Cantiere 40 ("Preview non indicizzabile pilot Trust") ha aggiunto
+`TrustKnowledgeStatementController::preview()` e la vista
+`resources/views/admin/trust-knowledge/preview.blade.php`. Prima di
+scrivere codice, un audit dedicato (agente di esplorazione, sola lettura)
+ha confermato: zero route non autenticate raggiungono oggi un
+`TrustKnowledgeStatement`; zero righe reali (non di test) di questo
+modello esistono in qualunque ambiente (nessun seeder/factory le crea);
+l'addendum Cantiere 38 qui sopra riserva esplicitamente ai Cantieri 40-44
+la riapplicazione del gate B-45 per intero prima di una route pubblica o
+contenuto reale.
+
+Decisione di scope, portata all'utente via `AskUserQuestion` e delegata
+esplicitamente a questa sessione ("scegli tu l'alternativa migliore"):
+questo cantiere implementa SOLO un'anteprima di sola lettura, raggiungibile
+esclusivamente dentro il gruppo di rotte `auth`+`editor` già esistente
+(`/admin/cosa-sappiamo-davvero/{id}/anteprima`) — mai una route pubblica.
+Il pattern riusa `Admin\CategoryController::preview()` (Cantiere 11): stesso
+layout pubblico reale (`layouts.app`, non `layouts.admin`) per non far
+divergere l'anteprima dalla pagina reale nel tempo, con un banner giallo
+"Anteprima amministrativa" e `@section('robots', 'noindex,nofollow')` come
+difesa in profondità (anche se la route non è comunque mai raggiungibile
+da un utente non autenticato).
+
+Questo NON soddisfa nessuna delle tre condizioni mancanti del NO-GO
+originale (owner editoriale, contenuto approvato, gate Trust Layer): non
+tenta di farlo. Resta vero quanto scritto nell'addendum Cantiere 38 — i
+Cantieri 40-44 sono il punto in cui il gate B-45 completo torna ad
+applicarsi prima di qualunque route pubblica o contenuto editoriale
+reale; questo cantiere specifico resta strettamente interno
+all'amministrazione, coerente con Cantiere 38 e 39.
