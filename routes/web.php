@@ -52,6 +52,7 @@ use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TopicalAuthorityController;
 use App\Http\Controllers\Admin\TrustKnowledgeStatementController;
+use App\Http\Controllers\Admin\TrustPilotGateReadinessController;
 use App\Http\Controllers\Admin\TuringController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\ArticleController;
@@ -212,6 +213,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // il NO-GO B-45 per il pilot pubblico resta in vigore, si legga il
     // docblock del controller.
     Route::get('/cosa-sappiamo-davvero/{trustKnowledgeStatement}/anteprima', [TrustKnowledgeStatementController::class, 'preview'])->name('trust-knowledge.preview');
+    // Cantiere 42: stato di SOLA LETTURA delle tre condizioni del NO-GO
+    // B-45 — nessuna scrittura, nessun modo di assegnare owner o approvare
+    // contenuto da qui (si legga il docblock di TrustPilotGateReadinessService).
+    Route::get('/cosa-sappiamo-davvero/gate-pubblicazione', [TrustPilotGateReadinessController::class, 'index'])->name('trust-knowledge.gate-readiness');
 
     // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
     Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');

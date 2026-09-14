@@ -343,6 +343,7 @@ class TrustKnowledgeStatementControllerTest extends TestCase
             '/trust-knowledge',
             '/trust-knowledge/'.$statement->id,
             '/cosa-sappiamo-davvero/'.$statement->id.'/anteprima',
+            '/cosa-sappiamo-davvero/gate-pubblicazione',
         ];
 
         foreach ($publicGuesses as $path) {
