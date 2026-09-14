@@ -4,16 +4,20 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ImportSearchConsoleCsvRequest;
+use App\Models\SearchOpportunityDecision;
 use App\Models\SearchOpportunityStatus;
 use App\Services\SearchConsole\SearchConsoleCsvImporter;
 use App\Services\SearchConsole\SearchConsoleFreshnessService;
 use App\Services\SearchConsole\SearchConsoleImportCoverageService;
+use App\Services\SearchConsole\SearchOpportunity;
+use App\Services\SearchConsole\SearchOpportunityDecisionService;
 use App\Services\SearchConsole\SearchOpportunityScoringService;
 use App\Services\SearchConsole\SearchOpportunityStatusService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use RuntimeException;
 
 class SearchOpportunityController extends Controller
 {
@@ -22,6 +26,7 @@ class SearchOpportunityController extends Controller
         private readonly SearchOpportunityStatusService $statuses,
         private readonly SearchConsoleFreshnessService $freshness,
         private readonly SearchConsoleImportCoverageService $coverage,
+        private readonly SearchOpportunityDecisionService $decisions,
     ) {}
 
     public function index(Request $request): View
@@ -47,26 +52,7 @@ class SearchOpportunityController extends Controller
         }
 
         $latest = $periods->first();
-        $previous = $periods->get(1);
-
-        // Mission 32: le opportunità da ricerca interna a zero risultati
-        // (search_zero_result_queries, Missione 31) non dipendono da un
-        // periodo Search Console — restano visibili anche senza alcun CSV
-        // mai importato, quindi si calcolano sempre, non solo dentro il
-        // ramo "periodi disponibili".
-        $opportunities = $latest
-            ? $this->scoring->forPeriod(
-                Carbon::parse($latest['period_start']),
-                Carbon::parse($latest['period_end']),
-                $previous ? Carbon::parse($previous['period_start']) : null,
-                $previous ? Carbon::parse($previous['period_end']) : null,
-            )
-            : collect();
-
-        $opportunities = $opportunities
-            ->merge($this->scoring->internalZeroResultOpportunities($opportunities))
-            ->sortByDesc(fn ($o) => $o->score)
-            ->values();
+        $opportunities = $this->scoring->currentOpportunities($latest, $periods->get(1));
 
         if ($type !== null) {
             $opportunities = $opportunities->filter(fn ($o) => $o->type === $type)->values();
@@ -83,6 +69,11 @@ class SearchOpportunityController extends Controller
                 ->values();
         }
 
+        // Cantiere 4 (programma "Kairus Organic Discovery"): decisione
+        // editoriale corrente per opportunità — stesso principio bulk di
+        // opportunityStatuses qui sopra, mai una query per riga.
+        $opportunityDecisions = $this->decisions->decisionsFor($opportunities);
+
         return view('admin.search-opportunities.index', [
             'periods' => $periods,
             'selectedPeriod' => $latest,
@@ -92,6 +83,8 @@ class SearchOpportunityController extends Controller
             'statusOptions' => $statusOptions,
             'selectedStatus' => $status,
             'opportunityStatuses' => $opportunityStatuses,
+            'opportunityDecisions' => $opportunityDecisions,
+            'decisionTypeOptions' => SearchOpportunityDecision::decisionTypeOptions(),
             // Missione 45 (Fase F — Search Intelligence): "import
             // freshness" — cronologia dei singoli import CSV (già
             // idempotenti-per-periodo), mai mostrata finora, solo l'ultimo
@@ -102,6 +95,67 @@ class SearchOpportunityController extends Controller
             // dalla cronologia grezza per singolo import qui sopra.
             'coverage' => $this->coverage->all(),
         ]);
+    }
+
+    /**
+     * Cantiere 4 (programma "Kairus Organic Discovery"): registra la
+     * decisione editoriale per un'opportunità — mai un'azione automatica.
+     * L'opportunità viene ricalcolata dal periodo corrente (mai fidandosi
+     * ciecamente dei soli campi nascosti del form): se non è più presente
+     * (dati cambiati tra l'apertura della pagina e l'invio), fail-closed —
+     * nessuna decisione registrata, nessun baseline indovinato.
+     */
+    public function recordDecision(Request $request): RedirectResponse
+    {
+        $decisionTypes = array_keys(SearchOpportunityDecision::decisionTypeOptions());
+
+        $validated = $request->validate([
+            // 600 non basta per ogni chiave valida: tipo (fino a ~28
+            // caratteri) + query (255) + page_url (500) può superare 600
+            // (Codex, PR #590) — opportunity_key è ora una colonna TEXT
+            // (nessun limite di indicizzazione, l'unicità reale è
+            // sull'hash), questo è solo un limite di sanità.
+            'opportunity_key' => ['required', 'string', 'max:1200'],
+            'decision_type' => ['required', 'string', 'in:'.implode(',', $decisionTypes)],
+            'rationale' => [
+                'nullable', 'string', 'max:2000',
+                'required_if:decision_type,'.SearchOpportunityDecision::DECISION_MERGE,
+                'required_if:decision_type,'.SearchOpportunityDecision::DECISION_IGNORE,
+            ],
+            'article_id' => [
+                'nullable', 'integer', 'exists:articles,id',
+                'required_if:decision_type,'.SearchOpportunityDecision::DECISION_UPDATE_ARTICLE,
+                'required_if:decision_type,'.SearchOpportunityDecision::DECISION_MERGE,
+            ],
+        ]);
+
+        $periods = $this->freshness->availablePeriods();
+        $opportunity = $this->scoring->currentOpportunities($periods->first(), $periods->get(1))
+            ->first(fn (SearchOpportunity $o) => $o->key === $validated['opportunity_key']);
+
+        if ($opportunity === null) {
+            return back()->withErrors(['opportunity_key' => 'Questa opportunità non è più disponibile nel periodo corrente: impossibile registrare la decisione.']);
+        }
+
+        // La creazione del brief (se richiesta) avviene DENTRO
+        // SearchOpportunityDecisionService::record(), nella stessa
+        // transazione con lock della decisione — mai qui separatamente,
+        // altrimenti due invii concorrenti potrebbero creare due
+        // ProjectTask distinti prima che uno dei due salvi la decisione
+        // (Codex, PR #590).
+        try {
+            $this->decisions->record(
+                $opportunity,
+                $validated['decision_type'],
+                $validated['rationale'] ?? null,
+                $validated['article_id'] ?? null,
+                $request->user(),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['decision_type' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Decisione registrata.');
     }
 
     public function updateStatus(Request $request): RedirectResponse

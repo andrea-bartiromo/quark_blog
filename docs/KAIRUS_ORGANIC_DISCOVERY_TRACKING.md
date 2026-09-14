@@ -47,13 +47,100 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 1 | Baseline e affidabilità dei dati Search Console | merged | [#586](https://github.com/andrea-bartiromo/quark_blog/pull/586) | `bfc3893` | 124/124 (SearchConsole+SearchConsoleBaselineReportController+SearchOpportunityController+AdminNavigation, 416 assert.); suite CI completa: 4518 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 2 reali (fixati: righe di copertura per property/tipo di report ormai sostituiti non rimosse su reimport dello stesso periodo; card di drill-down verso le opportunità del periodo sbagliato quando selezionato un periodo storico) | — |
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
 | 3 | Prontezza organica e scoperta interna | merged | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | `52d5a60` | 31/31 (OrganicDiscoveryReadinessService+Controller, 64 assert.) + 9/9 ArticleRevisionTransparencyService (16 assert.); suite CI completa: 4568/4569 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `lastEditorialUpdates()` caricava l'intera cronologia revisioni invece di filtrare lato DB) | 1, 2 |
-| 4 | Dalle opportunità Search Console alle decisioni editoriali | pending | — | — | — | — | 1 |
+| 4 | Dalle opportunità Search Console alle decisioni editoriali | in_progress | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | — | vedi nota | — | 1 |
 | 5 | Cannibalizzazione di ricerca | pending | — | — | — | — | 1, 2 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
 
 ## Note per cantiere
+
+### Cantiere 4 — Dalle opportunità Search Console alle decisioni editoriali (in_progress)
+
+Estende `SearchOpportunityStatus`/`SearchOpportunityStatusService`
+(Missione 6, workflow leggero nuova/vista/gestita/ignorata) con una
+decisione editoriale tracciabile molto più ricca, MAI sostituendolo: le
+due tabelle convivono, la select "Stato" esistente resta invariata.
+Nuova tabella `search_opportunity_decisions` (una riga per
+`opportunity_key`, la stessa identità stabile `type|query|page_url` già
+usata da `SearchOpportunityStatus`) — decisione tra aggiorna
+articolo/crea brief/sovrapposizione/ignora, con motivazione, chi/quando,
+baseline delle metriche catturato SOLO alla prima decisione, misurazione
+a 28/90 giorni. Storico append-only in
+`search_opportunity_decision_histories` (stesso schema di
+`ProjectActivityLog`, mai un update).
+
+"Crea brief" riusa `ProjectTask` (tipo `publication`, già esistente nel
+modulo Progettazione, `article_id` nullable) invece di inventare un nuovo
+modello "brief" — nessun `Article` creato automaticamente; fallisce
+esplicitamente (fail-closed) se non esiste un progetto editoriale
+predefinito attivo (`Project::defaultEditorial()`), mai un progetto creato
+al volo. La registrazione di una decisione ricalcola sempre l'opportunità
+dal periodo corrente prima di salvare: se non è più presente (dati
+cambiati dall'apertura della pagina), fail-closed, nessun baseline
+indovinato.
+
+Estratta una nuova funzione pubblica `SearchOpportunityScoringService::currentOpportunities()`
+(composizione già esistente identica in `SearchOpportunityController::index()`
+e nel nuovo `SearchOpportunityDecisionService` — mai due implementazioni
+della stessa regola "opportunità attuali = periodo più recente + ricerche
+interne a zero risultati, sempre calcolate anche senza import"). Aggiunto
+il comando artisan `search-opportunities:measure-outcomes` (sola lettura,
+non schedulato automaticamente in questa v1) per popolare le misurazioni
+a 28/90 giorni.
+
+Bug trovato e corretto in fase di test: la prima implementazione di
+`currentOpportunitiesByKey()` non calcolava le opportunità da ricerca
+interna a zero risultati quando nessun periodo Search Console era
+disponibile (a differenza del controller, che le calcola sempre) —
+sarebbe stato impossibile misurare l'esito di una decisione su
+quell'unica fonte di opportunità "sempre presente" in assenza di CSV
+importati. Corretto riusando `currentOpportunities()` per entrambi i
+chiamanti.
+
+5 finding reali di Codex (commit `1025ef1`), tutti verificati (revert
+della fix → il test di regressione dedicato fallisce → fix ripristinata)
+e risolti:
+
+1. **P1** `measureDueOutcomes()` misurava sia +28gg che +90gg dallo stesso
+   snapshot corrente, indipendentemente dal fatto che il periodo importato
+   più recente coprisse davvero quell'orizzonte dalla baseline — una
+   misurazione poteva restare bloccata su un valore sbagliato per sempre
+   (il timestamp di misurazione impedisce i tentativi successivi).
+   Corretto con `periodCoversHorizon()`: si misura solo se il periodo più
+   recente copre davvero l'orizzonte, altrimenti la decisione resta non
+   misurata.
+2. Race condition nella creazione del brief: due invii concorrenti sulla
+   stessa opportunità potevano creare due `ProjectTask` distinti prima che
+   una decisione venisse salvata. Corretto spostando la creazione del
+   brief dentro la stessa transazione con `lockForUpdate()` di
+   `record()`.
+3. `decisionsFor()` (il bulk-fetch per la vista elenco) non caricava le
+   relazioni `article`/`projectTask` in eager, nonostante la vista le
+   legga per ogni riga — una query aggiuntiva per riga, mai realmente
+   "bulk". Corretto con `->with(['article', 'projectTask'])`.
+4. Lo storico registrava come old/new value solo `decision_type`, perdendo
+   quale articolo/brief/motivazione fosse effettivamente cambiato tra due
+   decisioni sulla stessa opportunità. Corretto con uno snapshot completo
+   (`decision_type;article_id;project_task_id;rationale`) sia su old che
+   su new.
+5. `opportunity_key` (colonna `string(600)` con indice `unique()`) poteva
+   non bastare per chiavi valide: tipo (~28 caratteri) + query (fino a
+   255) + page_url (fino a 500) può superare 600 caratteri. Un semplice
+   allargamento della colonna non sarebbe bastato: in utf8mb4 un indice
+   univoco su una colonna larga avrebbe comunque superato il limite di
+   prefisso InnoDB (3072 byte = 768 caratteri in utf8mb4) — scoperto
+   tramite analisi diretta, non solo suggerito da Codex. Risolto rendendo
+   `opportunity_key` una colonna `TEXT` non indicizzata e spostando
+   l'unicità reale su una nuova colonna `opportunity_key_hash` (SHA-256,
+   `CHAR(64)` UNIQUE).
+
+Aggiunti 3 test di regressione mirati (copertura orizzonte misurazione,
+eager-load, chiave oltre 600 caratteri) — suite Cantiere 4 completa: 23/23
+verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
+360/362, i 2 falliti sono i flake pre-esistenti già documentati
+(`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
+relazione con questo diff.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 

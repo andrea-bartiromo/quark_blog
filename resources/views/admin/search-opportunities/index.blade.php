@@ -143,11 +143,15 @@
             <th scope="col">Posizione</th>
             <th scope="col">Spiegazione</th>
             <th scope="col">Stato</th>
+            <th scope="col">Decisione editoriale</th>
           </tr>
         </thead>
         <tbody>
           @foreach($opportunities as $opportunity)
-            @php $currentStatus = $opportunityStatuses[$opportunity->key] ?? \App\Models\SearchOpportunityStatus::STATUS_NEW; @endphp
+            @php
+              $currentStatus = $opportunityStatuses[$opportunity->key] ?? \App\Models\SearchOpportunityStatus::STATUS_NEW;
+              $currentDecision = $opportunityDecisions[$opportunity->key] ?? null;
+            @endphp
             <tr>
               <td><span class="badge badge--filter">{{ $typeOptions[$opportunity->type] ?? $opportunity->type }}</span></td>
               <td>{{ $opportunity->query }}</td>
@@ -182,6 +186,49 @@
                     @endforeach
                   </select>
                 </form>
+              </td>
+              <td style="min-width:220px;">
+                @if($currentDecision)
+                  <div style="font-size:.78rem;margin-bottom:.4rem;">
+                    <strong>{{ $decisionTypeOptions[$currentDecision->decision_type] ?? $currentDecision->decision_type }}</strong>
+                    @if($currentDecision->article)
+                      — <a href="{{ route('admin.articles.edit', $currentDecision->article_id) }}">{{ Str::limit($currentDecision->article->title, 30) }}</a>
+                    @elseif($currentDecision->projectTask)
+                      — <a href="{{ route('admin.progettazione.projects.tasks.edit', [$currentDecision->projectTask->project_id, $currentDecision->projectTask]) }}">{{ Str::limit($currentDecision->projectTask->title, 30) }}</a>
+                    @endif
+                    @if($currentDecision->rationale)
+                      <div style="color:var(--admin-muted);">{{ Str::limit($currentDecision->rationale, 60) }}</div>
+                    @endif
+                    @if($currentDecision->baseline_captured_at)
+                      <div style="color:var(--admin-faint);font-size:.72rem;margin-top:.2rem;">
+                        Baseline ({{ $currentDecision->baseline_captured_at->format('d/m/Y') }}): {{ $currentDecision->baseline_clicks }} clic, {{ $currentDecision->baseline_impressions }} impression
+                        @if($currentDecision->measured_28d_at)
+                          · +28gg: {{ $currentDecision->measured_28d_clicks }} clic
+                        @endif
+                        @if($currentDecision->measured_90d_at)
+                          · +90gg: {{ $currentDecision->measured_90d_clicks }} clic
+                        @endif
+                      </div>
+                    @endif
+                  </div>
+                @endif
+                <details>
+                  <summary style="cursor:pointer;font-size:.76rem;color:#374151;">{{ $currentDecision ? 'Modifica decisione' : 'Registra decisione' }}</summary>
+                  <form method="POST" action="{{ route('admin.search-opportunities.record-decision') }}" style="margin-top:.5rem;display:flex;flex-direction:column;gap:.4rem;">
+                    @csrf
+                    <input type="hidden" name="opportunity_key" value="{{ $opportunity->key }}">
+                    <select name="decision_type" class="form-select" required>
+                      <option value="">— Scegli —</option>
+                      @foreach($decisionTypeOptions as $value => $label)
+                        <option value="{{ $value }}" @selected($currentDecision?->decision_type === $value)>{{ $label }}</option>
+                      @endforeach
+                    </select>
+                    <input type="number" name="article_id" class="form-input" placeholder="ID articolo (aggiorna/sovrapposizione)"
+                           value="{{ $currentDecision?->article_id ?? $opportunity->article?->id }}">
+                    <textarea name="rationale" class="form-textarea" rows="2" placeholder="Motivazione (obbligatoria per sovrapposizione/ignora)">{{ $currentDecision?->rationale }}</textarea>
+                    <button type="submit" class="btn btn--outline btn--sm">Salva</button>
+                  </form>
+                </details>
               </td>
             </tr>
           @endforeach
