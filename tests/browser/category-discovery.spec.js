@@ -79,10 +79,30 @@ test('il blocco "Continua a esplorare" mostra Più letti e categorie correlate',
     await expect(section).toBeVisible();
     await expect(section.locator('.kairus-continue-exploring__most-read')).toBeVisible();
     await expect(section.locator('.kairus-continue-exploring__related-categories')).toBeVisible();
+    await expect(section.locator(':scope > .container.container--wide.kairus-continue-exploring__container')).toHaveCount(1);
 
     // La categoria corrente non deve mai comparire tra le "Altre categorie".
     const relatedLinks = section.locator('.kairus-continue-exploring__related-categories a');
     await expect(relatedLinks.filter({ hasText: 'Browser Newsletter Category' })).toHaveCount(0);
+});
+
+test('il blocco "Continua a esplorare" resta allineato al contenitore della categoria', async ({ page }) => {
+    await page.goto(categoryPath, { waitUntil: 'domcontentloaded' });
+
+    const pageContainer = page.locator('.public-shell > .container.container--wide');
+    const continueContainer = page.locator('.kairus-continue-exploring__container');
+
+    await expect(continueContainer).toBeVisible();
+
+    const [pageBox, continueBox] = await Promise.all([
+        pageContainer.boundingBox(),
+        continueContainer.boundingBox(),
+    ]);
+
+    expect(pageBox).not.toBeNull();
+    expect(continueBox).not.toBeNull();
+    expect(continueBox.x).toBe(pageBox.x);
+    expect(continueBox.width).toBe(pageBox.width);
 });
 
 test('il blocco "Continua a esplorare" collassa a una colonna sotto i 900px', async ({ page }) => {

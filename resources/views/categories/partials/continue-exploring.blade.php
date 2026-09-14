@@ -8,14 +8,21 @@
     testati.
 --}}
 <section class="kairus-continue-exploring">
-  <div class="public-section-head">
-    <div>
-      <span>Continua</span>
-      <h2>Continua a esplorare</h2>
+  {{--
+      Il blocco vive dopo il contenitore del contenuto principale della
+      categoria: possiede quindi il proprio wrapper, identico a quello
+      condiviso dalle altre superfici pubbliche. Evita card e titoli
+      incollati al bordo della viewport, senza coinvolgere il footer.
+  --}}
+  <div class="container container--wide kairus-continue-exploring__container">
+    <div class="public-section-head">
+      <div>
+        <span>Continua</span>
+        <h2>Continua a esplorare</h2>
+      </div>
     </div>
-  </div>
 
-  <div class="kairus-continue-exploring__grid">
+    <div class="kairus-continue-exploring__grid">
 
     @if($mostRead->isNotEmpty())
     <div class="kairus-continue-exploring__most-read">
@@ -50,5 +57,6 @@
     </div>
     @endif
 
+    </div>
   </div>
 </section>
