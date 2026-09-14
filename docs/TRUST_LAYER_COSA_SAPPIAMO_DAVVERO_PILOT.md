@@ -204,3 +204,30 @@ della decisione GO/NO-GO restano esplicitamente riservate al Cantiere 44
 ("Admin decisione GO/NO-GO pilot"), che per la sua natura ancora più
 diretta richiederà a sua volta un'altra decisione umana esplicita prima
 di introdurre qualunque meccanismo di scrittura.
+
+## Addendum — Cantiere 43 (programma "100 cantieri Kairus"), decisione esplicita
+
+Cantiere 43 ("Metriche privacy-first pilot") dipende solo dal Cantiere 40
+(la preview), non dal 41 (estrazione componente, cosmetico) né dal 42
+(gate readiness, pura lettura) — segnale che riguarda l'uso interno
+redazionale della preview stessa, non il pilot pubblico reale (che non
+esiste ancora, gate B-45 sempre in vigore). Rehearsal privacy-first della
+prima metrica del contratto B-44 qui sopra ("Visualizzazioni aggregate"),
+applicata all'apertura della preview admin invece che a una pagina
+pubblica: `TrustKnowledgeStatementPreviewView` registra un evento
+append-only per apertura (`TrustKnowledgeStatementController::preview()`),
+deliberatamente senza alcun identificativo di visitatore/sessione/
+utente/IP — verificato con un test strutturale sullo schema della
+tabella, non solo una promessa nel docblock. `TrustPilotPreviewMetricsService`
+applica la stessa condizione INSUFFICIENT_DATA di B-44 per questa
+metrica ("meno di 7 giorni di dati raccolti"): uno zero dopo 7 giorni
+resta uno zero reale, mai "dati insufficienti" — stesso principio già
+documentato in `docs/DASHBOARD_DATA_EXPORT_V1.md`.
+
+Non è stata considerata un'escalation `AskUserQuestion` necessaria:
+diversamente dai Cantieri 42/44 (che toccano direttamente le condizioni
+del gate B-45), questo cantiere non tocca in alcun modo owner, contenuto
+approvato o la decisione GO/NO-GO — resta puramente strumentazione
+interna sull'uso redazionale già ammesso, stesso principio "costruisci
+la macchina interna, mai il pubblico" già seguito senza escalation nei
+Cantieri 38-41.

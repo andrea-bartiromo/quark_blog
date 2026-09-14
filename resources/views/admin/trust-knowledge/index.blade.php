@@ -31,6 +31,7 @@
           <th style="text-align:left">Concetto</th>
           <th style="text-align:left">Percorso</th>
           <th style="text-align:left">Ultimo controllo</th>
+          <th style="text-align:left">Visualizzazioni anteprima</th>
           <th style="text-align:left">Azioni</th>
         </tr>
       </thead>
@@ -48,6 +49,14 @@
                 @endif
               @else
                 <span style="color:var(--admin-muted)">Mai controllato</span>
+              @endif
+            </td>
+            <td>
+              @php($metric = $previewMetrics[$statement->id] ?? null)
+              @if($metric && $metric['state'] === \App\Services\Trust\TrustPilotPreviewMetricsService::STATE_AVAILABLE)
+                {{ $metric['count'] }}
+              @else
+                <span style="color:var(--admin-muted)">Dati insufficienti (meno di 7gg)</span>
               @endif
             </td>
             <td>
