@@ -6,6 +6,7 @@ use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\TrustKnowledgeStatement;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -84,6 +85,35 @@ class TrustKnowledgeStatementControllerTest extends TestCase
             ->assertOk()
             ->assertSee('Modifica voce')
             ->assertSee('Domanda da modificare');
+    }
+
+    /**
+     * Cantiere 39, Codex (PR #596): il form non deve offrire opzioni che
+     * la validazione poi rifiuta — un Concept nasce "bozza" per default,
+     * quindi questo era un caso comune, non un edge case.
+     */
+    public function test_the_create_form_never_offers_an_inactive_concept_or_cluster(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        Concept::create(['name' => 'Concetto bozza', 'status' => Concept::STATUS_DRAFT]);
+        ContentCluster::create(['name' => 'Percorso archiviato', 'slug' => 'percorso-archiviato-form', 'is_active' => false]);
+
+        $this->actingAs($editor)->get(route('admin.trust-knowledge.create'))
+            ->assertOk()
+            ->assertDontSee('Concetto bozza')
+            ->assertDontSee('Percorso archiviato');
+    }
+
+    public function test_the_edit_form_preserves_an_already_linked_inactive_concept_marked_as_archived(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $concept = Concept::create(['name' => 'Concetto poi archiviato', 'status' => Concept::STATUS_ACTIVE]);
+        $statement = $this->statement(['concept_id' => $concept->id]);
+        $concept->update(['status' => Concept::STATUS_INACTIVE]);
+
+        $this->actingAs($editor)->get(route('admin.trust-knowledge.edit', $statement))
+            ->assertOk()
+            ->assertSee('Concetto poi archiviato (archiviato)');
     }
 
     public function test_editor_can_create_a_statement(): void
@@ -178,6 +208,34 @@ class TrustKnowledgeStatementControllerTest extends TestCase
         ])->assertSessionDoesntHaveErrors(['last_checked_at']);
 
         $this->assertDatabaseCount('trust_knowledge_statements', 1);
+    }
+
+    /**
+     * Cantiere 39, Codex (PR #596): l'app gira in UTC ma il fuso
+     * editoriale è Europe/Rome — durante la prima ora/due dopo
+     * mezzanotte a Roma, "oggi" a Roma è già il giorno dopo rispetto a
+     * "oggi" in UTC. Alle 23:30 UTC del 14/09 sono le 01:30 CEST del
+     * 15/09: un editor che inserisce "15/09" (oggi, a Roma) non deve
+     * vedersela rifiutata come data futura.
+     */
+    public function test_creating_a_statement_accepts_todays_date_in_the_editorial_timezone_even_when_utc_is_still_yesterday(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-14 23:30:00', 'UTC'));
+
+        try {
+            $editor = User::factory()->create(['role' => 'editor']);
+
+            $this->actingAs($editor)->post(route('admin.trust-knowledge.store'), [
+                'domanda' => 'Domanda',
+                'consenso' => 'Consenso.',
+                'incertezza' => 'Incertezza.',
+                'last_checked_at' => '2026-09-15',
+            ])->assertSessionDoesntHaveErrors(['last_checked_at']);
+
+            $this->assertDatabaseCount('trust_knowledge_statements', 1);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     /**

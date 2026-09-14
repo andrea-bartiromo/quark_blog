@@ -54,7 +54,7 @@
         <select id="concept_id" class="form-input" name="concept_id">
           <option value="">Nessuno</option>
           @foreach($concepts as $concept)
-            <option value="{{ $concept->id }}" {{ (int) old('concept_id', $statement?->concept_id) === $concept->id ? 'selected' : '' }}>{{ $concept->name }}</option>
+            <option value="{{ $concept->id }}" {{ (int) old('concept_id', $statement?->concept_id) === $concept->id ? 'selected' : '' }}>{{ $concept->name }}{{ $concept->status !== \App\Models\Concept::STATUS_ACTIVE ? ' (archiviato)' : '' }}</option>
           @endforeach
         </select>
       </div>
@@ -63,7 +63,7 @@
         <select id="content_cluster_id" class="form-input" name="content_cluster_id">
           <option value="">Nessuno</option>
           @foreach($clusters as $cluster)
-            <option value="{{ $cluster->id }}" {{ (int) old('content_cluster_id', $statement?->content_cluster_id) === $cluster->id ? 'selected' : '' }}>{{ $cluster->name }}</option>
+            <option value="{{ $cluster->id }}" {{ (int) old('content_cluster_id', $statement?->content_cluster_id) === $cluster->id ? 'selected' : '' }}>{{ $cluster->name }}{{ ! $cluster->is_active ? ' (archiviato)' : '' }}</option>
           @endforeach
         </select>
       </div>
