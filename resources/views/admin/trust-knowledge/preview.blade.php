@@ -25,9 +25,11 @@
     questo cantiere.
 
     Blocco consenso/incertezza/cosa_manca estratto nel Cantiere 41 in
-    x-kairus.trust-knowledge-summary (componente riusabile e testato in
-    isolamento) — qui resta solo il resto dell'impaginazione specifica
-    della preview (banner, titolo, riepilogo ultimo controllo/collegamenti).
+    x-trust-knowledge-summary (componente riusabile e testato in
+    isolamento, deliberatamente fuori da components/kairus/ — vedi il suo
+    stesso docblock) — qui resta solo il resto dell'impaginazione
+    specifica della preview (banner, titolo, riepilogo ultimo
+    controllo/collegamenti).
 --}}
 @extends('layouts.app')
 @section('title', '[Anteprima] '.$statement->domanda.' — '.config('laboratorio.name'))
@@ -45,7 +47,7 @@
       <h1>{{ $statement->domanda }}</h1>
     </section>
 
-    <x-kairus.trust-knowledge-summary
+    <x-trust-knowledge-summary
       :consenso="$statement->consenso"
       :incertezza="$statement->incertezza"
       :cosa-manca="$statement->cosa_manca"

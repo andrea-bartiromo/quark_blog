@@ -20,7 +20,7 @@ class TrustKnowledgeSummaryComponentTest extends TestCase
     private function render(array $props): string
     {
         return Blade::render(
-            '<x-kairus.trust-knowledge-summary :consenso="$consenso" :incertezza="$incertezza" :cosa-manca="$cosaManca ?? null" />',
+            '<x-trust-knowledge-summary :consenso="$consenso" :incertezza="$incertezza" :cosa-manca="$cosaManca ?? null" />',
             $props
         );
     }

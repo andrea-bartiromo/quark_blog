@@ -16,6 +16,14 @@
     che questo componente stesso apra nulla di pubblico: nessuna query,
     nessuna rotta, nessun dato reale qui dentro.
 
+    NON dentro components/kairus/: quella directory è il sistema editoriale
+    isolato "Kairus Editorial Foundations V1", con un contratto rigido
+    verificato da KairusEditorialFoundationsIsolationTest — ogni classe
+    letterale lì dentro deve avere prefisso kairus-. Questo componente
+    riusa invece le classi premium-static-section/premium-copy-card già
+    usate da preview.blade.php (sistema public-premium.css preesistente),
+    quindi resta un componente "flat" come x-topic-chips, non x-kairus.*.
+
     white-space:pre-line preserva gli a capo che l'editor inserisce nelle
     textarea multi-riga di consenso/incertezza/cosa_manca (fix Codex,
     Cantiere 40, PR #598) — mantenuto identico qui per non perdere quella
