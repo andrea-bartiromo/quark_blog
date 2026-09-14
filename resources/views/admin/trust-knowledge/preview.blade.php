@@ -23,6 +23,11 @@
     omessi: non sono campi che TrustKnowledgeStatement salva oggi (si
     legga il suo docblock) — aggiungerli resta esplicitamente fuori da
     questo cantiere.
+
+    Blocco consenso/incertezza/cosa_manca estratto nel Cantiere 41 in
+    x-kairus.trust-knowledge-summary (componente riusabile e testato in
+    isolamento) — qui resta solo il resto dell'impaginazione specifica
+    della preview (banner, titolo, riepilogo ultimo controllo/collegamenti).
 --}}
 @extends('layouts.app')
 @section('title', '[Anteprima] '.$statement->domanda.' — '.config('laboratorio.name'))
@@ -40,22 +45,11 @@
       <h1>{{ $statement->domanda }}</h1>
     </section>
 
-    <section class="premium-static-section premium-copy-card">
-      <h2>Cosa sappiamo con ragionevole certezza</h2>
-      <p style="white-space:pre-line">{{ $statement->consenso }}</p>
-    </section>
-
-    <section class="premium-static-section premium-copy-card">
-      <h2>Cosa resta incerto o dibattuto</h2>
-      <p style="white-space:pre-line">{{ $statement->incertezza }}</p>
-    </section>
-
-    @if($statement->cosa_manca)
-    <section class="premium-static-section premium-copy-card">
-      <h2>Cosa manca / limiti di questa risposta</h2>
-      <p style="white-space:pre-line">{{ $statement->cosa_manca }}</p>
-    </section>
-    @endif
+    <x-kairus.trust-knowledge-summary
+      :consenso="$statement->consenso"
+      :incertezza="$statement->incertezza"
+      :cosa-manca="$statement->cosa_manca"
+    />
 
     <section class="premium-static-section">
       <p>
