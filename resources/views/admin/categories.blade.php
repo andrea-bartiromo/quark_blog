@@ -22,6 +22,12 @@
       <div class="form-group"><label class="form-label">Nome</label><input class="form-input" type="text" name="name" value="{{ old('name') }}" required></div>
       <div class="form-group"><label class="form-label">Slug</label><input class="form-input" type="text" name="slug" value="{{ old('slug') }}" placeholder="auto-generato se vuoto"></div>
       <div class="form-group"><label class="form-label">Descrizione</label><textarea class="form-textarea" name="description" style="min-height:90px;">{{ old('description') }}</textarea></div>
+      {{-- Cantiere 49 (programma "100 cantieri Kairus"): vedi admin/categories-edit.blade.php per il contratto completo di questo campo. --}}
+      <div class="form-group">
+        <label class="form-label" for="curator_note">Nota del curatore</label>
+        <textarea id="curator_note" class="form-textarea" name="curator_note" maxlength="2000" style="min-height:90px;">{{ old('curator_note') }}</textarea>
+        <small style="color:#6b7280;">Opzionale. Sostituisce il testo generico "Editorial Focus" sulla pagina pubblica solo se compilata.</small>
+      </div>
       <div class="form-group">
         <label class="form-label">Immagine categoria</label>
         <input type="file" name="image_upload" accept="image/jpeg,image/png,image/webp" style="font-size:.82rem;padding:.55rem;border:1px solid #e5e7eb;border-radius:8px;background:#fff;width:100%;">

@@ -154,6 +154,7 @@ class CategoryController extends Controller
             'name' => 'required|max:100',
             'slug' => 'nullable|max:120|unique:categories,slug,'.$category?->id,
             'description' => 'nullable|max:500',
+            'curator_note' => 'nullable|string|max:2000',
             'image_upload' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
             'remove_image' => 'nullable|boolean',
             'color' => 'nullable|max:20',

@@ -123,11 +123,23 @@
     <section class="public-feature-band">
       <span class="public-hero__kicker">Editorial Focus</span>
       <h2>Dentro {{ $categoryLabel }}</h2>
-      <p>
-        Kairus seleziona notizie, ricerca, scenari e innovazioni per raccontare
-        il presente e il futuro di {{ strtolower($categoryLabel) }} con un linguaggio chiaro,
-        visivo e accessibile.
-      </p>
+      {{--
+          Cantiere 49 (programma "100 cantieri Kairus"): quando un editore
+          ha scritto una nota di curatela per questa categoria
+          (Category::curator_note, admin/categories-edit.blade.php), sostituisce
+          il paragrafo generico identico per ogni categoria — mai
+          generata automaticamente, solo resa se presente. Nessuna
+          categoria esistente cambia aspetto finché nessuno la compila.
+      --}}
+      @if($categoryModel?->curator_note)
+        <p>{{ $categoryModel->curator_note }}</p>
+      @else
+        <p>
+          Kairus seleziona notizie, ricerca, scenari e innovazioni per raccontare
+          il presente e il futuro di {{ strtolower($categoryLabel) }} con un linguaggio chiaro,
+          visivo e accessibile.
+        </p>
+      @endif
 
       @if($category === 'intelligenza-artificiale')
         <a href="{{ route('turing') }}">Esplora la Turing Experience →</a>

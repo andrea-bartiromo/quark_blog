@@ -77,6 +77,20 @@
     <div class="form-group"><label class="form-label">Slug</label><input class="form-input" type="text" name="slug" value="{{ old('slug', $category->slug) }}"></div>
     <div class="form-group"><label class="form-label">Descrizione</label><textarea class="form-textarea" name="description" style="min-height:110px;">{{ old('description', $category->description) }}</textarea></div>
 
+    {{--
+        Cantiere 49 (programma "100 cantieri Kairus"): a differenza di
+        "Descrizione" (copia SEO/meta), questo campo è la voce editoriale
+        del curatore per la sezione "Editorial Focus" della pagina
+        pubblica — opzionale, scritto solo da un umano, mai generato
+        automaticamente. Stesso pattern di ContentCluster::curator_note
+        (resources/views/admin/content-clusters/form.blade.php).
+    --}}
+    <div class="form-group">
+      <label class="form-label" for="curator_note">Nota del curatore</label>
+      <textarea id="curator_note" class="form-textarea" name="curator_note" maxlength="2000" style="min-height:110px;">{{ old('curator_note', $category->curator_note) }}</textarea>
+      <small style="color:#6b7280;">Opzionale, in prima persona: perché questa categoria esiste, cosa il lettore vi trova. Sostituisce il testo generico "Editorial Focus" sulla pagina pubblica solo se compilata.</small>
+    </div>
+
     <div class="form-group">
       <label class="form-label">Immagine categoria</label>
       @if($category->image)

@@ -22,6 +22,7 @@ class Category extends Model
         'name',
         'slug',
         'description',
+        'curator_note',
         'image',
         'color',
         'sort_order',
