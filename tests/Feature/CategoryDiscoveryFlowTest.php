@@ -199,6 +199,20 @@ class CategoryDiscoveryFlowTest extends TestCase
         $this->assertStringNotContainsString($onPage->title, $this->continueExploringSection($content));
     }
 
+    public function test_continue_exploring_has_its_own_shared_responsive_container(): void
+    {
+        $this->publishedArticle('energia');
+
+        $response = $this->get(route('categoria', 'energia'));
+
+        $response->assertOk();
+
+        $this->assertStringContainsString(
+            '<div class="container container--wide kairus-continue-exploring__container">',
+            $this->continueExploringSection($response->getContent()),
+        );
+    }
+
     public function test_continue_exploring_related_categories_exclude_current_and_non_public_categories(): void
     {
         $this->publishedArticle('energia');
