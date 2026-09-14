@@ -50,7 +50,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | merged | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | `c4ba1ef` | 23/23 (SearchOpportunityDecisionService+Controller+comando misurazione, 76 assert.); suite di regressione mirata (SearchOpportunity+Progettazione): 360/362, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi su entrambi i tentativi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` riprodotto identico due volte su commit diversi — confermato pre-esistente, non correlato al diff | 5 reali, vedi nota | 1 |
 | 5 | Cannibalizzazione di ricerca | merged | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | `fc2152b` | 12 nuovi test dedicati (SearchOpportunityScoringServiceTest+SearchCannibalizationControllerTest, 90 assert.); suite di regressione mirata: 467/469, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); suite completa: 4623 test, 4608 passati, 3 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`, `ContentClusterAutoLifecycleCompletionTest.php:192`) — quest'ultimo riprodotto identico 4 volte su 4 commit diversi durante questa PR, confermato definitivamente pre-esistente | 4 reali, vedi nota | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
-| 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
+| 7 | Monitoraggio e report operativo | in_progress | [#593](https://github.com/andrea-bartiromo/quark_blog/pull/593) | — | vedi nota | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
 
 ## Note per cantiere
@@ -156,6 +156,55 @@ verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
 360/362, i 2 falliti sono i flake pre-esistenti già documentati
 (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
 relazione con questo diff.
+
+### Cantiere 7 — Monitoraggio e report operativo (in_progress)
+
+Ispezione pre-cantiere (agente Explore in background): nessuna
+duplicazione da temere — `EditorialOperationsDashboardController`/
+`Service` (Missione 09, `/admin/operazioni-editoriali`) già esistente
+copre pipeline di pubblicazione, qualità/attribuzione contenuti, Percorsi,
+Content Graph, second-read, cadenza editoriale: tocca i dati Search
+Console solo per `SearchConsoleFreshnessService::summary()`
+(freschezza import), mai readiness/decisioni/cannibalizzazione dei
+Cantieri 3/4/5. Nessuna nota di scope dettagliata esisteva già per questo
+cantiere in questo file oltre al nome e alle dipendenze dichiarate (1, 3,
+4) — interpretato quindi come: un unico punto di lettura periodico
+sullo stato specifico del programma "Kairus Organic Discovery", mai una
+duplicazione della dashboard generale già esistente.
+
+Nuovo `OrganicDiscoveryOperationalReportService::snapshot()` — compone
+ESCLUSIVAMENTE servizi già esistenti (`SearchConsoleFreshnessService`,
+`SearchConsoleImportCoverageService`, `OrganicDiscoveryReadinessService`,
+`SearchOpportunityScoringService`, `SearchOpportunityDecisionService`),
+mai un nuovo audit o una nuova regola. Aggrega: freschezza/copertura
+import (numeri sommati, mai la tabella riga-per-riga già mostrata su
+`/admin/search-opportunities`); distribuzione degli stati di prontezza
+organica (`countBy('state')` su `auditAll()`); opportunità del periodo
+corrente con/senza decisione registrata; decisioni per tipo e quelle
+dovute (baseline abbastanza vecchia) ma non ancora misurate a 28/90gg;
+esiti misurati classificati migliorata/invariata/peggiorata confrontando
+i clic osservati con il baseline catturato alla decisione (nessuna soglia
+di significatività, dichiarato esplicitamente); conteggio dei finding di
+cannibalizzazione del periodo corrente (`cannibalizationFindingsForPeriod()`,
+Cantiere 5).
+
+Sola lettura, calcolata a ogni apertura di `/admin/report-operativo-ricerca`
+— nessun comando schedulato, nessuna email reale: verificato che
+`search-opportunities:measure-outcomes` (Cantiere 4) resta l'unico
+precedente di "misurazione periodica" in questo programma ed è
+esplicitamente non schedulato; nessun altro precedente di
+scheduling/email esiste per l'intero programma, quindi questo cantiere
+non ne introduce uno. "Report operativo settimanale" descrive la cadenza
+attesa con cui un redattore apre la pagina, non un job automatico.
+
+10 nuovi test (6 in `OrganicDiscoveryOperationalReportServiceTest` sulla
+sola logica di aggregazione — mai la correttezza degli stati/soglie già
+coperta dai test dei servizi composti; 4 in
+`OrganicDiscoveryOperationalReportControllerTest`); suite di regressione
+mirata 477/479 (2 pre-esistenti). Pint pulito.
+
+Ancora da fare prima del merge: aprire la PR, gestire CI/Codex, mergiare,
+aggiornare questa riga con PR/SHA definitivi.
 
 ### Cantiere 5 — Cannibalizzazione di ricerca (merged)
 

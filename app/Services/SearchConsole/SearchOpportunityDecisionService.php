@@ -241,6 +241,71 @@ class SearchOpportunityDecisionService
     }
 
     /**
+     * Per ogni decisione la cui misurazione è dovuta (baseline abbastanza
+     * vecchio) ma non ancora eseguita, distingue quelle che il comando
+     * `measure-outcomes` misurerebbe DAVVERO se eseguito ora ("eseguibili")
+     * da quelle che restano bloccate anche eseguendolo — nessun periodo
+     * Search Console copre ancora l'orizzonte, o l'opportunità non è più
+     * tra quelle attualmente calcolabili (Codex, Cantiere 7/PR #593):
+     * un contatore "dovute" che non distingue le due situazioni suggerisce
+     * di rilanciare un comando che per una parte di quelle righe non
+     * risolverà mai nulla, finché non arriva un import più recente o
+     * l'opportunità torna a comparire. Riusa le stesse condizioni di
+     * idoneità di measureDueOutcomes(), mai una seconda regola.
+     *
+     * @return array{runnable_28d: int, blocked_28d: int, runnable_90d: int, blocked_90d: int}
+     */
+    public function dueOutcomesEligibility(): array
+    {
+        $now = now();
+        $due28d = SearchOpportunityDecision::query()
+            ->whereNull('measured_28d_at')
+            ->whereNotNull('baseline_captured_at')
+            ->where('baseline_captured_at', '<=', $now->clone()->subDays(28))
+            ->get();
+
+        $due90d = SearchOpportunityDecision::query()
+            ->whereNull('measured_90d_at')
+            ->whereNotNull('baseline_captured_at')
+            ->where('baseline_captured_at', '<=', $now->clone()->subDays(90))
+            ->get();
+
+        if ($due28d->isEmpty() && $due90d->isEmpty()) {
+            return ['runnable_28d' => 0, 'blocked_28d' => 0, 'runnable_90d' => 0, 'blocked_90d' => 0];
+        }
+
+        $periods = $this->freshness->availablePeriods();
+        $latestPeriod = $periods->first();
+        $latestPeriodEnd = $latestPeriod ? Carbon::parse($latestPeriod['period_end']) : null;
+        $currentByKey = $this->scoring->currentOpportunities($latestPeriod, $periods->get(1))->keyBy('key');
+
+        $classify = function (Collection $due, int $days) use ($latestPeriodEnd, $currentByKey): array {
+            $runnable = 0;
+            $blocked = 0;
+
+            foreach ($due as $decision) {
+                if ($this->periodCoversHorizon($decision, $latestPeriodEnd, $days) && $currentByKey->has($decision->opportunity_key)) {
+                    $runnable++;
+                } else {
+                    $blocked++;
+                }
+            }
+
+            return [$runnable, $blocked];
+        };
+
+        [$runnable28d, $blocked28d] = $classify($due28d, 28);
+        [$runnable90d, $blocked90d] = $classify($due90d, 90);
+
+        return [
+            'runnable_28d' => $runnable28d,
+            'blocked_28d' => $blocked28d,
+            'runnable_90d' => $runnable90d,
+            'blocked_90d' => $blocked90d,
+        ];
+    }
+
+    /**
      * Vero se i dati attualmente disponibili coprono davvero l'orizzonte
      * richiesto per QUESTA decisione — mai solo "è passato abbastanza
      * tempo di calendario".
