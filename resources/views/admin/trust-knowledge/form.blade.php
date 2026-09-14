@@ -4,7 +4,12 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">{{ $statement ? 'Modifica voce' : 'Nuova voce' }}</h1>
-  <a class="action-btn" href="{{ route('admin.trust-knowledge.index') }}">Torna a "Cosa sappiamo davvero"</a>
+  <div style="display:flex;gap:.5rem">
+    @if($statement)
+      <a class="action-btn" href="{{ route('admin.trust-knowledge.preview', $statement) }}" target="_blank" rel="noopener">Anteprima</a>
+    @endif
+    <a class="action-btn" href="{{ route('admin.trust-knowledge.index') }}">Torna a "Cosa sappiamo davvero"</a>
+  </div>
 </div>
 
 @if($errors->any())

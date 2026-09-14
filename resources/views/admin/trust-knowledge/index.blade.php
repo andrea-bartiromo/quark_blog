@@ -49,6 +49,7 @@
             </td>
             <td>
               <div class="actions">
+                <a class="btn btn--secondary btn--sm" href="{{ route('admin.trust-knowledge.preview', $statement) }}" target="_blank" rel="noopener">Anteprima</a>
                 <a class="btn btn--secondary btn--sm" href="{{ route('admin.trust-knowledge.edit', $statement) }}">Modifica</a>
                 <form method="POST" action="{{ route('admin.trust-knowledge.destroy', $statement) }}" onsubmit="return confirm('Eliminare questa voce?')" style="display:inline">
                   @csrf @method('DELETE')

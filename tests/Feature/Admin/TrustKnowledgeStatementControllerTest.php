@@ -342,10 +342,80 @@ class TrustKnowledgeStatementControllerTest extends TestCase
             '/cosa-sappiamo-davvero/'.$statement->id,
             '/trust-knowledge',
             '/trust-knowledge/'.$statement->id,
+            '/cosa-sappiamo-davvero/'.$statement->id.'/anteprima',
         ];
 
         foreach ($publicGuesses as $path) {
             $this->get($path)->assertNotFound();
         }
+    }
+
+    /**
+     * Cantiere 40 (programma "100 cantieri Kairus"): anteprima di sola
+     * lettura — ANCORA dentro auth+editor, mai una route pubblica (il
+     * NO-GO B-45 resta in vigore, si legga il docblock del controller).
+     */
+    public function test_guest_cannot_view_the_preview(): void
+    {
+        $statement = $this->statement();
+
+        $this->get(route('admin.trust-knowledge.preview', $statement))->assertRedirect(route('login'));
+    }
+
+    public function test_an_author_cannot_view_the_preview(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $statement = $this->statement();
+
+        $this->actingAs($author)->get(route('admin.trust-knowledge.preview', $statement))
+            ->assertRedirect(route('redazione.dashboard'));
+    }
+
+    public function test_editor_sees_the_preview_with_the_real_content(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $statement = $this->statement([
+            'domanda' => 'Il caffè fa male al cuore?',
+            'cosa_manca' => 'Non copre gli effetti su popolazioni pediatriche.',
+        ]);
+
+        $this->actingAs($editor)->get(route('admin.trust-knowledge.preview', $statement))
+            ->assertOk()
+            ->assertSee('Anteprima amministrativa', false)
+            ->assertSee('Il caffè fa male al cuore?')
+            ->assertSee($statement->consenso)
+            ->assertSee($statement->incertezza)
+            ->assertSee('Non copre gli effetti su popolazioni pediatriche.')
+            ->assertSee('Mai controllato');
+    }
+
+    public function test_the_preview_shows_the_last_checked_date_and_linked_concept(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $concept = Concept::create(['name' => 'Vaccini anteprima', 'status' => Concept::STATUS_ACTIVE]);
+        $statement = $this->statement([
+            'concept_id' => $concept->id,
+            'last_checked_at' => '2026-09-01',
+            'last_checked_by' => 'Redazione scienza',
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.trust-knowledge.preview', $statement))
+            ->assertOk()
+            ->assertDontSee('Mai controllato')
+            ->assertSee('01/09/2026')
+            ->assertSee('Redazione scienza')
+            ->assertSee('Vaccini anteprima');
+
+        $response->assertSee('noindex,nofollow', false);
+    }
+
+    public function test_the_preview_omits_cosa_manca_when_not_declared(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $statement = $this->statement(['cosa_manca' => null]);
+
+        $this->actingAs($editor)->get(route('admin.trust-knowledge.preview', $statement))
+            ->assertOk()
+            ->assertDontSee('Cosa manca / limiti di questa risposta');
     }
 }

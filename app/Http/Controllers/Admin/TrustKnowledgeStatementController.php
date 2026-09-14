@@ -13,13 +13,19 @@ use Illuminate\View\View;
 /**
  * Cantiere 38 (programma "100 cantieri Kairus"): CRUD interno del modello
  * "Cosa sappiamo davvero" — solo `/admin`, mai una route pubblica (si
- * legga il docblock di TrustKnowledgeStatement). Nessuna pubblicazione,
- * nessun gate, nessuna anteprima: quelle restano esplicitamente ai
- * cantieri successivi (40-44).
+ * legga il docblock di TrustKnowledgeStatement).
  *
  * Cantiere 39: validazione estratta in
  * Store/UpdateTrustKnowledgeStatementRequest — stessa convenzione già
  * stabilita nel resto del pannello admin (vedi StoreArticleRequest).
+ *
+ * Cantiere 40: preview() aggiunge un'anteprima di sola lettura, ANCORA
+ * dentro il gruppo di rotte auth+editor — mai una route pubblica. Il
+ * NO-GO B-45 (docs/TRUST_LAYER_COSA_SAPPIAMO_DAVVERO_PILOT.md) per "il
+ * pilot manuale" resta in vigore; questo cantiere non tenta di
+ * soddisfarne le condizioni mancanti (owner assegnato, contenuto reale
+ * approvato). Gate di pubblicazione, componente accessibile e decisione
+ * GO/NO-GO restano esplicitamente ai cantieri successivi (41-44).
  */
 class TrustKnowledgeStatementController extends Controller
 {
@@ -73,6 +79,13 @@ class TrustKnowledgeStatementController extends Controller
         $trustKnowledgeStatement->delete();
 
         return redirect()->route('admin.trust-knowledge.index')->with('success', 'Voce eliminata.');
+    }
+
+    public function preview(TrustKnowledgeStatement $trustKnowledgeStatement): View
+    {
+        $trustKnowledgeStatement->loadMissing(['concept:id,name', 'contentCluster:id,name']);
+
+        return view('admin.trust-knowledge.preview', ['statement' => $trustKnowledgeStatement]);
     }
 
     /**

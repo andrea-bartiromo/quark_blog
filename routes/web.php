@@ -208,6 +208,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/cosa-sappiamo-davvero/{trustKnowledgeStatement}/modifica', [TrustKnowledgeStatementController::class, 'edit'])->name('trust-knowledge.edit');
     Route::put('/cosa-sappiamo-davvero/{trustKnowledgeStatement}', [TrustKnowledgeStatementController::class, 'update'])->name('trust-knowledge.update');
     Route::delete('/cosa-sappiamo-davvero/{trustKnowledgeStatement}', [TrustKnowledgeStatementController::class, 'destroy'])->name('trust-knowledge.destroy');
+    // Cantiere 40: anteprima di sola lettura, ANCORA dentro auth+editor —
+    // il NO-GO B-45 per il pilot pubblico resta in vigore, si legga il
+    // docblock del controller.
+    Route::get('/cosa-sappiamo-davvero/{trustKnowledgeStatement}/anteprima', [TrustKnowledgeStatementController::class, 'preview'])->name('trust-knowledge.preview');
 
     // EDITORIAL SAFETY — versioni salvate dell'articolo (vedi ArticleRevisionService).
     Route::get('/articoli/{article}/versioni', [AdminArticleRevisionController::class, 'index'])->name('articles.revisions.index');
