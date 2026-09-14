@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MediaFolderController;
 use App\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Admin\NewsletterPreviewController;
+use App\Http\Controllers\Admin\OrganicDiscoveryOperationalReportController;
 use App\Http\Controllers\Admin\OrganicDiscoveryReadinessController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProjectArticleLinkController;
@@ -350,6 +351,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // risoluzione passa dalla route search-opportunities.record-decision
     // già esistente sopra.
     Route::get('/cannibalizzazione-ricerca', [SearchCannibalizationController::class, 'index'])->name('search-cannibalization');
+    // Cantiere 7 (programma "Kairus Organic Discovery"): report operativo
+    // — un unico punto di lettura periodico, compone solo i servizi già
+    // esistenti dei Cantieri 1/3/4/5, mai un nuovo audit.
+    Route::get('/report-operativo-ricerca', [OrganicDiscoveryOperationalReportController::class, 'index'])->name('organic-discovery-operational-report');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');
