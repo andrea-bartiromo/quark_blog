@@ -218,8 +218,24 @@ e tre i flake pre-esistenti già documentati
 `ContentClusterAutoLifecycleCompletionTest.php:192`), nessuna relazione
 con questo diff. PR aperta: [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592).
 
-Ancora da fare prima del merge: gestire CI/Codex, mergiare, aggiornare
-questa riga con PR/SHA definitivi.
+4 finding reali di Codex (commit `a806984`), tutti risolti: **P1**
+l'identità dell'opportunità (`type|query|pageUrl`) usava l'URL
+dell'articolo attualmente primario — se la classifica cambiava tra un
+periodo e l'altro, la decisione già registrata (e le sue misurazioni a
+28/90gg) sarebbe sparita; corretto con query normalizzata + `pageUrl`
+sempre `null` (la cannibalizzazione riguarda la query, non una pagina).
+Il modulo di decisione compariva anche su un periodo storico ma
+`recordDecision()` ricalcola sempre dal periodo più recente — l'invio
+sarebbe sempre fallito; ora il modulo compare solo sul periodo più
+recente. `search_cannibalization` mancava dal filtro per tipo del
+`SearchOpportunityController`. La posizione dei concorrenti era una media
+aritmetica semplice invece che pesata sulle impression (stesso principio
+già usato da `SearchConsoleBaselineReportService`). 4 test di regressione
+aggiunti; suite mirata 467/469 (2 pre-esistenti).
+
+Ancora da fare prima del merge: risolvere i thread di review (API
+GraphQL rate-limited al momento del fix, riprovare), verificare CI,
+mergiare, aggiornare questa riga con PR/SHA definitivi.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
