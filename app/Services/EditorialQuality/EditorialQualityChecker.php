@@ -708,6 +708,23 @@ class EditorialQualityChecker
      * sola lunghezza minima per riga è sufficiente — stesso principio già
      * applicato agli elementi <li> in elementIsSubstantialSource().
      */
+    /**
+     * Cantiere 84 (programma "100 cantieri Kairus"): espone
+     * hasDelimitedSourcesSectionInBody() a un secondo consumer
+     * (ContentSourcesRadarService) che deve applicare la stessa
+     * identica definizione di "il corpo contiene una sezione fonti
+     * dopo '---'" usata da sourcesCheck() — mai una reimplementazione
+     * separata, che rischierebbe di andare fuori sincrono da questa
+     * (dipende da plainText()/textLooksLikeIdentifiableCitation(),
+     * entrambe private, non banali da duplicare correttamente). Solo
+     * un passthrough pubblico: il metodo privato sottostante, già
+     * coperto dai test esistenti di questa classe, resta invariato.
+     */
+    public function hasDelimitedSourcesSection(string $body): bool
+    {
+        return $this->hasDelimitedSourcesSectionInBody($body);
+    }
+
     private function hasDelimitedSourcesSectionInBody(string $body): bool
     {
         $parts = explode('---', $body);

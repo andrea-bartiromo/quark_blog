@@ -65,6 +65,7 @@ class ContentSourcesRadarAudit extends Command
         $this->line("  Con almeno una fonte: {$report['articles_with_sources']}");
         $this->line("  <fg=yellow>Senza alcuna fonte: {$report['articles_without_sources']}</>");
         $this->line("  Con solo fonti testuali (nessun link riconosciuto): {$report['articles_with_only_text_sources']}");
+        $this->line("  Con fonti solo nel corpo (sezione manuale, nessun dominio attribuibile): {$report['articles_with_body_only_sources']}");
         $this->newLine();
 
         $this->line("Domini distinti citati: {$report['distinct_domains']}");

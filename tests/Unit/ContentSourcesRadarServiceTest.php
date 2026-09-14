@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Models\Article;
 use App\Models\User;
-use App\Services\ArticlePrimarySourcesParser;
 use App\Services\ContentSourcesRadarService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -22,7 +21,13 @@ class ContentSourcesRadarServiceTest extends TestCase
 
     private function service(): ContentSourcesRadarService
     {
-        return new ContentSourcesRadarService(new ArticlePrimarySourcesParser);
+        // Risolto dal container, non `new` diretto: il servizio dipende
+        // anche da EditorialQualityChecker (Codex, PR #609), che a sua
+        // volta dipende da ArticleLinkInsertionService — comporlo a
+        // mano qui duplicherebbe silenziosamente il grafo di dipendenze
+        // reale, con rischio di andare fuori sincrono ad ogni modifica
+        // futura a monte.
+        return $this->app->make(ContentSourcesRadarService::class);
     }
 
     private function author(): User
@@ -154,5 +159,71 @@ class ContentSourcesRadarServiceTest extends TestCase
 
         $this->assertSame(0, $report['total_published_articles']);
         $this->assertSame(0, $report['distinct_domains']);
+    }
+
+    /**
+     * Codex (PR #609, P1): un articolo con una sezione "Fonti" scritta
+     * a mano nel corpo (heading h1-h6, riconosciuta da
+     * ArticleManualSourcesDetector — lo stesso identico segnale usato
+     * da articolo.blade.php per sopprimere il pannello pubblico) ma
+     * primary_sources mai compilato è il caso reale più comune: prima
+     * del fix veniva contato come "senza fonti", un falso negativo
+     * sistematico.
+     */
+    public function test_an_article_with_only_a_manual_heading_sources_section_in_the_body_counts_as_having_sources(): void
+    {
+        $this->article([
+            'primary_sources' => null,
+            'body' => '<p>Corpo.</p><h2>Fonti</h2><p>Intervista diretta.</p>',
+        ]);
+
+        $report = $this->service()->report();
+
+        $this->assertSame(1, $report['articles_with_sources']);
+        $this->assertSame(0, $report['articles_without_sources']);
+        $this->assertSame(1, $report['articles_with_body_only_sources']);
+    }
+
+    /**
+     * Codex (PR #609, P1), metà "inversa": quando esiste una sezione
+     * Fonti manuale a heading nel corpo, articolo.blade.php sopprime il
+     * pannello pubblico di primary_sources — i suoi URL, anche se il
+     * campo è compilato, non sono mai visibili al lettore reale e non
+     * devono contribuire al conteggio domini del radar.
+     */
+    public function test_a_manual_heading_sources_section_suppresses_the_primary_sources_domain_from_the_radar(): void
+    {
+        $this->article([
+            'primary_sources' => 'https://nature.com/a',
+            'body' => '<p>Corpo.</p><h2>Fonti</h2><p>Intervista diretta.</p>',
+        ]);
+
+        $report = $this->service()->report();
+
+        $this->assertSame(1, $report['articles_with_sources']);
+        $this->assertSame(1, $report['articles_with_body_only_sources']);
+        $this->assertSame(0, $report['distinct_domains']);
+        $this->assertSame([], $report['top_domains']);
+    }
+
+    /**
+     * Codex (PR #609, P1): il caso legacy, testo libero dopo "---" nel
+     * corpo senza alcuna heading — stesso identico segnale di
+     * sourcesCheck() (EditorialQualityChecker::hasDelimitedSourcesSection(),
+     * verificato solo quando né la heading manuale né primary_sources
+     * sono presenti).
+     */
+    public function test_an_article_with_only_a_delimited_legacy_sources_block_counts_as_having_sources(): void
+    {
+        $this->article([
+            'primary_sources' => null,
+            'body' => "<p>Corpo dell'articolo con abbastanza contenuto.</p>\n---\nRicerca pubblicata su Nature (2026), consultata direttamente.",
+        ]);
+
+        $report = $this->service()->report();
+
+        $this->assertSame(1, $report['articles_with_sources']);
+        $this->assertSame(0, $report['articles_without_sources']);
+        $this->assertSame(1, $report['articles_with_body_only_sources']);
     }
 }

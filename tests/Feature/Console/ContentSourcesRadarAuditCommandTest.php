@@ -55,6 +55,27 @@ class ContentSourcesRadarAuditCommandTest extends TestCase
         $this->assertSame('nature.com', $output['top_domains'][0]['domain']);
     }
 
+    /**
+     * Codex (PR #609): la classificazione "fonti nel corpo" (heading
+     * manuale o blocco legacy dopo "---") è un ramo distinto dal
+     * conteggio domini — verificato qui a livello di comando, oltre al
+     * dettaglio già coperto da ContentSourcesRadarServiceTest.
+     */
+    public function test_json_output_reports_body_only_sources_separately_from_link_sources(): void
+    {
+        $this->article([
+            'primary_sources' => null,
+            'body' => '<p>Corpo.</p><h2>Fonti</h2><p>Intervista diretta.</p>',
+        ]);
+
+        Artisan::call('content-sources:radar --json');
+        $output = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $output['articles_with_sources']);
+        $this->assertSame(1, $output['articles_with_body_only_sources']);
+        $this->assertSame(0, $output['distinct_domains']);
+    }
+
     public function test_text_report_mentions_the_top_domain_and_zero_source_count(): void
     {
         $this->article(['primary_sources' => 'https://nature.com/a']);
