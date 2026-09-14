@@ -148,6 +148,73 @@ class TrustKnowledgeStatementControllerTest extends TestCase
         ]);
     }
 
+    /**
+     * Cantiere 39: last_checked_at non può essere una data futura — stesso
+     * principio già in uso per ArticleSearchProfile::last_editorial_review_at.
+     */
+    public function test_creating_a_statement_rejects_a_future_last_checked_date(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        $this->actingAs($editor)->post(route('admin.trust-knowledge.store'), [
+            'domanda' => 'Domanda',
+            'consenso' => 'Consenso.',
+            'incertezza' => 'Incertezza.',
+            'last_checked_at' => now()->addDay()->format('Y-m-d'),
+        ])->assertSessionHasErrors(['last_checked_at']);
+
+        $this->assertDatabaseCount('trust_knowledge_statements', 0);
+    }
+
+    public function test_creating_a_statement_accepts_todays_last_checked_date(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        $this->actingAs($editor)->post(route('admin.trust-knowledge.store'), [
+            'domanda' => 'Domanda',
+            'consenso' => 'Consenso.',
+            'incertezza' => 'Incertezza.',
+            'last_checked_at' => now()->format('Y-m-d'),
+        ])->assertSessionDoesntHaveErrors(['last_checked_at']);
+
+        $this->assertDatabaseCount('trust_knowledge_statements', 1);
+    }
+
+    /**
+     * Cantiere 39: concept_id/content_cluster_id devono riferire un
+     * Concept/Percorso attivo — stesso pattern già in uso in
+     * StoreArticleRequest per secondary_categories.
+     */
+    public function test_creating_a_statement_rejects_an_inactive_concept(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $concept = Concept::create(['name' => 'Concetto archiviato', 'status' => Concept::STATUS_INACTIVE]);
+
+        $this->actingAs($editor)->post(route('admin.trust-knowledge.store'), [
+            'domanda' => 'Domanda',
+            'consenso' => 'Consenso.',
+            'incertezza' => 'Incertezza.',
+            'concept_id' => $concept->id,
+        ])->assertSessionHasErrors(['concept_id']);
+
+        $this->assertDatabaseCount('trust_knowledge_statements', 0);
+    }
+
+    public function test_creating_a_statement_rejects_an_inactive_cluster(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $cluster = ContentCluster::create(['name' => 'Percorso archiviato', 'slug' => 'percorso-archiviato', 'is_active' => false]);
+
+        $this->actingAs($editor)->post(route('admin.trust-knowledge.store'), [
+            'domanda' => 'Domanda',
+            'consenso' => 'Consenso.',
+            'incertezza' => 'Incertezza.',
+            'content_cluster_id' => $cluster->id,
+        ])->assertSessionHasErrors(['content_cluster_id']);
+
+        $this->assertDatabaseCount('trust_knowledge_statements', 0);
+    }
+
     public function test_editor_can_update_a_statement_including_the_manual_last_checked_date(): void
     {
         $editor = User::factory()->create(['role' => 'editor']);
