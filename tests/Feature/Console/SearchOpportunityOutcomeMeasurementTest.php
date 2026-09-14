@@ -36,7 +36,7 @@ class SearchOpportunityOutcomeMeasurementTest extends TestCase
         );
 
         Carbon::setTestNow('2026-01-01 00:00:00');
-        app(SearchOpportunityDecisionService::class)->record($opportunity, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, null, $editor);
+        app(SearchOpportunityDecisionService::class)->record($opportunity, SearchOpportunityDecision::DECISION_IGNORE, 'Motivo.', null, $editor);
 
         Carbon::setTestNow('2026-01-30 00:00:00');
         $this->artisan('search-opportunities:measure-outcomes')

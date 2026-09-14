@@ -17,7 +17,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * type|query|page_url di SearchOpportunity::$key), aggiornata nel tempo;
  * ogni cambiamento produce anche una riga in
  * SearchOpportunityDecisionHistory (mai qui: questo modello riflette solo
- * lo stato CORRENTE).
+ * lo stato CORRENTE). L'unicità reale è su opportunity_key_hash (SHA-256
+ * di opportunity_key): la chiave testuale può superare la lunghezza
+ * indicizzabile in modo univoco in utf8mb4 (Codex, PR #590) —
+ * opportunity_key resta comunque salvata per intero, solo non indicizzata.
  */
 class SearchOpportunityDecision extends Model
 {
@@ -31,6 +34,7 @@ class SearchOpportunityDecision extends Model
 
     protected $fillable = [
         'opportunity_key',
+        'opportunity_key_hash',
         'opportunity_type',
         'opportunity_query',
         'decision_type',

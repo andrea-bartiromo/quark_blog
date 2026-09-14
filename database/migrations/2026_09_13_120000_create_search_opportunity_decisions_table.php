@@ -20,7 +20,14 @@ return new class extends Migration
     {
         Schema::create('search_opportunity_decisions', function (Blueprint $table) {
             $table->id();
-            $table->string('opportunity_key', 600)->unique();
+            // TEXT, non indicizzata: tipo (~28 caratteri) + query (255) +
+            // page_url (500) può superare 600 caratteri, e un indice
+            // univoco su una colonna larga in utf8mb4 supererebbe il
+            // limite di prefisso InnoDB (3072 byte, quindi 768 caratteri
+            // in utf8mb4) — vedi Codex, PR #590. L'unicità reale vive
+            // sull'hash a lunghezza fissa qui sotto.
+            $table->text('opportunity_key');
+            $table->string('opportunity_key_hash', 64)->unique();
             $table->string('opportunity_type', 60);
             $table->string('opportunity_query', 255);
             $table->string('decision_type', 20);

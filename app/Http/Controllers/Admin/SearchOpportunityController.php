@@ -110,7 +110,12 @@ class SearchOpportunityController extends Controller
         $decisionTypes = array_keys(SearchOpportunityDecision::decisionTypeOptions());
 
         $validated = $request->validate([
-            'opportunity_key' => ['required', 'string', 'max:600'],
+            // 600 non basta per ogni chiave valida: tipo (fino a ~28
+            // caratteri) + query (255) + page_url (500) può superare 600
+            // (Codex, PR #590) — opportunity_key è ora una colonna TEXT
+            // (nessun limite di indicizzazione, l'unicità reale è
+            // sull'hash), questo è solo un limite di sanità.
+            'opportunity_key' => ['required', 'string', 'max:1200'],
             'decision_type' => ['required', 'string', 'in:'.implode(',', $decisionTypes)],
             'rationale' => [
                 'nullable', 'string', 'max:2000',
@@ -132,30 +137,23 @@ class SearchOpportunityController extends Controller
             return back()->withErrors(['opportunity_key' => 'Questa opportunità non è più disponibile nel periodo corrente: impossibile registrare la decisione.']);
         }
 
-        $projectTaskId = null;
-
-        if ($validated['decision_type'] === SearchOpportunityDecision::DECISION_CREATE_BRIEF) {
-            $existing = SearchOpportunityDecision::query()->where('opportunity_key', $opportunity->key)->first();
-
-            if ($existing?->project_task_id) {
-                $projectTaskId = $existing->project_task_id;
-            } else {
-                try {
-                    $projectTaskId = $this->decisions->createBriefForOpportunity($opportunity, $request->user())->id;
-                } catch (RuntimeException $e) {
-                    return back()->withErrors(['decision_type' => $e->getMessage()]);
-                }
-            }
+        // La creazione del brief (se richiesta) avviene DENTRO
+        // SearchOpportunityDecisionService::record(), nella stessa
+        // transazione con lock della decisione — mai qui separatamente,
+        // altrimenti due invii concorrenti potrebbero creare due
+        // ProjectTask distinti prima che uno dei due salvi la decisione
+        // (Codex, PR #590).
+        try {
+            $this->decisions->record(
+                $opportunity,
+                $validated['decision_type'],
+                $validated['rationale'] ?? null,
+                $validated['article_id'] ?? null,
+                $request->user(),
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['decision_type' => $e->getMessage()]);
         }
-
-        $this->decisions->record(
-            $opportunity,
-            $validated['decision_type'],
-            $validated['rationale'] ?? null,
-            $validated['article_id'] ?? null,
-            $projectTaskId,
-            $request->user(),
-        );
 
         return back()->with('status', 'Decisione registrata.');
     }
