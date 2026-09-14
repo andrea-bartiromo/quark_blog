@@ -50,7 +50,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | merged | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | `c4ba1ef` | 23/23 (SearchOpportunityDecisionService+Controller+comando misurazione, 76 assert.); suite di regressione mirata (SearchOpportunity+Progettazione): 360/362, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi su entrambi i tentativi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` riprodotto identico due volte su commit diversi — confermato pre-esistente, non correlato al diff | 5 reali, vedi nota | 1 |
 | 5 | Cannibalizzazione di ricerca | merged | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | `fc2152b` | 12 nuovi test dedicati (SearchOpportunityScoringServiceTest+SearchCannibalizationControllerTest, 90 assert.); suite di regressione mirata: 467/469, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); suite completa: 4623 test, 4608 passati, 3 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`, `ContentClusterAutoLifecycleCompletionTest.php:192`) — quest'ultimo riprodotto identico 4 volte su 4 commit diversi durante questa PR, confermato definitivamente pre-esistente | 4 reali, vedi nota | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
-| 7 | Monitoraggio e report operativo | in_progress | [#593](https://github.com/andrea-bartiromo/quark_blog/pull/593) | — | vedi nota | — | 1, 3, 4 |
+| 7 | Monitoraggio e report operativo | merged | [#593](https://github.com/andrea-bartiromo/quark_blog/pull/593) | `cffbed4` | 14 nuovi test dedicati (OrganicDiscoveryOperationalReportServiceTest+ControllerTest+SearchOpportunityDecisionServiceTest, 111 assert.); suite di regressione mirata: 480/482, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` (confermato pre-esistente per la 5ª volta in questo programma) + un nuovo flake indipendente dal diff osservato una sola volta (`PublicSurfaceResponsiveImageTest`, confronto tra nome Faker grezzo e attributo `alt` correttamente HTML-escapato — non toccato da questa PR) | 3 reali, vedi nota | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
 
 ## Note per cantiere
@@ -157,7 +157,7 @@ verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
 (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
 relazione con questo diff.
 
-### Cantiere 7 — Monitoraggio e report operativo (in_progress)
+### Cantiere 7 — Monitoraggio e report operativo (merged)
 
 Ispezione pre-cantiere (agente Explore in background): nessuna
 duplicazione da temere — `EditorialOperationsDashboardController`/
@@ -180,13 +180,9 @@ mai un nuovo audit o una nuova regola. Aggrega: freschezza/copertura
 import (numeri sommati, mai la tabella riga-per-riga già mostrata su
 `/admin/search-opportunities`); distribuzione degli stati di prontezza
 organica (`countBy('state')` su `auditAll()`); opportunità del periodo
-corrente con/senza decisione registrata; decisioni per tipo e quelle
-dovute (baseline abbastanza vecchia) ma non ancora misurate a 28/90gg;
-esiti misurati classificati migliorata/invariata/peggiorata confrontando
-i clic osservati con il baseline catturato alla decisione (nessuna soglia
-di significatività, dichiarato esplicitamente); conteggio dei finding di
-cannibalizzazione del periodo corrente (`cannibalizationFindingsForPeriod()`,
-Cantiere 5).
+corrente con/senza decisione registrata; decisioni per tipo; esiti
+misurati e conteggio dei finding di cannibalizzazione del periodo
+corrente (`cannibalizationFindingsForPeriod()`, Cantiere 5).
 
 Sola lettura, calcolata a ogni apertura di `/admin/report-operativo-ricerca`
 — nessun comando schedulato, nessuna email reale: verificato che
@@ -197,14 +193,36 @@ scheduling/email esiste per l'intero programma, quindi questo cantiere
 non ne introduce uno. "Report operativo settimanale" descrive la cadenza
 attesa con cui un redattore apre la pagina, non un job automatico.
 
-10 nuovi test (6 in `OrganicDiscoveryOperationalReportServiceTest` sulla
-sola logica di aggregazione — mai la correttezza degli stati/soglie già
-coperta dai test dei servizi composti; 4 in
-`OrganicDiscoveryOperationalReportControllerTest`); suite di regressione
-mirata 477/479 (2 pre-esistenti). Pint pulito.
+3 finding reali di Codex (commit `dfe5a2b`), tutti risolti: **P1** le
+decisioni da ricerca interna a zero risultati hanno clic/CTR sempre
+nulli o azzerati per costruzione (il segnale reale è il conteggio di
+ricerche in `impressions`) — il confronto sui clic le classificava
+sempre "invariate"; ora restano fuori dal confronto CTR delle
+opportunità "normali" e usano `impressions` con direzione invertita
+(meno ricerche fallite = migliorata). **P1** confrontare i clic grezzi
+tra baseline e misurazione è fuorviante quando i due periodi Search
+Console coperti hanno lunghezze diverse (l'importer non vincola la
+durata) — un totale più alto può riflettere solo un periodo più lungo,
+non un miglioramento reale; la classificazione ora confronta il CTR, un
+tasso già indipendente dalla lunghezza del periodo. **P2** il conteggio
+"dovute ma non misurate" non distingueva le decisioni davvero eseguibili
+ora da quelle bloccate (nessun periodo copre ancora l'orizzonte, o
+l'opportunità non è più tra quelle attuali); nuovo
+`SearchOpportunityDecisionService::dueOutcomesEligibility()` riusa le
+stesse condizioni di idoneità già esistenti in `measureDueOutcomes()`
+(mai una seconda regola) e distingue eseguibili da bloccate.
 
-Ancora da fare prima del merge: aprire la PR, gestire CI/Codex, mergiare,
-aggiornare questa riga con PR/SHA definitivi.
+14 nuovi test (6+4 iniziali su aggregazione/pagina, +4 di regressione sui
+finding Codex: chiave CTR esclusa per il tipo zero-risultati, direzione
+invertita, eleggibilità eseguibile/bloccata); suite di regressione mirata
+480/482 (2 pre-esistenti). Un secondo flake CI, indipendente da questo
+diff e mai osservato prima in questo programma, incontrato una sola
+volta durante questa PR: `PublicSurfaceResponsiveImageTest` confronta un
+nome autore generato da Faker in forma grezza con l'attributo HTML
+`alt` correttamente escapato dall'applicazione — fallisce
+probabilisticamente quando Faker genera un nome con un apostrofo,
+indipendentemente da qualunque diff; nessun file di questa PR tocca il
+rendering dell'autore. Pint pulito. PR mergiata: squash `cffbed4`.
 
 ### Cantiere 5 — Cannibalizzazione di ricerca (merged)
 
