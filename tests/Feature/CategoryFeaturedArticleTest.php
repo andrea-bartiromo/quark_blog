@@ -193,6 +193,73 @@ class CategoryFeaturedArticleTest extends TestCase
     }
 
     /**
+     * Codex (PR #608, P2): il selettore admin originale interrogava
+     * solo la categoria principale, omettendo un articolo collegato
+     * solo come categoria secondaria — pur essendo un candidato
+     * esplicitamente idoneo per Category::featuredArticleForDisplay().
+     * Un editore doveva poter scegliere quell'articolo dal form, non
+     * solo vederlo funzionare se impostato per altra via.
+     */
+    public function test_an_article_associated_only_as_a_secondary_category_appears_in_the_admin_picker(): void
+    {
+        $category = $this->publishedCategory();
+        $article = $this->article('energia', ['title' => 'Candidato via categoria secondaria']);
+        $article->secondaryCategories()->attach($category->id);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.categories').'?modifica='.$category->id);
+
+        $response->assertOk();
+        $response->assertSee('Candidato via categoria secondaria');
+    }
+
+    /**
+     * Codex (PR #608, P2): il tetto di 200 candidati più recenti è
+     * corretto per un form utilizzabile, ma se l'articolo GIÀ
+     * selezionato finisce fuori da quella finestra (altri 200 articoli
+     * più recenti pubblicati nel frattempo), il <select> lo ometterebbe
+     * — il browser mostrerebbe "Nessuno", e un salvataggio del form che
+     * non intendeva affatto toccare questo campo lo azzererebbe in
+     * silenzio. L'articolo selezionato deve restare nel menu comunque.
+     */
+    public function test_the_currently_selected_featured_article_stays_in_the_picker_even_outside_the_recent_200(): void
+    {
+        $category = $this->publishedCategory();
+        $oldSelected = $this->article($category->slug, [
+            'title' => 'Articolo selezionato ma ormai datato',
+            'published_at' => now()->subYears(2),
+        ]);
+        $category->update(['featured_article_id' => $oldSelected->id]);
+
+        // 200 articoli più recenti della stessa categoria: abbastanza per
+        // spingere $oldSelected fuori dalla finestra dei 200 più recenti
+        // usata da featuredArticleCandidates(). Un solo autore riusato per
+        // tutte le righe: qui serve solo popolare la tabella, non 200
+        // utenti distinti.
+        $authorId = $this->author()->id;
+        $rows = [];
+        for ($i = 0; $i < 200; $i++) {
+            $rows[] = [
+                'user_id' => $authorId,
+                'title' => 'Articolo recente '.$i,
+                'slug' => 'articolo-recente-cantiere-50-'.$i,
+                'category' => $category->slug,
+                'status' => Article::STATUS_PUBLISHED,
+                'published_at' => now()->subDays($i),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        Article::query()->insert($rows);
+
+        $response = $this->actingAs($this->editor())
+            ->get(route('admin.categories').'?modifica='.$category->id);
+
+        $response->assertOk();
+        $response->assertSee('Articolo selezionato ma ormai datato');
+    }
+
+    /**
      * L'anteprima admin (Cantiere 11) riusa la stessa vista pubblica
      * tramite CategoryDiscoveryPageData — deve riflettere l'articolo in
      * evidenza esattamente come la pagina reale, senza divergere.

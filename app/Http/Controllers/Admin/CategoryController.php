@@ -13,6 +13,7 @@ use App\Services\MediaService;
 use App\Services\PublicMediaSyncService;
 use App\Services\ResponsiveImageVariantService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -37,16 +38,19 @@ class CategoryController extends Controller
                 'category' => $category,
                 'readiness' => $this->readiness->evaluate($category),
                 // Cantiere 50 (programma "100 cantieri Kairus"): candidati
-                // per il selettore "In evidenza" — solo articoli di QUESTA
-                // categoria (categoria principale), un tetto di 200 per non
-                // rendere il form inutilizzabile su una categoria molto
-                // popolata. featuredArticleForDisplay() applica comunque
-                // il vero controllo di idoneità lato pubblico, non questa
-                // lista: qui serve solo a comporre il menu a tendina.
-                'categoryArticles' => Article::where('category', $category->slug)
-                    ->orderByDesc('published_at')
-                    ->limit(200)
-                    ->get(['id', 'title', 'status']),
+                // per il selettore "In evidenza" — articoli di questa
+                // categoria come principale O secondaria (stessa idoneità
+                // già accettata da Category::featuredArticleForDisplay(),
+                // Codex PR #608: un editore deve poter scegliere anche un
+                // articolo collegato solo come categoria secondaria), un
+                // tetto di 200 per non rendere il form inutilizzabile su
+                // una categoria molto popolata — con l'articolo
+                // attualmente selezionato SEMPRE incluso anche se fuori da
+                // quella finestra, altrimenti un salvataggio del form che
+                // non tocca affatto questo campo lo azzererebbe in
+                // silenzio non appena altri 200 articoli più recenti lo
+                // spingono fuori dall'elenco (Codex, PR #608).
+                'categoryArticles' => $this->featuredArticleCandidates($category),
             ]);
         }
 
@@ -157,6 +161,41 @@ class CategoryController extends Controller
         $this->retirePreviousImage($imageToRetire);
 
         return back()->with('success', 'Categoria eliminata.');
+    }
+
+    /**
+     * Cantiere 50 (programma "100 cantieri Kairus"): candidati per il
+     * selettore "In evidenza" — articoli di questa categoria come
+     * principale o secondaria, gli stessi che
+     * Category::featuredArticleForDisplay() accetterebbe in pubblico.
+     * Se la categoria ha già un featured_article_id ma quell'articolo è
+     * finito fuori dalla finestra dei 200 più recenti, viene comunque
+     * aggiunto esplicitamente: altrimenti il `<select>` lo ometterebbe,
+     * il browser mostrerebbe "Nessuno" come selezionato, e un salvataggio
+     * del form che non intendeva affatto toccare questo campo lo
+     * azzererebbe in silenzio (Codex, PR #608).
+     *
+     * @return Collection<int, Article>
+     */
+    private function featuredArticleCandidates(Category $category)
+    {
+        $candidates = Article::where(function ($query) use ($category) {
+            $query->where('category', $category->slug)
+                ->orWhereHas('secondaryCategories', fn ($secondary) => $secondary->where('categories.id', $category->id));
+        })
+            ->orderByDesc('published_at')
+            ->limit(200)
+            ->get(['id', 'title', 'status']);
+
+        if ($category->featured_article_id && ! $candidates->contains('id', $category->featured_article_id)) {
+            $selected = Article::query()->find($category->featured_article_id, ['id', 'title', 'status']);
+
+            if ($selected) {
+                $candidates->push($selected);
+            }
+        }
+
+        return $candidates;
     }
 
     private function validated(Request $request, ?Category $category = null): array
