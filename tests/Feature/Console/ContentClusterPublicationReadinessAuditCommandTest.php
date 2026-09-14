@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Console;
 
+use App\Models\Article;
 use App\Models\ContentCluster;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -130,6 +132,59 @@ class ContentClusterPublicationReadinessAuditCommandTest extends TestCase
             ->assertExitCode(0)
             ->expectsOutputToContain('Percorsi non pubblici: 1')
             ->expectsOutputToContain('Con almeno una criticità: 1');
+    }
+
+    /**
+     * Codex (PR #605): un Percorso "Programmato" (is_active=true,
+     * publish_at futuro) va valutato all'istante in cui aprirà davvero
+     * — senza passare publish_at al servizio, un pillar/articolo
+     * programmato prima di quella data ma non ancora pubblico ORA
+     * genererebbe errori spuri (HEALTH_PILLAR_NOT_PUBLIC,
+     * HEALTH_NO_PUBLIC_ARTICLES) che si saranno già risolti
+     * all'apertura del Percorso.
+     */
+    public function test_a_scheduled_cluster_is_evaluated_at_its_own_publication_instant_not_now(): void
+    {
+        $author = User::factory()->create();
+        $pillar = Article::withoutEvents(fn () => Article::create([
+            'user_id' => $author->id,
+            'title' => 'Pillar programmato',
+            'slug' => 'pillar-programmato-comando',
+            'excerpt' => 'Excerpt',
+            'body' => '<p>Body</p>',
+            'category' => 'readiness-test',
+            'status' => Article::STATUS_SCHEDULED,
+            'published_at' => now()->addDay(),
+            'read_minutes' => 1,
+        ]));
+
+        $cluster = ContentCluster::create([
+            'name' => 'Percorso Programmato Comando',
+            'slug' => 'percorso-programmato-comando',
+            'short_description' => 'Breve',
+            'description' => 'Descrizione',
+            'seo_title' => 'SEO title',
+            'seo_description' => 'SEO description',
+            'cover_image' => 'test.jpg',
+            'takeaways' => ['Takeaway'],
+            'guiding_questions' => ['Domanda?'],
+            'closing_text' => 'Conclusione',
+            'curator_note' => 'Nota',
+            'is_active' => true,
+            'publish_at' => now()->addDays(2),
+            'pillar_article_id' => $pillar->id,
+        ]);
+        $cluster->articles()->attach($pillar->id, ['position' => 10, 'is_primary' => true]);
+
+        Artisan::call('content-clusters:publication-readiness --json');
+        $decoded = json_decode(Artisan::output(), true);
+
+        $this->assertCount(1, $decoded);
+        $codes = array_column($decoded[0]['findings'], 'code');
+        $this->assertNotContains('HEALTH_PILLAR_NOT_PUBLIC', $codes);
+        $this->assertNotContains('HEALTH_NO_PUBLIC_ARTICLES', $codes);
+        $this->assertNotContains('NO_MEMBERS_AVAILABLE_AT_PUBLICATION', $codes);
+        $this->assertNotContains('PILLAR_UNAVAILABLE_AT_PUBLICATION', $codes);
     }
 
     public function test_the_command_never_writes_to_the_database(): void

@@ -65,7 +65,13 @@ class ContentClusterPublicationReadinessAudit extends Command
             ->values();
 
         $reports = $clusters->map(function (ContentCluster $cluster) use ($readiness) {
-            $result = $readiness->evaluate($cluster);
+            // Un Percorso "Programmato" (is_active=true, publish_at
+            // futuro) va valutato all'istante in cui aprirà davvero, non
+            // ad adesso: senza questo, un pillar/articolo programmato per
+            // pubblicarsi PRIMA di publish_at ma non ancora pubblico ORA
+            // farebbe risultare il Percorso NOT READY per errori che si
+            // saranno già risolti all'apertura (Codex, PR #605).
+            $result = $readiness->evaluate($cluster, $cluster->publish_at);
 
             return [
                 'content_cluster_id' => $cluster->id,
