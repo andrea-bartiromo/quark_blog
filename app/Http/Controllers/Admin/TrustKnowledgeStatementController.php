@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreTrustKnowledgeStatementRequest;
+use App\Http\Requests\Admin\UpdateTrustKnowledgeStatementRequest;
 use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\TrustKnowledgeStatement;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -15,6 +16,10 @@ use Illuminate\View\View;
  * legga il docblock di TrustKnowledgeStatement). Nessuna pubblicazione,
  * nessun gate, nessuna anteprima: quelle restano esplicitamente ai
  * cantieri successivi (40-44).
+ *
+ * Cantiere 39: validazione estratta in
+ * Store/UpdateTrustKnowledgeStatementRequest — stessa convenzione già
+ * stabilita nel resto del pannello admin (vedi StoreArticleRequest).
  */
 class TrustKnowledgeStatementController extends Controller
 {
@@ -32,14 +37,14 @@ class TrustKnowledgeStatementController extends Controller
     {
         return view('admin.trust-knowledge.form', [
             'statement' => null,
-            'concepts' => Concept::query()->orderBy('name')->get(['id', 'name']),
-            'clusters' => ContentCluster::query()->orderBy('name')->get(['id', 'name']),
+            'concepts' => $this->conceptOptions(null),
+            'clusters' => $this->clusterOptions(null),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreTrustKnowledgeStatementRequest $request)
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
         $data['created_by'] = $request->user()->id;
 
         TrustKnowledgeStatement::create($data);
@@ -51,14 +56,14 @@ class TrustKnowledgeStatementController extends Controller
     {
         return view('admin.trust-knowledge.form', [
             'statement' => $trustKnowledgeStatement,
-            'concepts' => Concept::query()->orderBy('name')->get(['id', 'name']),
-            'clusters' => ContentCluster::query()->orderBy('name')->get(['id', 'name']),
+            'concepts' => $this->conceptOptions($trustKnowledgeStatement->concept_id),
+            'clusters' => $this->clusterOptions($trustKnowledgeStatement->content_cluster_id),
         ]);
     }
 
-    public function update(Request $request, TrustKnowledgeStatement $trustKnowledgeStatement)
+    public function update(UpdateTrustKnowledgeStatementRequest $request, TrustKnowledgeStatement $trustKnowledgeStatement)
     {
-        $trustKnowledgeStatement->update($this->validated($request));
+        $trustKnowledgeStatement->update($request->validated());
 
         return redirect()->route('admin.trust-knowledge.index')->with('success', 'Voce aggiornata.');
     }
@@ -70,17 +75,39 @@ class TrustKnowledgeStatementController extends Controller
         return redirect()->route('admin.trust-knowledge.index')->with('success', 'Voce eliminata.');
     }
 
-    private function validated(Request $request): array
+    /**
+     * Cantiere 39, Codex (PR #596): le opzioni offerte nel form devono
+     * combaciare con quello che StoreTrustKnowledgeStatementRequest
+     * accetta davvero (solo Concept/Percorso attivi), altrimenti un
+     * editor può selezionare un'opzione dal form e ricevere un errore di
+     * validazione — frequente in pratica, dato che un Concept nasce
+     * "bozza" per default. Un collegamento già esistente ma nel frattempo
+     * archiviato resta comunque nell'elenco (mai far sparire dal form un
+     * valore già salvato), marcato come tale nella vista.
+     */
+    private function conceptOptions(?int $currentId)
     {
-        return $request->validate([
-            'domanda' => ['required', 'string', 'max:300'],
-            'consenso' => ['required', 'string', 'max:8000'],
-            'incertezza' => ['required', 'string', 'max:8000'],
-            'cosa_manca' => ['nullable', 'string', 'max:8000'],
-            'last_checked_at' => ['nullable', 'date'],
-            'last_checked_by' => ['nullable', 'string', 'max:150'],
-            'concept_id' => ['nullable', 'integer', 'exists:concepts,id'],
-            'content_cluster_id' => ['nullable', 'integer', 'exists:content_clusters,id'],
-        ]);
+        return Concept::query()
+            ->where(function ($query) use ($currentId) {
+                $query->where('status', Concept::STATUS_ACTIVE);
+                if ($currentId !== null) {
+                    $query->orWhere('id', $currentId);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'status']);
+    }
+
+    private function clusterOptions(?int $currentId)
+    {
+        return ContentCluster::query()
+            ->where(function ($query) use ($currentId) {
+                $query->where('is_active', true);
+                if ($currentId !== null) {
+                    $query->orWhere('id', $currentId);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active']);
     }
 }
