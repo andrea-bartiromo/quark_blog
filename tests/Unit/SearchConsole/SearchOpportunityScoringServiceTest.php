@@ -336,4 +336,112 @@ class SearchOpportunityScoringServiceTest extends TestCase
             )
         );
     }
+
+    // ── Cantiere 5 ("Kairus Organic Discovery") — cannibalizzazione ────
+
+    private function publicArticle(string $slug): Article
+    {
+        $author = User::factory()->create(['role' => 'author']);
+
+        return Article::create([
+            'user_id' => $author->id,
+            'title' => 'Articolo '.$slug,
+            'slug' => $slug,
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+        ]);
+    }
+
+    public function test_two_public_articles_receiving_impressions_for_the_same_query_are_flagged_as_cannibalization(): void
+    {
+        $second = $this->publicArticle('secondo-articolo');
+
+        $this->row([
+            'query' => 'query condivisa',
+            'page_url' => 'https://kairus.it/articolo/primo',
+            'article_id' => $this->matchedArticleId,
+            'impressions' => 30,
+            'clicks' => 2,
+        ]);
+        $this->row([
+            'query' => 'query condivisa',
+            'page_url' => 'https://kairus.it/articolo/secondo-articolo',
+            'article_id' => $second->id,
+            'impressions' => 10,
+            'clicks' => 1,
+        ]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertCount(1, $findings);
+        $finding = $findings->first();
+        $this->assertSame('query condivisa', $finding->query);
+        $this->assertCount(2, $finding->competitors);
+        $this->assertSame($this->matchedArticleId, $finding->primaryArticle->id);
+        $this->assertSame(30, $finding->competitors->first()['impressions']);
+        $this->assertSame($second->id, $finding->competitors->last()['article']->id);
+
+        $opportunities = app(SearchOpportunityScoringService::class)->forPeriod($this->periodStart, $this->periodEnd);
+        $cannibalization = $opportunities->firstWhere('type', SearchOpportunityScoringService::TYPE_SEARCH_CANNIBALIZATION);
+        $this->assertNotNull($cannibalization);
+        $this->assertSame(40, $cannibalization->impressions);
+        $this->assertSame(10.0, $cannibalization->score); // impression degli articoli non primari
+    }
+
+    public function test_a_single_article_matched_to_a_query_is_not_flagged_as_cannibalization(): void
+    {
+        $this->row(['query' => 'query singola', 'impressions' => 50]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_cannibalization_requires_minimum_combined_evidence(): void
+    {
+        $second = $this->publicArticle('sotto-soglia');
+
+        $this->row(['query' => 'poca evidenza', 'article_id' => $this->matchedArticleId, 'impressions' => 5]);
+        $this->row(['query' => 'poca evidenza', 'article_id' => $second->id, 'impressions' => 5]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_a_non_public_competing_article_is_never_counted(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $draft = Article::create([
+            'user_id' => $author->id,
+            'title' => 'Bozza',
+            'slug' => 'bozza-competitor',
+            'body' => 'Corpo.',
+            'category' => 'spazio',
+            'status' => Article::STATUS_DRAFT,
+            'published_at' => null,
+        ]);
+
+        $this->row(['query' => 'query con bozza', 'article_id' => $this->matchedArticleId, 'impressions' => 30]);
+        $this->row(['query' => 'query con bozza', 'article_id' => $draft->id, 'impressions' => 30]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
+
+    public function test_a_brand_query_is_never_flagged_as_cannibalization(): void
+    {
+        $second = $this->publicArticle('brand-competitor');
+        $brandQuery = mb_strtolower((string) config('app.name')).' guida';
+
+        $this->row(['query' => $brandQuery, 'article_id' => $this->matchedArticleId, 'impressions' => 50]);
+        $this->row(['query' => $brandQuery, 'article_id' => $second->id, 'impressions' => 50]);
+
+        $findings = app(SearchOpportunityScoringService::class)->cannibalizationFindingsForPeriod($this->periodStart, $this->periodEnd);
+
+        $this->assertTrue($findings->isEmpty());
+    }
 }

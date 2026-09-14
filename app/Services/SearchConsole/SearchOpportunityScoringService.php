@@ -2,6 +2,7 @@
 
 namespace App\Services\SearchConsole;
 
+use App\Models\Article;
 use App\Models\SearchConsoleQuery;
 use App\Models\SearchZeroResultQuery;
 use Carbon\Carbon;
@@ -43,6 +44,16 @@ class SearchOpportunityScoringService
      * internalZeroResultOpportunities().
      */
     public const TYPE_INTERNAL_ZERO_RESULT_SEARCH = 'internal_zero_result_search';
+
+    /**
+     * Cantiere 5 ("Kairus Organic Discovery"): due o più articoli pubblici
+     * distinti ricevono impression Search Console per la stessa query
+     * (normalizzata) nello stesso periodo — possibile cannibalizzazione.
+     * Segnale osservato nei dati reali, distinto dal controllo più leggero
+     * già esistente su `primary_query` dichiarato uguale (vedi
+     * SearchCannibalizationFinding). Vedi cannibalizationFindings().
+     */
+    public const TYPE_SEARCH_CANNIBALIZATION = 'search_cannibalization';
 
     /**
      * Soglia minima di evidenza: sotto questo numero di impression una
@@ -147,6 +158,9 @@ class SearchOpportunityScoringService
         }
 
         $opportunities = $opportunities->merge($this->noStrongLandingPage($rows));
+        $opportunities = $opportunities->merge(
+            $this->cannibalizationFindings($rows)->map(fn (SearchCannibalizationFinding $finding) => $finding->opportunity)
+        );
 
         if ($previousPeriodStart && $previousPeriodEnd) {
             $opportunities = $opportunities->merge(
@@ -340,6 +354,139 @@ class SearchOpportunityScoringService
             })
             ->filter()
             ->values();
+    }
+
+    /**
+     * Cantiere 5 ("Kairus Organic Discovery"): stessa individuazione di
+     * cannibalizzazione di cannibalizationFindings(), ma per un chiamante
+     * (la pagina admin dedicata) che non ha già le righe del periodo a
+     * disposizione come forPeriod() — recupera le proprie, stesso pattern
+     * già usato da risingQueries() in questo stesso file.
+     *
+     * @return Collection<int, SearchCannibalizationFinding>
+     */
+    public function cannibalizationFindingsForPeriod(CarbonInterface $periodStart, CarbonInterface $periodEnd): Collection
+    {
+        $rows = SearchConsoleQuery::query()
+            ->with('article')
+            ->whereDate('period_start', $periodStart->toDateString())
+            ->whereDate('period_end', $periodEnd->toDateString())
+            ->get();
+
+        return $this->cannibalizationFindings($rows);
+    }
+
+    /**
+     * Individua articoli pubblici distinti che ricevono impression per la
+     * stessa query (normalizzata) nello stesso periodo — possibile
+     * cannibalizzazione di ricerca. Richiede la dimensione pagina (come
+     * noStrongLandingPage()) perché senza page_url non si può sapere quale
+     * articolo abbia effettivamente ricevuto l'impression. Un articolo non
+     * più pubblico (bozza, programmato, spostato in futuro) non entra mai
+     * nel conteggio, ne' come "primario" ne' come concorrente: fail-closed,
+     * mai un suggerimento di consolidamento verso un articolo non
+     * raggiungibile pubblicamente. Le query brand sono escluse: la
+     * concorrenza su una query di marca non è una priorità di crescita
+     * organica non-brand.
+     *
+     * @param  Collection<int, SearchConsoleQuery>  $rows
+     * @return Collection<int, SearchCannibalizationFinding>
+     */
+    public function cannibalizationFindings(Collection $rows): Collection
+    {
+        $eligibleRows = $rows->filter(
+            fn (SearchConsoleQuery $row) => trim((string) $row->page_url) !== ''
+                && $row->article !== null
+                && $this->isPublicArticle($row->article)
+                && ! $this->isBrandQuery($row->query)
+        );
+
+        return $eligibleRows
+            ->groupBy(fn (SearchConsoleQuery $row) => $this->looseNormalize($row->query))
+            ->map(function (Collection $queryRows) {
+                $competitors = $queryRows
+                    ->groupBy('article_id')
+                    ->map(function (Collection $articleRows) {
+                        $first = $articleRows->first();
+
+                        return [
+                            'article' => $first->article,
+                            'page_url' => $first->page_url,
+                            'impressions' => (int) $articleRows->sum('impressions'),
+                            'clicks' => (int) $articleRows->sum('clicks'),
+                            'position' => round((float) $articleRows->avg('position'), 1),
+                        ];
+                    })
+                    ->sortByDesc('impressions')
+                    ->values();
+
+                if ($competitors->count() < 2) {
+                    return null;
+                }
+
+                $totalImpressions = (int) $competitors->sum('impressions');
+
+                if ($totalImpressions < self::MIN_IMPRESSIONS) {
+                    return null;
+                }
+
+                $primary = $competitors->first();
+                $totalClicks = (int) $competitors->sum('clicks');
+                $competingImpressions = $totalImpressions - $primary['impressions'];
+                $query = $queryRows->first()->query;
+
+                $opportunity = new SearchOpportunity(
+                    type: self::TYPE_SEARCH_CANNIBALIZATION,
+                    query: $query,
+                    article: $primary['article'],
+                    impressions: $totalImpressions,
+                    clicks: $totalClicks,
+                    ctr: $totalImpressions > 0 ? $totalClicks / $totalImpressions : null,
+                    // La posizione media è ambigua tra articoli diversi
+                    // (ognuno ha la propria): mai indovinata riportandone
+                    // una sola come se fosse condivisa.
+                    position: null,
+                    score: $competingImpressions,
+                    explanation: sprintf(
+                        '%d articoli pubblici ricevono impression per la stessa query "%s" nel periodo: "%s" ne riceve %d (probabile primario), gli altri %d in totale — possibile cannibalizzazione, valuta consolidamento o differenziazione editoriale.',
+                        $competitors->count(),
+                        $query,
+                        Str::limit($primary['article']->title, 50),
+                        $primary['impressions'],
+                        $competingImpressions,
+                    ),
+                    pageUrl: $primary['page_url'],
+                );
+
+                return new SearchCannibalizationFinding(
+                    query: $query,
+                    competitors: $competitors,
+                    primaryArticle: $primary['article'],
+                    opportunity: $opportunity,
+                );
+            })
+            ->filter()
+            ->values();
+    }
+
+    private function isPublicArticle(?Article $article): bool
+    {
+        return $article !== null && $article->status === Article::STATUS_PUBLISHED && $article->published_at?->isPast();
+    }
+
+    private function isBrandQuery(string $query): bool
+    {
+        $normalized = $this->looseNormalize($query);
+
+        foreach (config('search-console.brand_terms', []) as $term) {
+            $term = $this->looseNormalize((string) $term);
+
+            if ($term !== '' && str_contains($normalized, $term)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
