@@ -138,13 +138,20 @@ jobs:
           #
           # --path targets migrations by file regardless of how many others
           # exist after them. Every migration that currently creates,
-          # alters, or has a foreign key into content_clusters must be
+          # alters, or has a foreign key into content_clusters — OR into
+          # any other table already in this list, transitively — must be
           # listed here together — content_clusters can't be dropped while
           # anything still references it, and reapplying content_clusters'
           # base CREATE alone would leave it missing the columns those
           # ALTER migrations added, since Laravel would still consider them
           # already applied. Add any future migration that touches
-          # content_clusters (new columns, or new FKs into it) to this list.
+          # content_clusters (new columns, or new FKs into it), OR that has
+          # a foreign key into a table already listed here, to this list.
+          # Cantiere 43 (programma "100 cantieri Kairus") learned this the
+          # hard way: trust_knowledge_statements was already listed, and
+          # adding trust_knowledge_preview_views' FK into it without also
+          # listing that new migration broke this exact rollback with a FK
+          # integrity violation on the DROP TABLE below.
           php artisan migrate:rollback \
             --path=database/migrations/2026_08_13_080610_create_content_clusters_table.php \
             --path=database/migrations/2026_08_13_080620_create_article_content_cluster_table.php \
@@ -155,6 +162,7 @@ jobs:
             --path=database/migrations/2026_08_15_140000_create_content_cluster_subscribers_table.php \
             --path=database/migrations/2026_08_16_080345_add_curator_note_to_content_clusters.php \
             --path=database/migrations/2026_09_14_130000_create_trust_knowledge_statements_table.php \
+            --path=database/migrations/2026_09_14_140000_create_trust_knowledge_preview_views_table.php \
             --force
           php artisan tinker --execute="foreach (['content_clusters','article_content_cluster','content_cluster_suggestions','content_cluster_subscribers'] as \$t) { if (Illuminate\\Support\\Facades\\Schema::hasTable(\$t)) { throw new RuntimeException(\$t.' still present after targeted rollback'); } }"
           php artisan migrate --force

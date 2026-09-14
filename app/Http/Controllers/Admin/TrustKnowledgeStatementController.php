@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateTrustKnowledgeStatementRequest;
 use App\Models\Concept;
 use App\Models\ContentCluster;
 use App\Models\TrustKnowledgeStatement;
+use App\Services\Trust\TrustPilotPreviewMetricsService;
 use Illuminate\View\View;
 
 /**
@@ -26,9 +27,19 @@ use Illuminate\View\View;
  * soddisfarne le condizioni mancanti (owner assegnato, contenuto reale
  * approvato). Gate di pubblicazione, componente accessibile e decisione
  * GO/NO-GO restano esplicitamente ai cantieri successivi (41-44).
+ *
+ * Cantiere 43: preview() registra un evento di visualizzazione
+ * anonimo/aggregato (TrustPilotPreviewMetricsService::recordView()) —
+ * rehearsal privacy-first della metrica B-44 "Visualizzazioni aggregate",
+ * mai un identificativo di visitatore/sessione/utente. index() mostra il
+ * conteggio aggregato per riga.
  */
 class TrustKnowledgeStatementController extends Controller
 {
+    public function __construct(
+        private readonly TrustPilotPreviewMetricsService $previewMetrics,
+    ) {}
+
     public function index(): View
     {
         $statements = TrustKnowledgeStatement::query()
@@ -36,7 +47,10 @@ class TrustKnowledgeStatementController extends Controller
             ->orderByDesc('updated_at')
             ->paginate(25);
 
-        return view('admin.trust-knowledge.index', ['statements' => $statements]);
+        return view('admin.trust-knowledge.index', [
+            'statements' => $statements,
+            'previewMetrics' => $this->previewMetrics->aggregateViewsForMany(collect($statements->items())),
+        ]);
     }
 
     public function create(): View
@@ -84,6 +98,7 @@ class TrustKnowledgeStatementController extends Controller
     public function preview(TrustKnowledgeStatement $trustKnowledgeStatement): View
     {
         $trustKnowledgeStatement->loadMissing(['concept:id,name', 'contentCluster:id,name']);
+        $this->previewMetrics->recordView($trustKnowledgeStatement);
 
         return view('admin.trust-knowledge.preview', ['statement' => $trustKnowledgeStatement]);
     }
