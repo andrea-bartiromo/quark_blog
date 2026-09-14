@@ -48,7 +48,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
 | 3 | Prontezza organica e scoperta interna | merged | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | `52d5a60` | 31/31 (OrganicDiscoveryReadinessService+Controller, 64 assert.) + 9/9 ArticleRevisionTransparencyService (16 assert.); suite CI completa: 4568/4569 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `lastEditorialUpdates()` caricava l'intera cronologia revisioni invece di filtrare lato DB) | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | merged | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | `c4ba1ef` | 23/23 (SearchOpportunityDecisionService+Controller+comando misurazione, 76 assert.); suite di regressione mirata (SearchOpportunity+Progettazione): 360/362, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi su entrambi i tentativi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` riprodotto identico due volte su commit diversi — confermato pre-esistente, non correlato al diff | 5 reali, vedi nota | 1 |
-| 5 | Cannibalizzazione di ricerca | in_progress | — | — | vedi nota | — | 1, 2, 4 |
+| 5 | Cannibalizzazione di ricerca | in_progress | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | — | vedi nota | — | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
@@ -212,9 +212,14 @@ SearchCannibalization+EditorialOpportunity+OrganicDiscovery+Progettazione):
 `ProjectTaskControllerTest.php:193`), nessuna relazione con questo diff.
 Pint pulito su tutti i file toccati.
 
-Ancora da fare prima del merge: suite completa in background, aprire la
-PR, gestire CI/Codex, mergiare, aggiornare questa riga con PR/SHA
-definitivi.
+Suite completa post-implementazione: 4608/4623 passati, 3 falliti — tutti
+e tre i flake pre-esistenti già documentati
+(`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`,
+`ContentClusterAutoLifecycleCompletionTest.php:192`), nessuna relazione
+con questo diff. PR aperta: [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592).
+
+Ancora da fare prima del merge: gestire CI/Codex, mergiare, aggiornare
+questa riga con PR/SHA definitivi.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
