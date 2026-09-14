@@ -17,17 +17,19 @@ return new class extends Migration
             // modello TrustKnowledgeStatementPreviewView: privacy-first per
             // scelta di scope (Cantiere 43), stesso principio già in uso in
             // ArticleContinuationEvent.
+            // Nomi espliciti e brevi per vincolo FK e indice composito: i
+            // nomi auto-generati da Laravel per questa tabella superano il
+            // limite di 64 caratteri per identificatore di MySQL/MariaDB —
+            // stesso problema già scoperto e documentato in
+            // create_article_continuation_events_table.php (lì solo
+            // sull'indice; qui anche sul vincolo FK, verificato in CI reale
+            // su MariaDB).
             $table->foreignId('trust_knowledge_statement_id')
-                ->constrained('trust_knowledge_statements')
+                ->constrained('trust_knowledge_statements', 'id', 'tkpv_statement_fk')
                 ->cascadeOnDelete();
 
             $table->timestamp('created_at')->useCurrent();
 
-            // Nome esplicito e breve: il nome auto-generato da Laravel per
-            // questo indice composito supera il limite di 64 caratteri per
-            // identificatore di MySQL/MariaDB — stesso problema già
-            // scoperto e documentato in
-            // create_article_continuation_events_table.php.
             $table->index(['trust_knowledge_statement_id', 'created_at'], 'tkpv_statement_created_idx');
         });
     }
