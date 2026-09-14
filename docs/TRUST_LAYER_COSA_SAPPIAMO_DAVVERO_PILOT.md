@@ -165,3 +165,42 @@ Cantieri 40-44 sono il punto in cui il gate B-45 completo torna ad
 applicarsi prima di qualunque route pubblica o contenuto editoriale
 reale; questo cantiere specifico resta strettamente interno
 all'amministrazione, coerente con Cantiere 38 e 39.
+
+## Addendum — Cantiere 42 (programma "100 cantieri Kairus"), decisione esplicita
+
+Cantiere 42 ("Gate pubblicazione pilot Trust") era il primo dei tre
+cantieri (42-44) esplicitamente riservati dall'addendum Cantiere 38 alla
+riapplicazione integrale del gate B-45 — quindi il candidato più diretto
+a uno scontro reale con il NO-GO. Portato all'utente via `AskUserQuestion`
+prima di scrivere codice (non deciso in autonomia da questa sessione),
+con tre opzioni: (a) solo una schermata di sola lettura che calcola e
+mostra lo stato delle tre condizioni, senza alcun modo di impostarle;
+(b) un meccanismo scrivibile per assegnare owner/approvare contenuto;
+(c) segnare 42-44 come `blocked` e saltare al Cantiere 45+. L'utente ha
+scelto esplicitamente (a).
+
+Implementato: `TrustPilotGateReadinessService::assess()` — calcola le tre
+condizioni SENZA MAI scriverle:
+1. **Owner editoriale assegnato**: nessun campo o meccanismo di
+   assegnazione esiste ancora nel sistema per questo pilot — stato
+   esplicitamente "non determinabile automaticamente" (non "falso": la
+   distinzione tra "verificato falso" e "non ancora verificabile" è
+   dichiarata onestamente, mai appiattita a un booleano).
+2. **Contenuto sorgente reale approvato**: `TrustKnowledgeStatement::count()`.
+   Zero righe → condizione certamente non soddisfatta. Una o più righe →
+   ancora "non determinabile" (mai "soddisfatta"): il modello non ha un
+   campo "approvato", quindi la sola presenza di righe non può da sola
+   dichiarare il contenuto approvato — solo smentire "zero contenuto".
+3. **Componente Fonti pubblico**: verificato controllando che
+   `resources/views/components/article/primary-sources.blade.php` esista
+   davvero nel codebase (non un booleano fisso) — già soddisfatta,
+   coerente con l'addendum Cantiere 38.
+
+Nessuna route pubblica, nessun form, nessun input scrivibile riconducibile
+a owner/approvazione/decisione: verificato con test dedicato
+(`test_the_page_never_offers_a_form_to_set_any_condition`). L'assegnazione
+reale di un owner, l'approvazione reale di contenuto e la registrazione
+della decisione GO/NO-GO restano esplicitamente riservate al Cantiere 44
+("Admin decisione GO/NO-GO pilot"), che per la sua natura ancora più
+diretta richiederà a sua volta un'altra decisione umana esplicita prima
+di introdurre qualunque meccanismo di scrittura.

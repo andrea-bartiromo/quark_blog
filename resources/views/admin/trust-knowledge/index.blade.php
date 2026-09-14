@@ -4,7 +4,10 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Cosa sappiamo davvero</h1>
-  <a class="action-btn" href="{{ route('admin.trust-knowledge.create') }}">+ Nuova voce</a>
+  <div style="display:flex;gap:.5rem">
+    <a class="action-btn" href="{{ route('admin.trust-knowledge.gate-readiness') }}">Gate pubblicazione pilot</a>
+    <a class="action-btn" href="{{ route('admin.trust-knowledge.create') }}">+ Nuova voce</a>
+  </div>
 </div>
 
 <p style="color:var(--admin-muted);font-size:.85rem;max-width:82ch;margin-bottom:1rem">
