@@ -115,7 +115,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 81 | Continuità contestuale articolo-concetto-Percorso | pending | — | — | — | — | 79, 80 |
 | 82 | Suggerimenti link interni (conferma umana, anti-cicli) | pending | — | — | — | — | 78 |
 | 83 | Audit accessibilità/UX articolo-concetto-Percorso | pending | — | — | — | — | 81 |
-| 84 | Radar fonti interno | pending | — | — | — | — | — |
+| 84 | Radar fonti interno | in_progress | branch `kairus-cantiere-84-radar-fonti-interno` | — | 13 nuovi test (`ContentSourcesRadarServiceTest` 9 + `ContentSourcesRadarAuditCommandTest` 4: nessun articolo, fonte assente/solo-testo/link, normalizzazione www., dedup domini per articolo, DOI, ordinamento, esclusione bozze, sola lettura verificata); regressione mirata (EditorialQuality+ArticlePrimarySources+ArticleManualSources+Console, 536 test): 533/536 (3 skip pre-esistenti, 0 falliti); Pint: passed, `git diff --check`: pulito | — | — |
 | 85 | Bozze newsletter/social da contenuti approvati (no invio) | pending | — | — | — | — | — |
 | 86 | Vista editoriale unica ciclo contenuto | pending | — | — | — | — | 77, 84, 85 |
 | 87 | Transizioni di stato con audit trail | pending | — | — | — | — | 86 |
