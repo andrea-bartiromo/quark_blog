@@ -196,6 +196,47 @@ class SearchOpportunityControllerTest extends TestCase
     }
 
     /**
+     * Cantiere 5 ("Kairus Organic Discovery"): search_cannibalization deve
+     * essere un tipo riconosciuto dal filtro, non solo un'opportunità
+     * generata — altrimenti il filtro lo tratterebbe come "sconosciuto" e
+     * ricadrebbe silenziosamente su "tutti i tipi" (Codex, PR #592).
+     */
+    public function test_index_can_be_filtered_to_only_cannibalization_opportunities(): void
+    {
+        $author = User::factory()->create(['role' => 'author']);
+        $first = Article::create([
+            'user_id' => $author->id, 'title' => 'Primo articolo', 'slug' => 'primo-filtro-cannibalizzazione',
+            'body' => 'Corpo.', 'category' => 'spazio', 'status' => Article::STATUS_PUBLISHED, 'published_at' => now()->subDay(),
+        ]);
+        $second = Article::create([
+            'user_id' => $author->id, 'title' => 'Secondo articolo', 'slug' => 'secondo-filtro-cannibalizzazione',
+            'body' => 'Corpo.', 'category' => 'spazio', 'status' => Article::STATUS_PUBLISHED, 'published_at' => now()->subDay(),
+        ]);
+
+        SearchConsoleQuery::create([
+            'query' => 'altra query non correlata', 'page_url' => 'https://kairus.it/notizie', 'article_id' => null,
+            'clicks' => 1, 'impressions' => 200, 'ctr' => 0.001, 'position' => 25,
+            'period_start' => '2026-08-01', 'period_end' => '2026-08-07', 'import_batch' => 'batch-1', 'imported_at' => now(),
+        ]);
+        SearchConsoleQuery::create([
+            'query' => 'query filtro cannibalizzazione', 'page_url' => 'https://kairus.it/articolo/primo-filtro-cannibalizzazione', 'article_id' => $first->id,
+            'clicks' => 2, 'impressions' => 30, 'ctr' => 0.066, 'position' => 5,
+            'period_start' => '2026-08-01', 'period_end' => '2026-08-07', 'import_batch' => 'batch-1', 'imported_at' => now(),
+        ]);
+        SearchConsoleQuery::create([
+            'query' => 'query filtro cannibalizzazione', 'page_url' => 'https://kairus.it/articolo/secondo-filtro-cannibalizzazione', 'article_id' => $second->id,
+            'clicks' => 1, 'impressions' => 15, 'ctr' => 0.066, 'position' => 8,
+            'period_start' => '2026-08-01', 'period_end' => '2026-08-07', 'import_batch' => 'batch-1', 'imported_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->editor())->get(route('admin.search-opportunities', ['tipo' => 'search_cannibalization']));
+
+        $response->assertOk()
+            ->assertSee('query filtro cannibalizzazione')
+            ->assertDontSee('altra query non correlata');
+    }
+
+    /**
      * Missione 46 (secondo batch autonomo KAIRUS, Fase F — Search
      * Intelligence): "opportunity lifecycle filter" — lo stato è già
      * impostabile per riga (updateStatus()) e già mostrato, ma nessun

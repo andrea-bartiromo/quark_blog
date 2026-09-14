@@ -57,27 +57,31 @@
                   @endif
                 </div>
               @endif
-              <details>
-                <summary style="cursor:pointer;font-size:.76rem;color:#374151;">{{ $currentDecision ? 'Modifica decisione' : 'Registra decisione' }}</summary>
-                <form method="POST" action="{{ route('admin.search-opportunities.record-decision') }}" style="margin-top:.5rem;display:flex;flex-direction:column;gap:.4rem;">
-                  @csrf
-                  <input type="hidden" name="opportunity_key" value="{{ $finding->opportunity->key }}">
-                  <select name="decision_type" class="form-select" required>
-                    <option value="">— Scegli —</option>
-                    @foreach($decisionTypeOptions as $value => $label)
-                      <option value="{{ $value }}" @selected(($currentDecision?->decision_type ?? \App\Models\SearchOpportunityDecision::DECISION_MERGE) === $value)>{{ $label }}</option>
-                    @endforeach
-                  </select>
-                  <select name="article_id" class="form-select">
-                    <option value="">— Nessun articolo target —</option>
-                    @foreach($finding->competitors as $competitor)
-                      <option value="{{ $competitor['article']->id }}" @selected(($currentDecision?->article_id ?? $finding->primaryArticle->id) === $competitor['article']->id)>{{ \Illuminate\Support\Str::limit($competitor['article']->title, 40) }}</option>
-                    @endforeach
-                  </select>
-                  <textarea name="rationale" class="form-textarea" rows="2" placeholder="Motivazione (obbligatoria per sovrapposizione/ignora)">{{ $currentDecision?->rationale }}</textarea>
-                  <button type="submit" class="btn btn--outline btn--sm">Salva</button>
-                </form>
-              </details>
+              @if($isLatestPeriod)
+                <details>
+                  <summary style="cursor:pointer;font-size:.76rem;color:#374151;">{{ $currentDecision ? 'Modifica decisione' : 'Registra decisione' }}</summary>
+                  <form method="POST" action="{{ route('admin.search-opportunities.record-decision') }}" style="margin-top:.5rem;display:flex;flex-direction:column;gap:.4rem;">
+                    @csrf
+                    <input type="hidden" name="opportunity_key" value="{{ $finding->opportunity->key }}">
+                    <select name="decision_type" class="form-select" required>
+                      <option value="">— Scegli —</option>
+                      @foreach($decisionTypeOptions as $value => $label)
+                        <option value="{{ $value }}" @selected(($currentDecision?->decision_type ?? \App\Models\SearchOpportunityDecision::DECISION_MERGE) === $value)>{{ $label }}</option>
+                      @endforeach
+                    </select>
+                    <select name="article_id" class="form-select">
+                      <option value="">— Nessun articolo target —</option>
+                      @foreach($finding->competitors as $competitor)
+                        <option value="{{ $competitor['article']->id }}" @selected(($currentDecision?->article_id ?? $finding->primaryArticle->id) === $competitor['article']->id)>{{ \Illuminate\Support\Str::limit($competitor['article']->title, 40) }}</option>
+                      @endforeach
+                    </select>
+                    <textarea name="rationale" class="form-textarea" rows="2" placeholder="Motivazione (obbligatoria per sovrapposizione/ignora)">{{ $currentDecision?->rationale }}</textarea>
+                    <button type="submit" class="btn btn--outline btn--sm">Salva</button>
+                  </form>
+                </details>
+              @elseif(! $currentDecision)
+                <small style="color:var(--admin-muted);">Le decisioni si registrano solo sul periodo più recente.</small>
+              @endif
             </td>
           </tr>
         @endforeach

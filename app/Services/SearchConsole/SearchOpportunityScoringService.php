@@ -403,7 +403,7 @@ class SearchOpportunityScoringService
 
         return $eligibleRows
             ->groupBy(fn (SearchConsoleQuery $row) => $this->looseNormalize($row->query))
-            ->map(function (Collection $queryRows) {
+            ->map(function (Collection $queryRows, string $normalizedQuery) {
                 $competitors = $queryRows
                     ->groupBy('article_id')
                     ->map(function (Collection $articleRows) {
@@ -414,7 +414,7 @@ class SearchOpportunityScoringService
                             'page_url' => $first->page_url,
                             'impressions' => (int) $articleRows->sum('impressions'),
                             'clicks' => (int) $articleRows->sum('clicks'),
-                            'position' => round((float) $articleRows->avg('position'), 1),
+                            'position' => $this->weightedAveragePosition($articleRows),
                         ];
                     })
                     ->sortByDesc('impressions')
@@ -433,11 +433,13 @@ class SearchOpportunityScoringService
                 $primary = $competitors->first();
                 $totalClicks = (int) $competitors->sum('clicks');
                 $competingImpressions = $totalImpressions - $primary['impressions'];
-                $query = $queryRows->first()->query;
 
                 $opportunity = new SearchOpportunity(
                     type: self::TYPE_SEARCH_CANNIBALIZATION,
-                    query: $query,
+                    // Query normalizzata, mai il testo grezzo di una singola
+                    // riga: l'identità dell'opportunità (type|query|pageUrl)
+                    // deve restare stabile tra periodi diversi.
+                    query: $normalizedQuery,
                     article: $primary['article'],
                     impressions: $totalImpressions,
                     clicks: $totalClicks,
@@ -450,16 +452,24 @@ class SearchOpportunityScoringService
                     explanation: sprintf(
                         '%d articoli pubblici ricevono impression per la stessa query "%s" nel periodo: "%s" ne riceve %d (probabile primario), gli altri %d in totale — possibile cannibalizzazione, valuta consolidamento o differenziazione editoriale.',
                         $competitors->count(),
-                        $query,
+                        $normalizedQuery,
                         Str::limit($primary['article']->title, 50),
                         $primary['impressions'],
                         $competingImpressions,
                     ),
-                    pageUrl: $primary['page_url'],
+                    // Mai l'URL dell'articolo attualmente primario: se la
+                    // classifica cambia tra un periodo e l'altro, un
+                    // concorrente diverso diventerebbe primario e l'intera
+                    // identità dell'opportunità (quindi la decisione già
+                    // registrata e le sue misurazioni) andrebbe perduta
+                    // (Codex, PR #592). Nessuna pagina singola rappresenta
+                    // comunque questo gruppo: la cannibalizzazione riguarda
+                    // la query, non una pagina.
+                    pageUrl: null,
                 );
 
                 return new SearchCannibalizationFinding(
-                    query: $query,
+                    query: $normalizedQuery,
                     competitors: $competitors,
                     primaryArticle: $primary['article'],
                     opportunity: $opportunity,
@@ -467,6 +477,20 @@ class SearchOpportunityScoringService
             })
             ->filter()
             ->values();
+    }
+
+    /** @param  Collection<int, SearchConsoleQuery>  $rows */
+    private function weightedAveragePosition(Collection $rows): float
+    {
+        $impressions = $rows->sum('impressions');
+
+        if ($impressions <= 0) {
+            return round((float) $rows->avg('position'), 1);
+        }
+
+        $weighted = $rows->sum(fn (SearchConsoleQuery $row) => $row->position * $row->impressions);
+
+        return round($weighted / $impressions, 1);
     }
 
     private function isPublicArticle(?Article $article): bool

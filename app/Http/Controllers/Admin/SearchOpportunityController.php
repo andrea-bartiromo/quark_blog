@@ -206,6 +206,7 @@ class SearchOpportunityController extends Controller
             SearchOpportunityScoringService::TYPE_NO_STRONG_LANDING_PAGE => 'Nessuna landing page dedicata',
             SearchOpportunityScoringService::TYPE_RISING_QUERY => 'Query in crescita',
             SearchOpportunityScoringService::TYPE_INTERNAL_ZERO_RESULT_SEARCH => 'Ricerca interna senza risultati',
+            SearchOpportunityScoringService::TYPE_SEARCH_CANNIBALIZATION => 'Cannibalizzazione di ricerca',
         ];
     }
 }

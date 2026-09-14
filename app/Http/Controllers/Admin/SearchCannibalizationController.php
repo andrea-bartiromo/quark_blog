@@ -56,12 +56,24 @@ class SearchCannibalizationController extends Controller
         // SearchOpportunityDecisionService::decisionsFor().
         $decisionsByKey = $this->decisions->decisionsFor($findings->map(fn ($finding) => $finding->opportunity));
 
+        // SearchOpportunityController::recordDecision() ricalcola sempre
+        // l'opportunità dal periodo PIÙ RECENTE (mai da quello selezionato
+        // qui): un'opportunità di un periodo storico non esiste in quel
+        // ricalcolo e la decisione fallirebbe sempre, con un modulo che
+        // sembrava comunque disponibile (Codex, PR #592). Il modulo di
+        // decisione compare quindi solo quando il periodo selezionato è
+        // effettivamente quello più recente.
+        $isLatestPeriod = $selected !== null && $periods->first() !== null
+            && $selected['period_start'] === $periods->first()['period_start']
+            && $selected['period_end'] === $periods->first()['period_end'];
+
         return view('admin.search-cannibalization.index', [
             'periods' => $periods,
             'selected' => $selected,
             'findings' => $findings,
             'decisionsByKey' => $decisionsByKey,
             'decisionTypeOptions' => SearchOpportunityDecision::decisionTypeOptions(),
+            'isLatestPeriod' => $isLatestPeriod,
         ]);
     }
 }
