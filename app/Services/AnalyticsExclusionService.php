@@ -41,14 +41,26 @@ class AnalyticsExclusionService
     /**
      * Vero se per QUESTA richiesta lo script GA4 deve essere emesso.
      * Falso in ognuno di questi casi, in ordine di verifica:
+     * - $previewMode è vero (Cantiere 48, programma "100 cantieri
+     *   Kairus"): un'anteprima admin di sola lettura (es.
+     *   Admin\ContentClusterController::preview(),
+     *   Admin\CategoryController::preview()) riusa la STESSA vista
+     *   pubblica per non divergere nel tempo, ma non deve mai registrare
+     *   traffico editoriale come traffico pubblico reale — il cookie di
+     *   esclusione da solo non basta, perché dipende da una scelta
+     *   manuale dell'editor sul proprio browser (Codex, PR #606);
      * - nessun Measurement ID configurato (fallback esplicito, mai un
      *   tag gtag('config', '', ...) con ID vuoto/invalido);
      * - Analytics non abilitato per l'ambiente corrente (vedi
      *   isEnabledForEnvironment());
      * - il browser della richiesta corrente porta il cookie di esclusione.
      */
-    public function shouldLoadAnalytics(Request $request): bool
+    public function shouldLoadAnalytics(Request $request, bool $previewMode = false): bool
     {
+        if ($previewMode) {
+            return false;
+        }
+
         if (blank(config('analytics.measurement_id'))) {
             return false;
         }

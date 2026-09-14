@@ -15,6 +15,10 @@ Route::middleware(['web', 'auth', 'editor'])->prefix('admin')->name('admin.')->g
     Route::post('/percorsi/suggerimenti/{suggestion}/accetta', [ContentClusterSuggestionController::class, 'accept'])->name('content-cluster-suggestions.accept');
     Route::post('/percorsi/suggerimenti/{suggestion}/rifiuta', [ContentClusterSuggestionController::class, 'reject'])->name('content-cluster-suggestions.reject');
 
+    // Cantiere 48 (programma "100 cantieri Kairus"): anteprima di sola
+    // lettura, ANCORA dentro auth+editor — si legga il docblock del
+    // controller.
+    Route::get('/percorsi/{contentCluster}/anteprima', [ContentClusterController::class, 'preview'])->name('content-clusters.preview');
     Route::get('/percorsi/{contentCluster}/modifica', [ContentClusterController::class, 'edit'])->name('content-clusters.edit');
     Route::put('/percorsi/{contentCluster}', [ContentClusterController::class, 'update'])->name('content-clusters.update');
     Route::put('/percorsi/{contentCluster}/articoli', [ContentClusterController::class, 'updateMemberships'])->name('content-clusters.memberships.update');

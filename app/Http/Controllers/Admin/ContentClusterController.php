@@ -8,6 +8,7 @@ use App\Models\ContentCluster;
 use App\Models\Media;
 use App\Services\ContentClusterHealth;
 use App\Services\ContentClusterMembershipService;
+use App\Services\ContentClusters\ContentClusterShowPageData;
 use App\Services\ContentClusters\PercorsiActivationCalendarService;
 use App\Services\ContentClusters\PercorsiAutomationObservability;
 use App\Services\ContentClusters\PercorsoCoverageAuditService;
@@ -31,6 +32,7 @@ class ContentClusterController extends Controller
         private readonly PercorsiActivationCalendarService $activationCalendar,
         private readonly PercorsoPrefixForecastService $prefixForecast,
         private readonly PercorsoSubscriberNotificationReadinessService $subscriberReadiness,
+        private readonly ContentClusterShowPageData $showPageData,
     ) {}
 
     public function index()
@@ -62,6 +64,30 @@ class ContentClusterController extends Controller
     public function create()
     {
         return view('admin.content-clusters.form', ['cluster' => null]);
+    }
+
+    /**
+     * Cantiere 48 (programma "100 cantieri Kairus"): anteprima di sola
+     * lettura per un Percorso non ancora pubblico (es. "Mente e
+     * comportamento", Cantiere 46) — ANCORA dentro il gruppo di rotte
+     * auth+editor, mai una route pubblica. Stesso pattern già stabilito
+     * da `Admin\CategoryController::preview()` (Cantiere 11) e
+     * `TrustKnowledgeStatementController::preview()` (Cantiere 40): riusa
+     * la stessa vista pubblica (`content-clusters.show`, via
+     * `ContentClusterShowPageData`, condivisa con la route pubblica reale
+     * per non far divergere l'anteprima nel tempo) con un banner giallo
+     * "Anteprima amministrativa" e `noindex,nofollow` come difesa in
+     * profondità.
+     *
+     * A differenza della route pubblica, qui il cluster viene risolto
+     * SENZA il filtro `publiclyVisible()` (route model binding standard):
+     * è l'unico punto in cui un Percorso non pubblico è visualizzabile
+     * come pagina intera, ed è raggiungibile solo da un editor
+     * autenticato.
+     */
+    public function preview(ContentCluster $contentCluster)
+    {
+        return view('content-clusters.show', $this->showPageData->build($contentCluster) + ['previewMode' => true]);
     }
 
     public function store(Request $request)

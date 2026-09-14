@@ -13,6 +13,13 @@
 @endif
 
 @section('head')
+{{--
+    Cantiere 48 (programma "100 cantieri Kairus"): difesa in profondità,
+    nel caso, remoto, in cui il layout pubblico venga mai servito senza
+    il gate auth+editor — stesso principio già in uso per l'anteprima
+    Category (Cantiere 11).
+--}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters-detail.css') }}">
@@ -68,6 +75,20 @@
   $heroImageUrl = $pathCoverUrl ?: \App\Support\PathVisualLibrary::url($atmosphereImage);
   $transitionImage = \App\Support\PathVisualLibrary::transitionImage($cluster);
 @endphp
+
+@if($previewMode ?? false)
+{{--
+    Cantiere 48 (programma "100 cantieri Kairus"): banner di sola
+    anteprima, visibile solo quando
+    Admin\ContentClusterController::preview() passa previewMode=true —
+    mai sulla pagina pubblica reale (ContentClusterController::show()
+    non imposta mai questa variabile). Stile inline, stessa convenzione
+    già in uso in categoria.blade.php (Cantiere 11).
+--}}
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — questo Percorso non è ancora pubblico.
+</div>
+@endif
 
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
@@ -268,7 +289,22 @@
           <p>{{ $publishedStepCount }} {{ $publishedStepCount === 1 ? 'tappa disponibile' : 'tappe disponibili' }} · Percorso in aggiornamento</p>
           <p>Questo Percorso Kairus è ancora in evoluzione. Stiamo preparando nuovi capitoli per continuare l'esplorazione. Torna presto: la prossima tappa arriverà qui.</p>
           <p><em>Qui riprenderà il viaggio.</em></p>
-          @include('content-clusters.partials.subscribe-form', ['cluster' => $cluster])
+          @if($previewMode ?? false)
+            {{--
+                Cantiere 48 (programma "100 cantieri Kairus"): l'anteprima
+                admin usa route model binding semplice — raggiunge anche
+                un Percorso già pubblico "in aggiornamento", non solo il
+                pacchetto non pubblico per cui è pensata. Il form reale
+                sottostante invia una vera POST a percorsi.subscribe (una
+                vera email di conferma) — un'anteprima di SOLA lettura non
+                deve mai poter innescare un'azione di produzione, quindi
+                qui viene sempre sostituito da un avviso testuale, mai dal
+                form live (Codex, PR #606).
+            --}}
+            <p class="path-subscribe__error" role="alert">Iscrizione disabilitata in anteprima amministrativa.</p>
+          @else
+            @include('content-clusters.partials.subscribe-form', ['cluster' => $cluster])
+          @endif
         @else
           <p class="eyebrow">Continua l'esplorazione</p>
           <h2>{{ $cluster->closing_title ?: 'Fine del percorso' }}</h2>

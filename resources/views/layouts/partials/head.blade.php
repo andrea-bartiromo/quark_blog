@@ -99,14 +99,15 @@
 
     Lo script gtag.js viene emesso SOLO quando
     AnalyticsExclusionService::shouldLoadAnalytics() e' vero per QUESTA
-    richiesta: nessun Measurement ID configurato, ambiente diverso da
-    "production" (locale/testing/staging non esplicitamente abilitato), o
-    il cookie kairus_analytics_excluded presente sul browser bloccano il
+    richiesta: una vista in anteprima admin (Cantiere 48, $previewMode),
+    nessun Measurement ID configurato, ambiente diverso da "production"
+    (locale/testing/staging non esplicitamente abilitato), o il cookie
+    kairus_analytics_excluded presente sul browser bloccano il
     caricamento a monte. Deliberato: preferire il non caricamento rispetto
     a inviare eventi marcati male e filtrarli solo dopo.
 --}}
 @php
-    $shouldLoadAnalytics = app(\App\Services\AnalyticsExclusionService::class)->shouldLoadAnalytics(request());
+    $shouldLoadAnalytics = app(\App\Services\AnalyticsExclusionService::class)->shouldLoadAnalytics(request(), $previewMode ?? false);
 @endphp
 @if($shouldLoadAnalytics)
 <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('analytics.measurement_id') }}"></script>

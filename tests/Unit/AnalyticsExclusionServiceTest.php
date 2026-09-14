@@ -151,6 +151,32 @@ class AnalyticsExclusionServiceTest extends TestCase
         $this->assertTrue($this->service()->shouldLoadAnalytics($this->request()));
     }
 
+    /**
+     * Cantiere 48 (programma "100 cantieri Kairus"): un'anteprima admin
+     * (Admin\ContentClusterController::preview(),
+     * Admin\CategoryController::preview()) non deve mai registrare
+     * traffico editoriale come traffico pubblico reale, anche quando
+     * Analytics sarebbe altrimenti attivo e il browser dell'editor non
+     * porta il cookie di esclusione (Codex, PR #606).
+     */
+    public function test_preview_mode_never_loads_analytics_even_when_everything_else_would_allow_it(): void
+    {
+        Config::set('app.env', 'production');
+        Config::set('analytics.enabled', null);
+        Config::set('analytics.measurement_id', 'G-TESTID123');
+
+        $this->assertFalse($this->service()->shouldLoadAnalytics($this->request(), previewMode: true));
+    }
+
+    public function test_preview_mode_defaults_to_false_and_does_not_affect_normal_requests(): void
+    {
+        Config::set('app.env', 'production');
+        Config::set('analytics.enabled', null);
+        Config::set('analytics.measurement_id', 'G-TESTID123');
+
+        $this->assertTrue($this->service()->shouldLoadAnalytics($this->request()));
+    }
+
     // ── exclude() / reactivate() cookie attributes ──────────────────
 
     public function test_exclude_returns_a_secure_httponly_cookie_matching_the_request_scheme(): void
