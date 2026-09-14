@@ -13,6 +13,13 @@
 @endif
 
 @section('head')
+{{--
+    Cantiere 48 (programma "100 cantieri Kairus"): difesa in profondità,
+    nel caso, remoto, in cui il layout pubblico venga mai servito senza
+    il gate auth+editor — stesso principio già in uso per l'anteprima
+    Category (Cantiere 11).
+--}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/media-lightbox.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters.css') }}">
 <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/content-clusters-detail.css') }}">
@@ -68,6 +75,20 @@
   $heroImageUrl = $pathCoverUrl ?: \App\Support\PathVisualLibrary::url($atmosphereImage);
   $transitionImage = \App\Support\PathVisualLibrary::transitionImage($cluster);
 @endphp
+
+@if($previewMode ?? false)
+{{--
+    Cantiere 48 (programma "100 cantieri Kairus"): banner di sola
+    anteprima, visibile solo quando
+    Admin\ContentClusterController::preview() passa previewMode=true —
+    mai sulla pagina pubblica reale (ContentClusterController::show()
+    non imposta mai questa variabile). Stile inline, stessa convenzione
+    già in uso in categoria.blade.php (Cantiere 11).
+--}}
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — questo Percorso non è ancora pubblico.
+</div>
+@endif
 
 <section class="section path-detail {{ \App\Support\PathVisualSignature::cssClass($cluster) }}" aria-labelledby="percorso-title" data-path-analytics-view data-path-slug="{{ $cluster->slug }}" data-cluster-id="{{ $cluster->id }}">
   <div class="container">
