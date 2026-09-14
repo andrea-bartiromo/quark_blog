@@ -98,9 +98,49 @@ quell'unica fonte di opportunità "sempre presente" in assenza di CSV
 importati. Corretto riusando `currentOpportunities()` per entrambi i
 chiamanti.
 
-Ancora da fare prima del merge: eseguire Pint e la suite completa, aprire
-la PR, gestire CI/Codex, mergiare, aggiornare questa riga con PR/SHA
-definitivi.
+5 finding reali di Codex (commit `1025ef1`), tutti verificati (revert
+della fix → il test di regressione dedicato fallisce → fix ripristinata)
+e risolti:
+
+1. **P1** `measureDueOutcomes()` misurava sia +28gg che +90gg dallo stesso
+   snapshot corrente, indipendentemente dal fatto che il periodo importato
+   più recente coprisse davvero quell'orizzonte dalla baseline — una
+   misurazione poteva restare bloccata su un valore sbagliato per sempre
+   (il timestamp di misurazione impedisce i tentativi successivi).
+   Corretto con `periodCoversHorizon()`: si misura solo se il periodo più
+   recente copre davvero l'orizzonte, altrimenti la decisione resta non
+   misurata.
+2. Race condition nella creazione del brief: due invii concorrenti sulla
+   stessa opportunità potevano creare due `ProjectTask` distinti prima che
+   una decisione venisse salvata. Corretto spostando la creazione del
+   brief dentro la stessa transazione con `lockForUpdate()` di
+   `record()`.
+3. `decisionsFor()` (il bulk-fetch per la vista elenco) non caricava le
+   relazioni `article`/`projectTask` in eager, nonostante la vista le
+   legga per ogni riga — una query aggiuntiva per riga, mai realmente
+   "bulk". Corretto con `->with(['article', 'projectTask'])`.
+4. Lo storico registrava come old/new value solo `decision_type`, perdendo
+   quale articolo/brief/motivazione fosse effettivamente cambiato tra due
+   decisioni sulla stessa opportunità. Corretto con uno snapshot completo
+   (`decision_type;article_id;project_task_id;rationale`) sia su old che
+   su new.
+5. `opportunity_key` (colonna `string(600)` con indice `unique()`) poteva
+   non bastare per chiavi valide: tipo (~28 caratteri) + query (fino a
+   255) + page_url (fino a 500) può superare 600 caratteri. Un semplice
+   allargamento della colonna non sarebbe bastato: in utf8mb4 un indice
+   univoco su una colonna larga avrebbe comunque superato il limite di
+   prefisso InnoDB (3072 byte = 768 caratteri in utf8mb4) — scoperto
+   tramite analisi diretta, non solo suggerito da Codex. Risolto rendendo
+   `opportunity_key` una colonna `TEXT` non indicizzata e spostando
+   l'unicità reale su una nuova colonna `opportunity_key_hash` (SHA-256,
+   `CHAR(64)` UNIQUE).
+
+Aggiunti 3 test di regressione mirati (copertura orizzonte misurazione,
+eager-load, chiave oltre 600 caratteri) — suite Cantiere 4 completa: 23/23
+verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
+360/362, i 2 falliti sono i flake pre-esistenti già documentati
+(`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
+relazione con questo diff.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
