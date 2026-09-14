@@ -418,4 +418,23 @@ class TrustKnowledgeStatementControllerTest extends TestCase
             ->assertOk()
             ->assertDontSee('Cosa manca / limiti di questa risposta');
     }
+
+    public function test_the_preview_preserves_line_breaks_in_prose_fields(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $statement = $this->statement([
+            'consenso' => "Prima riga.\nSeconda riga.",
+            'incertezza' => "Punto uno.\nPunto due.",
+            'cosa_manca' => "Limite uno.\nLimite due.",
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.trust-knowledge.preview', $statement))
+            ->assertOk();
+
+        $content = $response->getContent();
+        $this->assertSame(3, substr_count($content, 'white-space:pre-line'));
+        $response->assertSee("Prima riga.\nSeconda riga.", false);
+        $response->assertSee("Punto uno.\nPunto due.", false);
+        $response->assertSee("Limite uno.\nLimite due.", false);
+    }
 }

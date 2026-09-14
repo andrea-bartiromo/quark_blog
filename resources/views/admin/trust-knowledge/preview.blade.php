@@ -42,18 +42,18 @@
 
     <section class="premium-static-section premium-copy-card">
       <h2>Cosa sappiamo con ragionevole certezza</h2>
-      <p>{{ $statement->consenso }}</p>
+      <p style="white-space:pre-line">{{ $statement->consenso }}</p>
     </section>
 
     <section class="premium-static-section premium-copy-card">
       <h2>Cosa resta incerto o dibattuto</h2>
-      <p>{{ $statement->incertezza }}</p>
+      <p style="white-space:pre-line">{{ $statement->incertezza }}</p>
     </section>
 
     @if($statement->cosa_manca)
     <section class="premium-static-section premium-copy-card">
       <h2>Cosa manca / limiti di questa risposta</h2>
-      <p>{{ $statement->cosa_manca }}</p>
+      <p style="white-space:pre-line">{{ $statement->cosa_manca }}</p>
     </section>
     @endif
 
