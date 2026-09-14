@@ -7,6 +7,7 @@ use App\Models\TrustKnowledgeStatement;
 use App\Services\Trust\TrustPilotGateReadinessService;
 use App\Services\Trust\TrustPilotPreviewMetricsService;
 use Illuminate\Support\Facades\Route;
+use Tests\Feature\Admin\TrustPilotPreviewMetricsControllerTest;
 use Tests\TestCase;
 
 /**
@@ -68,6 +69,30 @@ class TrustEditorialProtocolDriftTest extends TestCase
                 "La classe '{$class}' citata dal protocollo non esiste."
             );
         }
+    }
+
+    /**
+     * Codex (PR #603): il protocollo cita esplicitamente questo test come
+     * prova strutturale della garanzia privacy-first al passo 3 — se
+     * rinominato o rimosso, il documento punterebbe a una verifica
+     * inesistente senza che nessuna suite se ne accorga.
+     */
+    public function test_the_specific_test_method_the_protocol_cites_as_evidence_still_exists(): void
+    {
+        $protocol = $this->protocol();
+        $class = TrustPilotPreviewMetricsControllerTest::class;
+        $method = 'test_the_preview_views_table_has_no_visitor_identifying_column';
+
+        $this->assertStringContainsString(
+            class_basename($class).'::'.$method,
+            $protocol,
+            "Il protocollo dovrebbe citare '".class_basename($class)."::{$method}'."
+        );
+        $this->assertTrue(class_exists($class), "La classe '{$class}' citata dal protocollo non esiste.");
+        $this->assertTrue(
+            method_exists($class, $method),
+            "Il metodo '{$method}' citato dal protocollo non esiste più su {$class}."
+        );
     }
 
     public function test_every_file_the_protocol_cites_actually_exists_on_disk(): void

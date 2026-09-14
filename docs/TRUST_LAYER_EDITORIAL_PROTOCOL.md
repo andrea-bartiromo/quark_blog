@@ -30,12 +30,16 @@ un visitatore anonimo o da una route pubblica.
 Route: `admin.trust-knowledge.create` → `admin.trust-knowledge.store`
 (Cantiere 38-39, `app/Http/Controllers/Admin/TrustKnowledgeStatementController.php`).
 
-Campi obbligatori e le loro regole di validazione sono quelli descritti in
-B-40: Domanda, Consenso, Incertezza, Cosa manca, Concept/Percorso
-collegato, Ultimo controllo (data manuale — mai `updated_at` tecnico).
-Il form offre solo Concept/Percorso già attivi (più quello già collegato
-se nel frattempo archiviato) — si legga il docblock del controller per il
-perché.
+Campi obbligatori per la validazione (`StoreTrustKnowledgeStatementRequest::rules()`):
+**Domanda, Consenso, Incertezza**. Campi descritti in B-40 ma opzionali a
+livello di validazione — raccomandati editorialmente, non bloccanti al
+salvataggio: Cosa manca, Concept/Percorso collegato, Ultimo controllo
+(data manuale — mai `updated_at` tecnico). La rubrica B-41 al passo 2
+resta il luogo dove un reviewer verifica che i campi raccomandati siano
+stati comunque compilati prima che la voce si consideri pronta, non la
+validazione stessa. Il form offre solo Concept/Percorso già attivi (più
+quello già collegato se nel frattempo archiviato) — si legga il docblock
+del controller per il perché.
 
 ### 2. Review editoriale (rubrica B-41)
 
