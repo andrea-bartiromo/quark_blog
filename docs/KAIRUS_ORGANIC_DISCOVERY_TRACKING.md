@@ -51,9 +51,58 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 5 | Cannibalizzazione di ricerca | merged | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | `fc2152b` | 12 nuovi test dedicati (SearchOpportunityScoringServiceTest+SearchCannibalizationControllerTest, 90 assert.); suite di regressione mirata: 467/469, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); suite completa: 4623 test, 4608 passati, 3 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`, `ContentClusterAutoLifecycleCompletionTest.php:192`) — quest'ultimo riprodotto identico 4 volte su 4 commit diversi durante questa PR, confermato definitivamente pre-esistente | 4 reali, vedi nota | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | merged | [#593](https://github.com/andrea-bartiromo/quark_blog/pull/593) | `cffbed4` | 14 nuovi test dedicati (OrganicDiscoveryOperationalReportServiceTest+ControllerTest+SearchOpportunityDecisionServiceTest, 111 assert.); suite di regressione mirata: 480/482, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` (confermato pre-esistente per la 5ª volta in questo programma) + un nuovo flake indipendente dal diff osservato una sola volta (`PublicSurfaceResponsiveImageTest`, confronto tra nome Faker grezzo e attributo `alt` correttamente HTML-escapato — non toccato da questa PR) | 3 reali, vedi nota | 1, 3, 4 |
-| 8 | Strategia editoriale per cluster e autorevolezza | in_progress | [#594](https://github.com/andrea-bartiromo/quark_blog/pull/594) | — | 15 nuovi test dedicati (TopicalAuthorityGapServiceTest+ControllerTest, 35 assert.); suite di regressione mirata (OrganicDiscovery+Admin+SearchConsole, 1213 test): 1210 passati, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`) | in verifica | 2, 3 |
+| 8 | Strategia editoriale per cluster e autorevolezza | merged | [#594](https://github.com/andrea-bartiromo/quark_blog/pull/594) | `4fd3c14` | 16 nuovi test dedicati (TopicalAuthorityGapServiceTest+ControllerTest, 36 assert.); suite di regressione mirata (OrganicDiscovery+Admin+SearchConsole, 1213 test): 1210 passati, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi, unico rosso `PHP 8.4` con 2 fallimenti entrambi pre-esistenti e non correlati al diff (`ContentClusterAutoLifecycleCompletionTest.php:231`, confermato per la 7ª volta; `PublicSurfaceResponsiveImageTest.php:309`, confermato per la 2ª volta — stesso pattern Faker-apostrofo-vs-alt-escapato del Cantiere 7); nessun permesso di re-run da questa sessione (403), non bloccante per il merge | 2 reali (Codex): audit di prontezza corpus-wide eseguito due volte per apertura pagina invece di una (fixato con memoizzazione sull'istanza, verificato con test che fallisce senza il fix); `readiness_counts` calcolato ma mai mostrato in vista (fixato: breakdown + link al dettaglio per articolo) | 2, 3 |
 
 ## Note per cantiere
+
+### Cantiere 8 — Strategia editoriale per cluster e autorevolezza (merged)
+
+Ultimo cantiere del programma (8/8). Ispezione pre-cantiere (agente
+Explore in background): nessuna duplicazione da temere — l'integrità
+strutturale/di sequenza di un Percorso resta di
+`PercorsoCoverageAuditService`, l'integrità del grafo dei Concetti
+(orfani/alias/domande) resta di `ContentGraphOperationalSummaryService`/
+`ContentGraphOrphanAuditService`, la prontezza per singolo articolo resta
+di `OrganicDiscoveryReadinessService` (Cantiere 3). Confermato inoltre
+che `ArticleSearchProfile::secondary_queries` (Cantiere 2) non era mai
+stato letto da alcun servizio da quando è stato introdotto — questo
+cantiere ne è il primo consumatore reale.
+
+Nuovo `TopicalAuthorityGapService`: per ogni Percorso pubblico
+(`ContentCluster::scopePubliclyVisible()`) e Concetto attivo
+(`Concept::scopeActive()`), compone la domanda Search Console osservata
+con la prontezza per articolo già misurata, producendo uno tra quattro
+stati onesti — `no_public_content`, `no_demand_observed`,
+`gap_weak_readiness`, `covered` — mai "nessuna domanda" quando i dati non
+possono provarlo. Limite dichiarato esplicitamente: la domanda per un
+argomento può essere osservata solo attraverso articoli che già esistono
+per quel Percorso/Concetto, quindi questo segnale non individua argomenti
+completamente scoperti (zero articoli) — solo contenuto già pubblicato
+che riceve domanda ma non è ancora del tutto pronto. Nuova pagina
+`/admin/autorevolezza-tematica`.
+
+2 finding reali di Codex (commit `33e130c`), entrambi P2, risolti in
+`8c2f10d`: l'audit di prontezza corpus-wide
+(`OrganicDiscoveryReadinessService::auditAll()`) veniva eseguito due
+volte per apertura pagina (`auditClusters()` e `auditConcepts()` lo
+richiamavano indipendentemente sulla stessa istanza del servizio) — ora
+memoizzato sull'istanza, verificato con un test che mocka il servizio e
+fallisce (2 chiamate) senza il fix, passa (1) con esso; il breakdown
+`readiness_counts` era calcolato ma mai mostrato in vista — ora reso
+sotto lo stato aggregato con link di dettaglio per articolo (stesso
+pattern di cross-link del report operativo del Cantiere 7).
+
+16 nuovi test (10 servizio + 5 controller iniziali, +1 di regressione sul
+finding Codex sulla memoizzazione); suite di regressione mirata
+1210/1212 (2 pre-esistenti). CI PR: 6/7 verdi, unico rosso `PHP 8.4` con
+due fallimenti pre-esistenti e non correlati al diff:
+`ContentClusterAutoLifecycleCompletionTest.php:231` (confermato per la 7ª
+volta in questo programma) e `PublicSurfaceResponsiveImageTest.php:309`
+(stesso pattern Faker-apostrofo-vs-`alt`-escapato del Cantiere 7,
+confermato per la 2ª volta, stesso nome autore generato
+"Holden O'Keefe DVM"); nessun permesso di re-run da questa sessione
+(403 su `rerun_failed_jobs`), non bloccante per il merge. Pint pulito. PR
+mergiata: squash `4fd3c14`.
 
 ### Cantiere 4 — Dalle opportunità Search Console alle decisioni editoriali (merged)
 
