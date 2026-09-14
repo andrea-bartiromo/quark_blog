@@ -50,6 +50,7 @@ use App\Http\Controllers\Admin\SecondReadAnalyticsController;
 use App\Http\Controllers\Admin\SocialDistributionController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\SuggestionController;
+use App\Http\Controllers\Admin\TopicalAuthorityController;
 use App\Http\Controllers\Admin\TuringController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\ArticleController;
@@ -355,6 +356,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // — un unico punto di lettura periodico, compone solo i servizi già
     // esistenti dei Cantieri 1/3/4/5, mai un nuovo audit.
     Route::get('/report-operativo-ricerca', [OrganicDiscoveryOperationalReportController::class, 'index'])->name('organic-discovery-operational-report');
+    // Cantiere 8 (programma "Kairus Organic Discovery"): strategia
+    // editoriale per cluster e autorevolezza — incrocia la domanda Search
+    // Console con la prontezza per articolo già misurata, mai un nuovo
+    // audit strutturale (Percorsi/Concetti restano di ContentGraph*).
+    Route::get('/autorevolezza-tematica', [TopicalAuthorityController::class, 'index'])->name('topical-authority');
 
     // Pubblicità
     Route::get('/ads', [AdController::class, 'index'])->name('ads');

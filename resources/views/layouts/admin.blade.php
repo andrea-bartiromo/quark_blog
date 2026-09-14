@@ -120,6 +120,7 @@
       $isEditorialOpportunityDecisions = request()->routeIs('admin.editorial-opportunity-decisions*');
       $isSearchCannibalization = request()->routeIs('admin.search-cannibalization*');
       $isOrganicDiscoveryOperationalReport = request()->routeIs('admin.organic-discovery-operational-report*');
+      $isTopicalAuthority = request()->routeIs('admin.topical-authority*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
       $isScheduledPublicationsReport = request()->routeIs('admin.scheduled-publications-report*');
@@ -147,7 +148,7 @@
                           || $isNewsletter || $isNewsletterPrev;
       $strumentiOpen = $isTuring || $isSuggestions || $isSocialDistribution;
       $monetizzazioneOpen = $isAds;
-      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isEditorialOpportunityDecisions || $isSearchCannibalization || $isOrganicDiscoveryOperationalReport || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit || $isOrganicDiscoveryReadiness;
+      $analisiOpen = $isStats || $isSearchOpportunities || $isSearchConsoleBaselineReport || $isSearchConsoleCoverage || $isEditorialOpportunityDecisions || $isSearchCannibalization || $isOrganicDiscoveryOperationalReport || $isTopicalAuthority || $isSecondRead || $isEditorialOperations || $isScheduledPublicationsReport || $isEditorialQuality || $isPublicHealth || $isInternalLinkAudit || $isArticleDiscoveryAudit || $isOrganicDiscoveryReadiness;
       $sistemaOpen = $isActivity;
     @endphp
 
@@ -212,6 +213,7 @@
         <x-admin.nav-link :route="route('admin.editorial-opportunity-decisions')" :active="$isEditorialOpportunityDecisions" icon="🧾">Decisioni SEO</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-cannibalization')" :active="$isSearchCannibalization" icon="🪞">Cannibalizzazione ricerca</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.organic-discovery-operational-report')" :active="$isOrganicDiscoveryOperationalReport" icon="📰">Report ricerca organica</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.topical-authority')" :active="$isTopicalAuthority" icon="🕸️">Autorevolezza tematica</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-baseline-report')" :active="$isSearchConsoleBaselineReport" icon="📈">Baseline Search Console</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-coverage')" :active="$isSearchConsoleCoverage" icon="🗺️">Salute indicizzazione</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
