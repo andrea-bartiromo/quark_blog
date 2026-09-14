@@ -48,7 +48,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 2 | Profilo editoriale di ricerca per articolo | merged | [#588](https://github.com/andrea-bartiromo/quark_blog/pull/588) | `f896ee2` | 204/204 (Article*+ArticleSearchProfile+SearchProfile unit, 866 assert. insieme al lavoro del Cantiere 6 sotto); nessun finding Codex (la review non si è mai attivata su questa PR, verificato con get_reviews vuoto) | 0 | 1 |
 | 3 | Prontezza organica e scoperta interna | merged | [#589](https://github.com/andrea-bartiromo/quark_blog/pull/589) | `52d5a60` | 31/31 (OrganicDiscoveryReadinessService+Controller, 64 assert.) + 9/9 ArticleRevisionTransparencyService (16 assert.); suite CI completa: 4568/4569 passed, 11 skipped, 1 pre-esistente (`ContentClusterAutoLifecycleCompletionTest.php:231`) | 1 reale (fixato: `lastEditorialUpdates()` caricava l'intera cronologia revisioni invece di filtrare lato DB) | 1, 2 |
 | 4 | Dalle opportunità Search Console alle decisioni editoriali | merged | [#590](https://github.com/andrea-bartiromo/quark_blog/pull/590) | `c4ba1ef` | 23/23 (SearchOpportunityDecisionService+Controller+comando misurazione, 76 assert.); suite di regressione mirata (SearchOpportunity+Progettazione): 360/362, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); CI PR: 6/7 verdi su entrambi i tentativi, unico rosso `ContentClusterAutoLifecycleCompletionTest.php:231` riprodotto identico due volte su commit diversi — confermato pre-esistente, non correlato al diff | 5 reali, vedi nota | 1 |
-| 5 | Cannibalizzazione di ricerca | in_progress | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | — | vedi nota | — | 1, 2, 4 |
+| 5 | Cannibalizzazione di ricerca | merged | [#592](https://github.com/andrea-bartiromo/quark_blog/pull/592) | `fc2152b` | 12 nuovi test dedicati (SearchOpportunityScoringServiceTest+SearchCannibalizationControllerTest, 90 assert.); suite di regressione mirata: 467/469, 2 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`); suite completa: 4623 test, 4608 passati, 3 pre-esistenti (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`, `ContentClusterAutoLifecycleCompletionTest.php:192`) — quest'ultimo riprodotto identico 4 volte su 4 commit diversi durante questa PR, confermato definitivamente pre-esistente | 4 reali, vedi nota | 1, 2, 4 |
 | 6 | Salute di indicizzazione e sitemap | covered-by-existing | [#587](https://github.com/andrea-bartiromo/quark_blog/pull/587) (implementato direttamente da Andrea Bartiromo, fuori da questa sessione) | `bc34dc0` | vedi nota | 0 | — |
 | 7 | Monitoraggio e report operativo | pending | — | — | — | — | 1, 3, 4 |
 | 8 | Strategia editoriale per cluster e autorevolezza | pending | — | — | — | — | 2, 3 |
@@ -157,7 +157,7 @@ verdi. Suite di regressione mirata (SearchOpportunity + Progettazione):
 (`ProjectModelTest.php:235`, `ProjectTaskControllerTest.php:193`), nessuna
 relazione con questo diff.
 
-### Cantiere 5 — Cannibalizzazione di ricerca (in_progress)
+### Cantiere 5 — Cannibalizzazione di ricerca (merged)
 
 Ispezione pre-cantiere (agente Explore in background): il codice esistente
 copriva solo un controllo leggero e dichiarato ("due articoli hanno lo
@@ -233,9 +233,15 @@ aritmetica semplice invece che pesata sulle impression (stesso principio
 già usato da `SearchConsoleBaselineReportService`). 4 test di regressione
 aggiunti; suite mirata 467/469 (2 pre-esistenti).
 
-Ancora da fare prima del merge: risolvere i thread di review (API
-GraphQL rate-limited al momento del fix, riprovare), verificare CI,
-mergiare, aggiornare questa riga con PR/SHA definitivi.
+PR #592 mergiata (squash `fc2152b`). I 4 thread di review individuali di
+Codex non sono stati risolti singolarmente (API GraphQL rate-limited per
+l'intera durata della PR, mai tornata disponibile): tutti e 4 i finding
+sono comunque documentati e confermati risolti in un commento riassuntivo
+sulla PR prima del merge. Il flake pre-esistente
+`ContentClusterAutoLifecycleCompletionTest.php:192` si è riprodotto in
+modo identico 4 volte su 4 commit diversi durante questa PR (`d2d28a5`,
+`a6d8306`, `a806984`, `3d30be9`) — la conferma più solida finora ottenuta
+in questo programma che non è imputabile a nessun diff di questo lavoro.
 
 ### Cantiere 3 — Prontezza organica e scoperta interna (merged)
 
