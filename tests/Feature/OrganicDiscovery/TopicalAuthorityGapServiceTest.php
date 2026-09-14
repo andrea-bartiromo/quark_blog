@@ -209,6 +209,25 @@ class TopicalAuthorityGapServiceTest extends TestCase
         $this->assertSame(TopicalAuthorityGapService::STATE_GAP_WEAK_READINESS, $result['state']);
     }
 
+    /**
+     * Codex, PR #594 (P2): prima del fix, auditClusters() e auditConcepts()
+     * eseguivano ciascuno l'intero OrganicDiscoveryReadinessService::auditAll()
+     * (audit corpus-wide, il più costoso) — la stessa istanza del servizio
+     * viene chiamata per entrambi da TopicalAuthorityController::index(), che
+     * eseguiva quindi quella parte due volte per apertura pagina. Verifica
+     * che ora sia calcolata una sola volta e riusata.
+     */
+    public function test_the_corpus_wide_readiness_audit_runs_only_once_across_both_group_audits(): void
+    {
+        $this->mock(OrganicDiscoveryReadinessService::class, function ($mock) {
+            $mock->shouldReceive('auditAll')->once()->andReturn(collect());
+        });
+
+        $service = app(TopicalAuthorityGapService::class);
+        $service->auditClusters();
+        $service->auditConcepts();
+    }
+
     public function test_an_inactive_concept_is_never_audited(): void
     {
         $article = $this->article();

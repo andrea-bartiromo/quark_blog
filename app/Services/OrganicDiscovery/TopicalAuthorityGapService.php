@@ -67,6 +67,21 @@ class TopicalAuthorityGapService
      */
     public const STATE_COVERED = 'covered';
 
+    /**
+     * Codex, PR #594 (P2): auditClusters() e auditConcepts() chiamano
+     * entrambi audit(), che a sua volta esegue l'intero audit di
+     * prontezza corpus-wide (OrganicDiscoveryReadinessService::auditAll(),
+     * a sua volta composto da più audit corpus-wide) — la stessa
+     * TopicalAuthorityGapController::index() li chiama entrambi sulla
+     * STESSA istanza del servizio, eseguendo quindi la parte più costosa
+     * due volte per apertura pagina. Memoizzato per istanza (mai per
+     * richiesta di storage esterno): corretto perché il servizio non ha
+     * altro stato e vive solo per la durata della singola richiesta HTTP.
+     *
+     * @var Collection<int, array<string, mixed>>|null
+     */
+    private ?Collection $readinessCache = null;
+
     public function __construct(
         private readonly OrganicDiscoveryReadinessService $readiness,
         private readonly SearchConsoleFreshnessService $freshness,
@@ -126,7 +141,7 @@ class TopicalAuthorityGapService
      */
     private function audit(Collection $groups): Collection
     {
-        $readinessByArticleId = $this->readiness->auditAll()->keyBy('article_id');
+        $readinessByArticleId = $this->readinessByArticleId();
         $latestPeriod = $this->freshness->availablePeriods()->first();
         $allArticleIds = $groups->flatMap(fn (array $g) => $g['article_ids'])->unique()->values();
 
@@ -188,6 +203,12 @@ class TopicalAuthorityGapService
                 'secondary_queries' => $secondaryQueries,
             ];
         });
+    }
+
+    /** @return Collection<int, array<string, mixed>> keyed by article_id */
+    private function readinessByArticleId(): Collection
+    {
+        return $this->readinessCache ??= $this->readiness->auditAll()->keyBy('article_id');
     }
 
     /** @param  Collection<int, int>  $articleIds

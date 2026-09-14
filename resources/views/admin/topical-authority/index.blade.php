@@ -29,7 +29,19 @@
               <tr>
                 <td>{{ $row['name'] }}</td>
                 <td style="text-align:right">{{ $row['article_count'] }}</td>
-                <td>{{ $stateLabels[$row['state']] ?? $row['state'] }}</td>
+                <td>
+                  {{ $stateLabels[$row['state']] ?? $row['state'] }}
+                  @if(!empty($row['readiness_counts']))
+                    <br>
+                    <span style="font-size:.74rem;color:var(--admin-muted)">
+                      @foreach($row['readiness_counts'] as $readinessState => $count)
+                        {{ \App\Services\OrganicDiscovery\OrganicDiscoveryReadinessService::stateLabel($readinessState) }}: {{ $count }}{{ !$loop->last ? ' · ' : '' }}
+                      @endforeach
+                    </span>
+                    <br>
+                    <a href="{{ route('admin.organic-discovery-readiness') }}" style="font-size:.74rem">Vedi il dettaglio per articolo →</a>
+                  @endif
+                </td>
                 <td style="text-align:right">{{ $row['impressions'] }}</td>
                 <td style="text-align:right">{{ $row['clicks'] }}</td>
                 <td>
