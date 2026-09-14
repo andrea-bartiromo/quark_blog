@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\SearchConsoleQuery;
 use App\Models\User;
+use App\Services\OrganicDiscovery\OrganicDiscoveryReadinessService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,6 +20,29 @@ class EditorialOpportunityDecisionControllerTest extends TestCase
     public function test_editor_sees_empty_state_without_imports(): void
     {
         $editor = User::factory()->create(['role' => 'editor']);
+        $this->actingAs($editor)->get(route('admin.editorial-opportunity-decisions'))
+            ->assertOk()->assertSee('Nessun import Search Console disponibile.');
+    }
+
+    /**
+     * Codex (PR #600, P2): il collegamento a "Opportunità di ricerca" aveva
+     * rimosso per errore la guardia che evitava di chiamare
+     * EditorialOpportunityDecisionService::decide() quando non c'è alcun
+     * periodo selezionato — decide() esegue
+     * OrganicDiscoveryReadinessService::auditAll() (audit dell'intero corpus
+     * di articoli pubblici) all'inizio, indipendentemente da quante
+     * opportunità gli vengono passate. Senza nessun import Search Console
+     * questo pagherebbe quell'audit costoso solo per mostrare "Nessun
+     * import disponibile".
+     */
+    public function test_it_never_audits_readiness_when_no_import_exists(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        $this->partialMock(OrganicDiscoveryReadinessService::class, function ($mock) {
+            $mock->shouldNotReceive('auditAll');
+        });
+
         $this->actingAs($editor)->get(route('admin.editorial-opportunity-decisions'))
             ->assertOk()->assertSee('Nessun import Search Console disponibile.');
     }

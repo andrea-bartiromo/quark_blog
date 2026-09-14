@@ -29,4 +29,18 @@ readonly class SearchOpportunity
         // tipo+query+pagina.
         $this->key = $type.'|'.$query.'|'.($pageUrl ?? '');
     }
+
+    /**
+     * Id HTML stabile e URL-safe derivato dalla stessa opportunity_key —
+     * usato per collegare una riga di "Decisioni SEO"
+     * (EditorialOpportunityDecisionController, dati read-only calcolati
+     * senza mai conservare l'oggetto SearchOpportunity originale) alla
+     * riga corrispondente in "Opportunità di ricerca"
+     * (SearchOpportunityController) tramite un'ancora `#id`, senza
+     * duplicare la logica di derivazione della chiave in due punti.
+     */
+    public static function anchorId(string $key): string
+    {
+        return 'opportunity-'.substr(hash('sha1', $key), 0, 16);
+    }
 }

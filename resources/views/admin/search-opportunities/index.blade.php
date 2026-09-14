@@ -152,7 +152,7 @@
               $currentStatus = $opportunityStatuses[$opportunity->key] ?? \App\Models\SearchOpportunityStatus::STATUS_NEW;
               $currentDecision = $opportunityDecisions[$opportunity->key] ?? null;
             @endphp
-            <tr>
+            <tr id="{{ \App\Services\SearchConsole\SearchOpportunity::anchorId($opportunity->key) }}">
               <td><span class="badge badge--filter">{{ $typeOptions[$opportunity->type] ?? $opportunity->type }}</span></td>
               <td>{{ $opportunity->query }}</td>
               <td>
