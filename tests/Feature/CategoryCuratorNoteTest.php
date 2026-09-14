@@ -105,6 +105,30 @@ class CategoryCuratorNoteTest extends TestCase
         $this->assertNull($category->fresh()->curator_note);
     }
 
+    /**
+     * Codex (PR #607): senza la regola `string`, la validazione `max:2000`
+     * su un array (es. curator_note[]=a&curator_note[]=b, mai possibile
+     * dalla textarea del form reale ma costruibile in una richiesta
+     * arbitraria) conterebbe gli ELEMENTI dell'array invece dei
+     * caratteri, lasciando passare un array che poi finirebbe scritto
+     * così com'è nella colonna testo — stesso principio già applicato
+     * alla validazione equivalente di ContentCluster::curator_note.
+     */
+    public function test_a_curator_note_submitted_as_an_array_is_rejected(): void
+    {
+        $category = $this->publishedCategory();
+
+        $this->actingAs($this->editor())->put(route('admin.categories.update', $category), [
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'is_active' => '1',
+            'status' => Category::STATUS_PUBLISHED,
+            'curator_note' => ['non', 'e', 'una', 'stringa'],
+        ])->assertSessionHasErrors('curator_note');
+
+        $this->assertNull($category->fresh()->curator_note);
+    }
+
     public function test_guest_cannot_set_a_curator_note(): void
     {
         $category = $this->publishedCategory();
