@@ -154,6 +154,7 @@ jobs:
             --path=database/migrations/2026_08_15_103500_add_lifecycle_status_to_content_clusters.php \
             --path=database/migrations/2026_08_15_140000_create_content_cluster_subscribers_table.php \
             --path=database/migrations/2026_08_16_080345_add_curator_note_to_content_clusters.php \
+            --path=database/migrations/2026_09_14_130000_create_trust_knowledge_statements_table.php \
             --force
           php artisan tinker --execute="foreach (['content_clusters','article_content_cluster','content_cluster_suggestions','content_cluster_subscribers'] as \$t) { if (Illuminate\\Support\\Facades\\Schema::hasTable(\$t)) { throw new RuntimeException(\$t.' still present after targeted rollback'); } }"
           php artisan migrate --force
