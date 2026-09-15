@@ -2,6 +2,7 @@
 
 namespace App\Services\Deploy;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -55,6 +56,19 @@ use Throwable;
  * proprio nello scenario — perdita del backup locale — in cui servirebbe
  * di più. Resta di sola lettura: legge soltanto se gli oggetti remoti
  * esistono, non li scrive né li elimina mai.
+ *
+ * Finding Codex (P2, PR #615): `MariaDbBackupService::createLocked()`
+ * pubblica l'artefatto+metadata locali PRIMA di copiarli off-host, ma
+ * entrambi i passi restano sotto lo stesso lock cross-process
+ * `backup:v2:{identityHash}` acquisito da `create()`. Se questo audit
+ * gira proprio in quella finestra, vedrebbe già il nuovo backup come
+ * "latest" mentre la copia off-host è ancora in corso, segnalando un
+ * falso "missing". `backupInProgress()` tenta un'acquisizione NON
+ * bloccante dello stesso lock: se fallisce, un'esecuzione di
+ * `backup:database-v2` per questa identità è in corso ORA, e il
+ * controllo off-host viene saltato per questo giro soltanto (mai
+ * segnalato "missing"/"error", solo "non ancora verificabile" — la
+ * prossima esecuzione, a lock rilasciato, lo verificherà davvero).
  */
 class MariaDbBackupHealthAudit
 {
@@ -180,7 +194,15 @@ class MariaDbBackupHealthAudit
         // retention analoga (MariaDbBackupService::retentionLimit()), che
         // rifiuta esplicitamente un valore non valido.
         $stale = ! $maxAgeInvalid && $maxAgeHours !== null && $latest['age_hours'] > $maxAgeHours;
-        [$offHostChecked, $offHostMissing, $offHostError] = $this->offHostMirrorStatus($offHostDisk, $latest['path']);
+
+        // Finding Codex (P2, PR #615): evitare di acquisire il lock quando
+        // l'off-host non è nemmeno configurato — stesso principio "nessun
+        // costo quando la funzionalità è disattivata" già applicato sopra
+        // a pairCountsByMode.
+        $offHostInProgress = $offHostDisk !== null && $this->backupInProgress($identityHash);
+        [$offHostChecked, $offHostMissing, $offHostError] = $offHostInProgress
+            ? [false, false, false]
+            : $this->offHostMirrorStatus($offHostDisk, $latest['path']);
 
         return [
             'applicable' => true,
@@ -387,6 +409,44 @@ class MariaDbBackupHealthAudit
             report($e);
 
             return [true, false, true];
+        }
+    }
+
+    /**
+     * Finding Codex (P2, PR #615): tenta un'acquisizione NON bloccante
+     * dello stesso lock cross-process (`backup:v2:{identityHash}`, stesso
+     * store/nome di MariaDbBackupService::create()) usato per serializzare
+     * `backup:database-v2` per questa identità database. Un fallimento di
+     * acquisizione significa che un'esecuzione è in corso ORA in un altro
+     * processo — non un'eccezione da propagare: questo servizio è di sola
+     * lettura e un lock store non configurato/irraggiungibile deve
+     * lasciare invariato il comportamento precedente (nessuna finestra
+     * nota → il chiamante procede con la verifica normale), mai
+     * interrompere l'audit.
+     */
+    private function backupInProgress(string $identityHash): bool
+    {
+        $store = trim((string) config('backup.v2.lock_store'));
+        $driver = config("cache.stores.{$store}.driver");
+
+        if ($store === '' || ! is_string($driver) || in_array($driver, ['array', 'null'], true)) {
+            return false;
+        }
+
+        try {
+            $lock = Cache::store($store)->lock('backup:v2:'.$identityHash, 1);
+
+            if (! $lock->get()) {
+                return true;
+            }
+
+            $lock->release();
+
+            return false;
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
         }
     }
 

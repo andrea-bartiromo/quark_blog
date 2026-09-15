@@ -3,6 +3,7 @@
 namespace Tests\Feature\Deploy;
 
 use App\Services\Deploy\MariaDbBackupHealthAudit;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -483,6 +484,63 @@ class MariaDbBackupHealthAuditTest extends TestCase
         $report = app(MariaDbBackupHealthAudit::class)->report();
 
         $this->assertFalse($report['offhost_checked']);
+    }
+
+    /**
+     * Finding Codex (P2, PR #615): MariaDbBackupService::create() pubblica
+     * l'artefatto+metadata locali PRIMA di copiarli off-host, ma entrambi i
+     * passi restano sotto lo stesso lock cross-process 'backup:v2:{hash}'
+     * acquisito da create(). Senza questo controllo, un audit eseguito
+     * proprio in quella finestra vedrebbe già il nuovo backup come
+     * 'latest' mentre la copia off-host è ancora in corso, segnalando un
+     * falso 'missing' — qui il backup NON è mai stato mirrorato off-host
+     * (come nel test 'missing' sopra), ma con il lock tenuto da un
+     * "altro" processo l'audit deve astenersi dal giudicare, non fallire.
+     */
+    public function test_skips_offhost_check_when_a_backup_is_currently_in_progress_for_this_identity(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $lock = Cache::store(config('backup.v2.lock_store', 'file'))
+            ->lock('backup:v2:'.$this->identityHash(), 30);
+        $this->assertTrue($lock->get());
+
+        try {
+            $report = app(MariaDbBackupHealthAudit::class)->report();
+
+            $this->assertTrue($report['ok']);
+            $this->assertFalse($report['offhost_checked']);
+            $this->assertFalse($report['offhost_missing']);
+            $this->assertFalse($report['offhost_error']);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Controparte del test sopra: una volta rilasciato il lock (nessuna
+     * esecuzione realmente in corso), lo stesso backup mai mirrorato
+     * off-host deve tornare a essere segnalato come 'missing' — il salto
+     * del controllo è scoped alla sola finestra del lock, mai permanente.
+     */
+    public function test_checks_offhost_normally_once_the_in_progress_lock_is_released(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $lock = Cache::store(config('backup.v2.lock_store', 'file'))
+            ->lock('backup:v2:'.$this->identityHash(), 30);
+        $this->assertTrue($lock->get());
+        $lock->release();
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertTrue($report['offhost_checked']);
+        $this->assertTrue($report['offhost_missing']);
     }
 
     private function identityHash(): string
