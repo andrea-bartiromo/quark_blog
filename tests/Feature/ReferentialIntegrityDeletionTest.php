@@ -327,17 +327,52 @@ class ReferentialIntegrityDeletionTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $secondaryCategory->id]);
     }
 
+    /**
+     * Codex (PR #612, P2): `PRAGMA foreign_key_list` e sintassi solo
+     * SQLite — su MariaDB/MySQL la stessa query fallirebbe con un
+     * errore SQL, non solo un'asserzione sbagliata. Oggi il pacchetto
+     * di regressione MariaDB della CI esegue un elenco selettivo di
+     * file che non include ancora questo, ma un'esecuzione futura
+     * dell'intera suite contro MariaDB (locale o CI) romperebbe questo
+     * test alla prima query. Portabile su entrambi i driver via
+     * information_schema per MariaDB/MySQL.
+     */
     public function test_the_article_category_pivot_table_still_cascades_on_both_sides(): void
     {
-        $foreignKeys = DB::select("PRAGMA foreign_key_list('article_category')");
+        $foreignKeys = $this->foreignKeysOf('article_category');
         $this->assertNotEmpty($foreignKeys, 'article_category dovrebbe avere foreign key reali.');
 
-        foreach ($foreignKeys as $fk) {
+        foreach ($foreignKeys as $column => $onDelete) {
             $this->assertSame(
                 'CASCADE',
-                strtoupper($fk->on_delete),
-                "article_category.{$fk->from} dovrebbe restare cascadeOnDelete."
+                strtoupper($onDelete),
+                "article_category.{$column} dovrebbe restare cascadeOnDelete."
             );
         }
+    }
+
+    /**
+     * @return array<string, string> colonna => regola ON DELETE
+     */
+    private function foreignKeysOf(string $table): array
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return collect(DB::select("PRAGMA foreign_key_list('{$table}')"))
+                ->mapWithKeys(fn ($fk) => [$fk->from => strtoupper($fk->on_delete)])
+                ->all();
+        }
+
+        $rows = DB::select(<<<'SQL'
+            select ku.column_name as `column`, rc.delete_rule as `on_delete`
+            from information_schema.key_column_usage ku
+            join information_schema.referential_constraints rc
+                on rc.constraint_name = ku.constraint_name
+                and rc.constraint_schema = ku.constraint_schema
+            where ku.table_schema = database()
+                and ku.table_name = ?
+                and ku.referenced_table_name is not null
+            SQL, [$table]);
+
+        return collect($rows)->mapWithKeys(fn ($row) => [$row->column => strtoupper($row->on_delete)])->all();
     }
 }
