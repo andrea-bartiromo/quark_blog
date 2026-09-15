@@ -3,6 +3,7 @@
 namespace Tests\Feature\Deploy;
 
 use App\Services\Deploy\MariaDbBackupHealthAudit;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,7 @@ class MariaDbBackupHealthAuditTest extends TestCase
         $this->directory = storage_path('framework/testing/backup-health-'.bin2hex(random_bytes(4)));
         config(['backup.v2.directory' => $this->directory]);
         config(['backup.v2.max_age_hours' => null]);
+        config(['backup.v2.offhost.disk' => null]);
         config(['database.default' => 'mariadb']);
         config(['database.connections.mariadb.host' => '127.0.0.1']);
         config(['database.connections.mariadb.port' => '3306']);
@@ -366,6 +368,121 @@ class MariaDbBackupHealthAuditTest extends TestCase
         $report = app(MariaDbBackupHealthAudit::class)->report();
 
         $this->assertSame([], $report['pair_counts_by_mode']);
+    }
+
+    // ── Cantiere 74: verifica off-host ────────────────────────────
+
+    public function test_does_not_check_offhost_when_no_disk_is_configured(): void
+    {
+        config(['backup.v2.offhost.disk' => null]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+        $this->assertFalse($report['offhost_checked']);
+        $this->assertFalse($report['offhost_missing']);
+        $this->assertFalse($report['offhost_error']);
+        $this->assertNull($report['offhost_disk']);
+    }
+
+    public function test_reports_ok_when_the_latest_backup_is_mirrored_offhost(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $artifact = $this->writeValidPair('a', now('UTC')->toIso8601String());
+        Storage::disk('offhost')->put('mariadb/'.basename($artifact), file_get_contents($artifact));
+        Storage::disk('offhost')->put('mariadb/'.basename($artifact).'.json', file_get_contents($artifact.'.json'));
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+        $this->assertTrue($report['offhost_checked']);
+        $this->assertFalse($report['offhost_missing']);
+        $this->assertFalse($report['offhost_error']);
+        $this->assertSame('offhost', $report['offhost_disk']);
+    }
+
+    /**
+     * Cantiere 74: MariaDbBackupService::copyToOffHostDiskIfConfigured()
+     * tratta un fallimento di caricamento come un warning "mai
+     * bloccante" per il backup locale — senza questa verifica, un
+     * fallimento ripetuto (credenziali scadute, quota esaurita)
+     * lascerebbe l'unica copia off-host assente in silenzio, proprio
+     * nello scenario in cui servirebbe di più.
+     */
+    public function test_flags_offhost_missing_when_the_artifact_was_never_uploaded(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertTrue($report['offhost_checked']);
+        $this->assertTrue($report['offhost_missing']);
+        $this->assertFalse($report['offhost_error']);
+    }
+
+    public function test_flags_offhost_missing_when_only_the_metadata_is_absent(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $artifact = $this->writeValidPair('a', now('UTC')->toIso8601String());
+        // Solo l'artefatto è presente off-host: la metadata manca —
+        // una coppia parziale conta comunque come mancante, mai come ok.
+        Storage::disk('offhost')->put('mariadb/'.basename($artifact), file_get_contents($artifact));
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertTrue($report['offhost_missing']);
+    }
+
+    public function test_a_custom_offhost_prefix_is_honored(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        config(['backup.v2.offhost.prefix' => 'kairus-db-copies']);
+        $artifact = $this->writeValidPair('a', now('UTC')->toIso8601String());
+        Storage::disk('offhost')->put('kairus-db-copies/'.basename($artifact), file_get_contents($artifact));
+        Storage::disk('offhost')->put('kairus-db-copies/'.basename($artifact).'.json', file_get_contents($artifact.'.json'));
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+        $this->assertFalse($report['offhost_missing']);
+    }
+
+    /**
+     * Un disco configurato ma non registrato in config/filesystems.php
+     * riproduce realisticamente un errore di configurazione senza
+     * credenziali reali: la verifica deve restare di sola lettura e mai
+     * lanciare, riportando 'offhost_error' invece di far fallire l'intero
+     * comando con un'eccezione non gestita.
+     */
+    public function test_flags_offhost_error_when_the_configured_disk_does_not_exist(): void
+    {
+        config(['backup.v2.offhost.disk' => 'not-a-configured-disk']);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertTrue($report['offhost_checked']);
+        $this->assertTrue($report['offhost_error']);
+        $this->assertFalse($report['offhost_missing']);
+    }
+
+    public function test_does_not_check_offhost_when_no_local_backup_exists(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['offhost_checked']);
     }
 
     private function identityHash(): string

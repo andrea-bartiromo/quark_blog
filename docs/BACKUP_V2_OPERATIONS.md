@@ -61,6 +61,8 @@ After the local artifact and metadata pair is validated and atomically published
 
 This is a config-and-test deliverable only: no real off-host destination, credentials, or production policy are established here. The local backup remains the sole guaranteed artifact; a failed off-host copy is a non-fatal warning, never a reason to consider the backup itself failed. Enabling this in production still requires the same operator approval as gate item 5 below (backup destination and retention/off-host policy approved) — this cantiere makes the mechanism available, it does not satisfy that gate.
 
+**Cantiere 74** added the missing other half: `deploy:verify-database-backup` now also checks, when `DB_BACKUP_OFFHOST_DISK` is configured, that the most recent local backup's artifact and metadata actually exist on that off-host disk (same remote path convention the upload itself uses, `{prefix}/{basename}`). A failed off-host upload was already a non-fatal warning for the backup command — but without this check, a *repeated* failure (expired credentials, exhausted quota, an unreachable disk) would leave the sole off-host copy silently missing or stale, exactly in the scenario — loss of the local backup — where it would matter most. Still read-only and still non-blocking for `deploy.sh`: it only reads whether the remote objects exist, never writes or deletes them.
+
 ## Retention/RPO/RTO — what is verifiable today (Cantiere 72, programma "100 cantieri Kairus")
 
 This cantiere adds observability to three facts the table above still lists as production decisions — it does not commit to any of them, and does not change any retention/backup behavior. It only makes a previously silent risk (or a previously unmeasured number) checkable without reading raw logs.

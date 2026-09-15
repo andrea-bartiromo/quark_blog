@@ -3,6 +3,8 @@
 namespace App\Services\Deploy;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * Cantiere 19 (programma 100-cantieri Kairus). `backup:database-v2`
@@ -41,6 +43,18 @@ use Illuminate\Support\Facades\DB;
  * non legga i log di ogni singola esecuzione. Resta di sola lettura: non
  * elimina mai nulla, si limita a rendere osservabile un rischio già
  * documentato ma finora non verificabile.
+ *
+ * Cantiere 74 (programma "100 cantieri Kairus"): quando
+ * `backup.v2.offhost.disk` è configurato (Cantiere 71), verifica anche
+ * che la copia off-host del backup PIÙ RECENTE esista davvero —
+ * `MariaDbBackupService::copyToOffHostDiskIfConfigured()` tratta un
+ * fallimento di caricamento come un warning "mai bloccante" allo stesso
+ * modo della retention, quindi senza questo segnale un fallimento
+ * ripetuto (credenziali scadute, quota esaurita, disco irraggiungibile)
+ * lascerebbe l'unica copia off-host silenziosamente assente o stantia,
+ * proprio nello scenario — perdita del backup locale — in cui servirebbe
+ * di più. Resta di sola lettura: legge soltanto se gli oggetti remoti
+ * esistono, non li scrive né li elimina mai.
  */
 class MariaDbBackupHealthAudit
 {
@@ -57,6 +71,10 @@ class MariaDbBackupHealthAudit
      *     retention_invalid: bool,
      *     pair_counts_by_mode: array<string, int>,
      *     retention_exceeded_modes: list<string>,
+     *     offhost_disk: string|null,
+     *     offhost_checked: bool,
+     *     offhost_missing: bool,
+     *     offhost_error: bool,
      * }
      */
     public function report(): array
@@ -64,6 +82,7 @@ class MariaDbBackupHealthAudit
         $connection = (string) config('database.default');
         [$maxAgeHours, $maxAgeInvalid] = $this->maxAgeHours();
         [$retentionConfigured, $retentionInvalid] = $this->retentionLimit();
+        $offHostDisk = $this->offHostDisk();
 
         if (! in_array($connection, ['mysql', 'mariadb'], true)) {
             // Backup V2 supporta solo mysql/mariadb: su altre connessioni
@@ -81,6 +100,10 @@ class MariaDbBackupHealthAudit
                 'retention_invalid' => $retentionInvalid,
                 'pair_counts_by_mode' => [],
                 'retention_exceeded_modes' => [],
+                'offhost_disk' => $offHostDisk,
+                'offhost_checked' => false,
+                'offhost_missing' => false,
+                'offhost_error' => false,
             ];
         }
 
@@ -127,6 +150,10 @@ class MariaDbBackupHealthAudit
         $latest = $identityHash === null ? null : $this->latestValidBackup($directory, $identityHash);
 
         if ($latest === null) {
+            // Nessun backup locale valido: la copia off-host, se
+            // configurata, non ha nulla di corrente da rispecchiare —
+            // segnalarla assente qui duplicherebbe solo il problema già
+            // riportato da 'latest' === null, senza aggiungere segnale.
             return [
                 'applicable' => true,
                 'ok' => false,
@@ -139,6 +166,10 @@ class MariaDbBackupHealthAudit
                 'retention_invalid' => $retentionInvalid,
                 'pair_counts_by_mode' => $pairCountsByMode,
                 'retention_exceeded_modes' => $retentionExceededModes,
+                'offhost_disk' => $offHostDisk,
+                'offhost_checked' => false,
+                'offhost_missing' => false,
+                'offhost_error' => false,
             ];
         }
 
@@ -149,10 +180,12 @@ class MariaDbBackupHealthAudit
         // retention analoga (MariaDbBackupService::retentionLimit()), che
         // rifiuta esplicitamente un valore non valido.
         $stale = ! $maxAgeInvalid && $maxAgeHours !== null && $latest['age_hours'] > $maxAgeHours;
+        [$offHostChecked, $offHostMissing, $offHostError] = $this->offHostMirrorStatus($offHostDisk, $latest['path']);
 
         return [
             'applicable' => true,
-            'ok' => ! $stale && ! $maxAgeInvalid && ! $retentionInvalid && $retentionExceededModes === [],
+            'ok' => ! $stale && ! $maxAgeInvalid && ! $retentionInvalid && $retentionExceededModes === []
+                && ! $offHostMissing && ! $offHostError,
             'directory' => $directory,
             'latest' => $latest,
             'max_age_hours' => $maxAgeHours,
@@ -162,6 +195,10 @@ class MariaDbBackupHealthAudit
             'retention_invalid' => $retentionInvalid,
             'pair_counts_by_mode' => $pairCountsByMode,
             'retention_exceeded_modes' => $retentionExceededModes,
+            'offhost_disk' => $offHostDisk,
+            'offhost_checked' => $offHostChecked,
+            'offhost_missing' => $offHostMissing,
+            'offhost_error' => $offHostError,
         ];
     }
 
@@ -305,6 +342,52 @@ class MariaDbBackupHealthAudit
         }
 
         return $counts;
+    }
+
+    /**
+     * Stesso calcolo di MariaDbBackupService::copyToOffHostDiskIfConfigured():
+     * stringa vuota/non configurata → nessuna copia off-host, come oggi.
+     */
+    private function offHostDisk(): ?string
+    {
+        $disk = trim((string) config('backup.v2.offhost.disk'));
+
+        return $disk === '' ? null : $disk;
+    }
+
+    /**
+     * Cantiere 74: verifica che l'artefatto+metadata del backup PIÙ
+     * RECENTE risultino presenti sul disco off-host configurato, con lo
+     * stesso identico percorso remoto ({prefix}/{basename}) che
+     * MariaDbBackupService::copyToOffHostDiskIfConfigured() usa per
+     * scriverli — mai un nuovo calcolo del percorso, per non rischiare
+     * di controllare un percorso diverso da quello realmente scritto.
+     * Un disco configurato ma non registrato in config/filesystems.php
+     * (o irraggiungibile) produce 'error', mai un'eccezione che
+     * interromperebbe l'intera verifica.
+     *
+     * @return array{0: bool, 1: bool, 2: bool} [checked, missing, error]
+     */
+    private function offHostMirrorStatus(?string $disk, string $localArtifactPath): array
+    {
+        if ($disk === null) {
+            return [false, false, false];
+        }
+
+        $prefix = trim((string) config('backup.v2.offhost.prefix')) ?: 'mariadb';
+        $basename = basename($localArtifactPath);
+
+        try {
+            $filesystem = Storage::disk($disk);
+            $artifactExists = $filesystem->exists($prefix.'/'.$basename);
+            $metadataExists = $filesystem->exists($prefix.'/'.$basename.'.json');
+
+            return [true, ! ($artifactExists && $metadataExists), false];
+        } catch (Throwable $e) {
+            report($e);
+
+            return [true, false, true];
+        }
     }
 
     /**
