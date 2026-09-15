@@ -3,7 +3,9 @@
 namespace Tests\Feature\ContentGraph;
 
 use App\Models\Concept;
+use App\Models\ConceptQuestion;
 use App\Services\ContentGraph\ConceptHealthService;
+use App\Services\ContentGraph\ConceptQuestionBalanceAuditService;
 use App\Services\ContentGraph\ContentGraphOperationalSummaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +26,8 @@ class ContentGraphOperationalSummaryServiceTest extends TestCase
         $this->assertSame(0, $summary['alias_integrity']['total']);
         $this->assertSame(0, $summary['approved_question_integrity']['total']);
         $this->assertSame(0, $summary['relationship_integrity']['total']);
+        $this->assertFalse($summary['question_balance']['applicable']);
+        $this->assertSame(0, $summary['question_balance']['total']);
     }
 
     public function test_summary_exposes_codes_labels_counts_and_admin_targets(): void
@@ -68,6 +72,43 @@ class ContentGraphOperationalSummaryServiceTest extends TestCase
         $this->assertTrue($summary['question_coverage']['items_truncated']);
     }
 
+    public function test_question_balance_outliers_are_surfaced_with_admin_targets(): void
+    {
+        // Stessa distribuzione di ConceptQuestionBalanceAuditServiceTest::
+        // test_flags_a_clear_over_represented_outlier — [2,2,2,3,3,3,20],
+        // fence superiore 4.5, un solo outlier sopra soglia.
+        foreach ([2, 2, 2, 3, 3, 3] as $index => $count) {
+            $concept = Concept::create([
+                'name' => 'Bilanciato '.$index,
+                'slug' => 'bilanciato-'.$index,
+                'status' => Concept::STATUS_ACTIVE,
+            ]);
+            foreach (range(1, $count) as $i) {
+                ConceptQuestion::create(['concept_id' => $concept->id, 'question' => "Domanda {$index}-{$i}?"]);
+            }
+        }
+        $outlier = Concept::create([
+            'name' => 'Sovra-rappresentato',
+            'slug' => 'sovra-rappresentato',
+            'status' => Concept::STATUS_ACTIVE,
+        ]);
+        foreach (range(1, 20) as $i) {
+            ConceptQuestion::create(['concept_id' => $outlier->id, 'question' => "Domanda outlier {$i}?"]);
+        }
+
+        $summary = app(ContentGraphOperationalSummaryService::class)->summary();
+
+        $this->assertFalse($summary['status']['healthy']);
+        $this->assertTrue($summary['question_balance']['applicable']);
+        $this->assertSame(7, $summary['question_balance']['population']);
+        $this->assertSame(1, $summary['question_balance']['total']);
+
+        $row = $summary['question_balance']['items'][0];
+        $this->assertSame($outlier->id, $row['concept_id']);
+        $this->assertSame(ConceptQuestionBalanceAuditService::OVER_REPRESENTED, $row['direction']);
+        $this->assertStringContainsString((string) $outlier->id, $row['edit_url']);
+    }
+
     public function test_summary_query_shape_is_bounded(): void
     {
         Concept::create([
@@ -84,7 +125,10 @@ class ContentGraphOperationalSummaryServiceTest extends TestCase
         $queryCount = count(DB::getQueryLog());
         DB::disableQueryLog();
 
-        $this->assertGreaterThanOrEqual(9, $queryCount);
+        // Cantiere 78: ConceptQuestionBalanceAuditService aggiunge una
+        // query bounded (Concept::active()->withCount('questions')->get())
+        // — il floor sale da 9 a 10, lo stesso margine superiore resta.
+        $this->assertGreaterThanOrEqual(10, $queryCount);
         $this->assertLessThanOrEqual(12, $queryCount);
     }
 }

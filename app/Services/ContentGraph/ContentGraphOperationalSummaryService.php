@@ -18,6 +18,7 @@ class ContentGraphOperationalSummaryService
         private readonly ConceptAliasIntegrityService $aliasIntegrity,
         private readonly ConceptQuestionReadinessService $questionIntegrity,
         private readonly ArticleConceptDiagnosticsService $relationshipDiagnostics,
+        private readonly ConceptQuestionBalanceAuditService $questionBalance,
     ) {}
 
     /** @return array<string, mixed> */
@@ -54,11 +55,20 @@ class ContentGraphOperationalSummaryService
             ])
             ->values();
 
+        $balance = $this->questionBalance->audit();
+        $balanceOutliers = collect($balance['items'])
+            ->map(fn (array $row) => [
+                ...$row,
+                'edit_url' => route('admin.concepts.edit', $row['concept_id']),
+            ])
+            ->values();
+
         $hasProblems = $unhealthyConcepts->isNotEmpty()
             || $aliasFindings->isNotEmpty()
             || $incoherentQuestions->isNotEmpty()
             || $relationshipFindings->isNotEmpty()
-            || $articleOrphans->isNotEmpty();
+            || $articleOrphans->isNotEmpty()
+            || $balanceOutliers->isNotEmpty();
 
         return [
             'status' => [
@@ -80,6 +90,16 @@ class ContentGraphOperationalSummaryService
             'approved_question_integrity' => $this->section($incoherentQuestions),
             'relationship_integrity' => $this->section($relationshipFindings),
             'published_articles_without_concept' => $this->section($articleOrphans),
+            'question_balance' => [
+                'applicable' => $balance['applicable'],
+                'population' => $balance['population'],
+                'median' => $balance['median'],
+                'lower_fence' => $balance['lower_fence'],
+                'upper_fence' => $balance['upper_fence'],
+                'total' => $balanceOutliers->count(),
+                'items' => $balanceOutliers->take(self::LIST_LIMIT)->all(),
+                'items_truncated' => $balanceOutliers->count() > self::LIST_LIMIT,
+            ],
             'policy_notes' => $relationships['policy_notes'],
         ];
     }

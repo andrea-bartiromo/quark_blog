@@ -174,6 +174,38 @@ Le superfici Admin Article restano quelle esistenti: questa missione non
 ne aggiunge di nuove, e la parte genuinamente da costruire resta solo la
 presentazione pubblica (route/hub/SEO), non il workflow editoriale.
 
+## Rilevatore concetti sbilanciati (Cantiere 78, programma "100 cantieri Kairus")
+
+`App\Services\ContentGraph\ConceptQuestionBalanceAuditService` copre una
+lacuna distinta dagli audit già descritti sopra (`ConceptHealthService`,
+`PublicAnswerableQuestionCoverageService`): quelli classificano ogni
+Concept contro una regola ASSOLUTA (zero domande, nessuna domanda
+pubblicamente rispondibile). Nessuno di loro confronta i Concept tra
+loro. Questo servizio lo fa: individua i Concept attivi il cui numero di
+domande è uno scostamento statistico significativo rispetto ai propri
+pari, con il metodo Tukey/IQR (lo stesso usato per gli outlier in un
+boxplot — Q1/Q3 ± 1.5×IQR sulla distribuzione dei conteggi), non una
+soglia inventata.
+
+Esclude deliberatamente dalla popolazione i Concept attivi con zero
+domande (già coperti da `ConceptHealthService::ACTIVE_WITHOUT_QUESTIONS`)
+e richiede almeno 5 Concept con ≥1 domanda prima di applicare il metodo
+(sotto quella soglia un quartile non è significativo — vedi il commento
+sulla costante `MIN_POPULATION` nel servizio per il ragionamento
+completo). Sola lettura: non crea, modifica né elimina mai un Concept o
+una ConceptQuestion — è un segnale per l'editor, non un giudizio
+("sbilanciato" non significa "sbagliato": un Concept enciclopedico può
+legittimamente avere più domande di uno di nicchia).
+
+Composto in `ContentGraphOperationalSummaryService::summary()` (chiave
+`question_balance`) insieme agli altri audit del Content Graph.
+Deliberatamente **non** ancora aggiunto alla coda "actionable" di
+`EditorialOperationsDashboardService` (Mission 63) — la stessa
+esclusione già in atto per `concept_health` e per gli articoli orfani in
+quella coda specifica: se e come contare uno sbilanciamento come
+"problema aperto" nel conteggio editoriale è una decisione editoriale
+distinta, non implicita nell'aver costruito il rilevatore.
+
 ## TROVA integration
 
 TROVA puo restituire una domanda soltanto se soddisfa almeno il contratto di discovery definito nella Missione 08.
