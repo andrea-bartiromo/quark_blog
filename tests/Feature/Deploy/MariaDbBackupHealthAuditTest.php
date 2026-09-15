@@ -297,8 +297,18 @@ class MariaDbBackupHealthAuditTest extends TestCase
      * finisce nel bucket 'unknown', ancora contato verso il rischio di
      * accumulo, mai scartato in silenzio.
      */
-    public function test_counts_a_pair_with_missing_mode_metadata_into_the_unknown_bucket(): void
+    /**
+     * Il mode è derivato dal FILENAME (stesso glob di
+     * MariaDbBackupService::applyRetention()), mai dal campo 'mode' dei
+     * metadata — un metadata privo del campo, o divergente, non deve mai
+     * far scomparire una coppia il cui filename corrisponde comunque a un
+     * mode noto (Codex, PR #613, P2): qui il filename dice 'periodic', il
+     * metadata non ha affatto il campo, e deve comunque contare come
+     * 'periodic', non 'unknown'.
+     */
+    public function test_derives_the_mode_from_the_filename_even_when_metadata_omits_it(): void
     {
+        config(['backup.v2.retention' => 5]);
         if (! is_dir($this->directory)) {
             mkdir($this->directory, 0700, true);
         }
@@ -312,7 +322,50 @@ class MariaDbBackupHealthAuditTest extends TestCase
 
         $report = app(MariaDbBackupHealthAudit::class)->report();
 
+        $this->assertSame(1, $report['pair_counts_by_mode']['periodic']);
+        $this->assertArrayNotHasKey('unknown', $report['pair_counts_by_mode']);
+    }
+
+    /**
+     * Una coppia valida il cui filename non corrisponde a NESSUNO dei
+     * mode noti non verrebbe mai selezionata da alcuna chiamata di
+     * applyRetention() (sempre scoped su un mode specifico): si
+     * accumulerebbe senza limite. Deve restare un segnale osservabile nel
+     * bucket 'unknown', non sparire dal conteggio.
+     */
+    public function test_counts_a_pair_whose_filename_mode_is_unknown_into_the_unknown_bucket(): void
+    {
+        config(['backup.v2.retention' => 5]);
+        if (! is_dir($this->directory)) {
+            mkdir($this->directory, 0700, true);
+        }
+        $artifact = $this->directory.'/mariadb-'.$this->identityHash().'-20260101T000000Z-legacy-orphan.sql';
+        file_put_contents($artifact, "-- MariaDB dump\nCREATE TABLE example (id INT);\n");
+        file_put_contents($artifact.'.json', json_encode([
+            'created_at_utc' => now('UTC')->toIso8601String(),
+            'sha256' => hash_file('sha256', $artifact),
+            'size_bytes' => filesize($artifact),
+        ], JSON_THROW_ON_ERROR));
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
         $this->assertSame(1, $report['pair_counts_by_mode']['unknown']);
+    }
+
+    /**
+     * Codex (PR #613, P1): senza retention configurata (il default) la
+     * scansione completa della cronologia non deve mai avvenire — stesso
+     * costo che l'ottimizzazione one-candidate-alla-volta di
+     * latestValidBackup() evita già per lo staleness check.
+     */
+    public function test_does_not_scan_pair_counts_when_no_retention_is_configured(): void
+    {
+        config(['backup.v2.retention' => null]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertSame([], $report['pair_counts_by_mode']);
     }
 
     private function identityHash(): string

@@ -101,8 +101,19 @@ class MariaDbBackupHealthAudit
         // "-{mode}-"), quindi il conteggio deve restare per-mode: sommare
         // 'periodic' e 'pre-migration' insieme farebbe sembrare superato
         // un limite in realtà rispettato da entrambi i mode separatamente.
-        $pairCountsByMode = $identityHash === null ? [] : $this->validPairCountsByMode($directory, $identityHash);
-        $retentionExceededModes = $retentionConfigured === null || $retentionInvalid
+        //
+        // Finding Codex (P1, PR #613): senza retention configurata (il
+        // default di repository) o con una configurazione non valida,
+        // retentionExceededModes resta comunque vuoto — validare ogni
+        // coppia (hash+size, l'intera cronologia per questa identità)
+        // sarebbe quindi un costo sincrono in ogni deploy.sh senza alcun
+        // beneficio, esattamente il pattern che l'ottimizzazione
+        // one-candidate-alla-volta di latestValidBackup() sotto evita già
+        // per il controllo di staleness.
+        $pairCountsByMode = ($identityHash !== null && $retentionConfigured !== null)
+            ? $this->validPairCountsByMode($directory, $identityHash)
+            : [];
+        $retentionExceededModes = $retentionConfigured === null
             ? []
             : array_keys(array_filter($pairCountsByMode, fn (int $count): bool => $count > $retentionConfigured));
 
@@ -230,15 +241,29 @@ class MariaDbBackupHealthAudit
     }
 
     /**
+     * Stessi due mode reali di MariaDbBackupService::create()
+     * (`in_array($mode, ['periodic', 'pre-migration'], true)`).
+     */
+    private const KNOWN_MODES = ['periodic', 'pre-migration'];
+
+    /**
      * Cantiere 72: conta le coppie artefatto+metadata VALIDE per questa
-     * identità database, raggruppate per mode ('periodic'/'pre-migration',
-     * o 'unknown' per metadata privi del campo) — a differenza di
+     * identità database, raggruppate per mode — a differenza di
      * latestValidBackup(), che si ferma al primo candidato valido, qui
      * ogni coppia deve essere validata (hash+size) per poterla contare
      * davvero, quindi tocca l'intera cronologia per questa identità. Dato
      * che la retention limita già il numero di coppie accumulate in
      * condizioni normali, il costo resta proporzionale a "quante ne sono
      * accumulate", non alla directory intera.
+     *
+     * Finding Codex (P2, PR #613): il mode viene derivato dal FILENAME
+     * con lo stesso identico glob di
+     * MariaDbBackupService::applyRetention() (`mariadb-{hash}-*-{mode}-*.sql`),
+     * mai dal campo 'mode' dei metadata — i metadata sono mutabili/opzionali
+     * e un valore divergente o assente (es. legacy, senza quel campo)
+     * farebbe contare separatamente file che applyRetention() considera
+     * invece parte dello STESSO gruppo, nascondendo un vero superamento
+     * del limite dietro due conteggi entrambi sotto soglia.
      *
      * @return array<string, int>
      */
@@ -248,17 +273,35 @@ class MariaDbBackupHealthAudit
             return [];
         }
 
-        $artifacts = glob($directory.'/mariadb-'.$identityHash.'-*.sql') ?: [];
         $counts = [];
+        $countedPaths = [];
 
-        foreach ($artifacts as $artifact) {
-            $metadata = $this->readValidMetadata($artifact);
+        foreach (self::KNOWN_MODES as $mode) {
+            $artifacts = glob($directory.'/mariadb-'.$identityHash.'-*-'.$mode.'-*.sql') ?: [];
 
-            if ($metadata === null) {
+            foreach ($artifacts as $artifact) {
+                if (isset($countedPaths[$artifact]) || $this->readValidMetadata($artifact) === null) {
+                    continue;
+                }
+
+                $countedPaths[$artifact] = true;
+                $counts[$mode] = ($counts[$mode] ?? 0) + 1;
+            }
+        }
+
+        // Qualunque coppia valida per questa identità che non corrisponda
+        // al glob di nessun mode noto non verrebbe mai selezionata da
+        // NESSUNA chiamata di applyRetention() (sempre scoped su un mode
+        // specifico) — resta comunque un file che si accumula senza
+        // limite, quindi un segnale da non perdere, nel bucket 'unknown'.
+        $allArtifacts = glob($directory.'/mariadb-'.$identityHash.'-*.sql') ?: [];
+
+        foreach ($allArtifacts as $artifact) {
+            if (isset($countedPaths[$artifact]) || $this->readValidMetadata($artifact) === null) {
                 continue;
             }
 
-            $counts[$metadata['mode']] = ($counts[$metadata['mode']] ?? 0) + 1;
+            $counts['unknown'] = ($counts['unknown'] ?? 0) + 1;
         }
 
         return $counts;
@@ -288,7 +331,7 @@ class MariaDbBackupHealthAudit
     }
 
     /**
-     * @return array{created_at_utc: string, mode: string}|null
+     * @return array{created_at_utc: string}|null
      */
     private function readValidMetadata(string $artifact): ?array
     {
@@ -320,16 +363,7 @@ class MariaDbBackupHealthAudit
             return null;
         }
 
-        // Cantiere 72: un metadata pre-Cantiere-19 (o corrotto solo su
-        // questo campo) senza 'mode' valido finisce nel bucket 'unknown'
-        // invece di essere scartato — scartarlo lo renderebbe invisibile
-        // al conteggio di retention, sottostimando esattamente il rischio
-        // che questa verifica esiste per segnalare.
-        $mode = isset($decoded['mode']) && is_string($decoded['mode']) && $decoded['mode'] !== ''
-            ? $decoded['mode']
-            : 'unknown';
-
-        return ['created_at_utc' => $decoded['created_at_utc'], 'mode' => $mode];
+        return ['created_at_utc' => $decoded['created_at_utc']];
     }
 
     private function ageInHours(string $createdAtUtc): float
