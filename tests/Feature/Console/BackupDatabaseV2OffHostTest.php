@@ -3,6 +3,8 @@
 namespace Tests\Feature\Console;
 
 use App\Contracts\DatabaseDumpRunner;
+use App\Services\Backup\MariaDbBackupService;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -128,6 +130,35 @@ class BackupDatabaseV2OffHostTest extends TestCase
         $this->assertCount(1, $artifacts);
         $this->assertFileExists($artifacts[0].'.json');
     }
+
+    /**
+     * Codex (PR #610, P2): se il caricamento dell'artefatto .sql riesce
+     * ma quello del metadata .json fallisce subito dopo, l'oggetto già
+     * caricato in QUESTO tentativo deve essere ripulito — altrimenti,
+     * dato che ogni esecuzione usa un basename nuovo e non esiste
+     * alcuna retention off-host, un fallimento ripetuto lascerebbe
+     * accumulare dump non verificati e spaiati sul disco remoto.
+     */
+    public function test_a_partial_offhost_upload_failure_cleans_up_the_already_uploaded_object(): void
+    {
+        Storage::fake('offhost');
+        config()->set('backup.v2.offhost.disk', 'offhost');
+
+        $service = new SecondOffHostUploadFailsBackupService(new OffHostRecordingDumpRunner);
+        $this->app->instance(MariaDbBackupService::class, $service);
+
+        $this->artisan('backup:database-v2')
+            ->expectsOutputToContain('Off-host backup copy failed; the local backup remains the source of truth.')
+            ->assertSuccessful();
+
+        $artifacts = glob($this->directory.'/mariadb-*.sql') ?: [];
+        $this->assertCount(1, $artifacts, 'Il backup locale deve comunque restare pubblicato e valido.');
+
+        // Nessun oggetto orfano: né l'artefatto (caricato con successo, poi
+        // ripulito) né il metadata (mai caricato) devono restare sul disco
+        // off-host dopo un fallimento parziale.
+        $this->assertSame([], Storage::disk('offhost')->allFiles());
+    }
 }
 
 class OffHostRecordingDumpRunner implements DatabaseDumpRunner
@@ -135,5 +166,20 @@ class OffHostRecordingDumpRunner implements DatabaseDumpRunner
     public function dump(string $binary, string $optionFile, string $database, string $outputPath): void
     {
         file_put_contents($outputPath, "-- MariaDB dump 10.19 Distrib 10.11\nCREATE TABLE `example` (`id` bigint NOT NULL);\nINSERT INTO `example` VALUES (1);\n");
+    }
+}
+
+class SecondOffHostUploadFailsBackupService extends MariaDbBackupService
+{
+    private int $calls = 0;
+
+    protected function putToOffHostDisk(Filesystem $filesystem, string $remotePath, $stream): bool
+    {
+        $this->calls++;
+        if ($this->calls === 2) {
+            return false;
+        }
+
+        return parent::putToOffHostDisk($filesystem, $remotePath, $stream);
     }
 }
