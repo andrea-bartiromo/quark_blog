@@ -42,6 +42,8 @@ Before deploying, record the current production `REVISION` as the rollback targe
 
 Database rollback is not implied by a Git rollback. Any release that includes migrations requires an explicit migration/restore plan reviewed together with the MariaDB/MySQL backup procedure.
 
+`docs/ROLLBACK_RUNBOOK.md` (Cantiere 75, programma Kairus 100 cantieri) stitches the existing rollback-relevant mechanisms — `migrate:rollback`, `scripts/selective-deploy-backup.sh`, the cache-refresh sequence below, and the front-controller verification — into a single ordered operator procedure covering migrations, media, cache and the front controller. It introduces no new tooling: every command it references already exists and is documented separately.
+
 ## Release registry
 
 `REVISION` and `DEPLOY_INFO` above live inside the release directory itself and are overwritten/discarded on the next release — with the two-directory-plus-symlink-switch schema already in production use, no history survives across deploys. The operational roadmap's own stated principle (`costruito ≠ CI green ≠ merged ≠ deployed ≠ verified ≠ measured` — see `docs/KAIRUS_TECHNICAL_ROADMAP_V14.md`) is tracked today as a hand-maintained Markdown table, with no automatic source.
