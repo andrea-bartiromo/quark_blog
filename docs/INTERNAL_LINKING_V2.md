@@ -388,11 +388,35 @@ Nessuna cache introdotta: il calcolo (parsing DOM di un body già in
 memoria, per riga) è già economico: introdurla ora sarebbe prematuro
 (nessun problema misurato da risolvere).
 
+## 13bis. Segnale di ciclo (Cantiere 82, programma "100 cantieri Kairus")
+
+`App\Services\InternalLinking\ArticleLinkCycleDetector` verifica, per ogni
+suggerimento mostrato nel pannello, se accettarlo chiuderebbe un ciclo
+(A→B→...→A) tra i collegamenti **già accettati** (mai tra quelli solo
+proposti). Un ciclo di link interni non è di per sé un errore — due
+articoli correlati che si linkano a vicenda, o un percorso di lettura
+sequenziale che si richiude su un articolo hub, sono pattern editoriali
+legittimi — quindi questo servizio **non blocca mai** nulla: aggiunge solo
+`creates_cycle`/`cycle_path` alla risposta di `analyze()`, un'informazione
+che prima non esisteva da nessuna parte. La decisione di inserire o
+ignorare il suggerimento resta sempre dell'editor, esattamente come per
+ogni altro suggerimento.
+
+Prima di questo cantiere, nessun codice del repository verificava o
+rilevava cicli in alcun modo — confermato con una ricerca dedicata
+sull'intera codebase (`app/`, `tests/`) prima di scrivere questo servizio.
+
 ## 14. Limiti noti
 
 - Puramente **lessicale**: due articoli concettualmente collegati ma
   senza vocabolario letterale condiviso non vengono mai suggeriti (nessun
   embedding/similarità semantica — fuori scope per design, non un bug).
+- Il rilevatore di cicli (§13bis) considera solo i collegamenti già
+  `accepted`: un ciclo che si formerebbe tra due suggerimenti entrambi
+  ancora `proposed` (nessuno dei due ancora inserito/salvato) non viene
+  segnalato — non è ancora un fatto del contenuto pubblicato, e
+  ricalcolarlo ad ogni combinazione di suggerimenti multipli-pendenti
+  sarebbe un costo non giustificato per un segnale puramente informativo.
 - L'anchor resta sempre una singola parola, il titolo del target, o un
   concetto multi-parola dal registro §4 — mai una locuzione arbitraria
   costruita dai termini condivisi.

@@ -15,6 +15,23 @@
 @php
   $article = $article ?? null;
   $linkSuggestions = $linkSuggestions ?? collect();
+
+  // Cantiere 82 (programma "100 cantieri Kairus"): stesso segnale, mai
+  // bloccante, calcolato da ArticleLinkSuggestionController::analyze()
+  // per il payload iniziale caricato con la pagina — vedi
+  // App\Services\InternalLinking\ArticleLinkCycleDetector.
+  $linkSuggestionCycles = collect();
+  $linkSuggestionCycleTitles = collect();
+  if ($article) {
+      $cycleDetector = app(\App\Services\InternalLinking\ArticleLinkCycleDetector::class);
+      $linkSuggestionCycles = $linkSuggestions->mapWithKeys(
+          fn ($s) => [$s->id => $cycleDetector->detect($article->id, $s->target_article_id)]
+      );
+      $linkSuggestionCycleArticleIds = $linkSuggestionCycles->flatMap(fn (array $c) => $c['path'])->unique()->values();
+      $linkSuggestionCycleTitles = $linkSuggestionCycleArticleIds->isEmpty()
+          ? collect()
+          : \App\Models\Article::query()->whereIn('id', $linkSuggestionCycleArticleIds)->pluck('title', 'id');
+  }
 @endphp
 <div style="background:var(--color-white, #fff);border-radius:var(--radius, 8px);box-shadow:var(--shadow, 0 1px 3px rgba(0,0,0,.08));padding:1.25rem;">
   <div style="font-family:var(--font-ui, inherit);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;">
@@ -49,9 +66,10 @@
       letteralmente "</script>" non può altrimenti chiudere questo tag ed
       iniettare markup nella pagina di un altro redattore.
     --}}
-    <script type="application/json" id="link-suggestions-initial">{!! \Illuminate\Support\Js::from($linkSuggestions->map(function ($s) {
+    <script type="application/json" id="link-suggestions-initial">{!! \Illuminate\Support\Js::from($linkSuggestions->map(function ($s) use ($linkSuggestionCycles, $linkSuggestionCycleTitles) {
       $target = $s->targetArticle;
       $isScheduled = $target->isScheduled() && $target->published_at !== null;
+      $cycle = $linkSuggestionCycles[$s->id] ?? ['creates_cycle' => false, 'path' => []];
 
       return [
         'id' => $s->id,
@@ -67,6 +85,11 @@
             ? 'Programmato per '.$target->publishedAtForEditors()->format('d/m/Y H:i').' — sarà pubblico prima di questo articolo'
             : null,
         ],
+        'creates_cycle' => $cycle['creates_cycle'],
+        'cycle_path' => collect($cycle['path'])
+          ->map(fn ($id) => $linkSuggestionCycleTitles->get($id, '#'.$id))
+          ->values()
+          ->all(),
       ];
     })->values()) !!}</script>
   @endif
@@ -110,6 +133,16 @@ document.addEventListener('DOMContentLoaded', function () {
         '</div>'
       : '';
 
+    // Cantiere 82 (programma "100 cantieri Kairus"): informativo, mai
+    // bloccante — un ciclo tra link interni non è un errore, è solo
+    // un'informazione utile all'editor (vedi ArticleLinkCycleDetector).
+    var cycleNoticeHtml = (suggestion.creates_cycle && suggestion.cycle_path && suggestion.cycle_path.length)
+      ? '<div style="color:#1e3a8a;background:#eff6ff;border-radius:4px;padding:.3rem .5rem;margin:.35rem 0;">' +
+          '🔁 Accettandolo chiuderesti un ciclo di link: ' +
+          suggestion.cycle_path.map(escapeHtml).join(' → ') +
+        '</div>'
+      : '';
+
     return (
       '<div class="link-suggestion-card" data-suggestion-id="' + suggestion.id + '" ' +
       'style="border:1px solid #e5e7eb;border-radius:8px;padding:.75rem;font-size:.8rem;">' +
@@ -117,6 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
           '→ ' + escapeHtml(suggestion.target.title) +
         '</div>' +
         scheduledNoticeHtml +
+        cycleNoticeHtml +
         '<div style="margin:.35rem 0;color:#374151;">' +
           'Anchor: <span style="background:#f0fdfa;padding:.05rem .35rem;border-radius:4px;">' + escapeHtml(suggestion.anchor_text) + '</span>' +
         '</div>' +

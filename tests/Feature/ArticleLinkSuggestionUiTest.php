@@ -96,6 +96,67 @@ class ArticleLinkSuggestionUiTest extends TestCase
         $response->assertSee('pannelli solari');
     }
 
+    // 4bis. Cantiere 82 (programma "100 cantieri Kairus"): il payload
+    // iniziale renderizzato lato server porta anche il segnale di ciclo,
+    // non solo la risposta AJAX di analyze() — altrimenti un suggerimento
+    // già persistito ('proposed') mostrerebbe il segnale solo dopo un
+    // nuovo click su "Analizza".
+    public function test_edit_form_embeds_the_cycle_signal_for_already_persisted_suggestions(): void
+    {
+        $editor = $this->editor();
+        $source = $this->article(['user_id' => $editor->id, 'title' => 'Sorgente']);
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Destinazione']);
+
+        // Destinazione già linka a Sorgente (accettato): se Sorgente
+        // accettasse il suggerimento verso Destinazione, chiuderebbe un
+        // ciclo diretto.
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $target->id,
+            'target_article_id' => $source->id,
+            'anchor_text' => 'sorgente',
+            'reason' => 'motivo di test',
+            'confidence_score' => 55,
+            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        ]);
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'destinazione',
+            'reason' => 'motivo di test',
+            'confidence_score' => 55,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $source));
+
+        $response->assertOk();
+        // Js::from() escapa gli apici doppi come " (vedi il commento
+        // sopra il tag <script>): il payload grezzo non contiene mai
+        // '"creates_cycle":true' letterale, ma la forma script-safe.
+        $response->assertSee('creates_cycle\\u0022:true', false);
+        $response->assertSee('Sorgente', false);
+        $response->assertSee('Destinazione', false);
+    }
+
+    public function test_edit_form_does_not_flag_a_cycle_when_no_accepted_links_exist(): void
+    {
+        $editor = $this->editor();
+        $source = $this->article(['user_id' => $editor->id]);
+        $target = $this->article(['user_id' => $editor->id, 'title' => 'Pannelli solari di nuova generazione']);
+
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $source->id,
+            'target_article_id' => $target->id,
+            'anchor_text' => 'pannelli solari',
+            'reason' => 'motivo di test',
+            'confidence_score' => 55,
+        ]);
+
+        $response = $this->actingAs($editor)->get(route('admin.articles.edit', $source));
+
+        $response->assertOk();
+        $response->assertSee('creates_cycle\\u0022:false', false);
+    }
+
     // 5. Route corrette incorporate nel markup per l'analisi (Admin)
     public function test_admin_edit_form_embeds_the_correct_analyze_route(): void
     {
