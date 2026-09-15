@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\ArticleLinkSuggestion;
 use App\Services\ArticleLinkInsertionService;
 use App\Services\ArticleLinkSuggestionService;
+use App\Services\InternalLinking\ArticleLinkCycleDetector;
 use App\Services\InternalLinking\InternalLinkTemporalEligibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class ArticleLinkSuggestionController extends Controller
     public function __construct(
         private readonly ArticleLinkSuggestionService $suggestionService,
         private readonly ArticleLinkInsertionService $insertionService,
+        private readonly ArticleLinkCycleDetector $cycleDetector,
         private readonly InternalLinkTemporalEligibility $temporalEligibility = new InternalLinkTemporalEligibility,
     ) {}
 
@@ -194,10 +196,27 @@ class ArticleLinkSuggestionController extends Controller
      */
     private function serializeSuggestions(Article $article): array
     {
-        return $article->proposedLinkSuggestions()
-            ->map(function (ArticleLinkSuggestion $s) {
+        $suggestions = $article->proposedLinkSuggestions();
+
+        // Cantiere 82 (programma "100 cantieri Kairus"): calcola per ogni
+        // candidato se accettarlo chiuderebbe un ciclo tra i collegamenti
+        // già accettati — mai un blocco, solo un'informazione in più per
+        // la decisione dell'editor (ArticleLinkCycleDetector). Il titolo
+        // dei nodi del ciclo viene risolto in un'unica query bounded,
+        // condivisa tra tutti i candidati di questo pannello.
+        $cycles = $suggestions->mapWithKeys(
+            fn (ArticleLinkSuggestion $s) => [$s->id => $this->cycleDetector->detect($article->id, $s->target_article_id)]
+        );
+        $cycleArticleIds = $cycles->flatMap(fn (array $c) => $c['path'])->unique()->values();
+        $cycleTitles = $cycleArticleIds->isEmpty()
+            ? collect()
+            : Article::query()->whereIn('id', $cycleArticleIds)->pluck('title', 'id');
+
+        return $suggestions
+            ->map(function (ArticleLinkSuggestion $s) use ($cycles, $cycleTitles) {
                 $target = $s->targetArticle;
                 $isScheduled = $target->isScheduled() && $target->published_at !== null;
+                $cycle = $cycles[$s->id];
 
                 return [
                     'id' => $s->id,
@@ -213,6 +232,11 @@ class ArticleLinkSuggestionController extends Controller
                             ? 'Programmato per '.$target->publishedAtForEditors()->format('d/m/Y H:i').' — sarà pubblico prima di questo articolo'
                             : null,
                     ],
+                    'creates_cycle' => $cycle['creates_cycle'],
+                    'cycle_path' => collect($cycle['path'])
+                        ->map(fn (int $id) => $cycleTitles->get($id, '#'.$id))
+                        ->values()
+                        ->all(),
                 ];
             })
             ->values()

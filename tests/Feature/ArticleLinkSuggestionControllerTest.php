@@ -1229,4 +1229,70 @@ class ArticleLinkSuggestionControllerTest extends TestCase
 
         $response->assertStatus(409);
     }
+
+    // Cantiere 82 (programma "100 cantieri Kairus"): il pannello segnala,
+    // senza mai bloccare, quando accettare un suggerimento chiuderebbe un
+    // ciclo tra i collegamenti già accettati (ArticleLinkCycleDetector).
+    public function test_analyze_flags_a_suggestion_that_would_close_a_cycle_with_already_accepted_links(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli solari più efficienti',
+        ]);
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+        ]);
+
+        // Il target linka già (accettato) alla source: accettare il nuovo
+        // suggerimento source->target chiuderebbe il ciclo source-> target
+        // -> source.
+        ArticleLinkSuggestion::create([
+            'source_article_id' => $target->id,
+            'target_article_id' => $source->id,
+            'target_slug' => $source->slug,
+            'anchor_text' => 'transizione energetica',
+            'reason' => 'motivo',
+            'confidence_score' => 60,
+            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        ]);
+
+        $response = $this->actingAs($editor)->postJson(route('admin.articles.link-suggestions.analyze', $source));
+
+        $response->assertOk();
+        $suggestions = $response->json('suggestions');
+        $this->assertCount(1, $suggestions);
+        $this->assertTrue($suggestions[0]['creates_cycle']);
+        $this->assertSame([$source->title, $target->title, $source->title], $suggestions[0]['cycle_path']);
+    }
+
+    public function test_analyze_does_not_flag_a_cycle_when_no_accepted_links_exist(): void
+    {
+        $editor = $this->editor();
+
+        $target = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Pannelli solari di nuova generazione',
+            'excerpt' => 'Analisi dei pannelli solari più efficienti',
+        ]);
+
+        $source = $this->article([
+            'user_id' => $editor->id,
+            'title' => 'Guida alla transizione energetica',
+            'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
+        ]);
+
+        $response = $this->actingAs($editor)->postJson(route('admin.articles.link-suggestions.analyze', $source));
+
+        $response->assertOk();
+        $suggestions = $response->json('suggestions');
+        $this->assertCount(1, $suggestions);
+        $this->assertFalse($suggestions[0]['creates_cycle']);
+        $this->assertSame([], $suggestions[0]['cycle_path']);
+    }
 }
