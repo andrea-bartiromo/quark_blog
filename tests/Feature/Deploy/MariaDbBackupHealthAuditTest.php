@@ -202,22 +202,136 @@ class MariaDbBackupHealthAuditTest extends TestCase
         $this->assertNull($report['max_age_hours']);
     }
 
+    // ── Cantiere 72: retention verificabile ─────────────────────
+
+    public function test_does_not_flag_retention_when_no_retention_is_configured(): void
+    {
+        config(['backup.v2.retention' => null]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+        $this->writeValidPair('b', now('UTC')->subHour()->toIso8601String());
+        $this->writeValidPair('c', now('UTC')->subHours(2)->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+        $this->assertSame([], $report['retention_exceeded_modes']);
+        $this->assertNull($report['retention_configured']);
+    }
+
+    public function test_does_not_flag_retention_when_valid_pairs_are_within_the_configured_limit(): void
+    {
+        config(['backup.v2.retention' => 2]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+        $this->writeValidPair('b', now('UTC')->subHour()->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertTrue($report['ok']);
+        $this->assertSame([], $report['retention_exceeded_modes']);
+        $this->assertSame(2, $report['pair_counts_by_mode']['periodic']);
+    }
+
+    /**
+     * Cantiere 72: MariaDbBackupService::applyRetention() tratta un
+     * fallimento di pulizia come un warning "mai bloccante" — senza
+     * questo segnale, backup accumulati oltre il limite configurato
+     * (es. per un fallimento di permessi ripetuto) resterebbero
+     * invisibili a chi non legge i log di ogni esecuzione.
+     */
+    public function test_flags_retention_exceeded_when_more_valid_pairs_exist_than_the_configured_limit(): void
+    {
+        config(['backup.v2.retention' => 2]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+        $this->writeValidPair('b', now('UTC')->subHour()->toIso8601String());
+        $this->writeValidPair('c', now('UTC')->subHours(2)->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertSame(['periodic'], $report['retention_exceeded_modes']);
+        $this->assertSame(3, $report['pair_counts_by_mode']['periodic']);
+    }
+
+    /**
+     * MariaDbBackupService::applyRetention() applica il limite PER MODE
+     * (glob scoped su "-{mode}-"): un 'pre-migration' oltre il limite non
+     * deve mai essere nascosto da un 'periodic' sotto il limite, né
+     * viceversa — sommarli farebbe perdere esattamente il segnale che
+     * questa verifica esiste per dare.
+     */
+    public function test_tracks_retention_per_mode_independently(): void
+    {
+        config(['backup.v2.retention' => 1]);
+        $this->writeValidPair('a', now('UTC')->toIso8601String(), 'periodic');
+        $this->writeValidPair('b', now('UTC')->toIso8601String(), 'pre-migration');
+        $this->writeValidPair('c', now('UTC')->subHour()->toIso8601String(), 'pre-migration');
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertSame(['pre-migration'], $report['retention_exceeded_modes']);
+        $this->assertSame(1, $report['pair_counts_by_mode']['periodic']);
+        $this->assertSame(2, $report['pair_counts_by_mode']['pre-migration']);
+    }
+
+    /**
+     * Stesso principio già verificato per max_age_hours (Codex, PR #567):
+     * un valore malformato deve restare un segnale osservabile, mai
+     * essere silenziosamente trattato come "non configurato".
+     */
+    public function test_flags_an_invalid_retention_configuration_instead_of_silently_ignoring_it(): void
+    {
+        config(['backup.v2.retention' => '-3']);
+        $this->writeValidPair('a', now('UTC')->toIso8601String());
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertFalse($report['ok']);
+        $this->assertTrue($report['retention_invalid']);
+        $this->assertNull($report['retention_configured']);
+    }
+
+    /**
+     * Un metadata scritto prima che il campo 'mode' esistesse (o
+     * corrotto solo su quel campo) non deve sparire dal conteggio:
+     * finisce nel bucket 'unknown', ancora contato verso il rischio di
+     * accumulo, mai scartato in silenzio.
+     */
+    public function test_counts_a_pair_with_missing_mode_metadata_into_the_unknown_bucket(): void
+    {
+        if (! is_dir($this->directory)) {
+            mkdir($this->directory, 0700, true);
+        }
+        $artifact = $this->directory.'/mariadb-'.$this->identityHash().'-20260101T000000Z-periodic-nomode.sql';
+        file_put_contents($artifact, "-- MariaDB dump\nCREATE TABLE example (id INT);\n");
+        file_put_contents($artifact.'.json', json_encode([
+            'created_at_utc' => now('UTC')->toIso8601String(),
+            'sha256' => hash_file('sha256', $artifact),
+            'size_bytes' => filesize($artifact),
+        ], JSON_THROW_ON_ERROR));
+
+        $report = app(MariaDbBackupHealthAudit::class)->report();
+
+        $this->assertSame(1, $report['pair_counts_by_mode']['unknown']);
+    }
+
     private function identityHash(): string
     {
         return substr(hash('sha256', 'mariadb|127.0.0.1|3306|kairus_test'), 0, 16);
     }
 
-    private function writeValidPair(string $suffix, string $createdAtUtc): string
+    private function writeValidPair(string $suffix, string $createdAtUtc, string $mode = 'periodic'): string
     {
         if (! is_dir($this->directory)) {
             mkdir($this->directory, 0700, true);
         }
-        $artifact = $this->directory.'/mariadb-'.$this->identityHash()."-20260101T000000Z-periodic-{$suffix}.sql";
+        $artifact = $this->directory.'/mariadb-'.$this->identityHash()."-20260101T000000Z-{$mode}-{$suffix}.sql";
         file_put_contents($artifact, "-- MariaDB dump\nCREATE TABLE example (id INT);\n");
         file_put_contents($artifact.'.json', json_encode([
             'created_at_utc' => $createdAtUtc,
             'sha256' => hash_file('sha256', $artifact),
             'size_bytes' => filesize($artifact),
+            'mode' => $mode,
         ], JSON_THROW_ON_ERROR));
 
         return $artifact;

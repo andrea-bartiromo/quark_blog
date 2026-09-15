@@ -30,6 +30,17 @@ use Illuminate\Support\Facades\DB;
  * soglia di età. Come la retention (`DB_BACKUP_RETENTION`), la soglia di
  * età è deliberatamente opt-in: nessun default di repository presume una
  * cadenza operativa che qui non può essere nota.
+ *
+ * Cantiere 72 (programma "100 cantieri Kairus"): quando
+ * `backup.v2.retention` è configurato, riporta anche se il numero di
+ * coppie valide su disco (per mode, 'periodic'/'pre-migration') supera
+ * quel limite — `MariaDbBackupService::applyRetention()` tratta un
+ * fallimento di pulizia come un warning "mai bloccante"
+ * (docs/BACKUP_V2_OPERATIONS.md, "Failure semantics"), quindi senza
+ * questo segnale un fallimento ripetuto resterebbe invisibile a chiunque
+ * non legga i log di ogni singola esecuzione. Resta di sola lettura: non
+ * elimina mai nulla, si limita a rendere osservabile un rischio già
+ * documentato ma finora non verificabile.
  */
 class MariaDbBackupHealthAudit
 {
@@ -42,12 +53,17 @@ class MariaDbBackupHealthAudit
      *     max_age_hours: int|null,
      *     max_age_invalid: bool,
      *     stale: bool,
+     *     retention_configured: int|null,
+     *     retention_invalid: bool,
+     *     pair_counts_by_mode: array<string, int>,
+     *     retention_exceeded_modes: list<string>,
      * }
      */
     public function report(): array
     {
         $connection = (string) config('database.default');
         [$maxAgeHours, $maxAgeInvalid] = $this->maxAgeHours();
+        [$retentionConfigured, $retentionInvalid] = $this->retentionLimit();
 
         if (! in_array($connection, ['mysql', 'mariadb'], true)) {
             // Backup V2 supporta solo mysql/mariadb: su altre connessioni
@@ -61,11 +77,34 @@ class MariaDbBackupHealthAudit
                 'max_age_hours' => $maxAgeHours,
                 'max_age_invalid' => $maxAgeInvalid,
                 'stale' => false,
+                'retention_configured' => $retentionConfigured,
+                'retention_invalid' => $retentionInvalid,
+                'pair_counts_by_mode' => [],
+                'retention_exceeded_modes' => [],
             ];
         }
 
         $directory = (string) config('backup.v2.directory');
         $identityHash = $this->currentIdentityHash($connection);
+
+        // Cantiere 72 (programma "100 cantieri Kairus"): la retention
+        // (MariaDbBackupService::applyRetention()) è "mai bloccante" per
+        // design — un fallimento di pulizia resta un warning, mai un
+        // errore che farebbe apparire fallito un backup locale in realtà
+        // riuscito (vedi docs/BACKUP_V2_OPERATIONS.md, "Failure
+        // semantics"). Questo però significa che un fallimento di pulizia
+        // RIPETUTO oggi è invisibile a chiunque non legga i log di ogni
+        // singola esecuzione: nessuna verifica di sola lettura segnalava,
+        // finora, che il numero di coppie valide su disco ha superato il
+        // limite configurato. La retention è applicata per-mode
+        // (MariaDbBackupService::applyRetention(), glob scoped su
+        // "-{mode}-"), quindi il conteggio deve restare per-mode: sommare
+        // 'periodic' e 'pre-migration' insieme farebbe sembrare superato
+        // un limite in realtà rispettato da entrambi i mode separatamente.
+        $pairCountsByMode = $identityHash === null ? [] : $this->validPairCountsByMode($directory, $identityHash);
+        $retentionExceededModes = $retentionConfigured === null || $retentionInvalid
+            ? []
+            : array_keys(array_filter($pairCountsByMode, fn (int $count): bool => $count > $retentionConfigured));
 
         // Finding Codex (P2, PR #567): senza retention configurata i dump
         // si accumulano senza limite, e hash_file() su ognuno durante ogni
@@ -85,6 +124,10 @@ class MariaDbBackupHealthAudit
                 'max_age_hours' => $maxAgeHours,
                 'max_age_invalid' => $maxAgeInvalid,
                 'stale' => false,
+                'retention_configured' => $retentionConfigured,
+                'retention_invalid' => $retentionInvalid,
+                'pair_counts_by_mode' => $pairCountsByMode,
+                'retention_exceeded_modes' => $retentionExceededModes,
             ];
         }
 
@@ -98,12 +141,16 @@ class MariaDbBackupHealthAudit
 
         return [
             'applicable' => true,
-            'ok' => ! $stale && ! $maxAgeInvalid,
+            'ok' => ! $stale && ! $maxAgeInvalid && ! $retentionInvalid && $retentionExceededModes === [],
             'directory' => $directory,
             'latest' => $latest,
             'max_age_hours' => $maxAgeHours,
             'max_age_invalid' => $maxAgeInvalid,
             'stale' => $stale,
+            'retention_configured' => $retentionConfigured,
+            'retention_invalid' => $retentionInvalid,
+            'pair_counts_by_mode' => $pairCountsByMode,
+            'retention_exceeded_modes' => $retentionExceededModes,
         ];
     }
 
@@ -183,7 +230,65 @@ class MariaDbBackupHealthAudit
     }
 
     /**
-     * @return array{created_at_utc: string}|null
+     * Cantiere 72: conta le coppie artefatto+metadata VALIDE per questa
+     * identità database, raggruppate per mode ('periodic'/'pre-migration',
+     * o 'unknown' per metadata privi del campo) — a differenza di
+     * latestValidBackup(), che si ferma al primo candidato valido, qui
+     * ogni coppia deve essere validata (hash+size) per poterla contare
+     * davvero, quindi tocca l'intera cronologia per questa identità. Dato
+     * che la retention limita già il numero di coppie accumulate in
+     * condizioni normali, il costo resta proporzionale a "quante ne sono
+     * accumulate", non alla directory intera.
+     *
+     * @return array<string, int>
+     */
+    private function validPairCountsByMode(string $directory, string $identityHash): array
+    {
+        if ($directory === '' || ! is_dir($directory)) {
+            return [];
+        }
+
+        $artifacts = glob($directory.'/mariadb-'.$identityHash.'-*.sql') ?: [];
+        $counts = [];
+
+        foreach ($artifacts as $artifact) {
+            $metadata = $this->readValidMetadata($artifact);
+
+            if ($metadata === null) {
+                continue;
+            }
+
+            $counts[$metadata['mode']] = ($counts[$metadata['mode']] ?? 0) + 1;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Stesso valore di MariaDbBackupService::retentionLimit(), ma senza
+     * mai lanciare un'eccezione: questo servizio è di sola lettura e un
+     * valore malformato deve restare un segnale osservabile
+     * (retention_invalid), mai un errore che interrompe la verifica.
+     *
+     * @return array{0: int|null, 1: bool} [valore analizzato o null, configurato-ma-non-valido]
+     */
+    private function retentionLimit(): array
+    {
+        $retention = config('backup.v2.retention');
+
+        if ($retention === null || $retention === '') {
+            return [null, false];
+        }
+
+        if (! ctype_digit((string) $retention) || (int) $retention < 1) {
+            return [null, true];
+        }
+
+        return [(int) $retention, false];
+    }
+
+    /**
+     * @return array{created_at_utc: string, mode: string}|null
      */
     private function readValidMetadata(string $artifact): ?array
     {
@@ -215,7 +320,16 @@ class MariaDbBackupHealthAudit
             return null;
         }
 
-        return ['created_at_utc' => $decoded['created_at_utc']];
+        // Cantiere 72: un metadata pre-Cantiere-19 (o corrotto solo su
+        // questo campo) senza 'mode' valido finisce nel bucket 'unknown'
+        // invece di essere scartato — scartarlo lo renderebbe invisibile
+        // al conteggio di retention, sottostimando esattamente il rischio
+        // che questa verifica esiste per segnalare.
+        $mode = isset($decoded['mode']) && is_string($decoded['mode']) && $decoded['mode'] !== ''
+            ? $decoded['mode']
+            : 'unknown';
+
+        return ['created_at_utc' => $decoded['created_at_utc'], 'mode' => $mode];
     }
 
     private function ageInHours(string $createdAtUtc): float

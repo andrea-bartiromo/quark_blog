@@ -23,10 +23,10 @@ Repository CI may prove a real dump and restore against an ephemeral MariaDB ser
 | BACKUP_DIRECTORY_MODE | UNKNOWN / TO CONFIRM |
 | FREE_SPACE | UNKNOWN / TO CONFIRM |
 | ESTIMATED_DB_SIZE | UNKNOWN / TO CONFIRM |
-| RETENTION_POLICY | UNKNOWN / TO CONFIRM |
+| RETENTION_POLICY | UNKNOWN / TO CONFIRM — but when `DB_BACKUP_RETENTION` is set, whether it is actually being enforced on disk is now verifiable (see "Retention/RPO/RTO — what is verifiable today" below) |
 | OFF_HOST_STORAGE | Config-available, disabled by default (see "Optional off-host copy" below) — production destination, credentials, and retention/off-host policy remain UNKNOWN / TO CONFIRM |
-| RPO | UNKNOWN / TO CONFIRM |
-| RTO | UNKNOWN / TO CONFIRM |
+| RPO | UNKNOWN / TO CONFIRM as a committed production target — the current best-effort observable signal (time since the last valid local backup) is verifiable (see below) |
+| RTO | UNKNOWN / TO CONFIRM as a committed production target — CI proves a real restore succeeds and reports how long that CI restore took, not a production number (see below) |
 | MAINTENANCE_WINDOW | UNKNOWN / TO CONFIRM |
 | NON_INNODB_TABLES | UNKNOWN / TO CONFIRM |
 | RESTORE_RUNBOOK | UNKNOWN / TO CONFIRM |
@@ -60,6 +60,22 @@ After the local artifact and metadata pair is validated and atomically published
 - `DB_BACKUP_OFFHOST_PREFIX` — path prefix on that disk, defaults to `mariadb`.
 
 This is a config-and-test deliverable only: no real off-host destination, credentials, or production policy are established here. The local backup remains the sole guaranteed artifact; a failed off-host copy is a non-fatal warning, never a reason to consider the backup itself failed. Enabling this in production still requires the same operator approval as gate item 5 below (backup destination and retention/off-host policy approved) — this cantiere makes the mechanism available, it does not satisfy that gate.
+
+## Retention/RPO/RTO — what is verifiable today (Cantiere 72, programma "100 cantieri Kairus")
+
+This cantiere adds observability to three facts the table above still lists as production decisions — it does not commit to any of them, and does not change any retention/backup behavior. It only makes a previously silent risk (or a previously unmeasured number) checkable without reading raw logs.
+
+### Retention enforcement
+
+`MariaDbBackupService::applyRetention()` treats a cleanup failure as a non-fatal warning (see "Failure semantics" below) — the backup itself stays valid, but a *repeated* cleanup failure (disk permissions, an unexpected lock) would otherwise accumulate backups past the configured `DB_BACKUP_RETENTION` limit invisibly. `php artisan deploy:verify-database-backup` (Cantiere 19) now also reports this: when `DB_BACKUP_RETENTION` is configured, it counts the actually-valid backup pairs on disk **per mode** (`periodic`/`pre-migration`, since retention is enforced separately per mode) and warns — still without blocking `deploy.sh` — when either mode's count exceeds the configured limit. Still read-only: it never deletes anything itself.
+
+### RPO — what is observable vs. what remains a decision
+
+Backup V2 is manual/opt-in: nothing schedules `backup:database-v2` automatically, so there is no enforced cadence to derive an RPO from. What *is* observable today is the best-effort proxy `deploy:verify-database-backup` already reported since Cantiere 19: the age of the most recent valid local backup for the current database identity, optionally checked against `DB_BACKUP_MAX_AGE_HOURS`. That age is a floor on the real RPO (a fresher off-host copy or a more frequent operator cadence could do better), never a commitment — the actual RPO target an operator is willing to accept remains a production decision (`RPO` row above), not something this repository can infer from a manual, opt-in mechanism.
+
+### RTO — what is observable vs. what remains a decision
+
+The "MariaDB 11.4 real dump restore" CI job (see "CI restore evidence contract" below) proves, on every push to `main`, that a real Backup V2 artifact restores successfully with the real MariaDB client. It now also reports how long that specific CI restore took (echoed in the job log). This is **not** a production RTO: CI's database is a small deterministic fixture, on ephemeral CI hardware/network, restored non-interactively — none of which represents production data volume, infrastructure, or the human steps of an actual approved restore runbook. It is the one real, reproducible number available today instead of none, not a substitute for measuring an actual production restore rehearsal (`RESTORE_TEST_DATE` row above, still UNKNOWN / TO CONFIRM).
 
 ## Failure semantics
 

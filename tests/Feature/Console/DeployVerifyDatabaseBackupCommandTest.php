@@ -85,22 +85,57 @@ class DeployVerifyDatabaseBackupCommandTest extends TestCase
             ->expectsOutputToContain('non è un intero positivo valido');
     }
 
+    // ── Cantiere 72: retention verificabile ─────────────────────
+
+    public function test_fails_when_more_valid_backups_exist_than_the_configured_retention(): void
+    {
+        config(['backup.v2.retention' => 1]);
+        $this->writeValidPair(now('UTC')->toIso8601String(), 'a');
+        $this->writeValidPair(now('UTC')->subHour()->toIso8601String(), 'b');
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('DB_BACKUP_RETENTION');
+    }
+
+    public function test_passes_when_valid_backups_are_within_the_configured_retention(): void
+    {
+        config(['backup.v2.retention' => 2]);
+        $this->writeValidPair(now('UTC')->toIso8601String(), 'a');
+        $this->writeValidPair(now('UTC')->subHour()->toIso8601String(), 'b');
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Backup MariaDB valido trovato');
+    }
+
+    public function test_fails_when_retention_configuration_is_invalid(): void
+    {
+        config(['backup.v2.retention' => 'not-a-number']);
+        $this->writeValidPair(now('UTC')->toIso8601String());
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('DB_BACKUP_RETENTION');
+    }
+
     private function identityHash(): string
     {
         return substr(hash('sha256', 'mariadb|127.0.0.1|3306|kairus_test'), 0, 16);
     }
 
-    private function writeValidPair(string $createdAtUtc): string
+    private function writeValidPair(string $createdAtUtc, string $suffix = 'fixture'): string
     {
         if (! is_dir($this->directory)) {
             mkdir($this->directory, 0700, true);
         }
-        $artifact = $this->directory.'/mariadb-'.$this->identityHash().'-20260101T000000Z-periodic-fixture.sql';
+        $artifact = $this->directory.'/mariadb-'.$this->identityHash()."-20260101T000000Z-periodic-{$suffix}.sql";
         file_put_contents($artifact, "-- MariaDB dump\nCREATE TABLE example (id INT);\n");
         file_put_contents($artifact.'.json', json_encode([
             'created_at_utc' => $createdAtUtc,
             'sha256' => hash_file('sha256', $artifact),
             'size_bytes' => filesize($artifact),
+            'mode' => 'periodic',
         ], JSON_THROW_ON_ERROR));
 
         return $artifact;
