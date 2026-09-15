@@ -13,6 +13,7 @@ use App\Models\ConceptQuestion;
 use App\Models\ContentCluster;
 use App\Services\AnalyticsExclusionService;
 use App\Services\ContentGraph\ConceptSuggestionService;
+use App\Services\ContentGraph\ContentGraphService;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -45,6 +46,7 @@ class EntityContractsDriftTest extends TestCase
             ConceptAlias::class,
             AnalyticsExclusionService::class,
             ConceptSuggestionService::class,
+            ContentGraphService::class,
         ] as $class) {
             $this->assertStringContainsString(
                 class_basename($class),
@@ -77,6 +79,7 @@ class EntityContractsDriftTest extends TestCase
             [ConceptQuestion::class, 'concept'],
             [ConceptQuestion::class, 'targetArticle'],
             [AnalyticsExclusionService::class, 'shouldLoadAnalytics'],
+            [ContentGraphService::class, 'discoverableConceptsForArticle'],
         ];
 
         foreach ($expectations as [$class, $method]) {
@@ -153,10 +156,9 @@ class EntityContractsDriftTest extends TestCase
                 continue;
             }
 
-            $this->assertStringNotContainsString(
-                'domande/{',
-                $route->uri(),
-                "La route '{$route->uri()}' sembra implementare la pagina pubblica /domande/{slug} descritta come non ancora costruita."
+            $this->assertFalse(
+                $route->uri() === 'domande' || str_starts_with($route->uri(), 'domande/'),
+                "La route '{$route->uri()}' sembra implementare la pagina o l'hub pubblico /domande descritti come non ancora costruiti."
             );
         }
     }

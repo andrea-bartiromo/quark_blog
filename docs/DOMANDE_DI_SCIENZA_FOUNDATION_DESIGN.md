@@ -5,19 +5,30 @@
 **FOUNDATION MERGED — PUBLIC FEATURE STILL DEFERRED.** (aggiornato,
 Cantiere 91, programma "100 cantieri Kairus")
 
-Il modello Question/Concept proposto da #279 e ora su `main`, ammesso
-solo in admin (`app/Models/Concept.php`, `app/Models/ConceptQuestion.php`,
+Il modello Question/Concept proposto da #279 e ora su `main`
+(`app/Models/Concept.php`, `app/Models/ConceptQuestion.php`,
 `app/Http/Controllers/Admin/ConceptController.php`,
 `ConceptQuestionController.php`, route `/admin/concetti`). Fa parte della
 fondazione "Content Graph V1" (vedi
 `docs/ENTITY_CONTRACTS_CONTENT_ENTITIES.md` per il contratto completo
-del model reale). Questo NON significa che la missione descritta da
-questo documento sia stata implementata: **nessuna route pubblica esiste oggi**
-per `Concept`/`ConceptQuestion` (nessun `/domande/{slug}`, nessun hub
-`/domande`), e nessuna delle regole di pubblicazione, SEO, structured
-data o admin workflow descritte più sotto è stata costruita. Tutto il
-resto di questo documento resta un design non ancora implementato,
-salvo lo stato della fondazione appena corretto qui sopra.
+del model reale). **Anche il workflow editoriale admin descritto sotto
+in "Admin workflow" è già costruito**, non solo il model: lista domande
+per concept (`Admin\ConceptController::edit()`), crea/modifica
+question/slug/answer_summary/target_article_id/sort_order/status
+(`Admin\ConceptQuestionController`), preview della publication
+eligibility (`ContentGraphService::answerableQuestionsForConcept()`,
+con motivazioni per domanda "Approvata" ma non ancora raggiungibile via
+`ConceptQuestionReadinessService`). Quello che resta **genuinamente non
+costruito** è solo la missione pubblica: **nessuna route pubblica esiste oggi**
+per una pagina o un hub dedicati a `Concept`/`ConceptQuestion` (nessun
+`/domande/{slug}`, nessun hub `/domande`, nessuna delle regole di
+pubblicazione/SEO/structured data dedicate descritte più sotto).
+Concept è comunque già un consumer pubblico indiretto — non tramite una
+pagina propria, ma tramite `discoverableConceptsForArticle()` nel
+JSON-LD `about` degli articoli (vedi
+`docs/ENTITY_CONTRACTS_CONTENT_ENTITIES.md`) — quindi "non pubblico"
+qui si riferisce sempre e solo all'assenza di una pagina/hub dedicati,
+mai a un isolamento totale del dato.
 
 ## Dipendenza reale
 
@@ -146,15 +157,22 @@ Prima iterazione: riusare soltanto primitive gia affidabili nel progetto (es. br
 
 ## Admin workflow
 
-UI futura minimale, dopo ownership liberata:
+**Già costruito** (Mission 08 "Content Graph Questions V1", Mission 21
+"Question Status Workflow V2" — vedi `Admin\ConceptController::edit()`
+e `Admin\ConceptQuestionController`), non più UI futura:
 
-- lista domande per concept/status;
+- lista domande per concept, ordinata per `sort_order`/id;
 - crea/modifica question text, slug, concept, answer summary, target article, status, sort order;
-- preview della publication eligibility;
+- preview della publication eligibility (`answerableQuestionsForConcept()`),
+  con il "perché" itemizzato per ogni domanda "Approvata" ma non ancora
+  raggiungibile (`ConceptQuestionReadinessService`);
 - nessun pulsante "genera domande";
-- nessuna approvazione automatica.
+- nessuna approvazione automatica (`ConceptQuestionController::validatedQuestion()`
+  valida solo la forma, mai la raggiungibilità pubblica).
 
-Le superfici Admin Article sono oggi occupate da PR parallele e non vengono modificate da questa missione.
+Le superfici Admin Article restano quelle esistenti: questa missione non
+ne aggiunge di nuove, e la parte genuinamente da costruire resta solo la
+presentazione pubblica (route/hub/SEO), non il workflow editoriale.
 
 ## TROVA integration
 
@@ -210,12 +228,13 @@ Se una domanda e approvata ma non ha pagina autonoma pubblicabile, TROVA puo usa
 ## Sblocco implementation
 
 1. ~~#279 realmente mergiata su `main`~~ — **fatto**: `Concept`/
-   `ConceptQuestion` sono su `main`, ammessi solo in admin (vedi
-   "Stato" sopra);
+   `ConceptQuestion` sono su `main` col workflow editoriale admin
+   completo (vedi "Stato" e "Admin workflow" sopra);
 2. fresh-state audit del model/migration effettivi — parzialmente
    fatto qui (campi/stati confermati), ma nessun audit della logica di
    pubblicazione perché non esiste ancora;
-3. ownership route/controller/admin libera — da verificare al momento
-   dell'implementazione;
+3. ownership della route/controller **pubblica** libera (l'ownership
+   admin è già presa dai controller citati sopra, non è più un
+   prerequisito) — da verificare al momento dell'implementazione;
 4. catalogo editoriale reale sufficiente per decidere se `/domande` abbia senso;
 5. implementazione e gate PHP/MariaDB/browser in PR atomica separata.

@@ -44,8 +44,11 @@ mostrato pubblicamente: un leak editoriale, non solo un dato vecchio.
 
 ## Article
 
-- Stati: `Article::STATUS_DRAFT`, `STATUS_SCHEDULED`, `STATUS_PUBLISHED`
-  (`app/Models/Article.php`).
+- Stati: `Article::STATUS_DRAFT`, `STATUS_REVIEW`, `STATUS_SCHEDULED`,
+  `STATUS_PUBLISHED` (`app/Models/Article.php`). `STATUS_REVIEW`
+  (flusso redazionale "in revisione") azzera `published_at` in
+  `Article::booted()` — non è un alias di draft, è uno stato distinto
+  con la propria etichetta ("In revisione").
 - Visibilità pubblica reale: `Article::scopePublished()` — `status =
   'published' AND published_at <= now()`. Uno `status='published'` con
   `published_at` futuro (schedulazione) NON è ancora pubblico: nessun
@@ -100,13 +103,20 @@ mostrato pubblicamente: un leak editoriale, non solo un dato vecchio.
 
 ## Content Graph: Concept / ConceptQuestion (fondazione "Domande di scienza")
 
-Fondazione già mergiata e ammessa solo in admin
+Fondazione già mergiata, editorialmente gestita solo in admin
 (`app/Http/Controllers/Admin/ConceptController.php`,
 `ConceptQuestionController.php`, route `/admin/concetti`). **Nessuna
-pagina pubblica esiste oggi**: nessuna route pubblica referenzia
-`Concept`/`ConceptQuestion` (verificato — vedi
+pagina o hub pubblico dedicato esiste oggi**: nessuna route pubblica
+`/domande/*` o `/concetti/*` (verificato — vedi
 `docs/DOMANDE_DI_SCIENZA_FOUNDATION_DESIGN.md`, aggiornato in questo
-stesso cantiere per correggere lo stato stantio "non è su main").
+stesso cantiere per correggere lo stato stantio "non è su main"). Questo
+NON significa che `Concept` sia isolato dal pubblico: `Article`
+consuma già `Concept` (mai `ConceptQuestion`) tramite
+`ContentGraphService::discoverableConceptsForArticle()`, che
+`resources/views/articles/partials/structured-data.blade.php` emette
+come `about` nel JSON-LD di un articolo pubblicato — un consumer
+pubblico indiretto, filtrato (solo concept `active()`, solo articoli
+`published()`), non una pagina propria.
 
 - `Concept`: stati `STATUS_DRAFT`, `STATUS_ACTIVE`, `STATUS_INACTIVE`.
   Relazioni: `aliases()` (`ConceptAlias`), `articleLinks()`
