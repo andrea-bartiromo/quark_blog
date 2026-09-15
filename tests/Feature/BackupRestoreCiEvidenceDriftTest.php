@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -58,6 +59,23 @@ class BackupRestoreCiEvidenceDriftTest extends TestCase
                 "Il workflow CI non contiene più '{$expected}', citato (direttamente o come passo del contratto) da docs/BACKUP_V2_OPERATIONS.md."
             );
         }
+
+        // Codex (PR #614, P2): le sole substring sopra non bastano a
+        // provare la proprietà chiave "mai la sorgente" — creare/droppare
+        // kairus_restore resterebbe vero anche se il VERO comando di
+        // import o l'ambiente di verifica finissero per puntare invece a
+        // kairus_test (la sorgente). Qui si ancorano esplicitamente il
+        // comando di restore reale e l'ambiente del passo di verifica.
+        $this->assertStringContainsString(
+            'mariadb --defaults-extra-file="$option_file" kairus_restore < "$artifact"',
+            $workflow,
+            'Il comando di restore reale non importa più esplicitamente nel database usa-e-getta kairus_restore.'
+        );
+        $this->assertStringContainsString(
+            'DB_DATABASE: kairus_restore',
+            $workflow,
+            'Il passo di verifica non punta più esplicitamente a kairus_restore — potrebbe verificare la sorgente invece del restore.'
+        );
     }
 
     public function test_the_fixture_seeder_and_verification_test_files_still_exist(): void
@@ -83,13 +101,19 @@ class BackupRestoreCiEvidenceDriftTest extends TestCase
             $this->assertStringNotContainsString('backup/restore', $route->uri());
         }
 
-        $commandFiles = glob(base_path('app/Console/Commands/*.php')) ?: [];
-        foreach ($commandFiles as $file) {
-            $basename = basename($file);
+        // Codex (PR #614, P2): il nome pubblico di un comando Artisan è il
+        // suo $signature, che può differire arbitrariamente dal nome della
+        // classe/file (es. BackupDatabaseV2::$signature è
+        // 'backup:database-v2', non 'backup-database-v2' o simili) — un
+        // nuovo comando tipo DatabaseRecovery.php con signature
+        // 'backup:restore' avrebbe lasciato verde un controllo sul solo
+        // filename. Si interroga invece l'elenco reale dei comandi
+        // registrati nel kernel Artisan bootstrappato.
+        foreach (array_keys(Artisan::all()) as $commandName) {
             $this->assertStringNotContainsStringIgnoringCase(
                 'restore',
-                $basename,
-                "'{$basename}' sembra un comando di restore — se è un comando reale di restore locale, docs/BACKUP_V2_OPERATIONS.md va aggiornato di conseguenza."
+                $commandName,
+                "Il comando Artisan registrato '{$commandName}' sembra un comando di restore — se è un comando reale di restore locale, docs/BACKUP_V2_OPERATIONS.md va aggiornato di conseguenza."
             );
         }
     }
