@@ -149,6 +149,12 @@ jobs:
           EOF
           mariadb --defaults-extra-file="$option_file" -e 'DROP DATABASE IF EXISTS kairus_restore; CREATE DATABASE kairus_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;'
       - name: Restore real dump into disposable database
+        # Cantiere 72 (programma "100 cantieri Kairus"): riporta quanto
+        # tempo impiega QUESTO restore CI reale, non come impegno di RTO
+        # produzione (vedi docs/BACKUP_V2_OPERATIONS.md — troppe variabili
+        # cambiano in produzione: dimensione reale del database, hardware,
+        # rete, esecuzione manuale del runbook), ma come unico numero
+        # reale oggi disponibile invece di nessun numero.
         run: |
           set -eu
           artifact="$(cat /tmp/kairus-backup-artifact-path)"
@@ -162,7 +168,10 @@ jobs:
           user=root
           password=root_test_password
           EOF
+          start_epoch=$(date +%s)
           mariadb --defaults-extra-file="$option_file" kairus_restore < "$artifact"
+          end_epoch=$(date +%s)
+          echo "Restore CI reale completato in $((end_epoch - start_epoch))s (solo indicativo di questo ambiente CI, non un impegno di RTO produzione)."
       - name: Verify restored schema data relationships and Unicode
         env:
           DB_DATABASE: kairus_restore
