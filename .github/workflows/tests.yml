@@ -165,6 +165,7 @@ jobs:
           tests/Feature/Admin/Communication/NewsletterModuleRegressionTest.php
           tests/Feature/Admin/DashboardDataExportTest.php
           tests/Feature/ContentClusters/ContentClusterIndexPaginationTest.php
+          tests/Feature/ReferentialIntegrityDeletionTest.php
 
   windows-media-safety:
     runs-on: windows-latest
