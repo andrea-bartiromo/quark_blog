@@ -80,6 +80,20 @@ Dopo lo switch (qualunque meccanismo esterno lo esegua):
    questo repository verifica o esegue quel reload: è un passo
    dell'operatore, specifico dell'hosting.
 
+**Attenzione all'ordine se sono coinvolte migration** (finding Codex P1,
+PR #616): il rollback di schema (§2) va eseguito **prima** di questo
+switch, non dopo — la directory precedente a cui si torna tipicamente non
+contiene ancora il file della migration introdotta dal rilascio che si
+sta annullando, quindi `migrate:rollback` non potrebbe più trovarla per
+eseguirne il `down()` una volta effettuato lo switch. Vedi §2 per la
+procedura completa.
+
+**Attenzione alla Libreria Media**: la directory `public/assets/img` non
+è tra i percorsi verificati come persistenti tra le release (§4) — un
+upload avvenuto durante il rilascio che si sta annullando può non essere
+presente nella directory di release a cui si torna. Verificare §4 prima
+di considerare concluso un rollback completo.
+
 **UNKNOWN / TO CONFIRM** (nessun file di questo repository lo stabilisce):
 quante directory di release precedenti restano effettivamente sul server
 prima di essere ripulite, e chi/cosa esegue materialmente lo switch di
@@ -147,7 +161,27 @@ produzione) e la data dell'ultima prova di ripristino reale
 Questa è l'unica parte di questo runbook con un meccanismo realmente
 automatizzato e testato in questo repository: `scripts/selective-deploy-
 backup.sh`, in coppia con `scripts/git-release-manifest.sh` per generare
-il manifest da un intervallo di commit reale.
+il manifest da un intervallo di commit reale. **Copre solo i file sotto
+`public/`** — un rilascio che cambia anche file applicativi fuori da
+`public/` (es. `app/`) non è nello scope di questa sezione, che riguarda
+solo il rollback dei file statici pubblici; per quello serve il rollback
+completo (§1).
+
+`scripts/git-release-manifest.sh` genera, per ogni percorso sotto
+`public/`, **due** entry con lo stesso percorso relativo (prefisso
+`public/` tolto da entrambe): una `app`-scoped e una `public`-scoped
+(`docs/DEPLOYMENT.md`, "Deterministic release manifests"). Perché
+`--app-root` risolva quella entry `app`-scoped nel punto corretto (finding
+Codex, PR #616), va quindi puntato alla directory `public/`
+dell'applicazione, **non** alla radice del repository — un file Git
+`public/css/site.css` diventa l'entry `css/site.css`, che deve risolvere
+in `~/kairus_app/public/css/site.css`, non in `~/kairus_app/css/site.css`.
+Un manifest che includesse anche percorsi fuori da `public/` (possibile se
+`--from`/`--to` copre un intervallo con altri cambi applicativi) avrebbe
+entry `app`-scoped con il percorso relativo COMPLETO invece — incompatibili
+con questa stessa radice; generare qui il manifest solo per l'intervallo
+di commit che tocca `public/`, o filtrare manualmente il TSV alle sole
+righe rilevanti, prima di usarlo con questo comando.
 
 **Prerequisito**: un backup deve essere stato preso *prima* del rilascio
 che si vuole annullare:
@@ -156,7 +190,7 @@ che si vuole annullare:
 scripts/git-release-manifest.sh --from <sha-precedente> --to <sha-nuovo> --repo <checkout> > manifest.tsv
 scripts/selective-deploy-backup.sh backup \
   --manifest manifest.tsv \
-  --app-root ~/kairus_app --public-root ~/public_html \
+  --app-root ~/kairus_app/public --public-root ~/public_html \
   --backup-root <directory-di-backup> \
   --previous-sha <sha-precedente> --target-sha <sha-nuovo>
 ```
@@ -166,12 +200,12 @@ Per annullare, dato quel backup:
 ```bash
 scripts/selective-deploy-backup.sh rollback \
   --backup-dir <directory-di-backup-dal-passo-precedente> \
-  --app-root ~/kairus_app --public-root ~/public_html
+  --app-root ~/kairus_app/public --public-root ~/public_html
 ```
 
-Cosa copre: ogni file `app`-scoped (dentro `~/kairus_app`) e `public`-
-scoped (dentro `~/public_html`) presente nel manifest generato dal diff
-Git tra le due revision — inclusi CSS/JS e `public/.htaccess` se
+Cosa copre: ogni file `app`-scoped (dentro `~/kairus_app/public`) e
+`public`-scoped (dentro `~/public_html`) presente nel manifest generato
+dal diff Git tra le due revision — inclusi CSS/JS e `public/.htaccess` se
 modificati dal rilascio. Le entry `public`-scoped vengono ripristinate con
 permessi normalizzati (`644`/`755`) indipendentemente dal modo del file
 di backup, proprio per restare sicure sul webroot reale
@@ -203,26 +237,50 @@ php artisan deploy:asset-drift   # solo se DEPLOY_SERVED_PUBLIC_ROOT è configur
 
 ## 4. Media (Libreria Media, `public/assets/img`)
 
-La Libreria Media **non fa parte del payload di rilascio**: i file caricati
-tramite l'applicazione vivono in `public/assets/img`, fuori da Git, e
-`App\Services\PublicMediaSyncService` li replica in tempo reale (ad ogni
-creazione, spostamento o eliminazione operata dall'applicazione stessa,
-non ad ogni deploy) verso una seconda document root opzionale
-(`MEDIA_PUBLIC_ROOT`, se configurata). Il rollback di una release — intero
-o parziale che sia — **non tocca né deve toccare** il contenuto della
-Libreria Media: quei file esistono indipendentemente da quale directory di
-release sia attiva.
+**Correzione (finding Codex P1, PR #616)**: una prima versione di questa
+sezione affermava che il rollback "non tocca né deve toccare" la Libreria
+Media perché i suoi file "esistono indipendentemente da quale directory di
+release sia attiva" — non è verificato da nessun file di questo
+repository, ed è probabilmente falso per il rollback completo (§1).
 
-Il rischio reale non è "il rollback perde i media", ma il contrario: se il
-rilascio da annullare conteneva un bug applicativo che ha cancellato o
-spostato erroneamente dei file media, quell'operazione è già stata
-replicata dal vivo su entrambe le root (proprio perché
-`PublicMediaSyncService` è sincrona con l'azione, non con il deploy) —
-tornare a una release precedente non ripristina quei file, perché non
-esiste alcun meccanismo di versioning o backup della Libreria Media in
-questo repository. Questa lacuna non ha oggi alcuna mitigazione
-verificabile qui: va trattata allo stesso modo del limite descritto per
-il database al punto 2 — nessun ripristino automatico esiste.
+`public/assets/img` è letto/scritto da ogni servizio reale della Libreria
+Media tramite `public_path('assets/img')` (`docs/STORAGE_AUDIT.md`, "§4bis
+storage/ vs public/assets/img") — cioè **dentro** la directory `public/`
+dell'applicazione corrente, non in un percorso condiviso esterno. Contiene
+sia asset curati git-tracked sia upload scritti a runtime, **non
+git-tracked**. `App\Services\Deploy\PersistentStoragePreflight` (Cantiere
+18, `deploy:verify-persistent-storage`) verifica solo due percorsi contro
+il rischio "silenziosamente perso al prossimo switch di release" — il
+registro release e la directory dei backup Backup V2
+(`docs/DEPLOYMENT.md`, "Persistent storage preflight") — **mai**
+`public/assets/img`. Se quella directory non è deliberatamente condivisa
+tra le directory di release a livello di sistema operativo (es. un mount o
+un symlink impostato dall'operatore, mai da questo repository), un
+rollback completo (§1) che cambia directory di release attiva farebbe
+leggere all'applicazione la copia di `public/assets/img` di QUELLA
+directory — che può mancare di ogni upload avvenuto dopo che quella
+release ha smesso di essere corrente.
+
+**UNKNOWN / TO CONFIRM**: se `public/assets/img` è condiviso tra le
+directory di release in produzione (mount/symlink a livello di sistema
+operativo) o è una copia indipendente per ciascuna — nessun file di questo
+repository lo stabilisce. Finché non è confermato, un rollback completo
+va considerato a rischio di "perdita" (lato lettura applicativa, non
+necessariamente lato disco: `MEDIA_PUBLIC_ROOT`, se configurato, avrebbe
+comunque la copia più recente, ora scollegata da quale directory
+l'applicazione legge) di ogni upload media avvenuto durante la release che
+si sta annullando — verificare manualmente lo stato dei file più recenti
+in `public/assets/img` sulla directory ora attiva dopo ogni rollback
+completo, prima di considerarlo concluso.
+
+Un rischio distinto, non legato allo switch di directory: se il rilascio
+da annullare conteneva un bug applicativo che ha cancellato o spostato
+erroneamente dei file media, quell'operazione — se `MEDIA_PUBLIC_ROOT` è
+configurato — è già stata replicata dal vivo su entrambe le root da
+`App\Services\PublicMediaSyncService` (sincrona con l'azione applicativa,
+non con il deploy). Nessun rollback di release la annulla: non esiste
+alcun meccanismo di versioning o backup della Libreria Media in questo
+repository, stesso limite già descritto per il database al punto 2.
 
 ## 5. Cache
 
@@ -247,9 +305,12 @@ garantisce che il bytecode servito sia effettivamente aggiornato.
 
 1. Decidere rollback completo (§1) o solo dei file statici (§3), in base a
    cosa risulta rotto e a cosa esiste ancora sul server.
-2. Se sono coinvolte migration, **fermarsi e valutare §2 prima di
-   qualunque altro passo** — un rollback dei soli file statici con uno
-   schema di database già avanzato lascia l'applicazione in uno stato
+2. Se sono coinvolte migration, **valutare ed eseguire §2 PRIMA di
+   qualunque altro passo, incluso lo switch di directory** — un rollback
+   di release che precede quello di schema può rendere `migrate:rollback`
+   incapace di trovare la migration da annullare (§1, "Attenzione
+   all'ordine"), e un rollback dei soli file statici con uno schema di
+   database già avanzato lascia comunque l'applicazione in uno stato
    incoerente.
 3. Eseguire il rollback scelto (§1 o §3).
 4. Rieseguire il refresh cache (§5).
@@ -261,7 +322,8 @@ garantisce che il bytecode servito sia effettivamente aggiornato.
 7. Confermare con l'operatore hosting se un reload di PHP-FPM è
    necessario (OPcache).
 8. Verificare a parte lo stato della Libreria Media (§4) — nessun
-   passo precedente la ripristina automaticamente.
+   passo precedente ne garantisce la persistenza attraverso lo switch di
+   directory, tanto meno un ripristino automatico.
 
 ## Cosa questo runbook NON fa
 
