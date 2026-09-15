@@ -24,7 +24,7 @@ Repository CI may prove a real dump and restore against an ephemeral MariaDB ser
 | FREE_SPACE | UNKNOWN / TO CONFIRM |
 | ESTIMATED_DB_SIZE | UNKNOWN / TO CONFIRM |
 | RETENTION_POLICY | UNKNOWN / TO CONFIRM |
-| OFF_HOST_STORAGE | UNKNOWN / TO CONFIRM |
+| OFF_HOST_STORAGE | Config-available, disabled by default (see "Optional off-host copy" below) — production destination, credentials, and retention/off-host policy remain UNKNOWN / TO CONFIRM |
 | RPO | UNKNOWN / TO CONFIRM |
 | RTO | UNKNOWN / TO CONFIRM |
 | MAINTENANCE_WINDOW | UNKNOWN / TO CONFIRM |
@@ -51,6 +51,15 @@ Overlap uses the dedicated `DB_BACKUP_LOCK_STORE`, defaulting to Laravel's cross
 If `DB_BACKUP_BINARY` is empty, compatible client discovery prefers `mariadb-dump` and falls back to `mysqldump`. Production must still explicitly approve the actual binary and version before enablement.
 
 `DB_BACKUP_RETENTION` is deliberately unset by default. No production retention count is guessed by the repository.
+
+## Optional off-host copy (Cantiere 71, programma "100 cantieri Kairus")
+
+After the local artifact and metadata pair is validated and atomically published, Backup V2 can optionally copy both files to a second Laravel filesystem disk — config-only, disabled by default:
+
+- `DB_BACKUP_OFFHOST_DISK` — the name of a disk already configured in `config/filesystems.php` (e.g. an `s3`-compatible disk). Empty/unset (the default) means no off-host copy is ever attempted; behavior is identical to before this cantiere.
+- `DB_BACKUP_OFFHOST_PREFIX` — path prefix on that disk, defaults to `mariadb`.
+
+This is a config-and-test deliverable only: no real off-host destination, credentials, or production policy are established here. The local backup remains the sole guaranteed artifact; a failed off-host copy is a non-fatal warning, never a reason to consider the backup itself failed. Enabling this in production still requires the same operator approval as gate item 5 below (backup destination and retention/off-host policy approved) — this cantiere makes the mechanism available, it does not satisfy that gate.
 
 ## Failure semantics
 

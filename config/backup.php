@@ -18,5 +18,16 @@ return [
         'lock_store' => env('DB_BACKUP_LOCK_STORE', 'file'),
         'lock_seconds' => (int) env('DB_BACKUP_LOCK_SECONDS', 900),
         'revision_file' => env('DB_BACKUP_REVISION_FILE', base_path('REVISION')),
+        // Cantiere 71 (programma "100 cantieri Kairus"): seconda copia
+        // opzionale dell'artefatto+metadata già validati e pubblicati in
+        // locale, su un filesystem Laravel diverso da quello locale (es.
+        // un disco 's3' configurato altrove) — mai una destinazione
+        // presunta: quando 'disk' è vuoto/null la copia off-host non
+        // avviene mai, il backup locale resta l'unica fonte di verità
+        // esattamente come oggi. Vedi docs/BACKUP_V2_OPERATIONS.md.
+        'offhost' => [
+            'disk' => env('DB_BACKUP_OFFHOST_DISK'),
+            'prefix' => env('DB_BACKUP_OFFHOST_PREFIX', 'mariadb'),
+        ],
     ],
 ];

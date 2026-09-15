@@ -6,6 +6,7 @@ use App\Contracts\DatabaseDumpRunner;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
@@ -112,6 +113,7 @@ class MariaDbBackupService
             $metadataPublished = true;
             $this->setPrivatePermissions($metadataPath, 'backup metadata');
             $warnings = $this->applyRetention($directory, $final, $identityHash, $mode, $retention);
+            $warnings = array_merge($warnings, $this->copyToOffHostDiskIfConfigured($final, $metadataPath));
 
             return ['artifact' => $final, 'metadata' => $metadataPath, 'warnings' => $warnings] + $metadata;
         } catch (Throwable $e) {
@@ -220,6 +222,54 @@ class MariaDbBackupService
         }
 
         return array_values(array_unique($warnings));
+    }
+
+    /**
+     * Cantiere 71 (programma "100 cantieri Kairus"): seconda copia
+     * opzionale dell'artefatto+metadata GIÀ validati e promossi in
+     * locale — mai una scrittura alternativa, mai un percorso critico.
+     * Quando 'backup.v2.offhost.disk' è vuoto (default), questo metodo
+     * non fa nulla: il comportamento odierno resta identico bit per
+     * bit. Un fallimento qui non invalida mai il backup locale, già
+     * l'unica fonte di verità garantita — coerente con lo stesso
+     * principio "mai bloccante" già applicato a applyRetention() sopra:
+     * un warning raccolto, mai un'eccezione che farebbe apparire
+     * fallito un backup locale in realtà riuscito.
+     *
+     * @return array<int, string>
+     */
+    protected function copyToOffHostDiskIfConfigured(string $artifact, string $metadataPath): array
+    {
+        $disk = trim((string) config('backup.v2.offhost.disk'));
+        if ($disk === '') {
+            return [];
+        }
+        $prefix = trim((string) config('backup.v2.offhost.prefix')) ?: 'mariadb';
+
+        try {
+            $filesystem = Storage::disk($disk);
+            foreach ([$artifact, $metadataPath] as $localPath) {
+                $stream = @fopen($localPath, 'r');
+                if ($stream === false) {
+                    return ['Off-host backup copy skipped: unable to reopen a just-published local artifact.'];
+                }
+                try {
+                    if (! $filesystem->put($prefix.'/'.basename($localPath), $stream)) {
+                        return ['Off-host backup copy failed; the local backup remains the source of truth.'];
+                    }
+                } finally {
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['Off-host backup copy failed; the local backup remains the source of truth.'];
+        }
+
+        return [];
     }
 
     protected function deleteRetentionPair(string $artifact): bool
