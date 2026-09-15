@@ -74,21 +74,16 @@ class ConceptQuestionBalanceAuditService
         $q3 = $this->percentile($counts, 0.75);
         $iqr = $q3 - $q1;
 
-        if ($iqr <= 0.0) {
-            // Distribuzione uniforme (o quasi): nessuno scostamento è
-            // statisticamente significativo — mai forzare un falso
-            // positivo solo perché ogni Concept ha lo stesso numero di
-            // domande (o quasi).
-            return [
-                'applicable' => true,
-                'population' => $rows->count(),
-                'median' => $this->percentile($counts, 0.5),
-                'lower_fence' => null,
-                'upper_fence' => null,
-                'items' => [],
-            ];
-        }
-
+        // Finding Codex (P2, PR #617): un IQR pari a zero non significa
+        // "distribuzione uniforme, nessun outlier possibile" — significa
+        // solo che la MAGGIORANZA dei Concept condivide lo stesso
+        // conteggio (es. [1,1,1,1,100]: Q1=Q3=1, IQR=0, ma 100 resta un
+        // outlier evidentissimo). Il calcolo dei fence sotto gestisce
+        // correttamente ANCHE il caso IQR=0: con lowerFence=upperFence=Q1,
+        // un valore identico al resto non supera mai il confronto
+        // stretto (< / >), mentre un vero outlier lo supera comunque —
+        // nessun caso speciale necessario, la vera uniformità totale
+        // produce già 'items' vuoto da sé.
         $lowerFence = $q1 - 1.5 * $iqr;
         $upperFence = $q3 + 1.5 * $iqr;
 

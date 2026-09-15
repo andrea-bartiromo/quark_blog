@@ -58,8 +58,14 @@ class ConceptQuestionBalanceAuditServiceTest extends TestCase
 
     public function test_uniform_distribution_flags_no_outliers(): void
     {
-        // 5 Concept, tutti con esattamente 4 domande: Q1=Q3=4, IQR=0 —
-        // nessuno scostamento è possibile per costruzione.
+        // 5 Concept, tutti con esattamente 4 domande: Q1=Q3=lowerFence=
+        // upperFence=4, IQR=0 — nessun valore supera un confronto stretto
+        // (< / >) contro un fence identico al proprio valore, quindi
+        // nessuno scostamento viene segnalato, senza bisogno di un caso
+        // speciale per IQR=0 (finding Codex P2, PR #617: un caso speciale
+        // "IQR=0 -> nessun outlier possibile" nascondeva invece un vero
+        // outlier quando la maggioranza condivide un valore e la minoranza
+        // no — vedi test_flags_an_outlier_even_when_the_majority_shares_one_value_and_iqr_is_zero).
         foreach (range(1, 5) as $number) {
             $this->activeConceptWithQuestions('u'.$number, 4);
         }
@@ -69,9 +75,35 @@ class ConceptQuestionBalanceAuditServiceTest extends TestCase
         $this->assertTrue($result['applicable']);
         $this->assertSame(5, $result['population']);
         $this->assertSame(4.0, $result['median']);
-        $this->assertNull($result['lower_fence']);
-        $this->assertNull($result['upper_fence']);
+        $this->assertSame(4.0, $result['lower_fence']);
+        $this->assertSame(4.0, $result['upper_fence']);
         $this->assertSame([], $result['items']);
+    }
+
+    public function test_flags_an_outlier_even_when_the_majority_shares_one_value_and_iqr_is_zero(): void
+    {
+        // Finding Codex (P2, PR #617): conteggi [1,1,1,1,100], n=5.
+        // Q1 (indice 1.0, esatto) = 1. Q3 (indice 3.0, esatto) = 1.
+        // IQR = 0 -> lowerFence = upperFence = 1. Sotto il vecchio caso
+        // speciale "IQR<=0 -> nessun outlier", 100 sarebbe passato
+        // inosservato nonostante sia lo scostamento più evidente
+        // possibile. Con il confronto diretto contro i fence, 100 > 1
+        // viene correttamente segnalato.
+        $this->activeConceptWithQuestions('a', 1);
+        $this->activeConceptWithQuestions('b', 1);
+        $this->activeConceptWithQuestions('c', 1);
+        $this->activeConceptWithQuestions('d', 1);
+        $outlier = $this->activeConceptWithQuestions('e', 100);
+
+        $result = $this->service()->audit();
+
+        $this->assertTrue($result['applicable']);
+        $this->assertSame(1.0, $result['lower_fence']);
+        $this->assertSame(1.0, $result['upper_fence']);
+        $this->assertCount(1, $result['items']);
+        $this->assertSame($outlier->id, $result['items'][0]['concept_id']);
+        $this->assertSame(100, $result['items'][0]['questions_count']);
+        $this->assertSame(ConceptQuestionBalanceAuditService::OVER_REPRESENTED, $result['items'][0]['direction']);
     }
 
     public function test_flags_a_clear_over_represented_outlier(): void
