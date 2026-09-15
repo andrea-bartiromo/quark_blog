@@ -18,6 +18,12 @@ use Illuminate\Console\Command;
  * disco (per mode) supera quel limite — un fallimento di pulizia della
  * retention è "mai bloccante" per il backup stesso, ma senza questo
  * segnale resterebbe invisibile a un operatore.
+ *
+ * Cantiere 74 (programma "100 cantieri Kairus"): segnala anche, quando
+ * `DB_BACKUP_OFFHOST_DISK` è configurato (Cantiere 71), se la copia
+ * off-host del backup più recente risulta assente o irraggiungibile —
+ * stesso principio "mai bloccante per il backup locale, ma visibile
+ * qui" già applicato a retention e staleness.
  */
 class DeployVerifyDatabaseBackup extends Command
 {
@@ -76,6 +82,20 @@ class DeployVerifyDatabaseBackup extends Command
                 $this->warn("Ci sono {$count} backup MariaDB validi in modalità '{$mode}', oltre il limite di retention configurato ({$report['retention_configured']}, DB_BACKUP_RETENTION).");
             }
             $this->line('La pulizia automatica della retention potrebbe fallire ripetutamente (permessi, spazio disco): vedi docs/BACKUP_V2_OPERATIONS.md, "Failure semantics".');
+
+            return self::FAILURE;
+        }
+
+        // Cantiere 74 (programma "100 cantieri Kairus"): stesso principio
+        // "solo informativo" sopra — un fallimento di caricamento off-host
+        // non invalida mai il backup locale, ma senza questo segnale
+        // resterebbe invisibile fino al momento in cui servirebbe di più.
+        if ($report['offhost_checked'] && ($report['offhost_missing'] || $report['offhost_error'])) {
+            $reason = $report['offhost_error']
+                ? "il disco '{$report['offhost_disk']}' non è raggiungibile o non è configurato correttamente"
+                : "la copia off-host di {$report['latest']['path']} risulta assente sul disco '{$report['offhost_disk']}'";
+            $this->warn("Verifica off-host fallita: {$reason}.");
+            $this->line('Il backup locale resta valido; vedi docs/BACKUP_V2_OPERATIONS.md, "Optional off-host copy" per la configurazione attesa.');
 
             return self::FAILURE;
         }

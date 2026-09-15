@@ -191,7 +191,17 @@ class ContentClusterAutoLifecycleCompletionTest extends TestCase
     // 9. exact scheduled publication boundary
     public function test_9_promotes_exactly_when_the_final_articles_publication_instant_is_reached(): void
     {
-        $target = Carbon::parse('2026-09-10 12:00:00', 'UTC');
+        // Root-causato durante la revisione della PR #615 (programma "100
+        // cantieri Kairus"): una data assoluta hardcoded qui sarebbe
+        // scaduta al primo passaggio del calendario oltre quella data —
+        // 'Prima tappa' sotto usa now()->subHour() (tempo reale, PRIMA che
+        // questo test congeli l'orologio), quindi appena la data reale di
+        // oggi supera quella hardcoded, 'Prima tappa' pubblica DOPO
+        // $target invece che prima, facendo fallire deterministicamente
+        // (mai "flaky") ogni esecuzione da quel giorno in poi. $target
+        // relativo a now() reale resta sempre nel futuro rispetto a
+        // 'Prima tappa', qualunque sia la data in cui gira il test.
+        $target = now('UTC')->addDay()->startOfHour();
         $cluster = ContentCluster::factory()->create(['lifecycle_status' => ContentCluster::LIFECYCLE_UPDATING]);
         $author = User::factory()->create();
         $final = Article::create([

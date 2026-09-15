@@ -306,7 +306,13 @@ class PublicSurfaceResponsiveImageTest extends TestCase
         $this->assertStringContainsString('src="'.asset('assets/img/author-card-avatar.jpg').'"', $avatarBlock[0]);
         $this->assertStringContainsString('srcset="'.asset('assets/img/author-card-avatar-480w.jpg').' 480w, '
             .asset('assets/img/author-card-avatar.jpg').' 800w"', $avatarBlock[0]);
-        $this->assertStringContainsString('alt="'.$author->name.'"', $avatarBlock[0]);
+        // e() perché l'autore è generato da Faker: un nome casuale che
+        // include per caso un carattere HTML-speciale (es. l'apostrofo in
+        // "O'Keefe") viene HTML-escaped da Blade nell'attributo renderizzato
+        // — un confronto contro il nome grezzo fallirebbe non-deterministicamente
+        // solo in quei run (vedi anche il test dedicato sotto, con nome fisso
+        // apposta per coprire l'escaping in modo riproducibile).
+        $this->assertStringContainsString('alt="'.e($author->name).'"', $avatarBlock[0]);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Console;
 
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -21,6 +22,7 @@ class DeployVerifyDatabaseBackupCommandTest extends TestCase
         $this->directory = storage_path('framework/testing/backup-health-cmd-'.bin2hex(random_bytes(4)));
         config(['backup.v2.directory' => $this->directory]);
         config(['backup.v2.max_age_hours' => null]);
+        config(['backup.v2.offhost.disk' => null]);
         config(['database.default' => 'mariadb']);
         config(['database.connections.mariadb.host' => '127.0.0.1']);
         config(['database.connections.mariadb.port' => '3306']);
@@ -117,6 +119,42 @@ class DeployVerifyDatabaseBackupCommandTest extends TestCase
         $this->artisan('deploy:verify-database-backup')
             ->assertExitCode(1)
             ->expectsOutputToContain('DB_BACKUP_RETENTION');
+    }
+
+    // ── Cantiere 74: verifica off-host ────────────────────────────
+
+    public function test_fails_when_the_offhost_copy_of_the_latest_backup_is_missing(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $this->writeValidPair(now('UTC')->toIso8601String());
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('Verifica off-host fallita');
+    }
+
+    public function test_passes_when_the_offhost_copy_of_the_latest_backup_exists(): void
+    {
+        Storage::fake('offhost');
+        config(['backup.v2.offhost.disk' => 'offhost']);
+        $artifact = $this->writeValidPair(now('UTC')->toIso8601String());
+        Storage::disk('offhost')->put('mariadb/'.basename($artifact), file_get_contents($artifact));
+        Storage::disk('offhost')->put('mariadb/'.basename($artifact).'.json', file_get_contents($artifact.'.json'));
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(0)
+            ->expectsOutputToContain('Backup MariaDB valido trovato');
+    }
+
+    public function test_fails_when_the_configured_offhost_disk_does_not_exist(): void
+    {
+        config(['backup.v2.offhost.disk' => 'not-a-configured-disk']);
+        $this->writeValidPair(now('UTC')->toIso8601String());
+
+        $this->artisan('deploy:verify-database-backup')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('Verifica off-host fallita');
     }
 
     private function identityHash(): string
