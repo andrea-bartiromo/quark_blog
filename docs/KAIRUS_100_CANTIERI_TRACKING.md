@@ -102,7 +102,7 @@ soddisfatta o richiede dato/decisione fuori standing authorization)
 | 68 | Metriche privacy-first navigazione Turing | pending | — | — | — | — | 63 |
 | 69 | Checklist beta interna Turing | pending | — | — | — | — | 62, 67, 68 |
 | 70 | Piano rilascio Turing (preflight + rollback) | pending | — | — | — | — | 69 |
-| 71 | Backup off-host opzionale (config + test, no dati reali) | pending | — | — | — | — | — |
+| 71 | Backup off-host opzionale (config + test, no dati reali) | in_progress | branch `kairus-cantiere-71-backup-off-host` | — | 4 nuovi test (`BackupDatabaseV2OffHostTest`: nessuna copia con disco non configurato — verificato fakeando il disco di default stesso, non solo l'assenza di un warning —, copia riuscita su disco `Storage::fake()`, prefix personalizzato onorato, disco mal configurato produce un warning ma il backup locale resta valido); regressione mirata (filtro `Backup`, 76 test): 75/76 (1 skip pre-esistente, 0 falliti); sweep aggiuntivo Deploy+Console (514 test): 510/514 (4 skip pre-esistenti, 0 falliti); Pint: passed, `git diff --check`: pulito | — | — |
 | 72 | Retention/RPO/RTO documentati e verificabili | pending | — | — | — | — | 71 |
 | 73 | Restore isolato con fixture/dump non produttivi | pending | — | — | — | — | 71 |
 | 74 | Audit dei backup | pending | — | — | — | — | 71-73 |

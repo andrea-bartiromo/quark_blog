@@ -4,8 +4,10 @@ namespace App\Services\Backup;
 
 use App\Contracts\DatabaseDumpRunner;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
@@ -112,6 +114,7 @@ class MariaDbBackupService
             $metadataPublished = true;
             $this->setPrivatePermissions($metadataPath, 'backup metadata');
             $warnings = $this->applyRetention($directory, $final, $identityHash, $mode, $retention);
+            $warnings = array_merge($warnings, $this->copyToOffHostDiskIfConfigured($final, $metadataPath));
 
             return ['artifact' => $final, 'metadata' => $metadataPath, 'warnings' => $warnings] + $metadata;
         } catch (Throwable $e) {
@@ -220,6 +223,108 @@ class MariaDbBackupService
         }
 
         return array_values(array_unique($warnings));
+    }
+
+    /**
+     * Cantiere 71 (programma "100 cantieri Kairus"): seconda copia
+     * opzionale dell'artefatto+metadata GIÀ validati e promossi in
+     * locale — mai una scrittura alternativa, mai un percorso critico.
+     * Quando 'backup.v2.offhost.disk' è vuoto (default), questo metodo
+     * non fa nulla: il comportamento odierno resta identico bit per
+     * bit. Un fallimento qui non invalida mai il backup locale, già
+     * l'unica fonte di verità garantita — coerente con lo stesso
+     * principio "mai bloccante" già applicato a applyRetention() sopra:
+     * un warning raccolto, mai un'eccezione che farebbe apparire
+     * fallito un backup locale in realtà riuscito.
+     *
+     * Se il caricamento dell'artefatto riesce ma quello del metadata
+     * fallisce (o viceversa), l'oggetto già caricato in QUESTO tentativo
+     * viene ripulito prima di restituire il warning: ogni esecuzione usa
+     * un basename nuovo (token casuale) e non esiste alcuna retention
+     * off-host, quindi senza questa pulizia un fallimento ripetuto
+     * lascerebbe accumulare dump non verificati e spaiati sul disco
+     * remoto — quota consumata, e un umano che audita quel disco
+     * potrebbe scambiarli per backup utilizzabili (Codex, PR #610).
+     *
+     * @return array<int, string>
+     */
+    protected function copyToOffHostDiskIfConfigured(string $artifact, string $metadataPath): array
+    {
+        $disk = trim((string) config('backup.v2.offhost.disk'));
+        if ($disk === '') {
+            return [];
+        }
+        $prefix = trim((string) config('backup.v2.offhost.prefix')) ?: 'mariadb';
+        $filesystem = null;
+        $uploaded = [];
+
+        try {
+            $filesystem = Storage::disk($disk);
+            foreach ([$artifact, $metadataPath] as $localPath) {
+                $remotePath = $prefix.'/'.basename($localPath);
+                $stream = @fopen($localPath, 'r');
+                if ($stream === false) {
+                    $this->cleanupOffHostPartialUpload($filesystem, $uploaded);
+
+                    return ['Off-host backup copy skipped: unable to reopen a just-published local artifact.'];
+                }
+                try {
+                    if (! $this->putToOffHostDisk($filesystem, $remotePath, $stream)) {
+                        $this->cleanupOffHostPartialUpload($filesystem, $uploaded);
+
+                        return ['Off-host backup copy failed; the local backup remains the source of truth.'];
+                    }
+                    $uploaded[] = $remotePath;
+                } finally {
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+            $this->cleanupOffHostPartialUpload($filesystem, $uploaded);
+
+            return ['Off-host backup copy failed; the local backup remains the source of truth.'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Seam di sola scrittura, isolato per essere sovrascrivibile nei
+     * test (stesso pattern già in uso per promoteValidatedBackup() e
+     * deleteRetentionPair() in questo file) — necessario per simulare
+     * in modo deterministico "il primo caricamento riesce, il secondo
+     * fallisce" senza credenziali reali o un secondo disco fasullo con
+     * fallimento parziale incorporato.
+     *
+     * @param  resource  $stream
+     */
+    protected function putToOffHostDisk(Filesystem $filesystem, string $remotePath, $stream): bool
+    {
+        return $filesystem->put($remotePath, $stream);
+    }
+
+    /**
+     * Best-effort: se anche la cancellazione fallisce non c'è altro da
+     * fare qui in sicurezza — stesso spirito degli @unlink() best-effort
+     * già usati per la pulizia locale in createLocked().
+     *
+     * @param  array<int, string>  $uploaded
+     */
+    private function cleanupOffHostPartialUpload(?Filesystem $filesystem, array $uploaded): void
+    {
+        if ($filesystem === null) {
+            return;
+        }
+        foreach ($uploaded as $remotePath) {
+            try {
+                $filesystem->delete($remotePath);
+            } catch (Throwable) {
+                // Nessun'azione ulteriore sicura possibile qui.
+            }
+        }
     }
 
     protected function deleteRetentionPair(string $artifact): bool
