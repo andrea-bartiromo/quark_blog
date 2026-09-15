@@ -2,23 +2,45 @@
 
 ## Stato
 
-**DESIGN COMPLETE — IMPLEMENTATION DEFERRED.**
+**FOUNDATION MERGED — PUBLIC FEATURE STILL DEFERRED.** (aggiornato,
+Cantiere 91, programma "100 cantieri Kairus")
 
-Il modello Question/Concept non e su `main`: #279 e una PR draft separata. Questa missione non duplica migration, model o service del Content Graph.
+Il modello Question/Concept proposto da #279 e ora su `main`, ammesso
+solo in admin (`app/Models/Concept.php`, `app/Models/ConceptQuestion.php`,
+`app/Http/Controllers/Admin/ConceptController.php`,
+`ConceptQuestionController.php`, route `/admin/concetti`). Fa parte della
+fondazione "Content Graph V1" (vedi
+`docs/ENTITY_CONTRACTS_CONTENT_ENTITIES.md` per il contratto completo
+del model reale). Questo NON significa che la missione descritta da
+questo documento sia stata implementata: **nessuna route pubblica esiste oggi**
+per `Concept`/`ConceptQuestion` (nessun `/domande/{slug}`, nessun hub
+`/domande`), e nessuna delle regole di pubblicazione, SEO, structured
+data o admin workflow descritte più sotto è stata costruita. Tutto il
+resto di questo documento resta un design non ancora implementato,
+salvo lo stato della fondazione appena corretto qui sopra.
 
 ## Dipendenza reale
 
-Il design assume soltanto il contratto che #279 propone, senza considerarlo disponibile a runtime:
+Il design assume il contratto che #279 proponeva, **ora disponibile a
+runtime** tramite il model reale mergiato:
 
-- question text;
-- slug;
-- concept;
-- target article opzionale;
-- answer summary;
-- status;
-- sort order.
+- question text (`ConceptQuestion::$question`);
+- slug (`ConceptQuestion::$slug`, auto-generato dal testo se assente);
+- concept (`ConceptQuestion::concept()`, belongsTo `Concept`);
+- target article opzionale (`ConceptQuestion::$target_article_id` /
+  `targetArticle()`);
+- answer summary (`ConceptQuestion::$answer_summary`);
+- status (`ConceptQuestion::STATUS_DRAFT`/`STATUS_APPROVED`/
+  `STATUS_INACTIVE` — combaciano esattamente con il contratto previsto
+  sotto);
+- sort order (`ConceptQuestion::$sort_order`).
 
-Qualunque implementazione deve ripartire da un fresh-state audit dopo il merge effettivo di #279.
+La fondazione esiste; l'implementazione della missione pubblica
+descritta da questo documento (route, hub, SEO, admin workflow
+dedicato) resta da costruire come una PR atomica separata, seguendo
+comunque un fresh-state audit del model reale prima di iniziare (i
+campi sopra sono già verificati, ma nessuna logica di pubblicazione
+esiste ancora).
 
 ## Obiettivo editoriale
 
@@ -30,9 +52,10 @@ Nessuna domanda viene generata automaticamente da query, LLM, Search Console o C
 
 ## Stati e workflow
 
-Usare gli stati del model reale quando #279 sara su `main`.
+Gli stati del model reale (`ConceptQuestion::STATUS_*`) sono ora
+verificabili direttamente: combaciano con il contratto previsto sotto.
 
-Contratto previsto:
+Contratto previsto (confermato contro il model reale):
 
 - `draft`: metadato/editorial work in progress, mai pubblico;
 - `approved`: approvato dalla redazione, ma la pubblicabilita dipende anche dalla risposta e dal concetto;
@@ -186,8 +209,13 @@ Se una domanda e approvata ma non ha pagina autonoma pubblicabile, TROVA puo usa
 
 ## Sblocco implementation
 
-1. #279 realmente mergiata su `main`;
-2. fresh-state audit del model/migration effettivi;
-3. ownership route/controller/admin libera;
+1. ~~#279 realmente mergiata su `main`~~ — **fatto**: `Concept`/
+   `ConceptQuestion` sono su `main`, ammessi solo in admin (vedi
+   "Stato" sopra);
+2. fresh-state audit del model/migration effettivi — parzialmente
+   fatto qui (campi/stati confermati), ma nessun audit della logica di
+   pubblicazione perché non esiste ancora;
+3. ownership route/controller/admin libera — da verificare al momento
+   dell'implementazione;
 4. catalogo editoriale reale sufficiente per decidere se `/domande` abbia senso;
 5. implementazione e gate PHP/MariaDB/browser in PR atomica separata.
