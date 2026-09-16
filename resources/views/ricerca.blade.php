@@ -3,6 +3,7 @@
 @section('title', ($query ? 'Ricerca: '.e($query) : 'Ricerca').' — '.config('laboratorio.name'))
 @section('description', 'Cerca articoli, autori e categorie nell’archivio editoriale di Kairus.')
 @section('robots', 'noindex,follow')
+@section('canonical', route('ricerca'))
 
 @section('content')
 {{--
