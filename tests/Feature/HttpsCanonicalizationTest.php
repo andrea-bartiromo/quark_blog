@@ -234,6 +234,14 @@ class HttpsCanonicalizationTest extends TestCase
         $response->assertOk();
         $response->assertHeaderMissing('X-Robots-Tag');
         $response->assertSee('<meta name="robots" content="noindex,follow">', false);
+        $response->assertSee('<link rel="canonical" href="'.route('ricerca').'">', false);
+    }
+
+    public function test_cookie_page_has_an_absolute_self_referencing_canonical(): void
+    {
+        $this->get(route('cookie'))
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="'.route('cookie').'">', false);
     }
 
     // 5quinquies. Il canonical va sempre HTML-escaped: canonical_url è un

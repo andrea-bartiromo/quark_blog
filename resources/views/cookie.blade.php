@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Cookie Policy — Kairus')
 @section('description', 'Cookie policy di Kairus. Quali cookie utilizziamo e come gestirli.')
+@section('canonical', route('cookie'))
 
 @section('content')
 <div class="public-page public-page--legal">
