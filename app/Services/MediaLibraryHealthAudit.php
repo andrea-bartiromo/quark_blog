@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Media;
+use App\Support\MediaServedRoot;
 
 /**
  * Cantiere 26 (programma 100-cantieri Kairus). Ispezione preliminare:
@@ -12,7 +13,8 @@ use App\Models\Media;
  * scansionati) e i candidati a conversione WebP (un file non ottimale
  * per formato). Nessuna di queste tre cose viene duplicata qui: questo
  * audit riusa MediaWebpAuditService per "formato non ottimale" e per
- * "file mancante", e aggiunge le due dimensioni editoriali che
+ * individuare candidati potenzialmente mancanti; la presenza effettiva
+ * viene poi verificata sulla root pubblica servita. Aggiunge inoltre le due dimensioni editoriali che
  * NESSUN audit esistente copre — testo alternativo e credito/fonte —
  * piu' un controllo di peso assente ovunque nel progetto (verificato:
  * nessun servizio segnala un file "troppo pesante").
@@ -59,9 +61,15 @@ class MediaLibraryHealthAudit
                 $counters['missing_credit']++;
             }
 
-            $isMissingFile = in_array($media->disk_name, $missingDiskNames, true);
+            // MediaWebpAuditService continua a misurare conversioni e formati
+            // sulla root della release. La salute della Libreria, invece,
+            // deve rispondere alla domanda distinta "il file e' servito al
+            // pubblico?": MEDIA_PUBLIC_ROOT e' gia' la fonte di verita'
+            // configurata per la document root cPanel separata.
+            $isMissingFile = in_array($media->disk_name, $missingDiskNames, true)
+                && ! MediaServedRoot::contains($media->disk_name);
             if ($isMissingFile) {
-                $findings[] = 'File assente su disco (registrato in Libreria media, ma non trovato in public/assets/img).';
+                $findings[] = 'File assente dalla root pubblica servita (registrato in Libreria media, ma non raggiungibile dal percorso configurato).';
                 $counters['missing_file']++;
             }
 
