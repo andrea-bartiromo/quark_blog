@@ -10,6 +10,7 @@ use App\Services\MediaReferenceService;
 use App\Services\MediaWebpAuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\UsesIsolatedPublicPath;
+use Tests\Concerns\UsesIsolatedMediaPublicRoot;
 use Tests\TestCase;
 
 /**
@@ -21,16 +22,19 @@ use Tests\TestCase;
 class MediaLibraryHealthAuditTest extends TestCase
 {
     use RefreshDatabase;
+    use UsesIsolatedMediaPublicRoot;
     use UsesIsolatedPublicPath;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->setUpIsolatedPublicPath();
+        $this->setUpIsolatedMediaPublicRoot();
     }
 
     protected function tearDown(): void
     {
+        $this->tearDownIsolatedMediaPublicRoot();
         $this->tearDownIsolatedPublicPath();
         parent::tearDown();
     }
@@ -148,6 +152,26 @@ class MediaLibraryHealthAuditTest extends TestCase
         $result = $this->service()->audit();
 
         $this->assertSame(1, $result['missing_file']);
+    }
+
+    public function test_a_media_file_only_in_the_configured_served_root_is_not_flagged_as_missing(): void
+    {
+        $servedPath = $this->isolatedMediaPublicRoot.'/served.webp';
+        $image = imagecreatetruecolor(100, 100);
+        imagewebp($image, $servedPath, 90);
+        imagedestroy($image);
+
+        $this->media('served.webp', [
+            'mime_type' => 'image/webp',
+            'alt_text' => 'Descrizione',
+            'credit' => 'Mario Rossi',
+            'source' => 'Archivio personale',
+        ]);
+
+        $result = $this->service()->audit();
+
+        $this->assertSame(0, $result['missing_file']);
+        $this->assertSame([], $result['rows'][0]['findings']);
     }
 
     public function test_an_oversized_image_is_flagged(): void
