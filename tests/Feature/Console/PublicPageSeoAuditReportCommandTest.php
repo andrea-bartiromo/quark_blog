@@ -14,11 +14,24 @@ class PublicPageSeoAuditReportCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_lists_every_page_type_and_warns_about_findings_and_unchecked_types(): void
+    /**
+     * Storico: prima del commit e8049a4 ("fix: usa la root media servita
+     * e aggiunge i canonical mancanti"), ricerca.blade.php mancava del
+     * canonical ed era l'unico finding su un ambiente appena migrato —
+     * questo test verificava quindi il ramo "almeno un problema
+     * segnalato". Il fix ha eliminato quel finding: su un ambiente pulito
+     * l'audit non ne rileva più nessuno, quindi il comando imbocca
+     * legittimamente il ramo "Nessun problema rilevato" (vedi
+     * PublicPageSeoAuditReport::handle()). Il ramo "pagine non
+     * verificate" resta invece valido: in un ambiente appena migrato
+     * senza Articoli/Percorsi, articolo/autore/percorso restano sempre
+     * senza un esempio pubblico.
+     */
+    public function test_lists_every_page_type_and_warns_about_unchecked_types(): void
     {
         $this->artisan('pages:seo-audit')
             ->assertExitCode(0)
-            ->expectsOutputToContain('segnalano almeno un problema')
+            ->expectsOutputToContain('Nessun problema rilevato tra le pagine verificate.')
             ->expectsOutputToContain('non verificati per assenza di un esempio pubblico');
     }
 
