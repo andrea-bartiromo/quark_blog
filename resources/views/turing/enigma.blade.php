@@ -691,6 +691,8 @@
         ]"
     />
 
+    <x-turing.chapter-sources chapter="enigma" />
+
 </div>
 @endsection
 
