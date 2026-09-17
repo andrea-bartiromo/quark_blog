@@ -46,13 +46,15 @@ class TuringConceptMapPageTest extends TestCase
         }
     }
 
-    public function test_the_page_shows_cross_chapter_richiami(): void
+    public function test_the_page_shows_cross_chapter_richiami_with_their_qualificatori(): void
     {
         $response = $this->actingAs($this->editor())->get(route('admin.turing.concept-map'));
 
         $response->assertOk();
-        // "Macchina universale" ha richiami sia in AI che in Legacy.
-        $response->assertSeeText('Ai · Legacy');
+        // "Macchina universale" ha richiami sia in AI (cenno) che in Legacy
+        // (teaser) — il qualificatore non deve mai sparire dalla resa
+        // (Codex PR #625, P2).
+        $response->assertSeeText('Ai (cenno) · Legacy (teaser)');
     }
 
     public function test_the_turing_lite_editor_links_to_the_concept_map(): void

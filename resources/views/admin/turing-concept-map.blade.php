@@ -40,7 +40,10 @@
                             @if(empty($concept['richiami']))
                                 <span style="color:var(--admin-muted);">—</span>
                             @else
-                                {{ implode(' · ', array_map('ucfirst', $concept['richiami'])) }}
+                                {{ implode(' · ', array_map(
+                                    fn (array $r) => ucfirst($r['capitolo']).' ('.$r['qualificatore'].')',
+                                    $concept['richiami']
+                                )) }}
                             @endif
                         </td>
                         <td>{{ $concept['livello_approfondimento'] }}</td>

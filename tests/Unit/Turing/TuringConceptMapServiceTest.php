@@ -36,14 +36,34 @@ class TuringConceptMapServiceTest extends TestCase
         foreach (TuringConceptMapService::concepts() as $concept) {
             foreach ($concept['richiami'] as $richiamo) {
                 $this->assertContains(
-                    $richiamo,
+                    $richiamo['capitolo'],
                     $realChapters,
-                    "richiamo '{$richiamo}' per l'argomento '{$concept['argomento']}' non è un vero capitolo Turing."
+                    "richiamo '{$richiamo['capitolo']}' per l'argomento '{$concept['argomento']}' non è un vero capitolo Turing."
                 );
                 $this->assertNotSame(
                     $concept['capitolo_principale'],
-                    $richiamo,
+                    $richiamo['capitolo'],
                     "l'argomento '{$concept['argomento']}' richiama il proprio stesso capitolo principale."
+                );
+            }
+        }
+    }
+
+    /**
+     * Codex (PR #625, P2): il qualificatore ("teaser"/"cenno"/"richiamo"/
+     * "fondamento") indica all'editor come il concetto va trattato fuori
+     * dal proprio capitolo principale — non è un dettaglio decorativo,
+     * ometterlo o lasciarlo vuoto renderebbe la trascrizione ambigua
+     * rispetto alla fonte.
+     */
+    public function test_every_richiamo_has_a_non_empty_qualificatore(): void
+    {
+        foreach (TuringConceptMapService::concepts() as $concept) {
+            foreach ($concept['richiami'] as $richiamo) {
+                $this->assertNotSame(
+                    '',
+                    trim($richiamo['qualificatore']),
+                    "il richiamo verso '{$richiamo['capitolo']}' per l'argomento '{$concept['argomento']}' non ha un qualificatore."
                 );
             }
         }
@@ -111,5 +131,23 @@ class TuringConceptMapServiceTest extends TestCase
         $this->assertCount(11, $grouped['ai']);
         $this->assertCount(4, $grouped['legacy']);
         $this->assertCount(26, TuringConceptMapService::concepts());
+    }
+
+    /**
+     * Tripwire di fedeltà sui qualificatori (Codex PR #625, P2): "Macchina
+     * universale" è l'unica riga del §4 con due richiami diversi, ciascuno
+     * con un qualificatore diverso dall'altro — la combinazione più a
+     * rischio di essere scambiata o persa in una futura modifica.
+     */
+    public function test_macchina_universale_has_both_richiami_with_their_distinct_qualificatori(): void
+    {
+        $concept = collect(TuringConceptMapService::concepts())
+            ->firstWhere('argomento', 'Macchina universale');
+
+        $this->assertNotNull($concept);
+        $this->assertSame([
+            ['capitolo' => 'ai', 'qualificatore' => 'cenno'],
+            ['capitolo' => 'legacy', 'qualificatore' => 'teaser'],
+        ], $concept['richiami']);
     }
 }
