@@ -19,15 +19,19 @@ programma ("il sistema prepara/verifica/propone, l'editor umano decide").
 
 **NEEDS CONTENT.**
 
-Nel repository non esiste, in nessuna forma, contenuto editoriale reale sul
-metodo scientifico: né una categoria dedicata in tassonomia, né un
-Percorso, né un singolo articolo pubblicato o candidato, né uno slug
-adiacente al tema in un altro Percorso (a differenza del caso Fisica
-Fondamentale, dove almeno `relativita-speciale` e i candidati GPS
-offrivano un punto di partenza condizionale). Costruire oggi un Percorso
-"Metodo scientifico" — bozza o meno — richiederebbe inventare almeno un
-titolo, una descrizione e un'ipotesi di pillar: tutte decisioni editoriali,
-non tecniche.
+Nel repository non esiste, in nessuna forma, un pillar o un contenuto
+editoriale dedicato al metodo scientifico: né una categoria dedicata in
+tassonomia, né un Percorso, né un membro attivo in
+`config/content-clusters-initial.php`. Un solo candidato **debole/condizionale**
+esiste, individuato dalla revisione di questa PR (Codex) e verificato negli
+snapshot SQLite versionati (stessa categoria di evidenza già usata
+dall'audit Fisica Fondamentale per i suoi candidati GPS) — vedi sotto.
+Come per Fisica Fondamentale, dove `relativita-speciale` e i candidati GPS
+offrivano un punto di partenza condizionale ma non bastavano da soli a
+sbloccare il Percorso, un solo articolo adiacente non cambia il verdetto:
+costruire oggi un Percorso "Metodo scientifico" — bozza o meno —
+richiederebbe comunque scegliere/scrivere un pillar reale e decidere se
+questo candidato vi appartiene: decisioni editoriali, non tecniche.
 
 ## Inventario contenuti reali (evidenza, non ipotesi)
 
@@ -53,6 +57,23 @@ Fonti verificate leggendo direttamente il repository:
   menziona metodo/ipotesi/esperimento/falsificabilità/peer
   review/pensiero critico (verificato per ricerca testuale diretta nel
   file).
+- **Snapshot SQLite versionati** `storage/backups/database-2026-05-02-*.sqlite`
+  (stessa categoria di evidenza già usata dall'audit Fisica Fondamentale
+  per i suoi candidati GPS) — Codex, in revisione a questa PR, ha
+  individuato l'articolo pubblicato `ia-ricerca-scientifica-cnr-agenti-2025`
+  ("IA nella ricerca scientifica: il CNR e i nuovi strumenti che
+  accelerano le scoperte", presente identico in tutti e 3 gli snapshot,
+  `published_at` 2025-04-15). Il corpo tratta generazione di ipotesi,
+  proposta di esperimenti, riproducibilità e verifica dei risultati — ma
+  nel contesto della governance dell'IA nella ricerca, non come
+  spiegazione autonoma del metodo scientifico. **Candidato debole/condizionale**,
+  nella stessa categoria dei candidati GPS di Fisica Fondamentale: non è
+  un pillar, non è membro di alcun Percorso (nessuna tabella
+  `content_clusters` esiste ancora in quegli snapshot, precedenti alla
+  migrazione che l'ha introdotta), e lo slug non compare in
+  `config/content-clusters-initial.php` né nel seeder corrente — verifica
+  editoriale del testo, dello stato di pubblicazione attuale e della sua
+  reale pertinenza necessaria prima di poterlo considerare.
 - **Ricerca repository-wide** (`app/`, `resources/`, `database/`, `tests/`,
   `docs/`) per "metodo scientifico"/"scientific method": l'unica
   occorrenza reale è una stringa di fixture in
@@ -111,11 +132,15 @@ usa un modello del tutto separato, `SpecialPage`):
 - **ESSENTIAL** (blocca qualunque Percorso): un pillar article pubblicato
   che introduca il metodo scientifico in modo autonomo — oggi non esiste,
   e a differenza di Fisica Fondamentale non esiste nemmeno una categoria
-  dedicata o un candidato adiacente in un altro Percorso da cui partire.
+  dedicata. `ia-ricerca-scientifica-cnr-agenti-2025` (vedi inventario) non
+  colma questo gap: tratta la governance dell'IA nella ricerca, non
+  introduce il metodo scientifico di per sé.
 - **USEFUL**: 2-4 articoli di supporto sullo stesso tema (es. un caso
   concreto di ipotesi/verifica, un errore metodologico comune, una guida
-  al pensiero critico) — nessun candidato reale esiste oggi nel catalogo
-  ispezionato da questo audit.
+  al pensiero critico) — `ia-ricerca-scientifica-cnr-agenti-2025` è
+  l'unico candidato condizionale oggi noto in questo repository (vedi
+  inventario), previa verifica editoriale del suo stato reale in
+  produzione e della sua pertinenza.
 - **OPTIONAL**: contenuti di estensione (storia del metodo scientifico,
   filosofia della scienza) una volta che il nucleo esiste.
 
