@@ -267,6 +267,7 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/turing/cards/{index}/sposta', [TuringController::class, 'moveCard'])
         ->where('index', '[0-9]+')
         ->name('turing.cards.move');
+    Route::get('/turing/mappa-concettuale', [TuringController::class, 'conceptMap'])->name('turing.concept-map');
 
     // Distribuzione social (generatore link UTM per campagne ufficiali,
     // mai per la condivisione organica dei lettori — vedi

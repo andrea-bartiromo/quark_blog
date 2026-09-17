@@ -304,9 +304,14 @@
         </p>
     </div>
 
-    <a href="{{ route('turing') }}" target="_blank" class="btn btn--secondary">
-        Apri /turing
-    </a>
+    <div style="display:flex;gap:.6rem;">
+        <a href="{{ route('admin.turing.concept-map') }}" class="btn btn--secondary">
+            Mappa concettuale
+        </a>
+        <a href="{{ route('turing') }}" target="_blank" class="btn btn--secondary">
+            Apri /turing
+        </a>
+    </div>
 </div>
 
 {{--

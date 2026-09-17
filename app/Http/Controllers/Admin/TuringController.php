@@ -7,6 +7,7 @@ use App\Http\Controllers\TuringPageController;
 use App\Models\SpecialPage;
 use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\Turing\TuringConceptMapService;
 use App\Services\Turing\TuringNavigationMetricsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,20 @@ class TuringController extends Controller
         $cards = $this->resolvedCards($page);
 
         return view('admin.turing-lite', compact('page', 'navigationMetrics', 'cards'));
+    }
+
+    /**
+     * Cantiere 59 (programma "100 cantieri Kairus"): sola lettura,
+     * strumento interno per l'editor — trascrizione della mappa dei
+     * concetti dello Speciale già redatta in
+     * docs/00_Governance/Architettura_Editoriale_v1.0.docx §4
+     * (TuringConceptMapService), non una funzionalità pubblica.
+     */
+    public function conceptMap()
+    {
+        $conceptsByChapter = TuringConceptMapService::conceptsByChapter();
+
+        return view('admin.turing-concept-map', compact('conceptsByChapter'));
     }
 
     public function update(Request $request)
