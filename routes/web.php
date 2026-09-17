@@ -264,6 +264,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // Speciali editoriali
     Route::get('/turing', [TuringController::class, 'edit'])->name('turing');
     Route::post('/turing', [TuringController::class, 'update'])->name('turing.update');
+    Route::post('/turing/cards/{index}/sposta', [TuringController::class, 'moveCard'])
+        ->where('index', '[0-9]+')
+        ->name('turing.cards.move');
 
     // Distribuzione social (generatore link UTM per campagne ufficiali,
     // mai per la condivisione organica dei lettori — vedi
