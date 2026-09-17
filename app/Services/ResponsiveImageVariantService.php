@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\MediaServedRoot;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -259,12 +260,6 @@ class ResponsiveImageVariantService
 
     private function servedMediaRoot(): string
     {
-        $configured = config('media.public_root');
-
-        if (is_string($configured) && trim($configured) !== '') {
-            return rtrim(str_replace('\\', '/', trim($configured)), '/');
-        }
-
-        return rtrim(str_replace('\\', '/', public_path('assets/img')), '/');
+        return MediaServedRoot::path();
     }
 }
