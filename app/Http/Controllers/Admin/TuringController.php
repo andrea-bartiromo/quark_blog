@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SpecialPage;
 use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\Turing\TuringNavigationMetricsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -17,13 +18,15 @@ class TuringController extends Controller
     public function __construct(
         private readonly PublicMediaSyncService $publicMediaSync,
         private readonly ImageService $imageService,
+        private readonly TuringNavigationMetricsService $navigationMetrics,
     ) {}
 
     public function edit()
     {
         $page = $this->firstOrCreateTuringPage();
+        $navigationMetrics = $this->navigationMetrics->aggregateViews();
 
-        return view('admin.turing-lite', compact('page'));
+        return view('admin.turing-lite', compact('page', 'navigationMetrics'));
     }
 
     public function update(Request $request)

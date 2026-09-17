@@ -333,6 +333,42 @@
     </a>
 </div>
 
+{{--
+  Cantiere 68 (programma "100 cantieri Kairus"): navigazione aggregata,
+  privacy-first — nessun identificativo di visitatore/sessione/utente
+  (vedi TuringNavigationMetricsService). Registrata solo quando lo
+  Speciale è davvero pubblico (config('turing.chapters_public')): finché
+  resta in "In arrivo" questi conteggi restano onestamente a zero.
+--}}
+<div class="admin-card" style="margin-bottom:1.5rem;">
+    <h2 style="font-size:.95rem;margin:0 0 .75rem;">Navigazione aggregata</h2>
+    <table class="admin-table" style="font-size:.85rem;">
+        <thead>
+            <tr>
+                <th>Pagina</th>
+                <th>Visite</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach(\App\Services\Turing\TuringNavigationMetricsService::CHAPTERS as $chapter)
+                @php
+                    $metric = $navigationMetrics[$chapter] ?? null;
+                @endphp
+                <tr>
+                    <td>{{ $chapter }}</td>
+                    <td>
+                        @if($metric && $metric['state'] === \App\Services\Turing\TuringNavigationMetricsService::STATE_AVAILABLE)
+                            {{ $metric['count'] }}
+                        @else
+                            <span style="color:var(--admin-muted)">Dati insufficienti (meno di 7gg)</span>
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+
 @if($errors->any())
     <div class="admin-alert admin-alert--danger">
         <strong>Controlla i campi:</strong>

@@ -3,11 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\SpecialPage;
+use App\Services\Turing\TuringNavigationMetricsService;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class TuringPageController extends Controller
 {
-    public function index(): View
+    public function __construct(
+        private readonly TuringNavigationMetricsService $navigationMetrics,
+    ) {}
+
+    public function index(Request $request): View
     {
         /* Rilascio pubblico dello Speciale (vedi config/turing.php): finche'
            i capitoli non sono completi, /turing mostra una landing "In
@@ -17,6 +23,18 @@ class TuringPageController extends Controller
            torneranno pubblici. */
         if (! config('turing.chapters_public')) {
             return view('turing.coming-soon');
+        }
+
+        // Codex (PR #623, P1): gli audit interni (SEO/WCAG, dashboard
+        // salute pubblica + baseline mensile programmata) raggiungono
+        // ogni pagina Turing abilitata con un vero GET in-process
+        // (InProcessPageFetcher) per verificarla — senza questo
+        // controllo, ogni esecuzione dell'audit gonfierebbe le metriche
+        // di navigazione reali con traffico sintetico. Stesso marcatore
+        // esplicito già usato per non contaminare le analytics reali
+        // degli articoli (vedi ArticleController::show()).
+        if (! $request->headers->has('X-Kairus-Internal-Audit')) {
+            $this->navigationMetrics->recordView('hub');
         }
 
         $page = SpecialPage::where('slug', 'turing')->first();
