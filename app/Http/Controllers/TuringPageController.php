@@ -66,7 +66,7 @@ class TuringPageController extends Controller
             'cards' => collect($this->contentItemsOrFallback(
                 $content,
                 'cards',
-                $this->defaultRouteCards(),
+                self::defaultRouteCards(),
                 fn (array $item) => $this->isRenderableRouteCard($item),
             )),
             'editorialBlocks' => collect($this->contentItemsOrFallback(
@@ -147,7 +147,15 @@ class TuringPageController extends Controller
         return false;
     }
 
-    private function defaultRouteCards(): array
+    /**
+     * Cantiere 58 (programma "100 cantieri Kairus", Codex PR #624 P2):
+     * unica fonte di verità per le card di route di default, riusata
+     * anche da Admin\TuringController (editor "lite" + endpoint di
+     * riordino) — prima esisteva una copia letterale duplicata separata
+     * in turing-lite.blade.php, che poteva divergere silenziosamente da
+     * questa.
+     */
+    public static function defaultRouteCards(): array
     {
         return [
             [

@@ -192,4 +192,97 @@ class TuringChapterCardReorderTest extends TestCase
             $html
         );
     }
+
+    /**
+     * Codex (PR #624, P1): i pulsanti di riordino devono stare in un
+     * <form> indipendente dal form principale delle impostazioni — non
+     * un formaction/formmethod sullo stesso form, che invierebbe (e
+     * scarterebbe silenziosamente, dato che moveCard() ignora ogni campo
+     * che non conosce) qualunque modifica di testo/immagine non ancora
+     * salvata al click su "sposta".
+     */
+    public function test_the_move_buttons_are_not_inside_the_main_settings_form(): void
+    {
+        $this->pageWithCards($this->threeCards());
+
+        $html = $this->actingAs($this->editor())->get(route('admin.turing'))->getContent();
+
+        libxml_use_internal_errors(true);
+        $document = new \DOMDocument;
+        $document->loadHTML($html);
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($document);
+
+        $mainForm = $xpath->query("//form[@action='".route('admin.turing.update')."']")->item(0);
+        $this->assertNotNull($mainForm, 'form principale delle impostazioni non trovato.');
+
+        $moveButtons = $xpath->query("//button[@name='direction']");
+        $this->assertGreaterThan(0, $moveButtons->length);
+
+        foreach ($moveButtons as $button) {
+            $node = $button;
+            while ($node = $node->parentNode) {
+                $this->assertNotSame(
+                    $mainForm,
+                    $node,
+                    'un pulsante di riordino non deve mai essere annidato dentro il form principale delle impostazioni.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Codex (PR #624, P2): quando la pagina è appena stata creata
+     * (`content` ancora vuoto, come fa `firstOrCreateTuringPage()`),
+     * l'editor mostra le 3 card di route di default
+     * (`TuringPageController::defaultRouteCards()`) — moveCard() deve
+     * operare sulla stessa lista, non su un array vuoto che rifiuterebbe
+     * sempre lo spostamento.
+     */
+    public function test_moving_a_card_works_even_when_the_page_content_is_still_empty(): void
+    {
+        $page = SpecialPage::create([
+            'slug' => 'turing',
+            'title' => 'Alan Turing',
+            'is_active' => true,
+            'content' => [],
+        ]);
+
+        $response = $this->actingAs($this->editor())
+            ->post(route('admin.turing.cards.move', 1), ['direction' => 'up']);
+
+        $response->assertSessionDoesntHaveErrors();
+
+        $cards = $page->fresh()->content['cards'];
+        $this->assertCount(3, $cards);
+        $this->assertSame('Dal Test di Turing agli LLM', $cards[0]['title']);
+        $this->assertSame('La guerra di Enigma', $cards[1]['title']);
+    }
+
+    public function test_the_admin_edit_page_shows_enabled_move_buttons_when_content_is_still_empty(): void
+    {
+        SpecialPage::create([
+            'slug' => 'turing',
+            'title' => 'Alan Turing',
+            'is_active' => true,
+            'content' => [],
+        ]);
+
+        $html = $this->actingAs($this->editor())->get(route('admin.turing'))->getContent();
+
+        $this->assertStringContainsString('La guerra di Enigma', $html);
+        $this->assertMatchesRegularExpression(
+            '/<button[^>]*aria-label="Sposta giù: La guerra di Enigma"[^>]*>/',
+            $html,
+            'il pulsante "sposta giù" della prima card dovrebbe esistere.'
+        );
+
+        preg_match(
+            '/<button[^>]*aria-label="Sposta giù: La guerra di Enigma"[^>]*>/',
+            $html,
+            $matches
+        );
+        $this->assertStringNotContainsString('disabled', $matches[0] ?? '', 'la prima card ha ancora una card successiva, "sposta giù" non deve essere disabilitato.');
+    }
 }

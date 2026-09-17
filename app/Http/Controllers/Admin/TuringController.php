@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\TuringPageController;
 use App\Models\SpecialPage;
 use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
@@ -25,8 +26,9 @@ class TuringController extends Controller
     {
         $page = $this->firstOrCreateTuringPage();
         $navigationMetrics = $this->navigationMetrics->aggregateViews();
+        $cards = $this->resolvedCards($page);
 
-        return view('admin.turing-lite', compact('page', 'navigationMetrics'));
+        return view('admin.turing-lite', compact('page', 'navigationMetrics', 'cards'));
     }
 
     public function update(Request $request)
@@ -66,7 +68,7 @@ class TuringController extends Controller
     public function moveCard(Request $request, int $index)
     {
         $page = $this->firstOrCreateTuringPage();
-        $cards = $page->content['cards'] ?? [];
+        $cards = $this->resolvedCards($page);
 
         $direction = $request->input('direction');
         $target = $direction === 'up' ? $index - 1 : $index + 1;
@@ -82,6 +84,25 @@ class TuringController extends Controller
         ]);
 
         return redirect()->route('admin.turing')->withFragment('cards')->with('success', 'Ordine dei capitoli aggiornato.');
+    }
+
+    /**
+     * Codex (PR #624, P2): quando `content` è ancora vuoto (pagina appena
+     * creata da `firstOrCreateTuringPage()`), l'editor mostra le 3 card
+     * di route di default — le stesse usate dal rendering pubblico
+     * (`TuringPageController::defaultRouteCards()`) quando non esiste
+     * ancora un override — con pulsanti di riordino attivi. Prima di
+     * questo fix moveCard() leggeva `content['cards']` da solo, trovava
+     * un array vuoto e rifiutava ogni spostamento ("Spostamento non
+     * valido"): l'editor vedeva pulsanti che non facevano mai nulla.
+     * Riusare la stessa risoluzione in edit() e moveCard() li tiene
+     * sempre coerenti.
+     */
+    private function resolvedCards(SpecialPage $page): array
+    {
+        $cards = $page->content['cards'] ?? [];
+
+        return $cards !== [] ? $cards : TuringPageController::defaultRouteCards();
     }
 
     private function firstOrCreateTuringPage(): SpecialPage
