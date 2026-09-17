@@ -215,6 +215,22 @@ class TuringEnigmaPageTest extends TestCase
         $this->assertFileExists(public_path('images/turing/enigma/'.$filename));
     }
 
+    /**
+     * Cantiere 64 (programma "100 cantieri Kairus"): verifica che ogni
+     * asset di enigmaAssets() sia un vero PNG decodificabile, non solo
+     * un file presente col nome giusto (es. un placeholder vuoto o
+     * corrotto) — stessa fonte di verità di test_enigma_image_asset_exists_on_disk(),
+     * mai una seconda lista duplicata (Codex, PR #630, P2).
+     */
+    #[DataProvider('enigmaAssets')]
+    public function test_enigma_image_asset_is_a_real_decodable_png(string $filename): void
+    {
+        $image = getimagesize(public_path('images/turing/enigma/'.$filename));
+
+        $this->assertIsArray($image, "[{$filename}] must be a real, decodable image, not a placeholder file.");
+        $this->assertSame('image/png', $image['mime']);
+    }
+
     public function test_enigma_hero_uses_the_default_asset_when_no_cms_override_exists(): void
     {
         $this->get(route('turing.enigma'))

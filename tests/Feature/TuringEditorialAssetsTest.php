@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class TuringEditorialAssetsTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * @return array<string, array{0: string}>
      */
@@ -47,24 +50,37 @@ class TuringEditorialAssetsTest extends TestCase
     }
 
     /**
-     * Cantiere 64 (programma "100 cantieri Kairus"): `resources/views/turing.blade.php`
-     * è il file inutilizzato scoperto e mai referenziato da alcun
-     * controller (Cantiere 66, TuringChapterIndexNoJavaScriptTest) — questo
-     * test verificava da sempre l'assenza di asset legacy nel file SBAGLIATO,
-     * mai in quello realmente renderizzato (turing/index.blade.php).
-     * Corretto, e ampliato agli altri 3 capitoli reali (legacy/computation/
-     * intelligence) prima non coperti da questa verifica.
+     * Cantiere 64 (programma "100 cantieri Kairus"), corretto due volte:
+     *
+     * (1) `resources/views/turing.blade.php` è il file inutilizzato
+     * scoperto e mai referenziato da alcun controller (Cantiere 66,
+     * TuringChapterIndexNoJavaScriptTest) — questo test verificava da
+     * sempre l'assenza di asset legacy nel file SBAGLIATO, mai in quello
+     * realmente renderizzato.
+     *
+     * (2) Codex (PR #630, P2): anche puntando al file giusto
+     * (turing/index.blade.php), leggerne il solo sorgente grezzo non
+     * basta — quel file delega quasi tutto il proprio markup a 7
+     * `@include('turing.partials.*')`, il cui contenuto reale non compare
+     * nel file letto direttamente. Un asset legacy introdotto in una di
+     * quelle partial (hero/intro/editorial-blocks/legacy-section/...)
+     * avrebbe superato la verifica pur comparendo davvero su `/turing`.
+     * Corretto renderizzando la vera risposta HTTP di ogni pagina reale
+     * (hub + tutti e 5 i capitoli) invece di leggere sorgenti Blade —
+     * l'unico modo di essere certi di ciò che finisce davvero nell'HTML,
+     * indipendentemente da quale file/partial lo introduce.
      */
     public function test_turing_hardcoded_references_use_current_webp_assets(): void
     {
-        $files = [
-            app_path('Http/Controllers/TuringPageController.php'),
-            resource_path('views/turing/index.blade.php'),
-            resource_path('views/turing/enigma.blade.php'),
-            resource_path('views/turing/legacy.blade.php'),
-            resource_path('views/turing/computation.blade.php'),
-            resource_path('views/turing/intelligence.blade.php'),
-            resource_path('views/turing/ai.blade.php'),
+        config(['turing.chapters_public' => true]);
+
+        $pages = [
+            'hub' => $this->get(route('turing'))->getContent(),
+            'enigma' => $this->get(route('turing.enigma'))->getContent(),
+            'legacy' => $this->get(route('turing.legacy'))->getContent(),
+            'computation' => $this->get(route('turing.computation'))->getContent(),
+            'intelligence' => $this->get(route('turing.intelligence'))->getContent(),
+            'ai' => $this->get(route('turing.ai'))->getContent(),
         ];
 
         $legacyAssets = [
@@ -83,13 +99,9 @@ class TuringEditorialAssetsTest extends TestCase
             'turing/ai-moderna.jpg',
         ];
 
-        foreach ($files as $file) {
-            $contents = file_get_contents($file);
-
-            $this->assertIsString($contents);
-
+        foreach ($pages as $page => $html) {
             foreach ($legacyAssets as $asset) {
-                $this->assertStringNotContainsString($asset, $contents, "Legacy Turing asset [{$asset}] remains in {$file}.");
+                $this->assertStringNotContainsString($asset, $html, "Legacy Turing asset [{$asset}] appears on the rendered '{$page}' page.");
             }
         }
     }
@@ -102,57 +114,6 @@ class TuringEditorialAssetsTest extends TestCase
     }
 
     /**
-     * Cantiere 64 (programma "100 cantieri Kairus"): fino a questo
-     * cantiere, i 12 asset editoriali dedicati al solo capitolo Enigma
-     * (public/images/turing/enigma/... — percorso e formato PNG diversi
-     * dai 13 asset WebP hub/pannello sopra, che vivono in
-     * public/assets/img/turing/...) non avevano ALCUNA verifica
-     * automatica: legacy/computation/intelligence riusano solo i pannelli
-     * dell'hub già coperti, ma Enigma ha un proprio apparato iconografico
-     * distinto (verificato con ispezione diretta di enigma.blade.php),
-     * mai reso "verificabile" prima d'ora.
-     */
-    public static function enigmaEditorialAssets(): array
-    {
-        return [
-            'hero fallback' => ['images/turing/enigma/hero-enigma.png'],
-            'anatomy cutaway fallback' => ['images/turing/enigma/cutaway-enigma.png'],
-            'daily key settings' => ['images/turing/enigma/daily-key-settings.png'],
-            'machine anatomy' => ['images/turing/enigma/editorial/02_enigma-machine-anatomy.png'],
-            'rotor exploded view' => ['images/turing/enigma/editorial/03_rotor-exploded-view.png'],
-            'electrical signal path' => ['images/turing/enigma/editorial/04_electrical-signal-path.png'],
-            'bletchley park operations room' => ['images/turing/enigma/editorial/05_bletchley-park-operations-room.png'],
-            'bombe machine' => ['images/turing/enigma/editorial/09_bombe-machine.png'],
-            'bombe detail' => ['images/turing/enigma/editorial/10_bombe-detail.png'],
-            'german operator' => ['images/turing/enigma/german-operator.png'],
-            'plugboard' => ['images/turing/enigma/plugboard.png'],
-            'hut 8 exterior' => ['images/turing/enigma/editorial/11_hut-8-exterior.png'],
-        ];
-    }
-
-    #[DataProvider('enigmaEditorialAssets')]
-    public function test_enigma_editorial_assets_exist_as_real_png_files(string $asset): void
-    {
-        $this->assertStringEndsWith('.png', $asset);
-
-        $path = public_path($asset);
-
-        $this->assertFileExists($path, "Enigma editorial asset [{$asset}] must exist.");
-
-        $image = getimagesize($path);
-
-        $this->assertIsArray($image, "[{$asset}] must be a real, decodable image, not a placeholder file.");
-        $this->assertSame('image/png', $image['mime']);
-    }
-
-    public function test_enigma_editorial_asset_paths_are_unique(): void
-    {
-        $assets = collect(self::enigmaEditorialAssets())->flatten()->all();
-
-        $this->assertCount(count($assets), array_unique($assets));
-    }
-
-    /**
      * Cantiere 64 (programma "100 cantieri Kairus") — finding reale,
      * documentato qui invece di "corretto" silenziosamente: scegliere
      * un'immagine sostitutiva è una decisione editoriale/visiva, fuori
@@ -160,8 +121,10 @@ class TuringEditorialAssetsTest extends TestCase
      * invenzione di contenuto).
      *
      * Ogni altro asset editoriale reale dello Speciale — i 13 hub/pannello
-     * sopra e i 10 rimanenti di questo capitolo — è largo almeno 1200px
-     * (lo standard tecnico dichiarato in
+     * sopra e i 10 rimanenti di questo capitolo (elencati come unica
+     * fonte di verità in TuringEnigmaPageTest::enigmaAssets(), Codex PR
+     * #630 P2 — mai una seconda lista duplicata qui) — è largo almeno
+     * 1200px (lo standard tecnico dichiarato in
      * docs/04_Turing_Visual/Registro_Asset_Turing_v1.0.md). Questi due
      * soli sono 287×289px: `resolveAsset()` in enigma.blade.php li usa
      * come fallback per `.enigma-hero` (min-height: 86vh, background-size:
@@ -181,7 +144,7 @@ class TuringEditorialAssetsTest extends TestCase
 
         foreach ($undersized as $asset) {
             $image = getimagesize(public_path($asset));
-            $this->assertLessThan(1200, $image[0], "[{$asset}] atteso ancora sotto lo standard tecnico di 1200px — se questo test fallisce, l'immagine è stata sostituita: aggiornare test_enigma_editorial_assets_exist_as_real_png_files con un controllo di larghezza minima e rimuovere questo test.");
+            $this->assertLessThan(1200, $image[0], "[{$asset}] atteso ancora sotto lo standard tecnico di 1200px — se questo test fallisce, l'immagine è stata sostituita: aggiornare TuringEnigmaPageTest::test_enigma_image_asset_is_a_real_decodable_png() con un controllo di larghezza minima e rimuovere questo test.");
         }
 
         $this->markTestSkipped('Gap reale e documentato (vedi docblock): richiede una nuova immagine scelta da un editor umano, non un fix automatico. Restano solo 287×289px.');
