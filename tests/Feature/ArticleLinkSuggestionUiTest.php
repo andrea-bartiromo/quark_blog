@@ -107,16 +107,12 @@ class ArticleLinkSuggestionUiTest extends TestCase
         $source = $this->article(['user_id' => $editor->id, 'title' => 'Sorgente']);
         $target = $this->article(['user_id' => $editor->id, 'title' => 'Destinazione']);
 
-        // Destinazione già linka a Sorgente (accettato): se Sorgente
+        // Destinazione linka DAVVERO (nel body) a Sorgente: se Sorgente
         // accettasse il suggerimento verso Destinazione, chiuderebbe un
-        // ciclo diretto.
-        ArticleLinkSuggestion::create([
-            'source_article_id' => $target->id,
-            'target_article_id' => $source->id,
-            'anchor_text' => 'sorgente',
-            'reason' => 'motivo di test',
-            'confidence_score' => 55,
-            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        // ciclo diretto. ArticleLinkCycleDetector legge i veri <a> nel
+        // body, non una tabella di stato separata (Codex, PR #618).
+        $target->update([
+            'body' => $target->body.'<p>Vedi anche <a href="/articolo/'.$source->slug.'">Sorgente</a>.</p>',
         ]);
         ArticleLinkSuggestion::create([
             'source_article_id' => $source->id,
@@ -137,7 +133,7 @@ class ArticleLinkSuggestionUiTest extends TestCase
         $response->assertSee('Destinazione', false);
     }
 
-    public function test_edit_form_does_not_flag_a_cycle_when_no_accepted_links_exist(): void
+    public function test_edit_form_does_not_flag_a_cycle_when_no_real_links_exist(): void
     {
         $editor = $this->editor();
         $source = $this->article(['user_id' => $editor->id]);

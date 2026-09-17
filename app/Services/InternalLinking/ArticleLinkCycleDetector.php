@@ -2,15 +2,17 @@
 
 namespace App\Services\InternalLinking;
 
-use App\Models\ArticleLinkSuggestion;
+use App\Models\Article;
+use App\Services\ArticleLinkInsertionService;
 
 /**
  * Cantiere 82 (programma "100 cantieri Kairus"). Nessun codice esistente
  * verifica se accettare un suggerimento di collegamento interno
- * chiuderebbe un ciclo (A→B→...→A) tra i link GIÀ accettati — confermato
- * da un agente Explore dedicato prima di scrivere questo file: zero
- * occorrenze di "cycle/ciclo/circular" in tutto `app/` e `tests/` per
- * questo dominio, e il resto del sistema (`ArticleLinkSuggestionService`,
+ * chiuderebbe un ciclo (A→B→...→A) tra i link interni GIÀ REALMENTE
+ * PRESENTI nel contenuto pubblicato — confermato da un agente Explore
+ * dedicato prima di scrivere questo file: zero occorrenze di
+ * "cycle/ciclo/circular" in tutto `app/` e `tests/` per questo dominio, e
+ * il resto del sistema (`ArticleLinkSuggestionService`,
  * `ArticleLinkSuggestionController`) è già un flusso completo
  * "proposta → conferma umana → applicazione solo al salvataggio reale"
  * (vedi quei file) — quella metà del titolo del cantiere ("conferma
@@ -26,17 +28,39 @@ use App\Models\ArticleLinkSuggestion;
  * accettare un dato suggerimento chiuderebbe un ciclo: un'informazione
  * che oggi non esiste da nessuna parte, mai un giudizio "ciclo =
  * sbagliato". La decisione resta sempre dell'editor.
+ *
+ * Codex (PR #618): la prima versione derivava il grafo dalle sole righe
+ * `ArticleLinkSuggestion::STATUS_ACCEPTED` — ma quella tabella diverge dal
+ * contenuto reale in entrambe le direzioni. Un link inserito manualmente
+ * in TinyMCE (senza mai passare da "Analizza"/"Inserisci") non genera mai
+ * una riga 'accepted': il grafo lo ignorava, perdendo cicli reali.
+ * All'opposto, `markAccepted()` promuove ad 'accepted' un suggerimento
+ * solo quando il link viene davvero salvato, ma se la redazione rimuove
+ * in seguito quel link dal body a mano (senza toccare mai più il
+ * suggerimento), la riga resta 'accepted' per sempre: il grafo segnalava
+ * cicli su collegamenti che nel contenuto pubblicato non esistono più.
+ * Corretto usando la STESSA definizione di "collegamento ad articolo" già
+ * riconosciuta ovunque nel dominio (badge Admin, audit
+ * `content:internal-link-audit`): i veri tag `<a href="/articolo/...">`
+ * nel body corrente di ogni articolo
+ * (`ArticleLinkInsertionService::linkedArticleSlugsInBody()`), mai una
+ * tabella di stato separata che può disallinearsi dal contenuto reale.
  */
 class ArticleLinkCycleDetector
 {
+    public function __construct(
+        private readonly ArticleLinkInsertionService $insertionService = new ArticleLinkInsertionService,
+    ) {}
+
     /** @var array<int, list<int>>|null */
-    private ?array $acceptedEdges = null;
+    private ?array $realEdges = null;
 
     /**
      * Verifica se accettare un arco source→target chiuderebbe un ciclo
-     * attraverso i collegamenti GIÀ accettati (mai quelli solo proposti:
-     * un ciclo tra suggerimenti ancora in attesa di revisione non è
-     * ancora un fatto del contenuto pubblicato).
+     * attraverso i collegamenti REALMENTE presenti nel body di ogni
+     * articolo del sito (mai una tabella di stato separata, sempre
+     * soggetta a disallinearsi da ciò che è davvero pubblicato — vedi
+     * nota Codex sopra la classe).
      *
      * @return array{creates_cycle: bool, path: list<int>} 'path', quando
      *                                                     creates_cycle è true, è il ciclo completo come sequenza di
@@ -48,10 +72,10 @@ class ArticleLinkCycleDetector
             return ['creates_cycle' => false, 'path' => []];
         }
 
-        $edges = $this->acceptedEdges();
+        $edges = $this->realEdges();
 
-        // BFS a partire da $targetArticleId sugli archi già accettati: se
-        // si riesce a tornare a $sourceArticleId, accettare il nuovo arco
+        // BFS a partire da $targetArticleId sugli archi reali: se si
+        // riesce a tornare a $sourceArticleId, accettare il nuovo arco
         // source→target chiuderebbe il ciclo.
         $visited = [$targetArticleId => true];
         $queue = [[$targetArticleId]];
@@ -77,27 +101,39 @@ class ArticleLinkCycleDetector
     }
 
     /**
-     * Costruisce la mappa degli archi accettati una sola volta per
-     * istanza (memoizzata): ogni chiamata a detect() nello stesso
+     * Costruisce la mappa degli archi reali una sola volta per istanza
+     * (memoizzata, UNA sola query): ogni chiamata a detect() nello stesso
      * pannello dei suggerimenti (fino a
      * ArticleLinkSuggestion::MAX_PROPOSED_RESULTS candidati) riusa la
-     * stessa mappa invece di interrogare di nuovo la tabella.
+     * stessa mappa invece di interrogare/riparsare di nuovo. Stesso
+     * pattern "un solo passaggio sull'intero corpus" già usato da
+     * InternalLinkAuditService per lo stesso dominio (nessuna query per
+     * articolo, nessun N+1).
      *
      * @return array<int, list<int>>
      */
-    private function acceptedEdges(): array
+    private function realEdges(): array
     {
-        if ($this->acceptedEdges !== null) {
-            return $this->acceptedEdges;
+        if ($this->realEdges !== null) {
+            return $this->realEdges;
         }
 
-        $this->acceptedEdges = ArticleLinkSuggestion::query()
-            ->where('status', ArticleLinkSuggestion::STATUS_ACCEPTED)
-            ->get(['source_article_id', 'target_article_id'])
-            ->groupBy('source_article_id')
-            ->map(fn ($group) => $group->pluck('target_article_id')->all())
+        $articles = Article::query()->get(['id', 'slug', 'body']);
+        $idBySlug = $articles->pluck('id', 'slug');
+
+        $this->realEdges = $articles
+            ->mapWithKeys(function (Article $article) use ($idBySlug) {
+                $targetIds = collect($this->insertionService->linkedArticleSlugsInBody((string) $article->body))
+                    ->map(fn (string $slug) => $idBySlug->get($slug))
+                    ->filter(fn (?int $id) => $id !== null && $id !== $article->id)
+                    ->values()
+                    ->all();
+
+                return [$article->id => $targetIds];
+            })
+            ->filter(fn (array $targetIds) => $targetIds !== [])
             ->all();
 
-        return $this->acceptedEdges;
+        return $this->realEdges;
     }
 }

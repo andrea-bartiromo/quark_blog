@@ -1232,7 +1232,9 @@ class ArticleLinkSuggestionControllerTest extends TestCase
 
     // Cantiere 82 (programma "100 cantieri Kairus"): il pannello segnala,
     // senza mai bloccare, quando accettare un suggerimento chiuderebbe un
-    // ciclo tra i collegamenti già accettati (ArticleLinkCycleDetector).
+    // ciclo tra i collegamenti REALMENTE presenti nel contenuto
+    // (ArticleLinkCycleDetector legge il body, non una tabella di stato —
+    // vedi la nota Codex sulla classe).
     public function test_analyze_flags_a_suggestion_that_would_close_a_cycle_with_already_accepted_links(): void
     {
         $editor = $this->editor();
@@ -1249,17 +1251,11 @@ class ArticleLinkSuggestionControllerTest extends TestCase
             'body' => '<p>Tra le soluzioni più diffuse ci sono i pannelli solari di nuova generazione, molto richiesti.</p>',
         ]);
 
-        // Il target linka già (accettato) alla source: accettare il nuovo
-        // suggerimento source->target chiuderebbe il ciclo source-> target
-        // -> source.
-        ArticleLinkSuggestion::create([
-            'source_article_id' => $target->id,
-            'target_article_id' => $source->id,
-            'target_slug' => $source->slug,
-            'anchor_text' => 'transizione energetica',
-            'reason' => 'motivo',
-            'confidence_score' => 60,
-            'status' => ArticleLinkSuggestion::STATUS_ACCEPTED,
+        // Il target linka già DAVVERO (nel body) alla source: accettare il
+        // nuovo suggerimento source->target chiuderebbe il ciclo source->
+        // target -> source.
+        $target->update([
+            'body' => $target->body.'<p>Approfondisci con <a href="/articolo/'.$source->slug.'">la guida alla transizione energetica</a>.</p>',
         ]);
 
         $response = $this->actingAs($editor)->postJson(route('admin.articles.link-suggestions.analyze', $source));
