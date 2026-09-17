@@ -646,8 +646,8 @@
                     </p>
 
                     <div class="ai-actions">
-                        <a href="{{ route('turing') }}">Torna allo speciale</a>
-                        <a href="{{ route('turing.enigma') }}">Rivedi Enigma</a>
+                        <a href="{{ \App\Support\TuringPreviewLink::hub($previewMode ?? false) }}">Torna allo speciale</a>
+                        <a href="{{ \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false) }}">Rivedi Enigma</a>
                     </div>
                 </div>
             </div>

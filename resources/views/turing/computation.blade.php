@@ -22,7 +22,7 @@
 <div class="turing-page">
 
     <div class="container container--wide">
-        <x-turing.article.breadcrumb :items="[['label' => 'Computazione']]" />
+        <x-turing.article.breadcrumb :items="[['label' => 'Computazione']]" :preview-mode="$previewMode ?? false" />
     </div>
 
     <x-turing.article.hero
@@ -113,12 +113,12 @@
         title="Torna allo speciale o approfondisci"
         text="Rivedi da dove è partito questo percorso o esplora gli altri approfondimenti dedicati ad Alan Turing."
         :actions="[
-            ['label' => 'Torna allo speciale', 'url' => route('turing')],
-            ['label' => 'Esplora Enigma', 'url' => route('turing.enigma')],
+            ['label' => 'Torna allo speciale', 'url' => \App\Support\TuringPreviewLink::hub($previewMode ?? false)],
+            ['label' => 'Esplora Enigma', 'url' => \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false)],
             // Ora che /turing/intelligence esiste (PR #46), e' la destinazione
             // piu' precisa per questa CTA, al posto del rimando generico a
             // /turing/ai usato provvisoriamente nella PR #45.
-            ['label' => 'Dal calcolo all’intelligenza', 'url' => route('turing.intelligence')],
+            ['label' => 'Dal calcolo all’intelligenza', 'url' => \App\Support\TuringPreviewLink::chapter('intelligence', $previewMode ?? false)],
         ]"
     />
 

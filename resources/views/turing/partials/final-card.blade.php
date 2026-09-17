@@ -9,8 +9,8 @@
         :text="$final['text'] ?? 'Vuoi partire dalla guerra dei codici o dalla domanda sull’intelligenza artificiale?'"
       />
       <div class="turing-actions turing-actions--center">
-        <a href="{{ route('turing.enigma') }}">Enigma e Bletchley Park</a>
-        <a href="{{ route('turing.ai') }}">Turing e IA moderna</a>
+        <a href="{{ \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false) }}">Enigma e Bletchley Park</a>
+        <a href="{{ \App\Support\TuringPreviewLink::chapter('ai', $previewMode ?? false) }}">Turing e IA moderna</a>
       </div>
     </div>
   </div>

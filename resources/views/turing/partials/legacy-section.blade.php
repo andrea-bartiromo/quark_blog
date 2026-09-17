@@ -23,7 +23,7 @@
         @endif
 
         <div class="turing-actions">
-          <a href="{{ route('turing.legacy') }}">Approfondisci l’eredità di Turing</a>
+          <a href="{{ \App\Support\TuringPreviewLink::chapter('legacy', $previewMode ?? false) }}">Approfondisci l’eredità di Turing</a>
         </div>
       </div>
     </div>

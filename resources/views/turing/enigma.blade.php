@@ -67,7 +67,7 @@
 <div class="turing-page">
 
     <div class="container container--wide">
-        <x-turing.article.breadcrumb :items="[['label' => 'Enigma']]" />
+        <x-turing.article.breadcrumb :items="[['label' => 'Enigma']]" :preview-mode="$previewMode ?? false" />
     </div>
 
     <x-special.chapter-nav :chapters="$chapters" />
@@ -596,7 +596,7 @@
                     'Conseguenze' . "\n" . 'Quel riconoscimento tardivo è anche ciò che collega questa pagina al resto dello Speciale: i metodi e le macchine sviluppati per violare Enigma confluiscono nelle basi tecniche e concettuali dell’informatica del dopoguerra — un’eredità diventata visibile solo molto tempo dopo essere stata costruita.'
                 ),
                 'related_links' => [
-                    ['label' => 'Scopri l’eredità di Turing', 'url' => route('turing.legacy')],
+                    ['label' => 'Scopri l’eredità di Turing', 'url' => \App\Support\TuringPreviewLink::chapter('legacy', $previewMode ?? false)],
                 ],
             ],
         ];
@@ -691,10 +691,10 @@
         title="Torna allo speciale o approfondisci"
         text="Rivedi da dove è partito questo percorso o esplora gli altri approfondimenti dedicati ad Alan Turing."
         :actions="[
-            ['label' => 'Torna allo speciale', 'url' => route('turing')],
-            ['label' => 'La macchina universale', 'url' => route('turing.computation')],
-            ['label' => 'Il gioco dell’imitazione', 'url' => route('turing.intelligence')],
-            ['label' => 'Scopri l’eredità di Turing', 'url' => route('turing.legacy')],
+            ['label' => 'Torna allo speciale', 'url' => \App\Support\TuringPreviewLink::hub($previewMode ?? false)],
+            ['label' => 'La macchina universale', 'url' => \App\Support\TuringPreviewLink::chapter('computation', $previewMode ?? false)],
+            ['label' => 'Il gioco dell’imitazione', 'url' => \App\Support\TuringPreviewLink::chapter('intelligence', $previewMode ?? false)],
+            ['label' => 'Scopri l’eredità di Turing', 'url' => \App\Support\TuringPreviewLink::chapter('legacy', $previewMode ?? false)],
         ]"
     />
 

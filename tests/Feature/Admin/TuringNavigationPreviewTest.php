@@ -83,6 +83,46 @@ class TuringNavigationPreviewTest extends TestCase
         return array_map(fn (string $chapter) => [$chapter], self::CHAPTERS);
     }
 
+    /**
+     * Codex (PR #629, P2): finché il gate è chiuso, la rete di
+     * navigazione propria delle pagine Turing (hero, card dell'hub,
+     * blocchi editoriali, breadcrumb, CTA "Continua il percorso") deve
+     * restare interamente dentro le rotte di anteprima — mai un link
+     * reale verso /turing/*, che reindirizzerebbe l'editor fuori
+     * dall'anteprima verso la landing "In arrivo"
+     * (TuringPublicController::redirectToTuring()).
+     *
+     * L'header globale del sito (resources/views/components/header.blade.php)
+     * mostra comunque una voce "Turing" verso la rotta pubblica reale —
+     * chrome condiviso identico su ogni pagina del sito (articoli,
+     * categorie, home), non specifico di questo cantiere né citato dal
+     * finding Codex, quindi escluso qui esplicitamente dalla scansione.
+     */
+    public function test_no_page_in_the_preview_network_links_to_a_real_public_turing_route(): void
+    {
+        config(['turing.chapters_public' => false]);
+        $this->seedTuringPage();
+        $editor = $this->editor();
+
+        $pages = ['hub' => $this->actingAs($editor)->get(route('admin.turing.preview'))->getContent()];
+
+        foreach (self::CHAPTERS as $chapter) {
+            $pages[$chapter] = $this->actingAs($editor)
+                ->get(route('admin.turing.preview-chapter', $chapter))
+                ->getContent();
+        }
+
+        foreach ($pages as $page => $html) {
+            $withoutGlobalHeader = preg_replace('#<nav class="header-nav".*?</nav>#s', '', $html);
+
+            $this->assertDoesNotMatchRegularExpression(
+                '#href="(?:https?://[^"/]+)?/turing(/(enigma|ai|legacy|computation|intelligence))?"#',
+                $withoutGlobalHeader,
+                "la pagina '{$page}' dell'anteprima contiene un link verso una rotta pubblica reale di Turing."
+            );
+        }
+    }
+
     public function test_guest_cannot_reach_the_hub_preview_route(): void
     {
         config(['turing.chapters_public' => false]);

@@ -93,12 +93,14 @@ class TuringIntelligencePageTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('href="'.route('turing.computation').'"', false)
-            // Percorso canonico letterale invece di route('turing.ai'): la
-            // scelta risale a quando quel nome era duplicato da
-            // App\Providers\TuringServiceProvider (route /turing/ia), rimosso
-            // dal fix del conflitto di route Turing. Il literal resta invariato
-            // (stesso output), l'assenza di /turing/ia e' verificata sotto.
-            ->assertSee('href="/turing/ai"', false)
+            // Cantiere 63 (fix Codex P2 su PR #629): il link non usa più il
+            // percorso letterale '/turing/ai' ma App\Support\TuringPreviewLink,
+            // che con previewMode=false (pagina pubblica reale, questo test)
+            // risolve esattamente a route('turing.ai') — stessa destinazione,
+            // ora anche pronto per l'anteprima admin (dove risolverebbe invece
+            // alla rotta di anteprima). L'assenza della vecchia rotta rimossa
+            // /turing/ia resta comunque verificata sotto.
+            ->assertSee('href="'.route('turing.ai').'"', false)
             ->assertDontSee('href="/turing/ia"', false);
     }
 
