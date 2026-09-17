@@ -393,6 +393,7 @@
             <a href="#hero">Hero</a>
             <a href="#intro">Introduzione</a>
             <a href="#features">Enigma / IA</a>
+            <a href="#cards">Ordine capitoli</a>
             <a href="#settings">Impostazioni</a>
         </nav>
 
@@ -602,6 +603,50 @@
                     @endif
                 @endforeach
             </section>
+
+            @if(!empty($cards))
+                <section id="cards" class="turing-lite-card">
+                    <h2>Ordine dei capitoli in evidenza</h2>
+                    <p class="turing-lite-hint">
+                        Ordine con cui le card dei capitoli compaiono nell'hub <code>/turing</code>.
+                        Testo, titolo e link non sono ancora modificabili da qui — solo l'ordine.
+                    </p>
+
+                    <ol style="list-style:none; margin:0; padding:0;">
+                        @foreach($cards as $i => $card)
+                            @php
+                                $cardLabel = filled($card['title'] ?? null) ? $card['title'] : ($card['label'] ?? 'Card '.($i + 1));
+                            @endphp
+                            <li style="display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.5rem .75rem; border:1px solid var(--admin-border); border-radius:10px; margin-bottom:.5rem;">
+                                <span>
+                                    {{ $cardLabel }}
+                                    <small style="color:var(--admin-muted);">({{ $card['url'] ?? '—' }})</small>
+                                </span>
+                                <span style="display:flex; gap:.35rem;">
+                                    <button
+                                        type="submit"
+                                        formaction="{{ route('admin.turing.cards.move', $i) }}"
+                                        formmethod="post"
+                                        name="direction"
+                                        value="up"
+                                        @disabled($i === 0)
+                                        aria-label="Sposta su: {{ $cardLabel }}"
+                                    >↑</button>
+                                    <button
+                                        type="submit"
+                                        formaction="{{ route('admin.turing.cards.move', $i) }}"
+                                        formmethod="post"
+                                        name="direction"
+                                        value="down"
+                                        @disabled($i === count($cards) - 1)
+                                        aria-label="Sposta giù: {{ $cardLabel }}"
+                                    >↓</button>
+                                </span>
+                            </li>
+                        @endforeach
+                    </ol>
+                </section>
+            @endif
 
             @if(!empty($timeline))
                 <section class="turing-lite-card">

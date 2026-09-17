@@ -54,6 +54,36 @@ class TuringController extends Controller
             ->with('success', 'Speciale Turing aggiornato.');
     }
 
+    /**
+     * Cantiere 58 (programma "100 cantieri Kairus"): sposta la card di un
+     * capitolo di una posizione (su/giù) nell'ordine con cui compaiono
+     * nell'hub `/turing` — l'ordine di rendering di `turing.blade.php` è
+     * già l'ordine dell'array `content.cards` (nessuna colonna "position"
+     * separata da tenere sincronizzata). Nessun contenuto editoriale
+     * nuovo: sposta solo le card già esistenti, non ne crea né modifica
+     * il testo.
+     */
+    public function moveCard(Request $request, int $index)
+    {
+        $page = $this->firstOrCreateTuringPage();
+        $cards = $page->content['cards'] ?? [];
+
+        $direction = $request->input('direction');
+        $target = $direction === 'up' ? $index - 1 : $index + 1;
+
+        if (! array_key_exists($index, $cards) || ! array_key_exists($target, $cards)) {
+            return back()->withErrors(['cards' => 'Spostamento non valido.']);
+        }
+
+        [$cards[$index], $cards[$target]] = [$cards[$target], $cards[$index]];
+
+        $page->update([
+            'content' => [...$page->content, 'cards' => array_values($cards)],
+        ]);
+
+        return redirect()->route('admin.turing')->withFragment('cards')->with('success', 'Ordine dei capitoli aggiornato.');
+    }
+
     private function firstOrCreateTuringPage(): SpecialPage
     {
         return SpecialPage::firstOrCreate(
