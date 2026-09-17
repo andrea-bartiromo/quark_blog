@@ -6,8 +6,8 @@
         <h1>{{ $hero['title'] ?? 'Alan Turing' }}</h1>
         <p class="turing-lead">{{ $hero['lead'] ?? 'Una mente che attraversa guerra, matematica, computer e intelligenza artificiale. Turing non è solo una biografia: è una chiave per capire il nostro presente digitale.' }}</p>
         <div class="turing-actions">
-          <a href="{{ route('turing.enigma') }}">{{ $hero['primary_label'] ?? 'Esplora Enigma' }}</a>
-          <a href="{{ route('turing.ai') }}">{{ $hero['secondary_label'] ?? 'Vai all’IA moderna' }}</a>
+          <a href="{{ \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false) }}">{{ $hero['primary_label'] ?? 'Esplora Enigma' }}</a>
+          <a href="{{ \App\Support\TuringPreviewLink::chapter('ai', $previewMode ?? false) }}">{{ $hero['secondary_label'] ?? 'Vai all’IA moderna' }}</a>
         </div>
       </div>
 

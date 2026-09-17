@@ -9,6 +9,7 @@ use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
 use App\Services\Turing\TuringConceptMapService;
 use App\Services\Turing\TuringNavigationMetricsService;
+use App\Support\TuringPreviewLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -44,6 +45,111 @@ class TuringController extends Controller
         $conceptsByChapter = TuringConceptMapService::conceptsByChapter();
 
         return view('admin.turing-concept-map', compact('conceptsByChapter'));
+    }
+
+    /**
+     * Cantiere 63 (programma "100 cantieri Kairus"): "Prototipo non
+     * pubblico navigazione Turing" — finché `turing.chapters_public` è
+     * false, TuringPageController::index() mostra a chiunque, editor
+     * autenticati inclusi, solo la landing "In arrivo"
+     * (turing.coming-soon): nessuno può rivedere l'hub reale, né la rete
+     * di navigazione fra i 5 capitoli, prima di rendere pubblico lo
+     * Speciale. Stesso pattern già stabilito da
+     * Admin\ContentClusterController::preview() (Cantiere 48) e
+     * Admin\CategoryController::preview() (Cantiere 11): sola lettura,
+     * ANCORA dentro il gruppo di rotte auth+editor, mai una route
+     * pubblica — riusa la stessa vista pubblica reale (mai una copia),
+     * con `previewMode` che aggiunge solo un banner e `noindex,nofollow`
+     * come difesa in profondità.
+     *
+     * Non chiama mai TuringNavigationMetricsService::recordView(): la
+     * vista di anteprima non deve mai contaminare le metriche di
+     * navigazione reali, stesso principio del marcatore
+     * X-Kairus-Internal-Audit già usato dalla route pubblica per gli
+     * audit interni (Codex PR #623 P1).
+     *
+     * Codex (PR #629, P2): ogni vista Turing (hub e capitoli) usa
+     * App\Support\TuringPreviewLink per risolvere i propri link interni
+     * — con `previewMode=true` restano tutti dentro le rotte di
+     * anteprima invece di puntare a /turing/* reale, che con
+     * chapters_public=false reindirizzerebbe l'editor fuori
+     * dall'anteprima. Qui riscrive anche gli URL delle card/blocchi
+     * editoriali (dati, non `route()` diretto nella vista) verso lo
+     * stesso capitolo in anteprima.
+     */
+    public function previewHub(TuringPageController $pageController)
+    {
+        $data = $this->withPreviewChapterLinks($pageController->buildIndexViewData());
+
+        return view('turing.index', $data + ['previewMode' => true]);
+    }
+
+    /**
+     * Anteprima di un singolo capitolo (vedi previewHub()): riusa la
+     * stessa vista pubblica reale di TuringPublicController, che per
+     * questi 5 capitoli non riceve alcun dato dal controller (ogni vista
+     * legge da sé SpecialPage::where('slug','turing') — vedi
+     * turing/enigma.blade.php) — qui basta passare previewMode=true, la
+     * vista stessa risolve i propri link con TuringPreviewLink.
+     */
+    public function previewChapter(string $chapter)
+    {
+        abort_unless(in_array($chapter, $this->realChapters(), true), 404);
+
+        return view("turing.$chapter", ['previewMode' => true]);
+    }
+
+    /**
+     * Riscrive gli URL delle card dell'hub e dei blocchi editoriali
+     * (unica parte della rete di navigazione guidata da dati, non da
+     * `route()` scritto direttamente nella vista) verso la rotta di
+     * anteprima dello stesso capitolo — solo quando l'URL punta
+     * esattamente a un capitolo reale, mai per un link esterno o
+     * arbitrario che un editor potrebbe aver impostato via CMS.
+     */
+    private function withPreviewChapterLinks(array $data): array
+    {
+        $chapters = $this->realChapters();
+
+        $rewrite = function (?string $url) use ($chapters): ?string {
+            if (blank($url)) {
+                return $url;
+            }
+
+            foreach ($chapters as $chapter) {
+                if ($url === '/turing/'.$chapter || $url === route('turing.'.$chapter)) {
+                    return TuringPreviewLink::chapter($chapter, true);
+                }
+            }
+
+            return $url;
+        };
+
+        $data['cards'] = $data['cards']->map(function (array $card) use ($rewrite) {
+            if (array_key_exists('url', $card)) {
+                $card['url'] = $rewrite($card['url']);
+            }
+
+            return $card;
+        });
+
+        $data['editorialBlocks'] = $data['editorialBlocks']->map(function (array $block) use ($rewrite) {
+            if (array_key_exists('link_url', $block)) {
+                $block['link_url'] = $rewrite($block['link_url']);
+            }
+
+            return $block;
+        });
+
+        return $data;
+    }
+
+    private function realChapters(): array
+    {
+        return array_values(array_filter(
+            TuringNavigationMetricsService::CHAPTERS,
+            fn (string $chapter) => $chapter !== 'hub'
+        ));
     }
 
     public function update(Request $request)

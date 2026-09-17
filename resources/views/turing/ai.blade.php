@@ -36,6 +36,8 @@
 )
 
 @section('head')
+{{-- Cantiere 63 (100 cantieri Kairus): difesa in profondità, vedi turing/index.blade.php. --}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
     <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
 
     <style>
@@ -432,6 +434,11 @@
 @endsection
 
 @section('content')
+@if($previewMode ?? false)
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — lo Speciale Turing non è ancora pubblico.
+</div>
+@endif
     <div class="ai-page">
         <section class="ai-hero" style="{{ $bg($heroImage) }}">
             <div class="container container--wide">
@@ -639,8 +646,8 @@
                     </p>
 
                     <div class="ai-actions">
-                        <a href="{{ route('turing') }}">Torna allo speciale</a>
-                        <a href="{{ route('turing.enigma') }}">Rivedi Enigma</a>
+                        <a href="{{ \App\Support\TuringPreviewLink::hub($previewMode ?? false) }}">Torna allo speciale</a>
+                        <a href="{{ \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false) }}">Rivedi Enigma</a>
                     </div>
                 </div>
             </div>

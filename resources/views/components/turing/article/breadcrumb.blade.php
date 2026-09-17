@@ -1,8 +1,8 @@
-@props(['items' => []])
+@props(['items' => [], 'previewMode' => false])
 
 <nav {{ $attributes->merge(['class' => 'turing-article-breadcrumb']) }} aria-label="Percorso">
   <ol>
-    <li><a href="{{ route('turing') }}">Speciale Turing</a></li>
+    <li><a href="{{ \App\Support\TuringPreviewLink::hub($previewMode) }}">Speciale Turing</a></li>
 
     @foreach($items as $item)
       @php

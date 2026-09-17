@@ -7,15 +7,22 @@
 )
 
 @section('head')
+{{-- Cantiere 63 (100 cantieri Kairus): difesa in profondità, vedi turing/index.blade.php. --}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
     <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
     <link rel="stylesheet" href="{{ asset('css/special-project.css') }}">
 @endsection
 
 @section('content')
+@if($previewMode ?? false)
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — lo Speciale Turing non è ancora pubblico.
+</div>
+@endif
 <div class="turing-page">
 
     <div class="container container--wide">
-        <x-turing.article.breadcrumb :items="[['label' => 'Eredità']]" />
+        <x-turing.article.breadcrumb :items="[['label' => 'Eredità']]" :preview-mode="$previewMode ?? false" />
     </div>
 
     <x-turing.article.hero
@@ -34,7 +41,7 @@
             text="Con la macchina universale del 1936, Turing diede alla nozione di algoritmo una forma precisa e generale, mostrando che programma e dati potevano essere trattati nello stesso linguaggio formale. Quella grammatica concettuale è tuttora alla base dell’informatica teorica e del modo in cui pensiamo le macchine programmabili."
         />
         <p>
-            <a href="{{ route('turing.computation') }}">Approfondisci la macchina universale nello speciale</a>
+            <a href="{{ \App\Support\TuringPreviewLink::chapter('computation', $previewMode ?? false) }}">Approfondisci la macchina universale nello speciale</a>
         </p>
     </x-turing.article.body>
 
@@ -47,7 +54,7 @@
             text="Durante la Seconda guerra mondiale, il contributo di Turing alla crittoanalisi di Enigma a Bletchley Park fu decisivo: non il gesto isolato di un genio, ma il risultato di un lavoro collettivo di matematica, ingegneria e organizzazione sotto pressione, che accelerò la nascita del calcolo automatico moderno."
         />
         <p>
-            <a href="{{ route('turing.enigma') }}">Leggi la storia completa di Enigma e Bletchley Park</a>
+            <a href="{{ \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false) }}">Leggi la storia completa di Enigma e Bletchley Park</a>
         </p>
     </x-turing.article.body>
 
@@ -60,7 +67,7 @@
             text="Nel saggio del 1950 Computing Machinery and Intelligence, Turing propose di osservare il comportamento di una macchina in una conversazione invece di definire rigidamente cosa significhi pensare. Il cosiddetto Test di Turing resta un esperimento concettuale, tornato attuale nell’epoca dei modelli linguistici generativi."
         />
         <p>
-            <a href="{{ route('turing.intelligence') }}">Approfondisci il dibattito sull’intelligenza artificiale</a>
+            <a href="{{ \App\Support\TuringPreviewLink::chapter('intelligence', $previewMode ?? false) }}">Approfondisci il dibattito sull’intelligenza artificiale</a>
         </p>
     </x-turing.article.body>
 
@@ -107,9 +114,9 @@
         title="Torna allo speciale o approfondisci"
         text="Rivedi da dove è partito questo percorso o esplora gli altri due approfondimenti dedicati ad Alan Turing."
         :actions="[
-            ['label' => 'Torna allo speciale', 'url' => route('turing')],
-            ['label' => 'Enigma e Bletchley Park', 'url' => route('turing.enigma')],
-            ['label' => 'Turing e l’IA moderna', 'url' => route('turing.ai')],
+            ['label' => 'Torna allo speciale', 'url' => \App\Support\TuringPreviewLink::hub($previewMode ?? false)],
+            ['label' => 'Enigma e Bletchley Park', 'url' => \App\Support\TuringPreviewLink::chapter('enigma', $previewMode ?? false)],
+            ['label' => 'Turing e l’IA moderna', 'url' => \App\Support\TuringPreviewLink::chapter('ai', $previewMode ?? false)],
         ]"
     />
 

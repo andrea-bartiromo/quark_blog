@@ -37,6 +37,20 @@ class TuringPageController extends Controller
             $this->navigationMetrics->recordView('hub');
         }
 
+        return view('turing.index', $this->buildIndexViewData());
+    }
+
+    /**
+     * Cantiere 63 (programma "100 cantieri Kairus"): estratto da index()
+     * per essere riusabile da Admin\TuringController::previewHub() —
+     * un editor autenticato deve poter rivedere l'hub reale (stessi dati,
+     * stessa vista) anche quando `turing.chapters_public` è false, senza
+     * duplicare questa costruzione dati e senza mai registrare la vista
+     * come traffico di navigazione reale (vedi previewHub(), che non
+     * chiama mai $this->navigationMetrics->recordView()).
+     */
+    public function buildIndexViewData(): array
+    {
         $page = SpecialPage::where('slug', 'turing')->first();
         $content = ($page && $page->is_active && is_array($page->content)) ? ($page->content ?? []) : [];
         $hero = $content['hero'] ?? [];
@@ -58,7 +72,7 @@ class TuringPageController extends Controller
         $timelineEvents = $timelineOverrideItems !== [] ? $timelineOverrideItems : $this->defaultTimeline();
         $timelineChapters = $timelineOverrideItems !== [] ? [] : $this->defaultTimelineChapters();
 
-        return view('turing.index', [
+        return [
             'page' => $page,
             'content' => $content,
             'hero' => $hero,
@@ -95,7 +109,7 @@ class TuringPageController extends Controller
                 'QUESTION: CAN MACHINES THINK?',
                 'STATUS: STILL OPEN',
             ]),
-        ]);
+        ];
     }
 
     private function contentItemsOrFallback(array $content, string $key, array $fallback, callable $isRenderable): array

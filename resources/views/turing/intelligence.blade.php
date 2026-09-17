@@ -7,15 +7,22 @@
 )
 
 @section('head')
+{{-- Cantiere 63 (100 cantieri Kairus): difesa in profondità, vedi turing/index.blade.php. --}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
     <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
     <link rel="stylesheet" href="{{ asset('css/special-project.css') }}">
 @endsection
 
 @section('content')
+@if($previewMode ?? false)
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — lo Speciale Turing non è ancora pubblico.
+</div>
+@endif
 <div class="turing-page">
 
     <div class="container container--wide">
-        <x-turing.article.breadcrumb :items="[['label' => 'Intelligenza']]" />
+        <x-turing.article.breadcrumb :items="[['label' => 'Intelligenza']]" :preview-mode="$previewMode ?? false" />
     </div>
 
     <x-turing.article.hero
@@ -105,11 +112,9 @@
         title="Torna allo speciale o approfondisci"
         text="Rivedi da dove è partito questo percorso o esplora gli altri approfondimenti dedicati ad Alan Turing."
         :actions="[
-            ['label' => 'Torna allo speciale', 'url' => route('turing')],
-            ['label' => 'La macchina universale', 'url' => route('turing.computation')],
-            // Percorso letterale invece di route('turing.ai'): stessa scelta
-            // gia' fatta in computation.blade.php, invariata da questa PR.
-            ['label' => 'L’IA moderna', 'url' => '/turing/ai'],
+            ['label' => 'Torna allo speciale', 'url' => \App\Support\TuringPreviewLink::hub($previewMode ?? false)],
+            ['label' => 'La macchina universale', 'url' => \App\Support\TuringPreviewLink::chapter('computation', $previewMode ?? false)],
+            ['label' => 'L’IA moderna', 'url' => \App\Support\TuringPreviewLink::chapter('ai', $previewMode ?? false)],
         ]"
     />
 
