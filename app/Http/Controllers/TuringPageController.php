@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\SpecialPage;
+use App\Services\Turing\TuringNavigationMetricsService;
 use Illuminate\View\View;
 
 class TuringPageController extends Controller
 {
+    public function __construct(
+        private readonly TuringNavigationMetricsService $navigationMetrics,
+    ) {}
+
     public function index(): View
     {
         /* Rilascio pubblico dello Speciale (vedi config/turing.php): finche'
@@ -18,6 +23,8 @@ class TuringPageController extends Controller
         if (! config('turing.chapters_public')) {
             return view('turing.coming-soon');
         }
+
+        $this->navigationMetrics->recordView('hub');
 
         $page = SpecialPage::where('slug', 'turing')->first();
         $content = ($page && $page->is_active && is_array($page->content)) ? ($page->content ?? []) : [];

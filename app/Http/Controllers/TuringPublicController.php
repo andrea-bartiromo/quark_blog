@@ -2,16 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Turing\TuringNavigationMetricsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class TuringPublicController extends Controller
 {
+    public function __construct(
+        private readonly TuringNavigationMetricsService $navigationMetrics,
+    ) {}
+
     public function enigma(): View|RedirectResponse
     {
         if (! $this->chaptersArePublic()) {
             return $this->redirectToTuring();
         }
+
+        $this->navigationMetrics->recordView('enigma');
 
         return view('turing.enigma');
     }
@@ -22,6 +29,8 @@ class TuringPublicController extends Controller
             return $this->redirectToTuring();
         }
 
+        $this->navigationMetrics->recordView('ai');
+
         return view('turing.ai');
     }
 
@@ -30,6 +39,8 @@ class TuringPublicController extends Controller
         if (! $this->chaptersArePublic()) {
             return $this->redirectToTuring();
         }
+
+        $this->navigationMetrics->recordView('legacy');
 
         return view('turing.legacy');
     }
@@ -40,6 +51,8 @@ class TuringPublicController extends Controller
             return $this->redirectToTuring();
         }
 
+        $this->navigationMetrics->recordView('computation');
+
         return view('turing.computation');
     }
 
@@ -48,6 +61,8 @@ class TuringPublicController extends Controller
         if (! $this->chaptersArePublic()) {
             return $this->redirectToTuring();
         }
+
+        $this->navigationMetrics->recordView('intelligence');
 
         return view('turing.intelligence');
     }
