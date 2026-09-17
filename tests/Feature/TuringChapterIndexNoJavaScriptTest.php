@@ -19,22 +19,25 @@ use Tests\TestCase;
  * asserzione qui è già di per sé una prova che quella parte di pagina
  * non dipende da JS.
  *
- * Nota: le 3 card dell'hub coprono solo enigma/ai/legacy (dato reale di
- * produzione, TuringSeeder/TuringPageController::defaultRouteCards()) —
- * computation e intelligence non sono nella griglia dell'hub. Questo non
- * è un buco di navigazione: sono comunque raggiungibili da veri link
- * nelle CTA "Continua il percorso" di altri capitoli (flusso di lettura
- * hub → Enigma → Computation → Intelligence → AI → Legacy, vedi
- * Architettura_Editoriale_v1.0.docx §"Flusso di lettura"). Se in futuro
- * l'hub dovesse includere tutti e 5 i capitoli è una decisione
- * editoriale di completezza (Cantiere 67), non l'argomento "senza
- * JavaScript" di questo cantiere.
+ * Nota: le 3 card dell'hub in <x-special.feature-cards> coprono solo
+ * enigma/ai/legacy (dato reale di produzione, TuringSeeder/
+ * TuringPageController::defaultRouteCards()). computation e intelligence
+ * non sono in quella griglia, ma l'hub li collega comunque con veri
+ * <a href> tramite i blocchi editoriali (turing.partials.editorial-blocks,
+ * classe turing-editorial-link) — verificato con un dump diretto
+ * dell'HTML reso. Sono inoltre raggiungibili dalle CTA "Continua il
+ * percorso" di altri capitoli (flusso di lettura hub → Enigma →
+ * Computation → Intelligence → AI → Legacy, vedi
+ * Architettura_Editoriale_v1.0.docx §"Flusso di lettura").
  *
- * Le asserzioni cercano il SUFFISSO del path (es. `/turing/enigma"`)
- * invece dell'URL assoluto restituito da route() (http://localhost/...):
- * gli href reali nel markup sono talvolta relativi (le card dell'hub),
- * talvolta assoluti (route() nelle CTA) — il suffisso combacia in
- * entrambi i casi.
+ * Le asserzioni cercano il path come SUFFISSO del valore dell'attributo
+ * href (subito prima della virgoletta di chiusura), non come prefisso
+ * subito dopo `href="`: gli href reali nel markup sono talvolta relativi
+ * (le card dell'hub, i blocchi editoriali) e talvolta assoluti (route()
+ * nelle CTA, es. http://localhost/turing/computation) — solo il
+ * confronto sul suffisso combacia in entrambi i casi. Un confronto sul
+ * prefisso (`href="` seguito subito dal path) mancherebbe ogni href
+ * assoluto, anche se puntasse esattamente al capitolo cercato.
  */
 class TuringChapterIndexNoJavaScriptTest extends TestCase
 {
@@ -89,9 +92,11 @@ class TuringChapterIndexNoJavaScriptTest extends TestCase
         }
 
         foreach (self::CHAPTER_ROUTES as $targetChapter => [$targetRouteName, $targetPath]) {
+            $hrefSuffixPattern = '/href="[^"]*'.preg_quote($targetPath, '/').'"/';
+
             $reachableFrom = collect($pages)
                 ->filter(fn (string $html, string $fromPage) => $fromPage !== $targetChapter
-                    && str_contains($html, 'href="'.$targetPath))
+                    && preg_match($hrefSuffixPattern, $html) === 1)
                 ->keys();
 
             $this->assertNotEmpty(
