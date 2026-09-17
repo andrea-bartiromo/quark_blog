@@ -33,10 +33,10 @@ class TuringNavigationMetricsService
     private const MIN_DAYS_COLLECTED = 7;
 
     /**
-     * Data di attivazione di questa strumentazione: nessun evento può
-     * fisicamente esistere prima di questa data — ancora per "giorni di
-     * dati raccolti", stesso principio (e stessa correzione Codex, PR
-     * #602) già applicato in TrustPilotPreviewMetricsService.
+     * Data di deploy di questa strumentazione: nessun evento può
+     * fisicamente esistere prima di questa data — solo un limite di
+     * sicurezza (fail-closed contro un created_at anomalo/corrotto), mai
+     * l'ancora principale dell'orologio di raccolta — vedi daysCollected().
      */
     private const TRACKING_STARTED_AT = '2026-09-17 00:00:00';
 
@@ -46,8 +46,12 @@ class TuringNavigationMetricsService
     }
 
     /**
-     * Una sola query per tutti i capitoli — mai una per riga, stesso
-     * principio già in uso in TrustPilotPreviewMetricsService::aggregateViewsForMany().
+     * Due query fisse (conteggi per capitolo + primo evento mai
+     * registrato), mai una per riga né una per capitolo — stesso
+     * principio già in uso in
+     * TrustPilotPreviewMetricsService::aggregateViewsForMany(), qui in
+     * due passate invece di una per via dell'ancora dell'orologio di
+     * raccolta (vedi daysCollected()).
      *
      * @return array<string, array{state: string, count: int, days_collected: int}> capitolo => metrica
      */
@@ -71,12 +75,29 @@ class TuringNavigationMetricsService
     }
 
     /**
-     * Giorni realmente trascorsi dall'attivazione della strumentazione:
-     * mai negativo (es. orologio di sistema anomalo).
+     * Giorni realmente trascorsi dal primo evento MAI registrato — non
+     * dalla data di deploy del codice (Codex, PR #623, P2): lo Speciale
+     * resta dietro il gate `config('turing.chapters_public')` (default
+     * false) potenzialmente per settimane dopo il deploy di questa
+     * strumentazione, quindi ancorare l'orologio al deploy avrebbe
+     * dichiarato "available" (>= 7 giorni "trascorsi") un istante dopo
+     * l'apertura del gate, anche con zero vera raccolta avvenuta —
+     * esattamente il falso positivo che il gate insufficient_data deve
+     * escludere. Nessun evento ancora registrato → 0 giorni, stato
+     * correttamente insufficient_data.
      */
     private function daysCollected(): int
     {
-        $trackingStartedAt = Carbon::parse(self::TRACKING_STARTED_AT);
+        $firstEventAt = TuringChapterView::query()->min('created_at');
+
+        if ($firstEventAt === null) {
+            return 0;
+        }
+
+        // Limite di sicurezza fail-closed: un created_at anomalo/corrotto
+        // precedente al deploy di questa strumentazione non può mai far
+        // partire l'orologio prima che il codice esistesse davvero.
+        $trackingStartedAt = Carbon::parse($firstEventAt)->max(Carbon::parse(self::TRACKING_STARTED_AT));
         $now = Carbon::now();
 
         return $now->greaterThan($trackingStartedAt) ? $trackingStartedAt->diffInDays($now) : 0;

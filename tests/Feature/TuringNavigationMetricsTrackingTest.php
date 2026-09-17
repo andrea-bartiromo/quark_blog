@@ -73,6 +73,40 @@ class TuringNavigationMetricsTrackingTest extends TestCase
         $this->assertSame(count(self::CHAPTER_ROUTES), TuringChapterView::count());
     }
 
+    /**
+     * Codex (PR #623, P1): gli audit interni (SEO/WCAG, dashboard salute
+     * pubblica + baseline mensile programmata) raggiungono ogni pagina
+     * Turing abilitata con un vero GET in-process
+     * (App\Services\PublicPages\InProcessPageFetcher, marcato con questo
+     * stesso header) — senza l'esclusione, ogni esecuzione dell'audit
+     * gonfierebbe le metriche di navigazione reali con traffico
+     * sintetico, esattamente come per le analytics degli articoli (vedi
+     * ArticleController::show()).
+     */
+    public function test_visiting_the_real_hub_with_the_internal_audit_header_records_no_event(): void
+    {
+        config(['turing.chapters_public' => true]);
+
+        $this->withHeaders(['X-Kairus-Internal-Audit' => '1'])
+            ->get(route('turing'))
+            ->assertOk();
+
+        $this->assertSame(0, TuringChapterView::count());
+    }
+
+    public function test_visiting_each_real_chapter_with_the_internal_audit_header_records_no_event(): void
+    {
+        config(['turing.chapters_public' => true]);
+
+        foreach (array_keys(self::CHAPTER_ROUTES) as $routeName) {
+            $this->withHeaders(['X-Kairus-Internal-Audit' => '1'])
+                ->get(route($routeName))
+                ->assertOk();
+        }
+
+        $this->assertSame(0, TuringChapterView::count());
+    }
+
     public function test_admin_turing_edit_page_shows_the_aggregated_navigation_panel(): void
     {
         $editor = User::factory()->create(['role' => 'editor']);

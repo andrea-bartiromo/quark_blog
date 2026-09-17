@@ -64,17 +64,65 @@ class TuringNavigationMetricsServiceTest extends TestCase
         $this->assertSame(TuringNavigationMetricsService::STATE_INSUFFICIENT_DATA, $metrics['enigma']['state']);
     }
 
-    public function test_aggregate_is_available_with_a_real_zero_count_after_seven_days(): void
+    /**
+     * Codex (PR #623, P2): l'orologio di raccolta si ancora al primo
+     * evento MAI registrato, non a una data di deploy fissa — lo
+     * Speciale resta dietro `config('turing.chapters_public')` (default
+     * false) potenzialmente per settimane dopo il deploy di questa
+     * strumentazione. Finché nessun evento reale è mai stato registrato,
+     * lo stato deve restare "dati insufficienti" per sempre, mai un falso
+     * "available" solo perché è passato molto tempo dal deploy del
+     * codice (fail-closed, stesso principio già in uso nel resto del
+     * programma).
+     */
+    public function test_aggregate_stays_insufficient_data_forever_if_no_event_was_ever_recorded(): void
     {
-        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(10));
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(365));
 
         $metrics = $this->service()->aggregateViews();
 
-        // Nessuna view registrata: lo zero deve restare uno zero reale, non
-        // "dati insufficienti" — stesso principio di
-        // docs/DASHBOARD_DATA_EXPORT_V1.md.
+        $this->assertSame(TuringNavigationMetricsService::STATE_INSUFFICIENT_DATA, $metrics['hub']['state']);
+        $this->assertSame(0, $metrics['hub']['days_collected']);
+    }
+
+    /**
+     * Una volta che il gate si apre e il primo evento reale viene
+     * registrato, un capitolo mai visitato deve comunque mostrare uno
+     * zero reale (non "dati insufficienti") dopo 7 giorni dal PRIMO
+     * evento — stesso principio "lo zero del campione resta zero" di
+     * docs/DASHBOARD_DATA_EXPORT_V1.md, ma ancorato alla raccolta reale.
+     */
+    public function test_aggregate_is_available_with_a_real_zero_count_seven_days_after_the_first_real_event(): void
+    {
+        Carbon::setTestNow(self::TRACKING_STARTED_AT);
+        $this->service()->recordView('enigma');
+
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(10));
+        $metrics = $this->service()->aggregateViews();
+
         $this->assertSame(TuringNavigationMetricsService::STATE_AVAILABLE, $metrics['hub']['state']);
         $this->assertSame(0, $metrics['hub']['count']);
+    }
+
+    /**
+     * Codex (PR #623, P2): se il gate si apre molto dopo il deploy del
+     * codice, l'orologio deve partire dal primo evento reale, non dal
+     * deploy — altrimenti "available" comparirebbe un istante dopo
+     * l'apertura del gate, con zero vera raccolta avvenuta.
+     */
+    public function test_aggregate_stays_insufficient_data_right_after_the_gate_opens_long_after_deploy(): void
+    {
+        // Il gate si apre 100 giorni dopo il deploy del codice: se
+        // l'orologio fosse ancora ancorato a TRACKING_STARTED_AT, questo
+        // sarebbe già "available" (100 >= 7) nonostante la raccolta reale
+        // sia iniziata un istante fa.
+        Carbon::setTestNow(Carbon::parse(self::TRACKING_STARTED_AT)->addDays(100));
+        $this->service()->recordView('enigma');
+
+        $metrics = $this->service()->aggregateViews();
+
+        $this->assertSame(TuringNavigationMetricsService::STATE_INSUFFICIENT_DATA, $metrics['enigma']['state']);
+        $this->assertSame(0, $metrics['enigma']['days_collected']);
     }
 
     public function test_aggregate_counts_multiple_views_per_chapter_correctly_once_available(): void
@@ -108,7 +156,7 @@ class TuringNavigationMetricsServiceTest extends TestCase
         $this->assertSame(TuringNavigationMetricsService::CHAPTERS, array_keys($metrics));
     }
 
-    public function test_aggregate_stays_at_a_single_query_regardless_of_event_volume(): void
+    public function test_aggregate_stays_at_a_fixed_query_count_regardless_of_event_volume(): void
     {
         $service = $this->service();
 
@@ -125,6 +173,9 @@ class TuringNavigationMetricsServiceTest extends TestCase
         $queryCount = count(DB::getQueryLog());
         DB::disableQueryLog();
 
-        $this->assertLessThanOrEqual(1, $queryCount, 'aggregateViews() deve restare O(1) in query indipendentemente dal volume di eventi.');
+        // 2 query fisse (conteggi per capitolo + primo evento mai
+        // registrato, vedi daysCollected()): mai una per riga né una per
+        // capitolo, indipendentemente dal volume di eventi.
+        $this->assertLessThanOrEqual(2, $queryCount, 'aggregateViews() deve restare O(1) in query indipendentemente dal volume di eventi.');
     }
 }
