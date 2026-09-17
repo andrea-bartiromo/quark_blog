@@ -311,6 +311,17 @@
         <a href="{{ route('admin.turing.chapter-sources') }}" class="btn btn--secondary">
             Fonti per capitolo
         </a>
+        {{--
+            Cantiere 63 (programma "100 cantieri Kairus"): anteprima di
+            sola lettura dell'hub reale — Admin\TuringController::previewHub()
+            — utile soprattutto finché turing.chapters_public è false e
+            "Apri /turing" qui sotto mostra solo la landing "In arrivo".
+            Stesso pattern del link "Vedi anteprima" già presente per
+            Percorso (Cantiere 48) e Category (Cantiere 11).
+        --}}
+        <a href="{{ route('admin.turing.preview') }}" target="_blank" rel="noopener" class="btn btn--secondary">
+            Vedi anteprima →
+        </a>
         <a href="{{ route('turing') }}" target="_blank" class="btn btn--secondary">
             Apri /turing
         </a>

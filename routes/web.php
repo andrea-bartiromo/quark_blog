@@ -272,6 +272,8 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     Route::get('/turing/fonti', [TuringChapterSourceController::class, 'index'])->name('turing.chapter-sources');
     Route::post('/turing/fonti', [TuringChapterSourceController::class, 'store'])->name('turing.chapter-sources.store');
     Route::delete('/turing/fonti/{turingChapterSource}', [TuringChapterSourceController::class, 'destroy'])->name('turing.chapter-sources.destroy');
+    Route::get('/turing/anteprima', [TuringController::class, 'previewHub'])->name('turing.preview');
+    Route::get('/turing/anteprima/{chapter}', [TuringController::class, 'previewChapter'])->name('turing.preview-chapter');
 
     // Distribuzione social (generatore link UTM per campagne ufficiali,
     // mai per la condivisione organica dei lettori — vedi

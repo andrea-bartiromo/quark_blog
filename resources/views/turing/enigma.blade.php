@@ -50,6 +50,8 @@
 )
 
 @section('head')
+{{-- Cantiere 63 (100 cantieri Kairus): difesa in profondità, vedi turing/index.blade.php. --}}
+@if($previewMode ?? false)<meta name="robots" content="noindex,nofollow">@endif
     <link rel="preload" as="image" href="{{ $heroImage }}">
     <link rel="stylesheet" href="{{ asset('css/turing.css') }}">
     <link rel="stylesheet" href="{{ asset('css/special-project.css') }}">
@@ -57,6 +59,11 @@
 @endsection
 
 @section('content')
+@if($previewMode ?? false)
+<div style="background:#fef3c7;color:#78350f;padding:.85rem 1rem;text-align:center;font-weight:700;font-size:.88rem;">
+  Anteprima amministrativa — lo Speciale Turing non è ancora pubblico.
+</div>
+@endif
 <div class="turing-page">
 
     <div class="container container--wide">

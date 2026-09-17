@@ -46,6 +46,54 @@ class TuringController extends Controller
         return view('admin.turing-concept-map', compact('conceptsByChapter'));
     }
 
+    /**
+     * Cantiere 63 (programma "100 cantieri Kairus"): "Prototipo non
+     * pubblico navigazione Turing" — finché `turing.chapters_public` è
+     * false, TuringPageController::index() mostra a chiunque, editor
+     * autenticati inclusi, solo la landing "In arrivo"
+     * (turing.coming-soon): nessuno può rivedere l'hub reale, né la rete
+     * di navigazione fra i 5 capitoli, prima di rendere pubblico lo
+     * Speciale. Stesso pattern già stabilito da
+     * Admin\ContentClusterController::preview() (Cantiere 48) e
+     * Admin\CategoryController::preview() (Cantiere 11): sola lettura,
+     * ANCORA dentro il gruppo di rotte auth+editor, mai una route
+     * pubblica — riusa la stessa vista pubblica reale (mai una copia),
+     * con `previewMode` che aggiunge solo un banner e `noindex,nofollow`
+     * come difesa in profondità.
+     *
+     * Non chiama mai TuringNavigationMetricsService::recordView(): la
+     * vista di anteprima non deve mai contaminare le metriche di
+     * navigazione reali, stesso principio del marcatore
+     * X-Kairus-Internal-Audit già usato dalla route pubblica per gli
+     * audit interni (Codex PR #623 P1).
+     */
+    public function previewHub(TuringPageController $pageController)
+    {
+        return view('turing.index', $pageController->buildIndexViewData() + ['previewMode' => true]);
+    }
+
+    /**
+     * Anteprima di un singolo capitolo (vedi previewHub()): riusa la
+     * stessa vista pubblica reale di TuringPublicController, che per
+     * questi 5 capitoli non riceve alcun dato dal controller (ogni vista
+     * legge da sé SpecialPage::where('slug','turing') — vedi
+     * turing/enigma.blade.php) — qui basta passare previewMode=true.
+     */
+    public function previewChapter(string $chapter)
+    {
+        abort_unless(in_array($chapter, $this->realChapters(), true), 404);
+
+        return view("turing.$chapter", ['previewMode' => true]);
+    }
+
+    private function realChapters(): array
+    {
+        return array_values(array_filter(
+            TuringNavigationMetricsService::CHAPTERS,
+            fn (string $chapter) => $chapter !== 'hub'
+        ));
+    }
+
     public function update(Request $request)
     {
         $page = $this->firstOrCreateTuringPage();
