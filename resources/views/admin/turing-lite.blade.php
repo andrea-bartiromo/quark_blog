@@ -308,6 +308,9 @@
         <a href="{{ route('admin.turing.concept-map') }}" class="btn btn--secondary">
             Mappa concettuale
         </a>
+        <a href="{{ route('admin.turing.chapter-sources') }}" class="btn btn--secondary">
+            Fonti per capitolo
+        </a>
         <a href="{{ route('turing') }}" target="_blank" class="btn btn--secondary">
             Apri /turing
         </a>

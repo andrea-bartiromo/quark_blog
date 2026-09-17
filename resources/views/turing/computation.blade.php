@@ -115,5 +115,7 @@
         ]"
     />
 
+    <x-turing.chapter-sources chapter="computation" />
+
 </div>
 @endsection

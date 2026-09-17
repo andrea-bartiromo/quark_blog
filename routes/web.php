@@ -53,6 +53,7 @@ use App\Http\Controllers\Admin\SuggestionController;
 use App\Http\Controllers\Admin\TopicalAuthorityController;
 use App\Http\Controllers\Admin\TrustKnowledgeStatementController;
 use App\Http\Controllers\Admin\TrustPilotGateReadinessController;
+use App\Http\Controllers\Admin\TuringChapterSourceController;
 use App\Http\Controllers\Admin\TuringController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\ArticleController;
@@ -268,6 +269,9 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
         ->where('index', '[0-9]+')
         ->name('turing.cards.move');
     Route::get('/turing/mappa-concettuale', [TuringController::class, 'conceptMap'])->name('turing.concept-map');
+    Route::get('/turing/fonti', [TuringChapterSourceController::class, 'index'])->name('turing.chapter-sources');
+    Route::post('/turing/fonti', [TuringChapterSourceController::class, 'store'])->name('turing.chapter-sources.store');
+    Route::delete('/turing/fonti/{turingChapterSource}', [TuringChapterSourceController::class, 'destroy'])->name('turing.chapter-sources.destroy');
 
     // Distribuzione social (generatore link UTM per campagne ufficiali,
     // mai per la condivisione organica dei lettori — vedi

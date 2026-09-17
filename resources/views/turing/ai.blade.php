@@ -645,5 +645,7 @@
                 </div>
             </div>
         </section>
+
+        <x-turing.chapter-sources chapter="ai" />
     </div>
 @endsection

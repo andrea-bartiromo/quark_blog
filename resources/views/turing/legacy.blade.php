@@ -113,5 +113,7 @@
         ]"
     />
 
+    <x-turing.chapter-sources chapter="legacy" />
+
 </div>
 @endsection
