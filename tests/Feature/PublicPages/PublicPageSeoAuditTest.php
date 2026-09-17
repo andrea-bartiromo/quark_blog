@@ -130,20 +130,26 @@ class PublicPageSeoAuditTest extends TestCase
     }
 
     /**
-     * Scoperta reale, non fabbricata per questo test: resources/views/
-     * ricerca.blade.php non imposta mai @section('canonical', ...), a
-     * differenza di ogni altra pagina statica. L'audit deve segnalarlo
-     * come finding genuino, non ignorarlo.
+     * Storico: fino al commit e8049a4 ("fix: usa la root media servita e
+     * aggiunge i canonical mancanti"), resources/views/ricerca.blade.php
+     * non impostava mai @section('canonical', ...), a differenza di ogni
+     * altra pagina statica — e questo test verificava che l'audit lo
+     * segnalasse come finding genuino (lo faceva correttamente). Il
+     * commit ha risolto la falla direttamente sulla pagina (vedi anche
+     * tests/Feature/HttpsCanonicalizationTest.php,
+     * test_search_page_uses_meta_robots_not_a_response_header): questo
+     * test verifica ora che il fix regga, non che il finding esista
+     * ancora.
      */
-    public function test_a_real_page_missing_the_canonical_section_is_flagged(): void
+    public function test_ricerca_page_has_a_self_referencing_canonical_and_no_findings(): void
     {
         $pages = collect(app(PublicPageSeoAudit::class)->audit())->keyBy('key');
         $ricerca = $pages['ricerca'];
 
         $this->assertTrue($ricerca['checked']);
         $this->assertSame(200, $ricerca['http_status']);
-        $this->assertNull($ricerca['canonical']);
-        $this->assertContains('Tag <link rel="canonical"> assente.', $ricerca['findings']);
+        $this->assertSame(route('ricerca'), $ricerca['canonical']);
+        $this->assertSame([], $ricerca['findings']);
     }
 
     /**
