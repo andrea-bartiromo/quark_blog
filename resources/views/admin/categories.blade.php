@@ -4,6 +4,7 @@
 
 <div class="admin-topbar">
   <h1 class="admin-page-title">Categorie</h1>
+  <a class="action-btn" href="{{ route('admin.categories.command-center') }}">Command Center</a>
 </div>
 
 @if($errors->any())
