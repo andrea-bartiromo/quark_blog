@@ -594,7 +594,7 @@ class EditorialQualityChecker
 
         $count = 0;
 
-        foreach ($wrapper->childNodes as $node) {
+        foreach ($wrapper->getElementsByTagName('*') as $node) {
             if (! $node instanceof DOMElement) {
                 continue;
             }
