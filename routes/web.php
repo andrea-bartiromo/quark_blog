@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Admin\ArticleDiscoveryAuditController;
 use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevisionController;
 use App\Http\Controllers\Admin\ArticleSearchProfileController;
+use App\Http\Controllers\Admin\CategoryCommandCenterController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
@@ -237,6 +238,10 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
     // lettura, staff-only (dentro auth+editor sopra), della pagina
     // pubblica per una categoria bozza/programmata/disattivata.
     Route::get('/categorie/{category}/anteprima', [CategoryController::class, 'preview'])->name('categories.preview');
+    // Cantiere 54 (programma 100-cantieri Kairus): sola lettura, stesso
+    // pattern di /operazioni-editoriali — riassume per categoria segnali
+    // già calcolati da CategoryPublicationReadiness/ArticleContentHealthService.
+    Route::get('/categorie/command-center', [CategoryCommandCenterController::class, 'index'])->name('categories.command-center');
 
     // Commenti
     Route::get('/commenti', [AdminCommentController::class, 'index'])->name('comments');
