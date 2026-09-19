@@ -161,6 +161,12 @@ class PublicPageQueryBudgetTest extends TestCase
      * notizie.blade.php per il proprio pill-row, qui spostata nel
      * controller. Entrambe le query restano O(1): non crescono con il
      * numero di articoli né di categorie mostrate nel ciclo.
+     *
+     * Budget +1 ulteriore (Cantiere 53, programma 100-cantieri Kairus:
+     * benchmark CTR hub categorie): CategoryHubCtrBenchmarkService::recordImpression()
+     * scrive una riga per la prima visita di una sessione a questa
+     * categoria (query singola, deduplicata per il resto della sessione —
+     * mai una per articolo/categoria mostrata nel ciclo).
      */
     public function test_category_page_query_count_is_within_the_post_fix_budget(): void
     {
@@ -168,7 +174,7 @@ class PublicPageQueryBudgetTest extends TestCase
 
         $count = $this->queryCountFor(route('categoria', 'energia'));
 
-        $this->assertLessThanOrEqual(10, $count);
+        $this->assertLessThanOrEqual(11, $count);
     }
 
     public function test_notizie_page_still_shows_the_correct_category_label_per_article(): void

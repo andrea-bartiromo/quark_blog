@@ -13,6 +13,7 @@ use App\Services\ArticleRelatedService;
 use App\Services\ArticleRevisionTransparencyService;
 use App\Services\ArticleViewTrackingService;
 use App\Services\CategoryDiscoveryPageData;
+use App\Services\CategoryHubCtrBenchmarkService;
 use App\Services\ContentGraph\ContentGraphService;
 use App\Services\ContinuationAnalyticsService;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class ArticleController extends Controller
         ]);
     }
 
-    public function category(Request $request, string $slug, CategoryDiscoveryPageData $pageData)
+    public function category(Request $request, string $slug, CategoryDiscoveryPageData $pageData, CategoryHubCtrBenchmarkService $ctrBenchmark)
     {
         $categoryModel = Category::where('slug', $slug)->first();
 
@@ -59,6 +60,11 @@ class ArticleController extends Controller
         $data = $pageData->build($request, $slug, $categoryModel, $pageUrl);
 
         abort_if($data === null, 404);
+
+        // Cantiere 53 (programma 100-cantieri Kairus): impression per il
+        // benchmark CTR hub categoria — solo per una pagina che risponde
+        // davvero 200 (mai per uno slug che risulta 404 sopra).
+        $ctrBenchmark->recordImpression($slug);
 
         return view('categoria', $data);
     }

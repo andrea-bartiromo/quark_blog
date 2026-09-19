@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ArticleRevisionController as AdminArticleRevision
 use App\Http\Controllers\Admin\ArticleSearchProfileController;
 use App\Http\Controllers\Admin\CategoryCommandCenterController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CategoryHubCtrBenchmarkController;
 use App\Http\Controllers\Admin\CollaboratorController;
 use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\Communication\CommunicationCampaignController;
@@ -350,6 +351,11 @@ Route::middleware(['auth', 'editor'])->prefix('admin')->name('admin.')->group(fu
 
     // Second read (Growth S2 — "Continua da qui")
     Route::get('/second-read', [SecondReadAnalyticsController::class, 'index'])->name('second-read');
+
+    // Cantiere 53 (programma 100-cantieri Kairus): sola lettura, stesso
+    // pattern di /second-read — CTR hub categoria dedotto da impression
+    // dedicate + referer già raccolto su article_views.
+    Route::get('/benchmark-ctr-categorie', [CategoryHubCtrBenchmarkController::class, 'index'])->name('category-hub-ctr-benchmark');
 
     // Diagnostica ricerca a zero risultati (Mission 31)
     Route::get('/diagnostica-ricerca', [SearchZeroResultDiagnosticsController::class, 'index'])->name('search-zero-result-diagnostics');

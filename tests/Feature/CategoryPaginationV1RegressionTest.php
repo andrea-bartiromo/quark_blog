@@ -273,6 +273,16 @@ class CategoryPaginationV1RegressionTest extends TestCase
             $this->publishedArticle('energia', ['published_at' => now()->subMinutes($i)]);
         }
 
+        // Cantiere 53 (programma 100-cantieri Kairus): richiesta di
+        // riscaldamento fuori dalla misurazione — la primissima visita a
+        // una categoria in una sessione registra una impression per il
+        // benchmark CTR (1 query in più, deduplicata per il resto della
+        // sessione). Senza questo warm-up, la pagina 1 misurata sotto
+        // includerebbe quella query una tantum e la pagina 2 no, un'
+        // asimmetria dovuta all'ordine delle richieste, non al numero di
+        // pagina — esattamente ciò che questo test vuole escludere.
+        $this->get(route('categoria', 'energia'))->assertOk();
+
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->get(route('categoria', 'energia'))->assertOk();
