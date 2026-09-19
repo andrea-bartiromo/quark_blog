@@ -123,6 +123,7 @@
       $isOrganicDiscoveryOperationalReport = request()->routeIs('admin.organic-discovery-operational-report*');
       $isTopicalAuthority = request()->routeIs('admin.topical-authority*');
       $isSecondRead    = request()->routeIs('admin.second-read*');
+      $isCategoryHubCtrBenchmark = request()->routeIs('admin.category-hub-ctr-benchmark*');
       $isEditorialOperations = request()->routeIs('admin.editorial-operations*');
       $isScheduledPublicationsReport = request()->routeIs('admin.scheduled-publications-report*');
       $isEditorialQuality = request()->routeIs('admin.editorial-quality*');
@@ -219,6 +220,7 @@
         <x-admin.nav-link :route="route('admin.search-console-baseline-report')" :active="$isSearchConsoleBaselineReport" icon="📈">Baseline Search Console</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.search-console-coverage')" :active="$isSearchConsoleCoverage" icon="🗺️">Salute indicizzazione</x-admin.nav-link>
         <x-admin.nav-link :route="route('admin.second-read')" :active="$isSecondRead" icon="📖">Second read</x-admin.nav-link>
+        <x-admin.nav-link :route="route('admin.category-hub-ctr-benchmark')" :active="$isCategoryHubCtrBenchmark" icon="🖱️">Benchmark CTR categorie</x-admin.nav-link>
       </x-admin.nav-group>
 
       <x-admin.nav-group label="Sistema" :open="$sistemaOpen">
