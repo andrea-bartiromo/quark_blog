@@ -14,8 +14,18 @@
         @if($whyItems->isNotEmpty())
           <div class="turing-mini-grid">
             @foreach($whyItems as $item)
+              @php
+                /* Cantiere 65 (programma "100 cantieri Kairus"): campo
+                   CMS opzionale, nessun width/height dichiarato finora —
+                   stesso meccanismo di risoluzione automatica ora usato
+                   da <x-turing.article.figure>, per non lasciare al
+                   browser un vuoto senza spazio riservato quando un
+                   editor imposta questa immagine. */
+                $whyItemImage = empty($item['image']) ? null : $img($item['image']);
+                $whyItemDimensions = $whyItemImage ? \App\Support\PublicImageDimensions::forUrl($whyItemImage) : null;
+              @endphp
               <div>
-                @if(!empty($item['image']))<img src="{{ $img($item['image']) }}" alt="{{ $item['alt'] ?? $item['title'] ?? '' }}" loading="lazy" decoding="async">@endif
+                @if($whyItemImage)<img src="{{ $whyItemImage }}" alt="{{ $item['alt'] ?? $item['title'] ?? '' }}" loading="lazy" decoding="async" @if($whyItemDimensions) width="{{ $whyItemDimensions[0] }}" height="{{ $whyItemDimensions[1] }}" @endif>@endif
                 <strong>{{ $item['title'] ?? 'Idea chiave' }}</strong><span>{{ $item['text'] ?? '' }}</span>
               </div>
             @endforeach
