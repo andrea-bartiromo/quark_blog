@@ -22,17 +22,28 @@ use Illuminate\Support\Facades\Route;
  * Le condizioni, nell'ordine in cui un revisore le incontrerebbe:
  * 1. Anteprima amministrativa disponibile (Cantiere 63) — verificata
  *    controllando che le rotte esistano davvero, non un booleano fisso.
- * 2. Nessun hub/capitolo strutturalmente vuoto anche senza contenuto CMS
- *    (Cantiere 57/62) — verificata controllando che la landing statica
- *    "In arrivo" esista davvero nel codebase, stessa evidenza già accettata
- *    per la riga 62 del tracking (covered-by-existing).
+ * 2. I template REALMENTE renderizzati dall'anteprima esistono (Cantiere
+ *    57/62) — Codex, PR #633, P2: la prima versione controllava
+ *    l'esistenza della landing statica "In arrivo" (turing.coming-soon),
+ *    ma previewHub()/previewChapter() non la renderizzano mai — bypassano
+ *    il gate e mostrano sempre turing.index + turing.$chapter reali
+ *    (Cantiere 63). Verificare la landing pubblica non dice nulla su cosa
+ *    un revisore in anteprima vedrebbe davvero. Corretto controllando
+ *    l'esistenza dei file realmente usati da quelle due rotte.
  * 3. Report di completezza disponibile per la revisione interna (Cantiere
  *    67, appena mergiato) — verificata controllando che la rotta esista.
- * 4. Fonti registrate per almeno un capitolo (Cantiere 61) — query diretta
- *    su TuringChapterSource. Nessuna riga viene mai creata automaticamente
- *    da questo programma (si legga il docblock del modello): oggi questa
- *    condizione è onestamente NON soddisfatta in ogni ambiente, non un
- *    difetto di questo cantiere.
+ * 4. Fonti registrate per almeno un capitolo REALE (Cantiere 61) — Codex,
+ *    PR #633, P2: la colonna `chapter` non ha alcun vincolo FK/enum a
+ *    livello DB (si legga il docblock del modello); la validazione `in:`
+ *    in TuringChapterSourceController::store() impedisce la creazione di
+ *    righe con un capitolo non valido, ma non protegge da un valore reso
+ *    stale da una futura modifica della lista canonica. Corretto
+ *    filtrando la query sugli stessi 5 capitoli reali già usati da
+ *    TuringChapterSourceController e dal report di completezza (Cantiere
+ *    67), mai una lista duplicata. Nessuna riga viene mai creata
+ *    automaticamente da questo programma (si legga il docblock del
+ *    modello): oggi questa condizione è onestamente NON soddisfatta in
+ *    ogni ambiente, non un difetto di questo cantiere.
  * 5. Owner editoriale che approva il passaggio alla revisione interna —
  *    nessun campo/meccanismo di assegnazione esiste ancora nel sistema:
  *    non "falso", "non ancora determinabile automaticamente" (stessa
@@ -51,9 +62,9 @@ class TuringInternalBetaReadinessService
     public function assess(): array
     {
         $previewAvailable = Route::has('admin.turing.preview') && Route::has('admin.turing.preview-chapter');
-        $comingSoonExists = is_file(resource_path('views/turing/coming-soon.blade.php'));
+        $previewTemplatesExist = $this->previewTemplatesExist();
         $completenessReportAvailable = Route::has('admin.turing.completeness-report');
-        $sourcesCount = TuringChapterSource::query()->count();
+        $sourcesCount = TuringChapterSource::query()->whereIn('chapter', $this->realChapters())->count();
 
         return [
             [
@@ -67,10 +78,10 @@ class TuringInternalBetaReadinessService
             [
                 'key' => 'hub_mai_vuoto',
                 'label' => 'Nessun hub/capitolo strutturalmente vuoto',
-                'state' => $comingSoonExists ? self::STATE_MET : self::STATE_NOT_MET,
-                'detail' => $comingSoonExists
-                    ? 'Landing statica "In arrivo" (turing.coming-soon) presente nel codebase: stessa tripla protezione già verificata alla riga 62 del tracking (hub CMS-driven con fallback, landing statica, capitoli hardcoded).'
-                    : 'resources/views/turing/coming-soon.blade.php non trovato.',
+                'state' => $previewTemplatesExist ? self::STATE_MET : self::STATE_NOT_MET,
+                'detail' => $previewTemplatesExist
+                    ? 'I template realmente renderizzati dall\'anteprima (turing/index.blade.php + un template per ciascuno dei 5 capitoli reali) esistono tutti nel codebase.'
+                    : 'Almeno uno dei template renderizzati dall\'anteprima (turing/index.blade.php o uno dei 5 capitoli reali) non è stato trovato.',
             ],
             [
                 'key' => 'report_completezza_disponibile',
@@ -85,8 +96,8 @@ class TuringInternalBetaReadinessService
                 'label' => 'Fonti registrate per almeno un capitolo',
                 'state' => $sourcesCount > 0 ? self::STATE_MET : self::STATE_NOT_MET,
                 'detail' => $sourcesCount > 0
-                    ? "{$sourcesCount} fonte/i registrata/e in almeno un capitolo."
-                    : 'Nessuna fonte ancora registrata in alcun capitolo (tabella turing_chapter_sources vuota per costruzione, Cantiere 61): condizione onestamente non soddisfatta.',
+                    ? "{$sourcesCount} fonte/i registrata/e in almeno un capitolo reale."
+                    : 'Nessuna fonte ancora registrata in alcun capitolo reale (tabella turing_chapter_sources vuota per costruzione, Cantiere 61): condizione onestamente non soddisfatta.',
             ],
             [
                 'key' => 'owner_revisione_assegnato',
@@ -100,5 +111,35 @@ class TuringInternalBetaReadinessService
     public function allConditionsMet(): bool
     {
         return collect($this->assess())->every(fn (array $condition) => $condition['state'] === self::STATE_MET);
+    }
+
+    private function previewTemplatesExist(): bool
+    {
+        if (! is_file(resource_path('views/turing/index.blade.php'))) {
+            return false;
+        }
+
+        foreach ($this->realChapters() as $chapter) {
+            if (! is_file(resource_path("views/turing/{$chapter}.blade.php"))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Stessa fonte di verità già usata da Admin\TuringController,
+     * Admin\TuringChapterSourceController e TuringCompletenessReportService
+     * (mai una seconda lista duplicata dei 5 capitoli reali).
+     *
+     * @return list<string>
+     */
+    private function realChapters(): array
+    {
+        return array_values(array_filter(
+            TuringNavigationMetricsService::CHAPTERS,
+            fn (string $chapter) => $chapter !== 'hub'
+        ));
     }
 }

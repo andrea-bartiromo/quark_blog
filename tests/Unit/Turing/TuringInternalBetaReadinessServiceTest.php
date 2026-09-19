@@ -31,7 +31,14 @@ class TuringInternalBetaReadinessServiceTest extends TestCase
         $this->assertSame(TuringInternalBetaReadinessService::STATE_MET, $condition['state']);
     }
 
-    public function test_never_empty_hub_condition_is_met_because_the_static_landing_exists(): void
+    /**
+     * Finding Codex su PR #633: la prima versione controllava l'esistenza
+     * della landing pubblica statica "In arrivo" (turing.coming-soon), che
+     * l'anteprima NON renderizza mai (bypassa il gate, mostra sempre
+     * turing.index + turing.$chapter reali) — corretto controllando i
+     * template realmente usati da previewHub()/previewChapter().
+     */
+    public function test_never_empty_hub_condition_is_met_because_the_real_preview_templates_exist(): void
     {
         $condition = collect($this->service()->assess())->firstWhere('key', 'hub_mai_vuoto');
 
@@ -68,6 +75,30 @@ class TuringInternalBetaReadinessServiceTest extends TestCase
 
         $this->assertSame(TuringInternalBetaReadinessService::STATE_MET, $condition['state']);
         $this->assertStringContainsString('1 fonte', $condition['detail']);
+    }
+
+    /**
+     * Finding Codex su PR #633: la colonna `chapter` non ha alcun vincolo
+     * FK/enum a livello DB (la validazione `in:` esiste solo nel
+     * controller admin, TuringChapterSourceController::store()) — una
+     * riga con un capitolo non reale (stale, importato, o inserito
+     * direttamente) non deve poter far scattare la condizione da sola.
+     */
+    public function test_sources_condition_ignores_a_source_registered_under_a_non_real_chapter(): void
+    {
+        TuringChapterSource::create([
+            'chapter' => 'capitolo-inesistente',
+            'label' => 'Fonte stale',
+            'url' => 'https://example.com/stale',
+            'year' => 1999,
+            'sort_order' => 1,
+        ]);
+
+        $this->assertSame(1, TuringChapterSource::query()->count());
+
+        $condition = collect($this->service()->assess())->firstWhere('key', 'fonti_registrate');
+
+        $this->assertSame(TuringInternalBetaReadinessService::STATE_NOT_MET, $condition['state']);
     }
 
     public function test_owner_condition_is_always_not_determinable(): void
