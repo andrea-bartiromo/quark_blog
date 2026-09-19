@@ -800,6 +800,30 @@ class EditorialQualityCheckerTest extends TestCase
         $this->assertSame('body_heading', $result->details['detected_in'] ?? null);
     }
 
+    /**
+     * Regressione articolo #48: TinyMCE può salvare la sezione Fonti dentro
+     * un wrapper <div>. Il checker deve attraversare gli elementi annidati,
+     * non fermarsi ai soli figli diretti del wrapper sintetico.
+     */
+    public function test_a_sources_section_nested_inside_a_div_passes(): void
+    {
+        $article = $this->completeArticle([
+            'primary_sources' => null,
+            'body' => '<p>'.str_repeat('Testo scientifico reale e sostanzioso. ', 15).'</p>
+                <div>
+                    <h3>Fonti</h3>
+                    <ul>
+                        <li><a href="https://science.nasa.gov/">NASA Science</a></li>
+                    </ul>
+                </div>',
+        ]);
+
+        $result = $this->resultFor($this->checker->check($article), 'sources_present');
+
+        $this->assertSame(R::STATUS_PASS, $result->status);
+        $this->assertSame('body_heading', $result->details['detected_in'] ?? null);
+    }
+
     public function test_a_body_sources_heading_with_institutional_links_passes(): void
     {
         $article = $this->completeArticle([
