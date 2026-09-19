@@ -75,6 +75,26 @@ class TuringLegacyPageTest extends TestCase
             ->assertSee('href="'.route('turing.ai').'"', false);
     }
 
+    /**
+     * Cantiere 67 (programma "100 cantieri Kairus"): gap di copertura
+     * scoperto per ispezione diretta — docs/02_Turing_Audit/Audit_Legacy_v1.0.md
+     * documentava tre link teaser errati alle righe 36-64 (macchina
+     * universale -> route('turing') invece di route('turing.computation');
+     * "Test di Turing" -> route('turing.ai') invece di
+     * route('turing.intelligence')). Verificato che il codice attuale li
+     * ha già entrambi corretti (probabile effetto collaterale della
+     * riscrittura dei link interni del Cantiere 63), ma nessun test lo
+     * proteggeva da una regressione — l'audit stesso lo segnalava come
+     * lacuna nel "Piano di miglioramento proposto".
+     */
+    public function test_legacy_page_teaser_links_point_to_computation_and_intelligence_not_hub_or_ai(): void
+    {
+        $html = $this->get(route('turing.legacy'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('href="'.route('turing.computation').'"', $html);
+        $this->assertStringContainsString('href="'.route('turing.intelligence').'"', $html);
+    }
+
     public function test_legacy_page_renders_its_main_structural_sections(): void
     {
         $response = $this->get(route('turing.legacy'));
