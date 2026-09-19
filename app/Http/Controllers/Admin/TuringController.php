@@ -9,6 +9,7 @@ use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
 use App\Services\Turing\TuringCompletenessReportService;
 use App\Services\Turing\TuringConceptMapService;
+use App\Services\Turing\TuringInternalBetaReadinessService;
 use App\Services\Turing\TuringNavigationMetricsService;
 use App\Support\TuringPreviewLink;
 use Illuminate\Http\Request;
@@ -54,6 +55,21 @@ class TuringController extends Controller
         $report = $completenessReport->build();
 
         return view('admin.turing-completeness-report', compact('report'));
+    }
+
+    /**
+     * Cantiere 69 (programma "100 cantieri Kairus"): "Checklist beta
+     * interna Turing" — sola lettura, mai una scrittura. Vedi il docblock
+     * di TuringInternalBetaReadinessService per le condizioni e cosa resta
+     * volutamente fuori scope (nessuna decisione GO/NO-GO qui, nessuna
+     * assegnazione owner).
+     */
+    public function internalBetaReadiness(TuringInternalBetaReadinessService $readiness)
+    {
+        return view('admin.turing-internal-beta-readiness', [
+            'conditions' => $readiness->assess(),
+            'allConditionsMet' => $readiness->allConditionsMet(),
+        ]);
     }
 
     public function conceptMap()
