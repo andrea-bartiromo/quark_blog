@@ -11,18 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('category_hub_impressions', function (Blueprint $table) {
+        Schema::create('category_hub_events', function (Blueprint $table) {
             $table->id();
+
+            // 'impression' | 'click_through', vedi CategoryHubEvent — stesso
+            // pattern di article_continuation_events (Growth S2).
+            $table->string('event_type');
 
             // Slug testuale, non una foreign key verso categories: una
             // categoria legacy solo-config (nessuna riga DB, vedi
-            // Category::publicOptions()) deve poter registrare impression
+            // Category::publicOptions()) deve poter registrare eventi
             // esattamente come una categoria con riga DB.
             $table->string('category_slug');
 
             $table->timestamp('created_at')->nullable();
 
-            $table->index(['category_slug', 'created_at']);
+            $table->index(['category_slug', 'event_type', 'created_at']);
         });
     }
 
@@ -31,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('category_hub_impressions');
+        Schema::dropIfExists('category_hub_events');
     }
 };

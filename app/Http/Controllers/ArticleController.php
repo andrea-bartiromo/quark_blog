@@ -63,8 +63,13 @@ class ArticleController extends Controller
 
         // Cantiere 53 (programma 100-cantieri Kairus): impression per il
         // benchmark CTR hub categoria — solo per una pagina che risponde
-        // davvero 200 (mai per uno slug che risulta 404 sopra).
-        $ctrBenchmark->recordImpression($slug);
+        // davvero 200 (mai per uno slug che risulta 404 sopra). Finding
+        // Codex (P1, PR #638): RedirectAndCanonicalIntegrityAudit visita
+        // /categoria/{slug} in-process via InProcessPageFetcher (stesso
+        // header X-Kairus-Internal-Audit già controllato in show()) —
+        // senza questo controllo, ogni sua esecuzione gonfierebbe
+        // silenziosamente le impression reali.
+        $ctrBenchmark->recordImpression($slug, $request->headers->has('X-Kairus-Internal-Audit'));
 
         return view('categoria', $data);
     }
@@ -114,6 +119,20 @@ class ArticleController extends Controller
         // successiva view pubblica genuina nella stessa sessione.
         if (! $isInternalAudit && ! session()->has($sessionKey) && app(ArticleViewTrackingService::class)->recordView($article)) {
             session()->put($sessionKey, true);
+        }
+
+        // Cantiere 53 (programma 100-cantieri Kairus): lato "click-through"
+        // del benchmark CTR hub categoria — un evento esplicito, simmetrico
+        // all'impression registrata in category() (stessa granularità:
+        // una volta per categoria per sessione), non un conteggio dedotto a
+        // posteriori da article_views.referer (finding Codex P1, PR #638:
+        // quella deduzione confrontava eventi a cardinalità diversa,
+        // producendo CTR anche oltre il 100%).
+        $ctrBenchmark = app(CategoryHubCtrBenchmarkService::class);
+        $categoryHubSlug = $ctrBenchmark->resolveCategoryHubSlugFromReferer($request->headers->get('referer'));
+
+        if ($categoryHubSlug !== null) {
+            $ctrBenchmark->recordClickThrough($categoryHubSlug, $isInternalAudit);
         }
 
         $pathNavigation = app(ArticlePathNavigation::class)->forArticle($article);

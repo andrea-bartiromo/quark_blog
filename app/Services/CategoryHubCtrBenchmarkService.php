@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\ArticleView;
 use App\Models\Category;
-use App\Models\CategoryHubImpression;
+use App\Models\CategoryHubEvent;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -12,27 +11,32 @@ use Illuminate\Support\Facades\Log;
  * Cantiere 53 (programma "100 cantieri Kairus", dipende dai Cantieri 49-50).
  *
  * Ispezione diretta prima di questo cantiere: ArticleController::category()
- * non registra nessuna impression — a differenza di ArticleController::show(),
- * che già scrive una riga per-pageview in article_views (incluso il campo
- * `referer`, vedi ArticleViewTrackingService::recordView()). Il gap reale
- * non è quindi il lato "click" (arriva già gratis dai referer già loggati
- * per ogni view articolo), ma il lato "impression": senza un conteggio di
- * quante volte una pagina hub categoria è stata vista, un CTR (click / vista)
- * non è calcolabile — solo un conteggio grezzo di click, senza denominatore.
+ * non registra nessuna impression, e nessun punto del sito misura quanti
+ * visitatori di una pagina hub categoria proseguono verso un articolo — un
+ * CTR (click/vista) non era calcolabile.
  *
- * Stesso principio della "second read" (Growth S2, ContinuationAnalyticsService):
- * minimale rispetto al funnel completo, nessun identificativo di
+ * Impression e click-through sono due eventi ESPLICITI e SIMMETRICI (stessa
+ * granularità: una sola volta per categoria per sessione, indipendentemente
+ * da quante volte la pagina viene ricaricata o quanti articoli distinti
+ * vengono aperti dopo). Una prima versione di questo servizio deduceva il
+ * click-through dal campo `referer` già presente in article_views — Codex
+ * (PR #638) ha segnalato correttamente che questo produceva un CTR privo di
+ * senso (un visitatore che apre due articoli diversi dalla stessa visita
+ * contava due click-through contro una sola impression, arrivando anche
+ * oltre il 100%) e che l'audit read-only RedirectAndCanonicalIntegrityAudit
+ * (che visita /categoria/{slug} in-process via InProcessPageFetcher, header
+ * X-Kairus-Internal-Audit) avrebbe gonfiato silenziosamente le impression a
+ * ogni sua esecuzione. Corretto registrando entrambi i lati come eventi
+ * propri, con lo stesso meccanismo di deduplicazione ed esclusione usato
+ * ovunque nel progetto per questo genere di segnale (Growth S2,
+ * ContinuationAnalyticsService): nessun identificativo di
  * visitatore/sessione persistito, deduplicazione via sessione Laravel,
- * traffico interno escluso riusando ArticleViewTrackingService::shouldCountRequest()
- * (stessa definizione, mai una seconda da mantenere allineata a mano),
- * fail-open: un fallimento di scrittura qui non deve mai impedire la
- * navigazione pubblica della pagina categoria.
- *
- * Il lato "click-through" è dedotto dal referer già presente in
- * article_views, non da un nuovo endpoint di tracking dedicato — stessa
- * scelta di scope già motivata in ContinuationAnalyticsService per il click
- * del funnel "Continua da qui" (costo/rischio di un endpoint POST dedicato
- * non giustificato quando il dato utile è già raccolto altrove).
+ * traffico interno escluso riusando
+ * ArticleViewTrackingService::shouldCountRequest(), audit interno escluso
+ * controllando l'header X-Kairus-Internal-Audit (stesso controllo già
+ * applicato in ArticleController::show() per le analytics articolo), fail
+ * -open: un fallimento di scrittura qui non deve mai impedire la
+ * navigazione pubblica.
  */
 class CategoryHubCtrBenchmarkService
 {
@@ -40,24 +44,62 @@ class CategoryHubCtrBenchmarkService
         private readonly ArticleViewTrackingService $viewTracking
     ) {}
 
-    public function recordImpression(string $slug): void
+    public function recordImpression(string $slug, bool $isInternalAudit = false): void
     {
-        if (! $this->viewTracking->shouldCountRequest()) {
+        $this->recordOnce(CategoryHubEvent::EVENT_IMPRESSION, $slug, $isInternalAudit);
+    }
+
+    public function recordClickThrough(string $slug, bool $isInternalAudit = false): void
+    {
+        $this->recordOnce(CategoryHubEvent::EVENT_CLICK_THROUGH, $slug, $isInternalAudit);
+    }
+
+    /**
+     * Estrae lo slug categoria dal referer della richiesta corrente, se e
+     * solo se il referer punta ESATTAMENTE a /categoria/{slug} di questo
+     * stesso sito (un solo segmento di path dopo /categoria/, nessun
+     * sottopercorso) — mai un confronto per sottostringa: uno slug che è
+     * prefisso di un altro (es. "energia" dentro "energia-rinnovabile")
+     * non deve mai generare un falso match.
+     */
+    public function resolveCategoryHubSlugFromReferer(?string $refererUrl): ?string
+    {
+        if (blank($refererUrl)) {
+            return null;
+        }
+
+        $path = parse_url($refererUrl, PHP_URL_PATH);
+
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        if (preg_match('~/categoria/([^/]+)$~', rtrim($path, '/'), $matches) !== 1) {
+            return null;
+        }
+
+        return rawurldecode($matches[1]);
+    }
+
+    private function recordOnce(string $eventType, string $slug, bool $isInternalAudit): void
+    {
+        if ($isInternalAudit || ! $this->viewTracking->shouldCountRequest()) {
             return;
         }
 
-        $sessionKey = 'category_hub_impression_'.$slug;
+        $sessionKey = 'category_hub_'.$eventType.'_'.$slug;
 
         if (session()->has($sessionKey)) {
             return;
         }
 
         try {
-            CategoryHubImpression::create(['category_slug' => $slug]);
+            CategoryHubEvent::create(['event_type' => $eventType, 'category_slug' => $slug]);
 
             session()->put($sessionKey, true);
         } catch (\Throwable $exception) {
-            Log::warning('CategoryHubCtrBenchmarkService: scrittura impression fallita, la navigazione pubblica non è stata bloccata.', [
+            Log::warning('CategoryHubCtrBenchmarkService: scrittura evento fallita, la navigazione pubblica non è stata bloccata.', [
+                'event_type' => $eventType,
                 'category_slug' => $slug,
                 'exception' => $exception->getMessage(),
             ]);
@@ -69,13 +111,8 @@ class CategoryHubCtrBenchmarkService
      */
     public function benchmarkFor(string $slug, ?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null): array
     {
-        $impressions = CategoryHubImpression::query()
-            ->where('category_slug', $slug)
-            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
-            ->count();
-
-        $clickThroughs = $this->clickThroughQuery($slug, $since, $until)->count();
+        $impressions = $this->countFor(CategoryHubEvent::EVENT_IMPRESSION, $slug, $since, $until);
+        $clickThroughs = $this->countFor(CategoryHubEvent::EVENT_CLICK_THROUGH, $slug, $since, $until);
 
         return [
             'impressions' => $impressions,
@@ -91,15 +128,36 @@ class CategoryHubCtrBenchmarkService
      * un'impression registrata: una categoria appena pubblicata deve
      * comunque comparire con zero/zero, non sparire dal riepilogo.
      *
+     * Una sola query di aggregazione (GROUP BY categoria+tipo evento), non
+     * una query per categoria: bounded per costruzione, indipendentemente
+     * da quanti eventi storici esistano — finding Codex (PR #638), stesso
+     * pattern già in uso in ContinuationAnalyticsService::articleBreakdown().
+     *
      * @return Collection<int, array{slug:string,name:string,impressions:int,click_throughs:int,ctr:float}>
      */
     public function hubBreakdown(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null): Collection
     {
-        return collect(Category::publicOptions())
-            ->map(function (string $name, string $slug) use ($since, $until) {
-                $benchmark = $this->benchmarkFor($slug, $since, $until);
+        $counts = CategoryHubEvent::query()
+            ->selectRaw('category_slug, event_type, COUNT(*) as total')
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->groupBy('category_slug', 'event_type')
+            ->get()
+            ->groupBy('category_slug');
 
-                return array_merge(['slug' => $slug, 'name' => $name], $benchmark);
+        return collect(Category::publicOptions())
+            ->map(function (string $name, string $slug) use ($counts) {
+                $eventRows = $counts->get($slug, collect());
+                $impressions = (int) ($eventRows->firstWhere('event_type', CategoryHubEvent::EVENT_IMPRESSION)->total ?? 0);
+                $clickThroughs = (int) ($eventRows->firstWhere('event_type', CategoryHubEvent::EVENT_CLICK_THROUGH)->total ?? 0);
+
+                return [
+                    'slug' => $slug,
+                    'name' => $name,
+                    'impressions' => $impressions,
+                    'click_throughs' => $clickThroughs,
+                    'ctr' => $impressions > 0 ? round($clickThroughs / $impressions, 4) : 0.0,
+                ];
             })
             ->values()
             ->sortByDesc('click_throughs')
@@ -109,20 +167,16 @@ class CategoryHubCtrBenchmarkService
     /**
      * Totali sitewide nel periodo indicato — MAI sommare hubBreakdown() per
      * ottenere questo numero: quella lista è vincolata alle sole categorie
-     * pubblicamente raggiungibili ORA, mentre le impression/click già
-     * registrati per una categoria nel frattempo disattivata resterebbero
-     * fuori da quella somma pur essendo eventi reali avvenuti nel periodo.
+     * pubblicamente raggiungibili ORA, mentre gli eventi già registrati per
+     * una categoria nel frattempo disattivata resterebbero fuori da quella
+     * somma pur essendo eventi reali avvenuti nel periodo.
      *
      * @return array{impressions:int,click_throughs:int,ctr:float}
      */
     public function siteWideTotals(?\DateTimeInterface $since = null, ?\DateTimeInterface $until = null): array
     {
-        $impressions = CategoryHubImpression::query()
-            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
-            ->count();
-
-        $clickThroughs = $this->clickThroughQuery(null, $since, $until)->count();
+        $impressions = $this->countFor(CategoryHubEvent::EVENT_IMPRESSION, null, $since, $until);
+        $clickThroughs = $this->countFor(CategoryHubEvent::EVENT_CLICK_THROUGH, null, $since, $until);
 
         return [
             'impressions' => $impressions,
@@ -131,32 +185,13 @@ class CategoryHubCtrBenchmarkService
         ];
     }
 
-    /**
-     * Un click-through è una riga article_views il cui referer termina
-     * esattamente con /categoria/{slug} (query string di paginazione
-     * ammessa dopo un `?`). Un semplice LIKE '%/categoria/{slug}%' senza
-     * l'ancoraggio di fine stringa/query darebbe falsi positivi su una
-     * categoria il cui slug è prefisso di un'altra (es. "energia" dentro
-     * "/categoria/energia-rinnovabile"). $slug è escapato per i caratteri
-     * speciali di LIKE (% e _) prima di comporre il pattern.
-     */
-    private function clickThroughQuery(?string $slug, ?\DateTimeInterface $since, ?\DateTimeInterface $until)
+    private function countFor(string $eventType, ?string $slug, ?\DateTimeInterface $since, ?\DateTimeInterface $until): int
     {
-        $query = ArticleView::query()->whereNotNull('referer');
-
-        if ($slug !== null) {
-            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $slug);
-
-            $query->where(function ($query) use ($escaped) {
-                $query->where('referer', 'like', '%/categoria/'.$escaped)
-                    ->orWhere('referer', 'like', '%/categoria/'.$escaped.'?%');
-            });
-        } else {
-            $query->where('referer', 'like', '%/categoria/%');
-        }
-
-        return $query
-            ->when($since, fn ($query) => $query->where('viewed_at', '>=', $since))
-            ->when($until, fn ($query) => $query->where('viewed_at', '<=', $until));
+        return CategoryHubEvent::query()
+            ->where('event_type', $eventType)
+            ->when($slug !== null, fn ($query) => $query->where('category_slug', $slug))
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->when($until, fn ($query) => $query->where('created_at', '<=', $until))
+            ->count();
     }
 }
