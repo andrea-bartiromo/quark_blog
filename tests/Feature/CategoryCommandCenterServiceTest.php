@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\ContentHealth\ArticleContentHealthService;
 use App\Services\EditorialOperations\CategoryCommandCenterService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -137,6 +138,61 @@ class CategoryCommandCenterServiceTest extends TestCase
 
         $this->assertFalse($row['readiness']['ready']);
         $this->assertNotEmpty($row['readiness']['findings']);
+    }
+
+    public function test_published_article_count_also_includes_articles_via_secondary_category(): void
+    {
+        // Codex P2 (PR #636): un articolo con categoria PRINCIPALE diversa ma
+        // associato via pivot article_category deve comunque comparire qui,
+        // stesso criterio già usato da CategoryDiscoveryPageData::build()
+        // (pagina pubblica) e da CategoryPublicationReadiness.
+        $salute = $this->category('Salute Test');
+        $energia = $this->category('Energia Test');
+
+        $article = $this->article($energia->slug);
+        $article->secondaryCategories()->attach($salute->id);
+
+        $row = collect($this->service()->snapshot())->firstWhere('category_id', $salute->id);
+
+        $this->assertSame(1, $row['published_article_count']);
+    }
+
+    public function test_query_count_does_not_grow_with_the_number_of_published_articles(): void
+    {
+        // Codex P2 (PR #636): ArticleContentHealthService::evaluate() richiede
+        // la relazione contentClusters per il check "percorso" — se non fosse
+        // eager-loaded qui, ogni articolo aggiuntivo farebbe una query in più
+        // (N+1), come già verificato per EditorialOperationsDashboardService
+        // (EditorialOperationsDashboardServiceTest::test_query_count_does_not_grow_with_article_count).
+        $category = $this->category('Query Budget Test');
+
+        // Articoli ricreati da zero a ogni misurazione (stesso pattern di
+        // EditorialOperationsDashboardServiceTest::test_query_count_does_not_grow_with_article_count):
+        // il numero di categorie resta costante, così l'unica variabile è il
+        // numero di articoli pubblicati.
+        $countQueriesFor = function (int $articleCount) use ($category): int {
+            Article::query()->delete();
+            for ($i = 0; $i < $articleCount; $i++) {
+                $this->article($category->slug);
+            }
+
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->service()->snapshot();
+            $count = count(DB::getQueryLog());
+            DB::disableQueryLog();
+
+            return $count;
+        };
+
+        $small = $countQueriesFor(3);
+        $large = $countQueriesFor(15);
+
+        $this->assertSame(
+            $small,
+            $large,
+            'Il conteggio query del Command Center non deve dipendere dal numero di articoli pubblicati (nessun N+1).'
+        );
     }
 
     public function test_the_service_never_writes_anything(): void
