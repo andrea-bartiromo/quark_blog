@@ -82,28 +82,77 @@ azione manuale aggiuntiva richiesta:
 ## Procedura di rilascio
 
 Nessun passo qui è nuovo: la sequenza riusa esclusivamente il processo di
-deploy già esistente e documentato in `docs/DEPLOYMENT.md`.
+deploy già esistente e documentato in `docs/DEPLOYMENT.md`. Due rischi
+concreti, entrambi segnalati da Codex sulla PR #634 e verificati contro
+`deploy.sh`/`docs/DEPLOYMENT.md` prima di essere corretti qui:
 
-1. Impostare `TURING_CHAPTERS_PUBLIC=true` nel file `.env` di produzione.
-2. Eseguire il deploy standard (`deploy.sh`, `docs/DEPLOYMENT.md`): il
-   processo di deploy esegue già `config:cache` come parte della sua
-   sequenza standard (`docs/DEPLOYMENT.md`, nota su PHP-FPM/OPcache) — non
-   serve alcun passo separato per far leggere la nuova variabile
-   d'ambiente all'applicazione.
-3. Verifica post-rilascio: `/turing` mostra l'hub reale (non più la
-   landing "In arrivo"), ciascuna delle 5 rotte capitolo risponde `200`
-   invece di reindirizzare, il file `sitemap.xml` include i capitoli
-   pubblicati.
+- **Ordine delle verifiche in `deploy.sh`**: `config:cache` viene eseguito
+  PRIMA di diversi controlli fail-closed che possono ancora interrompere
+  il rilascio (`deploy:verify-cache-paths`, `deploy:verify-scheduled-commands`,
+  `deploy:verify-front-controller`, la reflection sull'autoloader,
+  `newsletter:reconfirmation-cleanup --dry-run`, `deploy:asset-drift`).
+  Se il file `.env` di QUESTA release contiene già
+  `TURING_CHAPTERS_PUBLIC=true`, `config:cache` lo rende immediatamente
+  attivo per qualunque richiesta servita da questa directory di release,
+  anche se uno dei controlli successivi fa poi fallire l'intero script.
+  Questo repository non descrive in modo esplicito, in nessun documento
+  esistente, SE la directory su cui gira `deploy.sh` sia già quella
+  servita dal traffico live in quel momento o una directory candidata non
+  ancora collegata dallo switch di symlink (`docs/DEPLOYMENT.md` tratta
+  lo switch stesso, come il reload PHP-FPM sotto, come un passo
+  specifico dell'host, fuori dalla portata di questo script) — non va
+  quindi assunta nessuna delle due possibilità come garanzia di
+  sicurezza.
+- **OPcache/PHP-FPM**: `docs/DEPLOYMENT.md` (nota su PHP-FPM/OPcache)
+  dichiara esplicitamente che `deploy.sh` non riavvia né invalida
+  OPcache — con `revalidate_freq` alto o `validate_timestamps=0`,
+  bytecode compilato PRIMA del flip può restare in uso su worker già
+  attivi anche dopo che `config:cache` ha rigenerato il file su disco.
+
+Procedura che resta sicura indipendentemente da quale dei due modelli di
+switch valga per questo hosting, e che isola il flip come unica variabile
+del rilascio:
+
+1. Se il rilascio include anche altro codice, distribuirlo per primo con
+   `TURING_CHAPTERS_PUBLIC` ancora `false` e confermarne il successo
+   completo (incluso lo switch di symlink/riavvio PHP-FPM se previsti
+   dall'host) PRIMA di procedere.
+2. Impostare `TURING_CHAPTERS_PUBLIC=true` nel file `.env` di produzione
+   ed eseguire un rilascio dedicato con il solo `deploy.sh`, senza altre
+   modifiche di codice contemporanee — così un eventuale fallimento di
+   questo passo ha un'unica causa da diagnosticare.
+3. Se `deploy.sh` fallisce a QUALUNQUE controllo dopo `config:cache`:
+   trattarlo immediatamente come nello scenario di rollback sotto
+   (`TURING_CHAPTERS_PUBLIC=false`, invalidazione cache/OPcache,
+   verifica) — non assumere che un fallimento dello script implichi che
+   il flag non sia mai diventato visibile al traffico reale.
+4. Eseguire (o far eseguire da un operatore con accesso all'host) il
+   passo di invalidazione OPcache/riavvio PHP-FPM specifico di questo
+   hosting, subito dopo `config:cache` — stesso passo richiesto da
+   `docs/DEPLOYMENT.md` per qualunque altra modifica di configurazione,
+   non specifico di questo rilascio.
+5. Verifica post-rilascio, su OGNI worker/processo PHP-FPM se ce ne sono
+   più di uno: `/turing` mostra l'hub reale (non più la landing "In
+   arrivo"), ciascuna delle 5 rotte capitolo risponde `200` invece di
+   reindirizzare, il file `sitemap.xml` include i capitoli pubblicati.
 
 ## Rollback
 
 Il rollback ha esattamente la stessa forma del rilascio, nella direzione
-opposta — nessuna procedura speciale, nessuno script nuovo:
+opposta — nessuna procedura speciale, nessuno script nuovo, stesso
+requisito di invalidazione OPcache/PHP-FPM del punto 4 sopra (senza
+quell'invalidazione, il rollback può lasciare lo Speciale pubblicamente
+accessibile su worker che non hanno ancora ricaricato la configurazione,
+esattamente come segnalato da Codex sulla PR #634):
 
 1. Impostare `TURING_CHAPTERS_PUBLIC=false` nel file `.env` di produzione.
 2. Ridistribuire (stesso `deploy.sh`).
-3. Verifica: `/turing` torna a mostrare la landing "In arrivo", ogni rotta
-   capitolo torna a reindirizzare con 302 (`TuringReleaseGateTest`).
+3. Eseguire l'invalidazione OPcache/riavvio PHP-FPM specifico dell'host
+   (punto 4 della procedura di rilascio sopra) — mai assunto come "non
+   necessario".
+4. Verifica, su ogni worker: `/turing` torna a mostrare la landing "In
+   arrivo", ogni rotta capitolo torna a reindirizzare con 302
+   (`TuringReleaseGateTest`).
 
 Nessun dato va ripristinato o eliminato per completare il rollback:
 - Le righe di `turing_chapter_views` raccolte durante la finestra

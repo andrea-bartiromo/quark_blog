@@ -86,6 +86,42 @@ class TuringReleasePlanDriftTest extends TestCase
         $this->assertFileExists(base_path('tests/Feature/TuringSitemapTest.php'));
     }
 
+    /**
+     * Finding Codex su PR #634 (P1): il piano avverte che `config:cache`
+     * in deploy.sh gira PRIMA di diversi controlli fail-closed che
+     * possono ancora interrompere il rilascio — se `deploy.sh` venisse
+     * riordinato in futuro spostando `config:cache` DOPO quei controlli,
+     * l'avvertimento diventerebbe silenziosamente obsoleto (il rischio
+     * reale sparirebbe, ma il piano continuerebbe a raccomandare cautele
+     * per un problema non più esistente — o peggio, un nuovo riordino
+     * potrebbe introdurre un rischio diverso non coperto). Verifica che
+     * l'ordine relativo citato sia ancora vero nel file reale.
+     */
+    public function test_the_plan_correctly_describes_config_cache_running_before_the_fail_closed_checks(): void
+    {
+        $script = file_get_contents(base_path('deploy.sh'));
+        $this->assertIsString($script);
+
+        $configCachePosition = strpos($script, 'php artisan config:cache');
+        $this->assertNotFalse($configCachePosition, 'deploy.sh non chiama più php artisan config:cache.');
+
+        foreach ([
+            'deploy:verify-cache-paths',
+            'deploy:verify-scheduled-commands',
+            'deploy:verify-front-controller',
+            'newsletter:reconfirmation-cleanup --dry-run',
+            'deploy:asset-drift',
+        ] as $laterCheck) {
+            $checkPosition = strpos($script, $laterCheck);
+            $this->assertNotFalse($checkPosition, "deploy.sh non contiene più il controllo '{$laterCheck}' citato dal piano.");
+            $this->assertGreaterThan(
+                $configCachePosition,
+                $checkPosition,
+                "'{$laterCheck}' non risulta più dopo 'config:cache' in deploy.sh — il piano andrebbe aggiornato di conseguenza."
+            );
+        }
+    }
+
     public function test_the_internal_beta_readiness_service_cited_by_the_plan_still_exists(): void
     {
         $doc = $this->doc();
