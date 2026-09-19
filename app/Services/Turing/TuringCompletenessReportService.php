@@ -17,16 +17,22 @@ use App\Models\TuringChapterSource;
  * il documento continua a segnalarlo come "Aperto". Questo servizio non
  * sostituisce quegli audit (accessibilità/performance restano fuori
  * scope: richiederebbero ri-misurazioni reali con axe-core/Lighthouse,
- * non fatte qui), ma aggrega in un unico punto, SEMPRE dal vero stato
- * attuale del codice/database (mai un'istantanea statica che può
- * invecchiare in silenzio), le dimensioni di completezza editoriale già
- * costruite dai cantieri precedenti: fonti registrate per capitolo
- * (Cantiere 61), copertura della mappa concettuale (Cantiere 59),
- * metriche di navigazione reali (Cantiere 68) e stato di pubblicazione
- * (Cantiere 57/63). Nessun punteggio o giudizio sintetico viene
- * calcolato qui: il livello di approfondimento di ciascun concetto resta
- * il testo letterale già redatto a mano nella mappa concettuale, non una
- * categoria o un punteggio dedotto da questo codice.
+ * non fatte qui), ma aggrega in un unico punto fonti registrate per
+ * capitolo (Cantiere 61), copertura della mappa concettuale (Cantiere
+ * 59), metriche di navigazione reali (Cantiere 68) e stato di
+ * pubblicazione (Cantiere 57/63).
+ *
+ * "Sempre dal vero stato attuale" vale per fonti/metriche/pubblicazione
+ * (query dirette, mai una copia), ma NON per il livello di
+ * approfondimento di ciascun concetto (Codex, PR #632, P2): quel campo è
+ * la stessa fotografia editoriale statica del 29 luglio 2026 già
+ * documentata nel docblock di TuringConceptMapService::concepts() e già
+ * segnalata come tale dalla vista `admin.turing-concept-map` — questo
+ * servizio la riusa letteralmente, senza ricalcolarla dal testo attuale
+ * dei capitoli, e la vista che la mostra deve ripetere lo stesso avviso
+ * (mai presentarla come dato corrente). Nessun punteggio o giudizio
+ * sintetico viene comunque calcolato qui: il testo resta letterale, non
+ * una categoria o un punteggio dedotto da questo codice.
  */
 class TuringCompletenessReportService
 {

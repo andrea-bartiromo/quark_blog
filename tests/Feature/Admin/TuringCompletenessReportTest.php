@@ -87,6 +87,21 @@ class TuringCompletenessReportTest extends TestCase
         $this->get(route('admin.turing.completeness-report'))->assertRedirect(route('login'));
     }
 
+    /**
+     * Finding Codex su PR #632: il testo introduttivo dichiarava "mai
+     * un'istantanea statica" senza qualificare che il livello di
+     * approfondimento di ciascun concetto RESTA invece la stessa
+     * fotografia statica del 29 luglio 2026 già usata (e già segnalata
+     * come tale) dalla mappa concettuale — un editor avrebbe potuto
+     * fidarsi di un dato editoriale non aggiornato credendolo corrente.
+     */
+    public function test_completeness_report_warns_that_concept_coverage_is_a_dated_snapshot(): void
+    {
+        $response = $this->actingAs($this->editor())->get(route('admin.turing.completeness-report'));
+
+        $response->assertOk()->assertSeeText('29 luglio 2026');
+    }
+
     public function test_completeness_report_renders_every_real_chapter(): void
     {
         $response = $this->actingAs($this->editor())->get(route('admin.turing.completeness-report'));

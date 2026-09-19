@@ -11,12 +11,15 @@
 </div>
 
 <p style="max-width:760px;color:var(--admin-muted);margin-bottom:1.25rem;">
-    Strumento interno per l'editor, sola lettura, non una pagina pubblica. Aggrega dal vero stato
-    attuale del codice/database — mai un'istantanea statica — fonti registrate, copertura della
-    mappa concettuale e metriche di navigazione per ciascun capitolo. Accessibilità e performance
-    restano fuori da questo report: richiederebbero ri-misurazioni reali (axe-core/Lighthouse), non
-    incluse qui — vedi <code>docs/02_Turing_Audit/</code> per l'ultimo audit manuale disponibile
-    (29 luglio 2026, non aggiornato automaticamente).
+    Strumento interno per l'editor, sola lettura, non una pagina pubblica. Fonti registrate e
+    metriche di navigazione sono aggregate dal vero stato attuale del database — mai un'istantanea
+    statica. La colonna "Livello di approfondimento" invece <strong>non lo è</strong>: resta la
+    stessa fotografia editoriale del 29 luglio 2026 già usata dalla
+    <a href="{{ route('admin.turing.concept-map') }}">mappa concettuale</a> — un editor che aggiorna
+    un capitolo deve aggiornarla a mano, questo report non la ricalcola dal testo attuale.
+    Accessibilità e performance restano fuori da questo report: richiederebbero ri-misurazioni reali
+    (axe-core/Lighthouse), non incluse qui — vedi <code>docs/02_Turing_Audit/</code> per l'ultimo
+    audit manuale disponibile (29 luglio 2026, non aggiornato automaticamente).
 </p>
 
 <div class="admin-card" style="margin-bottom:1.5rem;">
@@ -55,11 +58,15 @@
                 Nessun concetto della mappa concettuale ha questo capitolo come principale.
             </p>
         @else
+            <p style="margin:0 0 .5rem;font-size:.75rem;color:var(--admin-muted);">
+                Fotografia editoriale del 29 luglio 2026, non ricalcolata dal testo attuale del
+                capitolo (vedi sopra).
+            </p>
             <table class="admin-table" style="font-size:.85rem;">
                 <thead>
                     <tr>
                         <th>Concetto (capitolo principale)</th>
-                        <th>Livello di approfondimento</th>
+                        <th>Livello di approfondimento (29/07/2026)</th>
                     </tr>
                 </thead>
                 <tbody>
