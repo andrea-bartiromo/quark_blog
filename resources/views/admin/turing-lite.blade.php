@@ -314,6 +314,9 @@
         <a href="{{ route('admin.turing.completeness-report') }}" class="btn btn--secondary">
             Report completezza
         </a>
+        <a href="{{ route('admin.turing.internal-beta-readiness') }}" class="btn btn--secondary">
+            Checklist beta interna
+        </a>
         {{--
             Cantiere 63 (programma "100 cantieri Kairus"): anteprima di
             sola lettura dell'hub reale — Admin\TuringController::previewHub()
