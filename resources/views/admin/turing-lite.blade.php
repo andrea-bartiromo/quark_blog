@@ -311,6 +311,9 @@
         <a href="{{ route('admin.turing.chapter-sources') }}" class="btn btn--secondary">
             Fonti per capitolo
         </a>
+        <a href="{{ route('admin.turing.completeness-report') }}" class="btn btn--secondary">
+            Report completezza
+        </a>
         {{--
             Cantiere 63 (programma "100 cantieri Kairus"): anteprima di
             sola lettura dell'hub reale — Admin\TuringController::previewHub()

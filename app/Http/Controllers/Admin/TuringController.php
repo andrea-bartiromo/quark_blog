@@ -7,6 +7,7 @@ use App\Http\Controllers\TuringPageController;
 use App\Models\SpecialPage;
 use App\Services\ImageService;
 use App\Services\PublicMediaSyncService;
+use App\Services\Turing\TuringCompletenessReportService;
 use App\Services\Turing\TuringConceptMapService;
 use App\Services\Turing\TuringNavigationMetricsService;
 use App\Support\TuringPreviewLink;
@@ -40,6 +41,21 @@ class TuringController extends Controller
      * docs/00_Governance/Architettura_Editoriale_v1.0.docx §4
      * (TuringConceptMapService), non una funzionalità pubblica.
      */
+    /**
+     * Cantiere 67 (programma "100 cantieri Kairus"): "Report completezza
+     * Turing" — sola lettura, strumento interno per l'editor. Aggrega dal
+     * vero stato attuale (mai un'istantanea statica) fonti registrate,
+     * copertura della mappa concettuale e metriche di navigazione per
+     * ciascun capitolo. Vedi il docblock di TuringCompletenessReportService
+     * per cosa resta volutamente fuori scope (accessibilità/performance).
+     */
+    public function completenessReport(TuringCompletenessReportService $completenessReport)
+    {
+        $report = $completenessReport->build();
+
+        return view('admin.turing-completeness-report', compact('report'));
+    }
+
     public function conceptMap()
     {
         $conceptsByChapter = TuringConceptMapService::conceptsByChapter();
