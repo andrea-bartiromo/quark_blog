@@ -88,6 +88,27 @@ class PublicImageIntrinsicSizingTest extends TestCase
         $this->assertStringNotContainsString('width="1672"', $html);
     }
 
+    /**
+     * Finding Codex su PR #631: se il chiamante passa UNA sola dimensione
+     * esplicita, mischiarla con il valore reale non scalato del file
+     * produrrebbe un aspect ratio scorretto (un file 1672x941 con width
+     * esplicita 2400 diventerebbe 2400x941 invece di 2400x1349). La
+     * risoluzione automatica deve scattare solo quando ENTRAMBE le
+     * dimensioni sono assenti; con una sola esplicita, l'altra resta
+     * semplicemente non dichiarata (nessuna distorsione).
+     */
+    public function test_turing_article_figure_does_not_mix_a_single_explicit_dimension_with_the_real_file_size(): void
+    {
+        $html = Blade::render(
+            '<x-turing.article.figure :image="$image" alt="Plugboard" width="2400" />',
+            ['image' => asset('images/turing/enigma/plugboard.png')]
+        );
+
+        $this->assertStringContainsString('width="2400"', $html);
+        $this->assertStringNotContainsString('height="941"', $html);
+        $this->assertStringNotContainsString('height=', $html);
+    }
+
     public function test_enigma_cms_override_anatomy_figure_declares_real_dimensions(): void
     {
         config(['turing.chapters_public' => true]);

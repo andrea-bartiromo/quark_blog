@@ -27,16 +27,20 @@
      traversal e da URL esterni). Senza dimensioni dichiarate, il browser
      non può riservare lo spazio dell'immagine prima del caricamento —
      layout shift reale, non solo teorico, per qualunque immagine caricata
-     via CMS senza passare esplicitamente width/height. */
+     via CMS senza passare esplicitamente width/height. La risoluzione
+     scatta solo quando ENTRAMBE le dimensioni sono assenti: se il
+     chiamante ne passa una sola, mischiarla con il valore reale del file
+     produrrebbe un aspect ratio scorretto (es. width esplicita 2400 su
+     un file 1672x941 darebbe 2400x941, non 2400x1349). */
   $resolvedWidth = $width;
   $resolvedHeight = $height;
 
-  if ($src && (blank($resolvedWidth) || blank($resolvedHeight))) {
+  if ($src && blank($resolvedWidth) && blank($resolvedHeight)) {
       $dimensions = \App\Support\PublicImageDimensions::forUrl($src);
 
       if ($dimensions) {
-          $resolvedWidth = $resolvedWidth ?: $dimensions[0];
-          $resolvedHeight = $resolvedHeight ?: $dimensions[1];
+          $resolvedWidth = $dimensions[0];
+          $resolvedHeight = $dimensions[1];
       }
   }
 @endphp
